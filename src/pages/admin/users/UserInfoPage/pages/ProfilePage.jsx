@@ -56,6 +56,7 @@ export const useViewUserDetails = () => {
   }, [fetchUserDetails, userId]);
 
   const user = userDetails.data;
+  console.log("user details hook", user);
   const isLoading = userDetails.loading;
   const error = userDetails.err;
   console.log(error);
@@ -213,6 +214,7 @@ const ProfilePage = () => {
 };
 
 export const Detail = ({ name, value, valueProps }) => {
+  console.log("data sent to detail", name, value);
   return (
     <Grid templateColumns="110px 1fr" spacing={5} marginBottom={5}>
       <Text bold textTransform="capitalize">

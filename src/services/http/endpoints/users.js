@@ -93,6 +93,9 @@ export const adminGetUserDetails = async (id) => {
     phone: data.phone ? data.phone : "notset",
     profilePics: data.profilePics,
     isInviteActive: data.isInviteActive,
+    professionalCertification: data.professionalCertification
+      ? data.professionalCertification
+      : "notset",
   };
 
   return { user };
