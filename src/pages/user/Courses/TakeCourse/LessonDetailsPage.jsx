@@ -4,13 +4,14 @@ import { Skeleton } from '@chakra-ui/skeleton';
 import { useEffect, useRef, useState } from 'react';
 import ReactPlayer from 'react-player/lazy';
 import { Route } from 'react-router-dom';
+import { FaDownload, FaFilePowerpoint } from 'react-icons/fa';
 import {
   Button,
   Heading,
   NavigationBlocker,
   RichTextToView,
   SkeletonText,
-  // Text,
+  Text,
 } from '../../../../components';
 import useLessonDetails from './hooks/useLessonDetails';
 import { capitalizeFirstLetter } from '../../../../utils/formatString';
@@ -52,6 +53,18 @@ const LessonDetailsPage = ({ sidebarLinks, setCourseState }) => {
   const handleGoBack = useGoBack();
 
   const fileIsPDF = /(\.pdf)$/i.test(lesson?.file);
+  const fileIsPowerPoint = /((\.)(ppt|pptx))$/i.test(lesson?.file) || lesson?.lessonType?.name === "PowerPoint";
+
+  const handleDownloadFile = () => {
+    if (lesson?.file) {
+      const link = document.createElement('a');
+      link.href = lesson.file;
+      link.download = lesson.file.split('/').pop() || 'lesson-file';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   return (
     <Flex flexDirection="column" flex={1} height="100vh">
@@ -126,6 +139,12 @@ const LessonDetailsPage = ({ sidebarLinks, setCourseState }) => {
               <Box width={{ base: '100%', laptop: '60%' }} bg="accent.2">
                 {isLoading ? (
                   <Skeleton width="100%" height="100%" />
+                ) : fileIsPowerPoint ? (
+                  <PowerPointReader
+                    lesson={lesson}
+                    handleEndLesson={handleEndLesson}
+                    handleDownloadFile={handleDownloadFile}
+                  />
                 ) : fileIsPDF ? (
                   <PDFReader
                     lesson={lesson}
@@ -265,6 +284,52 @@ const PDFReader = ({ lesson, handleEndLesson }) => {
         height="100%"
         width="100%"
       />
+    </Box>
+  );
+};
+
+const PowerPointReader = ({ lesson, handleEndLesson, handleDownloadFile }) => {
+  useEffect(() => {
+    // Automatically mark PowerPoint lessons as completed since they need to be downloaded to view
+    handleEndLesson();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <Box minW="300px" h="calc(100vh - 170px)" display="flex" alignItems="center" justifyContent="center">
+      <Flex
+        direction="column"
+        alignItems="center"
+        justifyContent="center"
+        border="2px dashed"
+        borderColor="gray.300"
+        borderRadius="md"
+        padding={8}
+        backgroundColor="white"
+        minHeight="400px"
+        maxWidth="500px"
+        width="90%"
+      >
+        <FaFilePowerpoint size={100} color="#D24726" style={{ marginBottom: '24px' }} />
+        <Heading fontSize="xl" color="gray.700" marginBottom={4} textAlign="center">
+          PowerPoint Presentation
+        </Heading>
+        <Text color="gray.600" marginBottom={6} textAlign="center" fontSize="md">
+          {lesson?.file?.split('/').pop() || 'Presentation.pptx'}
+        </Text>
+        <Text color="gray.500" marginBottom={6} textAlign="center" fontSize="sm" maxWidth="400px">
+          PowerPoint presentations cannot be viewed directly in the browser. Please download the file to view the presentation.
+        </Text>
+        <Button
+          leftIcon={<FaDownload />}
+          colorScheme="orange"
+          size="lg"
+          onClick={handleDownloadFile}
+        >
+          Download PowerPoint File
+        </Button>
+      </Flex>
     </Box>
   );
 };
