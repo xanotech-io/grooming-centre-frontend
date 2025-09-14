@@ -12,6 +12,7 @@ export const useUpload = (props) => {
   const [pdf, setPdf] = useState({ url: null });
   const [audio, setAudio] = useState({ url: null });
   const [excel, setExcel] = useState({ url: null });
+  const [powerpoint, setPowerpoint] = useState({ url: null });
 
   const handleFileSelect = (file) => {
     const fileIsAnImage = /(image)/i.test(accept);
@@ -19,6 +20,7 @@ export const useUpload = (props) => {
     const fileIsPDF = /(pdf)/i.test(accept);
     const fileIsAudio = /(audio)/i.test(accept);
     const fileIsExcel = /(csv)/i.test(accept) || /(xlsx)/i.test(accept) || /(xls)/i.test(accept);
+    const fileIsPowerpoint = /(ppt|pptx)/i.test(accept) || /powerpoint/i.test(accept);
 
     if (file) {
       if (fileIsAnImage) {
@@ -46,12 +48,18 @@ export const useUpload = (props) => {
         const url = file.name;
         setExcel({ url });
       }
+
+      if (fileIsPowerpoint) {
+        const url = file.name;
+        setPowerpoint({ url });
+      }
     } else {
       setVideo({ url: null });
       setImage({ url: null });
       setPdf({ url: null });
       setAudio({ url: null });
-      setExcel({url: null})
+      setExcel({ url: null })
+      setPowerpoint({ url: null });
     }
 
     setFile(file);
@@ -62,7 +70,8 @@ export const useUpload = (props) => {
     setImage({ url: null });
     setPdf({ url: null });
     setAudio({ url: null });
-    setExcel({ url : null })
+    setExcel({ url: null })
+    setPowerpoint({ url: null });
 
     setFile(null);
   };
@@ -92,11 +101,14 @@ export const useUpload = (props) => {
   const handleInitialExcelSelect = (url) => {
     setExcel({ url });
   };
+  const handleInitialPowerpointSelect = (url) => {
+    setPowerpoint({ url });
+  };
 
   const handleAcceptChange = (accept) => setAccept(accept);
 
   const handleGetFileAndValidate = (label, bypass) => {
-    if (!bypass && !image.url && !video.url && !pdf.url && !audio.url && !excel.url)
+    if (!bypass && !image.url && !video.url && !pdf.url && !audio.url && !excel.url && !powerpoint.url)
       throw new Error(`Please upload a ${label}`);
 
     return file;
@@ -109,6 +121,7 @@ export const useUpload = (props) => {
     pdf,
     audio,
     excel,
+    powerpoint,
     file,
     handleFileSelect,
     handleFileDelete,
@@ -118,6 +131,7 @@ export const useUpload = (props) => {
     handleInitialVideoSelect,
     handleInitialPdfSelect,
     handleInitialAudioSelect,
-    handleInitialExcelSelect
+    handleInitialExcelSelect,
+    handleInitialPowerpointSelect
   };
 };
