@@ -61,6 +61,7 @@ const ProfilePage = () => {
         status: "success",
         duration: 3000,
         isClosable: true,
+        position: "top",
       });
       
       setIsEditing(false);
@@ -72,6 +73,7 @@ const ProfilePage = () => {
         status: "error",
         duration: 5000,
         isClosable: true,
+        position: "top",
       });
     } finally {
       setIsLoading(false);
