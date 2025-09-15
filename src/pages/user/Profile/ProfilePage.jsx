@@ -13,16 +13,20 @@ import {
 import { Skeleton } from '@chakra-ui/skeleton';
 import { Text, Heading } from '../../../components';
 import { maxWidthStyles_userPages } from '../../../theme/breakpoints';
-import useProfile from './hooks/useProfile';
+import { useApp } from '../../../contexts';
 import { formatDistanceToNow } from 'date-fns';
 
 const ProfilePage = () => {
-  const { profile } = useProfile();
+  const { state } = useApp();
+  const userData = state.user;
 
-  if (profile.loading) {
+  console.log('ProfilePage - userData:', userData);
+
+  if (!userData) {
     return (
       <Box {...maxWidthStyles_userPages} paddingY={8}>
         <Stack spacing={6}>
+          <Text>Loading profile...</Text>
           <Skeleton height="80px" />
           <Skeleton height="200px" />
           <Skeleton height="150px" />
@@ -30,18 +34,6 @@ const ProfilePage = () => {
       </Box>
     );
   }
-
-  if (profile.err) {
-    return (
-      <Box {...maxWidthStyles_userPages} paddingY={8}>
-        <Text color="red.500" textAlign="center">
-          Error loading profile: {profile.err}
-        </Text>
-      </Box>
-    );
-  }
-
-  const userData = profile.data;
 
   return (
     <Box {...maxWidthStyles_userPages} paddingY={8}>
@@ -213,3 +205,5 @@ const InfoField = ({ label, value, isCopyable = false }) => {
 export const ProfilePageRoute = ({ ...rest }) => {
   return <Route {...rest} render={(props) => <ProfilePage {...props} />} />;
 };
+
+export default ProfilePage;
