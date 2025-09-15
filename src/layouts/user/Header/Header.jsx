@@ -303,6 +303,9 @@ const Avatar = () => {
             <MenuItem as={Link} to="/courses/grade-overview">
               Grades
             </MenuItem>
+            <MenuItem as={Link} to="/profile">
+              Profile
+            </MenuItem>
             {state.user && isAdmin() && (
               <MenuItem as={Link} to="/admin">
                 Admin Dashboard

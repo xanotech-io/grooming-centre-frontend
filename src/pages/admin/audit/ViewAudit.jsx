@@ -233,7 +233,7 @@ const ViewAudit = () => {
         id: "user",
         key: "user",
         text: "User Information",
-        fraction: "300px",
+        fraction: "350px",
         renderContent: (userData) => (
           <Flex alignItems="center" gap={3}>
             <Avatar

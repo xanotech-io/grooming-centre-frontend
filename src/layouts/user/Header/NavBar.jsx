@@ -35,6 +35,10 @@ const links = [
     href: "/standalone-exams",
     text: "Exams",
   },
+  {
+    href: "/profile",
+    text: "Profile",
+  },
 ];
 
 const NavBar = ({ ...rest }) => {

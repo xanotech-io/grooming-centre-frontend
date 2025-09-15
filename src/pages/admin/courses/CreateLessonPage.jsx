@@ -106,6 +106,12 @@ const CreateLessonPage = () => {
     if (lessonType === "video") {
       fileManager.handleAcceptChange("video/mp4, video/mkv");
     }
+
+    if (lessonType === "PowerPoint") {
+      fileManager.handleAcceptChange(
+        ".ppt, .pptx, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      );
+    }
   };
 
   // Init `lessonTypeId` value and set `accept` for file upload input
@@ -123,12 +129,17 @@ const CreateLessonPage = () => {
     if (lesson) {
       const fileIsAVideo = /((\.)(mp4|mkv))$/i.test(lesson.file);
       const fileIsPDF = /(\.pdf)$/i.test(lesson.file);
+      const fileIsPowerPoint = /((\.)(ppt|pptx))$/i.test(lesson.file);
 
       if (fileIsAVideo) {
         fileManager.handleInitialVideoSelect(lesson.file);
       }
       if (fileIsPDF) {
         fileManager.handleInitialPdfSelect(lesson.file);
+      }
+
+      if (fileIsPowerPoint) {
+        fileManager.handleInitialPowerpointSelect(lesson.file);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -336,6 +347,7 @@ const CreateLessonPage = () => {
               isRequired
               videoUrl={fileManager.video.url}
               pdfUrl={fileManager.pdf.url}
+              powerpointUrl={fileManager.powerpoint.url}
               disabled={!getValues("lessonTypeId")}
               onFileSelect={fileManager.handleFileSelect}
               accept={fileManager.accept}
