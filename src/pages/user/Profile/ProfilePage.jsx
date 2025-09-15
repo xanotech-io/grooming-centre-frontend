@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { Route } from "react-router-dom";
 import {
   Box,
@@ -9,18 +10,73 @@ import {
   Stack,
   Badge,
   Avatar,
+  Button,
+  Input,
+  useToast,
 } from '@chakra-ui/react';
 import { Skeleton } from '@chakra-ui/skeleton';
 import { Text, Heading } from '../../../components';
 import { maxWidthStyles_userPages } from '../../../theme/breakpoints';
 import { useApp } from '../../../contexts';
+import { requestUpdateDetails } from '../../../services';
 import { formatDistanceToNow } from 'date-fns';
 
 const ProfilePage = () => {
-  const { state } = useApp();
+  const { state, fetchCurrentUser } = useApp();
   const userData = state.user;
+  const toast = useToast();
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [professionalCertification, setProfessionalCertification] = useState(
+    userData?.professionalCertification || ''
+  );
 
   console.log('ProfilePage - userData:', userData);
+
+  const handleEditClick = () => {
+    setIsEditing(true);
+    setProfessionalCertification(userData?.professionalCertification || '');
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setProfessionalCertification(userData?.professionalCertification || '');
+  };
+
+  const handleSaveEdit = async () => {
+    setIsLoading(true);
+    
+    try {
+      await requestUpdateDetails({
+        professionalCertification: professionalCertification.trim(),
+      });
+      
+      // Refresh user data after successful update
+      await fetchCurrentUser();
+      
+      toast({
+        title: "Profile Updated",
+        description: "Your professional certification has been updated successfully.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Update Failed", 
+        description: error.message || "Failed to update professional certification. Please try again.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (!userData) {
     return (
@@ -40,9 +96,20 @@ const ProfilePage = () => {
       <VStack spacing={8} align="stretch">
         {/* Header Section */}
         <Box>
-          <Heading as="h1" size="lg" mb={2}>
-            My Profile
-          </Heading>
+          <Flex justify="space-between" align="center" mb={2}>
+            <Heading as="h1" size="lg">
+              My Profile
+            </Heading>
+            {!isEditing && (
+              <Button
+                colorScheme="purple"
+                size="sm"
+                onClick={handleEditClick}
+              >
+                Edit Profile
+              </Button>
+            )}
+          </Flex>
           <Text color="gray.600">
             View your personal information and account details
           </Text>
@@ -124,14 +191,52 @@ const ProfilePage = () => {
           {/* Professional Information */}
           <GridItem>
             <Box bg="white" rounded="lg" shadow="md" p={6}>
-              <Heading as="h3" size="sm" mb={4} color="gray.700">
-                Professional Information
-              </Heading>
+              <Flex justify="space-between" align="center" mb={4}>
+                <Heading as="h3" size="sm" color="gray.700">
+                  Professional Information
+                </Heading>
+                {isEditing && (
+                  <HStack spacing={2}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleCancelEdit}
+                      disabled={isLoading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      colorScheme="purple"
+                      onClick={handleSaveEdit}
+                      isLoading={isLoading}
+                      loadingText="Saving..."
+                    >
+                      Save
+                    </Button>
+                  </HStack>
+                )}
+              </Flex>
               <Stack spacing={3}>
-                <InfoField 
-                  label="Professional Certification" 
-                  value={userData?.professionalCertification || 'Not provided'} 
-                />
+                {isEditing ? (
+                  <Box>
+                    <Text fontSize="sm" fontWeight="medium" color="gray.700" mb={2}>
+                      Professional Certification:
+                    </Text>
+                    <Input
+                      value={professionalCertification}
+                      onChange={(e) => setProfessionalCertification(e.target.value)}
+                      placeholder="Enter your professional certification"
+                      size="sm"
+                      disabled={isLoading}
+                    />
+                  </Box>
+                ) : (
+                  <InfoField 
+                    label="Professional Certification" 
+                    value={userData?.professionalCertification || 'Not provided'} 
+                  />
+                )}
                 <Box>
                   <Text fontSize="sm" fontWeight="medium" color="gray.700" mb={2}>
                     Departments
