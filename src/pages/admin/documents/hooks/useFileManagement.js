@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import axios from 'axios';
 
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000/api/v1';
+const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://privateapi.groomingcentre.net/api/v1';
 
 export const useFileManagement = () => {
     const [files, setFiles] = useState([]);
