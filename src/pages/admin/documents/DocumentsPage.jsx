@@ -13,30 +13,127 @@ import {
   Select,
   MenuItem,
   Button,
-  Pagination,
   CircularProgress,
-  Alert,
   Tabs,
   Tab,
-} from '@mui/material';
+  makeStyles,
+} from '@material-ui/core';
 import {
   FolderOpen,
   InsertDriveFile,
   Image,
-  VideoFile,
+  Movie as VideoFile,
   PictureAsPdf,
   Description,
-  Download,
+  GetApp as Download,
   Visibility,
-  CloudDownload,
   Storage,
   FilterList,
-} from '@mui/icons-material';
+  Error as ErrorIcon,
+} from '@material-ui/icons';
 import { useFileManagement } from './hooks/useFileManagement';
 import FileDetailsModal from './components/FileDetailsModal';
 import FileStatsCard from './components/FileStatsCard';
 
+const useStyles = makeStyles((theme) => ({
+  container: {
+    marginTop: theme.spacing(4),
+    marginBottom: theme.spacing(4),
+  },
+  header: {
+    marginBottom: theme.spacing(4),
+  },
+  tabsContainer: {
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    marginBottom: theme.spacing(3),
+  },
+  filtersCard: {
+    marginBottom: theme.spacing(3),
+  },
+  loadingContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    padding: theme.spacing(4),
+  },
+  fileCard: {
+    height: '100%',
+    cursor: 'pointer',
+    transition: 'transform 0.2s, box-shadow 0.2s',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: theme.shadows[4],
+    }
+  },
+  fileCardContent: {
+    padding: theme.spacing(2),
+  },
+  fileIcon: {
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: theme.spacing(2),
+  },
+  fileName: {
+    marginLeft: theme.spacing(1),
+    flexGrow: 1,
+  },
+  tableBadge: {
+    marginBottom: theme.spacing(2),
+  },
+  fieldName: {
+    marginBottom: theme.spacing(2),
+  },
+  actionButtons: {
+    display: 'flex',
+    gap: theme.spacing(1),
+  },
+  paginationContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginTop: theme.spacing(4),
+  },
+  emptyState: {
+    textAlign: 'center',
+    padding: theme.spacing(8),
+  },
+  emptyIcon: {
+    fontSize: 80,
+    color: theme.palette.text.secondary,
+    marginBottom: theme.spacing(2),
+  },
+  totalFiles: {
+    color: theme.palette.text.secondary,
+  },
+  // Custom Alert styles
+  alert: {
+    padding: theme.spacing(1, 2),
+    marginBottom: theme.spacing(2),
+    borderRadius: theme.shape.borderRadius,
+    backgroundColor: '#f44336',
+    color: 'white',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  alertIcon: {
+    marginRight: theme.spacing(1),
+  },
+  // Custom Pagination styles
+  pagination: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+  },
+  paginationButton: {
+    minWidth: 32,
+    height: 32,
+  },
+  paginationInfo: {
+    margin: `0 ${theme.spacing(2)}px`,
+    color: theme.palette.text.secondary,
+  },
+}));
+
 const DocumentsPage = () => {
+  const classes = useStyles();
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [selectedTable, setSelectedTable] = useState('all');
@@ -77,20 +174,20 @@ const DocumentsPage = () => {
     
     switch (extension) {
       case 'pdf':
-        return <PictureAsPdf sx={{ color: '#d32f2f' }} />;
+        return <PictureAsPdf style={{ color: '#d32f2f' }} />;
       case 'jpg':
       case 'jpeg':
       case 'png':
       case 'gif':
       case 'webp':
-        return <Image sx={{ color: '#2e7d32' }} />;
+        return <Image style={{ color: '#2e7d32' }} />;
       case 'mp4':
       case 'avi':
       case 'mov':
       case 'wmv':
-        return <VideoFile sx={{ color: '#1976d2' }} />;
+        return <VideoFile style={{ color: '#1976d2' }} />;
       default:
-        return <InsertDriveFile sx={{ color: '#757575' }} />;
+        return <InsertDriveFile style={{ color: '#757575' }} />;
     }
   };
 
@@ -123,10 +220,6 @@ const DocumentsPage = () => {
     }
   };
 
-  const handlePageChange = (event, newPage) => {
-    setCurrentPage(newPage);
-  };
-
   const handleTableFilter = (event) => {
     setSelectedTable(event.target.value);
     setCurrentPage(1);
@@ -143,29 +236,30 @@ const DocumentsPage = () => {
 
   if (error) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>
+      <Container maxWidth="lg" className={classes.container}>
+        <Box className={classes.alert}>
+          <ErrorIcon className={classes.alertIcon} />
           {error}
-        </Alert>
+        </Box>
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="lg" className={classes.container}>
       {/* Header */}
-      <Box sx={{ mb: 4 }}>
+      <Box className={classes.header}>
         <Typography variant="h4" component="h1" gutterBottom>
-          <FolderOpen sx={{ mr: 2, verticalAlign: 'middle' }} />
+          <FolderOpen style={{ marginRight: 16, verticalAlign: 'middle' }} />
           Documents Management
         </Typography>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" color="textSecondary">
           View, manage, and download all files stored in the system
         </Typography>
       </Box>
 
       {/* View Mode Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+      <Box className={classes.tabsContainer}>
         <Tabs value={viewMode} onChange={handleViewModeChange}>
           <Tab label="All Files" icon={<InsertDriveFile />} />
           <Tab label="Statistics" icon={<Storage />} />
@@ -175,7 +269,7 @@ const DocumentsPage = () => {
       {viewMode === 0 ? (
         <>
           {/* Filters */}
-          <Card sx={{ mb: 3 }}>
+          <Card className={classes.filtersCard}>
             <CardContent>
               <Grid container spacing={3} alignItems="center">
                 <Grid item xs={12} sm={6} md={4}>
@@ -186,10 +280,11 @@ const DocumentsPage = () => {
                     onChange={handleSearchChange}
                     placeholder="Search by filename or title"
                     size="small"
+                    variant="outlined"
                   />
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                  <FormControl fullWidth size="small">
+                  <FormControl fullWidth size="small" variant="outlined">
                     <InputLabel>Filter by Table</InputLabel>
                     <Select
                       value={selectedTable}
@@ -206,7 +301,7 @@ const DocumentsPage = () => {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                  <FormControl fullWidth size="small">
+                  <FormControl fullWidth size="small" variant="outlined">
                     <InputLabel>Files per page</InputLabel>
                     <Select
                       value={pageSize}
@@ -224,7 +319,7 @@ const DocumentsPage = () => {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} sm={6} md={2}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" className={classes.totalFiles}>
                     {pagination?.totalFiles || 0} files total
                   </Typography>
                 </Grid>
@@ -234,7 +329,7 @@ const DocumentsPage = () => {
 
           {/* Loading State */}
           {loading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <Box className={classes.loadingContainer}>
               <CircularProgress />
             </Box>
           )}
@@ -246,32 +341,24 @@ const DocumentsPage = () => {
                 {files.map((file) => (
                   <Grid item xs={12} sm={6} md={4} lg={3} key={`${file.table}-${file.recordId}-${file.fieldName}`}>
                     <Card 
-                      sx={{ 
-                        height: '100%', 
-                        cursor: 'pointer',
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: 4,
-                        }
-                      }}
+                      className={classes.fileCard}
                       onClick={() => handleFileClick(file)}
                     >
-                      <CardContent sx={{ p: 2 }}>
+                      <CardContent className={classes.fileCardContent}>
                         {/* File Icon and Preview */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Box className={classes.fileIcon}>
                           {getFileIcon(file.fileUrl, file.table)}
-                          <Typography variant="h6" sx={{ ml: 1, flexGrow: 1 }} noWrap>
+                          <Typography variant="h6" className={classes.fileName} noWrap>
                             {file.recordTitle || 'Untitled'}
                           </Typography>
                         </Box>
 
                         {/* Table Badge */}
-                        <Box sx={{ mb: 2 }}>
+                        <Box className={classes.tableBadge}>
                           <Chip
                             label={file.table}
                             size="small"
-                            sx={{
+                            style={{
                               backgroundColor: getTableColor(file.table),
                               color: 'white',
                               fontSize: '0.75rem',
@@ -280,12 +367,12 @@ const DocumentsPage = () => {
                         </Box>
 
                         {/* Field Name */}
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="textSecondary" className={classes.fieldName}>
                           Field: {file.fieldName}
                         </Typography>
 
                         {/* Action Buttons */}
-                        <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Box className={classes.actionButtons}>
                           <Button
                             size="small"
                             startIcon={<Visibility />}
@@ -294,7 +381,7 @@ const DocumentsPage = () => {
                               handleFileClick(file);
                             }}
                             variant="outlined"
-                            sx={{ flex: 1 }}
+                            style={{ flex: 1 }}
                           >
                             View
                           </Button>
@@ -306,7 +393,8 @@ const DocumentsPage = () => {
                               handleDownload(file);
                             }}
                             variant="contained"
-                            sx={{ flex: 1 }}
+                            color="primary"
+                            style={{ flex: 1 }}
                           >
                             Download
                           </Button>
@@ -319,16 +407,50 @@ const DocumentsPage = () => {
 
               {/* Pagination */}
               {pagination && pagination.totalPages > 1 && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                  <Pagination
-                    count={pagination.totalPages}
-                    page={currentPage}
-                    onChange={handlePageChange}
-                    color="primary"
-                    size="large"
-                    showFirstButton
-                    showLastButton
-                  />
+                <Box className={classes.paginationContainer}>
+                  <Box className={classes.pagination}>
+                    <Button
+                      className={classes.paginationButton}
+                      variant="outlined"
+                      size="small"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(1)}
+                    >
+                      First
+                    </Button>
+                    <Button
+                      className={classes.paginationButton}
+                      variant="outlined"
+                      size="small"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                    >
+                      Prev
+                    </Button>
+                    
+                    <Typography variant="body2" className={classes.paginationInfo}>
+                      Page {currentPage} of {pagination.totalPages}
+                    </Typography>
+                    
+                    <Button
+                      className={classes.paginationButton}
+                      variant="outlined"
+                      size="small"
+                      disabled={currentPage === pagination.totalPages}
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                    >
+                      Next
+                    </Button>
+                    <Button
+                      className={classes.paginationButton}
+                      variant="outlined"
+                      size="small"
+                      disabled={currentPage === pagination.totalPages}
+                      onClick={() => setCurrentPage(pagination.totalPages)}
+                    >
+                      Last
+                    </Button>
+                  </Box>
                 </Box>
               )}
             </>
@@ -337,12 +459,12 @@ const DocumentsPage = () => {
           {/* No Files State */}
           {!loading && (!files || files.length === 0) && (
             <Card>
-              <CardContent sx={{ textAlign: 'center', py: 8 }}>
-                <FolderOpen sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+              <CardContent className={classes.emptyState}>
+                <FolderOpen className={classes.emptyIcon} />
                 <Typography variant="h5" gutterBottom>
                   No files found
                 </Typography>
-                <Typography variant="body1" color="text.secondary">
+                <Typography variant="body1" color="textSecondary">
                   {searchQuery || selectedTable !== 'all'
                     ? 'Try adjusting your filters or search terms'
                     : 'No files have been uploaded to the system yet'}

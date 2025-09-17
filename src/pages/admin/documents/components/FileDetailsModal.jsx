@@ -13,23 +13,102 @@ import {
   Link,
   Divider,
   Avatar,
-} from '@mui/material';
+  makeStyles,
+} from '@material-ui/core';
 import {
   Close,
-  Download,
+  GetApp as Download,
   OpenInNew,
   Info,
   DateRange,
   Storage,
   Fingerprint,
   Image,
-  VideoFile,
+  Movie as VideoFile,
   PictureAsPdf,
   Description,
   InsertDriveFile,
-} from '@mui/icons-material';
+} from '@material-ui/icons';
+
+const useStyles = makeStyles((theme) => ({
+  dialogPaper: {
+    borderRadius: theme.spacing(1),
+  },
+  dialogTitle: {
+    paddingBottom: theme.spacing(1),
+  },
+  titleContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  titleContent: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  avatar: {
+    backgroundColor: theme.palette.primary.main,
+    marginRight: theme.spacing(2),
+  },
+  imagePreview: {
+    maxWidth: '100%',
+    maxHeight: 200,
+    borderRadius: theme.spacing(0.5),
+    border: `1px solid ${theme.palette.divider}`,
+  },
+  fileIcon: {
+    paddingTop: theme.spacing(4),
+    paddingBottom: theme.spacing(4),
+  },
+  hiddenPreview: {
+    display: 'none',
+    paddingTop: theme.spacing(4),
+    paddingBottom: theme.spacing(4),
+  },
+  previewContainer: {
+    textAlign: 'center',
+    marginBottom: theme.spacing(3),
+  },
+  sectionIcon: {
+    fontSize: 16,
+    marginRight: theme.spacing(1),
+    verticalAlign: 'middle',
+  },
+  recordId: {
+    fontFamily: 'monospace',
+    backgroundColor: theme.palette.grey[100],
+    padding: theme.spacing(1),
+    borderRadius: theme.spacing(0.5),
+    wordBreak: 'break-all',
+  },
+  urlLink: {
+    display: 'block',
+    padding: theme.spacing(1),
+    backgroundColor: theme.palette.grey[100],
+    borderRadius: theme.spacing(0.5),
+    textDecoration: 'none',
+    wordBreak: 'break-all',
+    fontSize: '0.875rem',
+    '&:hover': {
+      backgroundColor: theme.palette.grey[200],
+    },
+  },
+  urlIcon: {
+    fontSize: 14,
+    marginLeft: theme.spacing(1),
+    verticalAlign: 'middle',
+  },
+  divider: {
+    marginBottom: theme.spacing(3),
+  },
+  dialogActions: {
+    padding: theme.spacing(3),
+    paddingTop: theme.spacing(2),
+  },
+}));
 
 const FileDetailsModal = ({ file, open, onClose, onDownload }) => {
+  const classes = useStyles();
   if (!file) return null;
 
   const getFileIcon = (fileName) => {
@@ -39,20 +118,20 @@ const FileDetailsModal = ({ file, open, onClose, onDownload }) => {
     
     switch (extension) {
       case 'pdf':
-        return <PictureAsPdf sx={{ color: '#d32f2f', fontSize: 40 }} />;
+        return <PictureAsPdf style={{ color: '#d32f2f', fontSize: 40 }} />;
       case 'jpg':
       case 'jpeg':
       case 'png':
       case 'gif':
       case 'webp':
-        return <Image sx={{ color: '#2e7d32', fontSize: 40 }} />;
+        return <Image style={{ color: '#2e7d32', fontSize: 40 }} />;
       case 'mp4':
       case 'avi':
       case 'mov':
       case 'wmv':
-        return <VideoFile sx={{ color: '#1976d2', fontSize: 40 }} />;
+        return <VideoFile style={{ color: '#1976d2', fontSize: 40 }} />;
       default:
-        return <InsertDriveFile sx={{ color: '#757575', fontSize: 40 }} />;
+        return <InsertDriveFile style={{ color: '#757575', fontSize: 40 }} />;
     }
   };
 
@@ -103,16 +182,12 @@ const FileDetailsModal = ({ file, open, onClose, onDownload }) => {
       onClose={onClose} 
       maxWidth="md" 
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
-        }
-      }}
+      classes={{ paper: classes.dialogPaper }}
     >
-      <DialogTitle sx={{ pb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
+      <DialogTitle className={classes.dialogTitle}>
+        <Box className={classes.titleContainer}>
+          <Box className={classes.titleContent}>
+            <Avatar className={classes.avatar}>
               <Info />
             </Avatar>
             <Typography variant="h6">
@@ -127,35 +202,29 @@ const FileDetailsModal = ({ file, open, onClose, onDownload }) => {
 
       <DialogContent>
         {/* File Preview */}
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
+        <Box className={classes.previewContainer}>
           {isImageFile(file.fileUrl) ? (
             <Box
               component="img"
               src={file.fileUrl}
               alt={file.recordTitle}
-              sx={{
-                maxWidth: '100%',
-                maxHeight: 200,
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
+              className={classes.imagePreview}
               onError={(e) => {
                 e.target.style.display = 'none';
                 e.target.nextSibling.style.display = 'block';
               }}
             />
           ) : (
-            <Box sx={{ py: 4 }}>
+            <Box className={classes.fileIcon}>
               {getFileIcon(file.fileUrl)}
             </Box>
           )}
-          <Box sx={{ display: 'none', py: 4 }}>
+          <Box className={classes.hiddenPreview}>
             {getFileIcon(file.fileUrl)}
           </Box>
         </Box>
 
-        <Divider sx={{ mb: 3 }} />
+        <Divider className={classes.divider} />
 
         {/* File Information */}
         <Grid container spacing={3}>
