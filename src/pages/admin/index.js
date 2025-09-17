@@ -28,3 +28,4 @@ export * from './lib/ViewFileDetailsPage';
 export * from './standaloneExams/StandaloneExaminationListingPage';
 export * from './standaloneExams/StandaloneExaminationAllParticipantsPage';
 export * from './audit/ViewAudit';
+export * from './documents/DocumentsPageRoute';
