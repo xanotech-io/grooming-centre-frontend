@@ -30,6 +30,7 @@ import {
   StandaloneExaminationListingPageRoute,
   StandaloneExaminationAllParticipantsPageRoute,
   ViewAuditRoute,
+  DocumentsPageRoute,
 } from '../../../pages/admin';
 import PollsListingPageRoute from '../../../pages/admin/polls/PollsPage';
 import { CreatePollsPageRoute } from '../../../pages/admin/polls/CreatePollsPage';
@@ -113,6 +114,8 @@ const MainArea = () => {
         <LibraryListingPageRoute exact path="/admin/library" />
         <CreateLibraryFilePageRoute exact path="/admin/library/edit/:id" />
         <ViewFileDetailsPageRoute exact path="/admin/library/details/:id" />
+
+        <DocumentsPageRoute exact path="/admin/documents" />
 
         <SecurityPageRoute path="/admin/settings/security" />
         <GradeCriteriaPageRoute path="/admin/settings/grade-criteria" />
