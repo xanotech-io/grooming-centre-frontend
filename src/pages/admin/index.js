@@ -10,6 +10,7 @@ export * from './users/CreateUserPage/CreateUserPage';
 export * from './users/UserListingPage/UserListingPage';
 export * from './users/UserInfoPage/layout/UserInfoPage';
 export * from './users/UserInfoPage/pages/ProfilePage';
+export * from './users/UserInfoPage/pages/ExaminationRecordsPage';
 export * from './courses/AssessmentPage/layout/AssessmentPage';
 export * from './departments/DepartmentListingPage';
 export * from './departments/CreateDepartmentPage';
