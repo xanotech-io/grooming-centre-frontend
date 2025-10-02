@@ -17,16 +17,27 @@ export const useExaminationRecords = () => {
             setIsLoading(true);
             setError(null);
 
+            console.log('Fetching examination records:', { userId, page, type });
+
             const response = await getUserExaminationRecords(userId, {
                 page,
                 limit: 10,
                 type,
             });
 
-            setExaminationRecords(response.examinations);
-            setCurrentPage(response.pagination.currentPage);
-            setTotalPages(response.pagination.totalPages);
+            console.log('API Response:', response);
+            console.log('Response structure:', {
+                hasExaminations: !!response.examinations,
+                examinationsLength: response.examinations?.length,
+                hasPagination: !!response.pagination,
+                responseKeys: Object.keys(response)
+            });
+
+            setExaminationRecords(response.examinations || []);
+            setCurrentPage(response.pagination?.currentPage || 1);
+            setTotalPages(response.pagination?.totalPages || 1);
         } catch (err) {
+            console.error('Error fetching examination records:', err);
             setError(err.message || 'Failed to fetch examination records');
             setExaminationRecords([]);
         } finally {
@@ -36,7 +47,9 @@ export const useExaminationRecords = () => {
 
     const fetchStats = useCallback(async () => {
         try {
+            console.log('Fetching examination stats for userId:', userId);
             const statsResponse = await getUserExaminationStats(userId);
+            console.log('Stats Response:', statsResponse);
             setStats(statsResponse);
         } catch (err) {
             console.error('Failed to fetch examination stats:', err);

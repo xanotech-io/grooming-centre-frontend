@@ -41,10 +41,11 @@ import {
 } from 'react-icons/fi';
 import { MdQuiz, MdSchool } from 'react-icons/md';
 import { BiTask } from 'react-icons/bi';
-import { Route } from 'react-router-dom';
+import { Route, useParams } from 'react-router-dom';
 import { useExaminationRecords } from './hooks/useExaminationRecords';
 
 const ExaminationRecordsPage = () => {
+  const { id: userId } = useParams();
   const {
     examinationRecords,
     stats,
@@ -60,12 +61,30 @@ const ExaminationRecordsPage = () => {
   const cardBg = useColorModeValue('white', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
 
+  // Debug logging
+  console.log('ExaminationRecordsPage Component Rendered!');
+  console.log('ExaminationRecordsPage Debug:', {
+    userId,
+    examinationRecords,
+    examinationRecordsType: typeof examinationRecords,
+    examinationRecordsIsArray: Array.isArray(examinationRecords),
+    stats,
+    isLoading,
+    error,
+    recordsLength: examinationRecords?.length,
+  });
+
+  // Log the actual records structure if available
+  if (examinationRecords && examinationRecords.length > 0) {
+    console.log('First examination record:', examinationRecords[0]);
+  }
+
   if (isLoading) {
     return (
       <Box p={6} display="flex" justifyContent="center" alignItems="center" minH="400px">
         <VStack spacing={4}>
           <Spinner size="xl" color="primary.base" />
-          <Text>Loading examination records...</Text>
+          <Text>Loading examination records... (userId: {userId})</Text>
         </VStack>
       </Box>
     );
@@ -101,11 +120,19 @@ const ExaminationRecordsPage = () => {
       {/* Header */}
       <VStack align="start" spacing={4} mb={6}>
         <Heading size="lg" color="primary.base">
-          Examination Records
+          Examination Records (User ID: {userId})
         </Heading>
         <Text color="gray.600">
           Comprehensive view of examination performance and answer sheets
         </Text>
+        <Text fontSize="sm" color="blue.500">
+          Debug: Records: {examinationRecords?.length || 0}, Loading: {isLoading.toString()}, Error: {error || 'none'}
+        </Text>
+        <Box bg="gray.100" p={3} borderRadius="md" fontSize="xs" fontFamily="mono">
+          <Text fontWeight="bold">Raw Data Debug:</Text>
+          <Text>Records Array: {JSON.stringify(examinationRecords, null, 2)}</Text>
+          <Text>Stats: {JSON.stringify(stats, null, 2)}</Text>
+        </Box>
       </VStack>
 
       {/* Statistics Cards */}
@@ -169,7 +196,7 @@ const ExaminationRecordsPage = () => {
 
       {/* Examination Records List */}
       <VStack spacing={4} align="stretch">
-        {examinationRecords?.length === 0 ? (
+        {(!examinationRecords || examinationRecords.length === 0) ? (
           <Box bg={cardBg} borderColor={borderColor} borderWidth="1px" borderRadius="md" p={4}>
             <VStack spacing={4} py={8}>
               <Icon as={BiTask} size="48px" color="gray.400" />
@@ -182,9 +209,12 @@ const ExaminationRecordsPage = () => {
             </VStack>
           </Box>
         ) : (
-          examinationRecords?.map((record) => (
-            <ExaminationCard key={record.id} record={record} />
-          ))
+          examinationRecords?.map((record, index) => {
+            console.log(`Rendering record ${index}:`, record);
+            return (
+              <ExaminationCard key={record.id || index} record={record} />
+            );
+          })
         )}
       </VStack>
 
@@ -252,6 +282,16 @@ const ExaminationCard = ({ record }) => {
   const cardBg = useColorModeValue('white', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
 
+  console.log('ExaminationCard rendering with record:', record);
+
+  if (!record) {
+    return (
+      <Box bg={cardBg} borderColor={borderColor} borderWidth="1px" borderRadius="md" p={4}>
+        <Text color="red.500">Error: Invalid record data</Text>
+      </Box>
+    );
+  }
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -286,12 +326,12 @@ const ExaminationCard = ({ record }) => {
                 as={getTypeIcon(record.type)} 
                 color={`${getTypeColor(record.type)}.500`} 
               />
-              <Heading size="md">{record.examination.title}</Heading>
+              <Heading size="md">{record.examination?.title || 'Unknown Examination'}</Heading>
               <Badge colorScheme={getTypeColor(record.type)}>
                 {record.type === 'regular' ? 'Course Exam' : 'Standalone'}
               </Badge>
             </HStack>
-            {record.examination.course && (
+            {record.examination?.course && (
               <Text fontSize="sm" color="gray.600">
                 Course: {record.examination.course.title}
               </Text>
@@ -303,7 +343,7 @@ const ExaminationCard = ({ record }) => {
               </HStack>
               <HStack>
                 <Icon as={FiBook} />
-                <Text>{record.examination.amountOfQuestions} Questions</Text>
+                <Text>{record.examination?.amountOfQuestions || 0} Questions</Text>
               </HStack>
             </HStack>
           </VStack>
@@ -339,13 +379,15 @@ const ExaminationCard = ({ record }) => {
             <AccordionPanel px={0} pb={0}>
               <Divider mb={4} />
               <VStack spacing={4} align="stretch">
-                {record.examination.questions.map((question, index) => (
+                {record.examination?.questions?.map((question, index) => (
                   <QuestionCard 
                     key={question.id} 
                     question={question} 
                     questionNumber={index + 1}
                   />
-                ))}
+                )) || (
+                  <Text color="gray.500">No questions available</Text>
+                )}
               </VStack>
             </AccordionPanel>
           </AccordionItem>
@@ -373,7 +415,7 @@ const QuestionCard = ({ question, questionNumber }) => {
         )}
         
         <VStack align="start" spacing={2} w="full">
-          {question.options.map((option) => (
+          {question.options?.map((option) => (
             <HStack key={option.id} w="full" justify="space-between">
               <HStack>
                 <Text fontSize="sm" fontWeight="medium" minW="8">
@@ -390,7 +432,9 @@ const QuestionCard = ({ question, questionNumber }) => {
                 </Tooltip>
               )}
             </HStack>
-          ))}
+          )) || (
+            <Text fontSize="sm" color="gray.500">No options available</Text>
+          )}
         </VStack>
         
         <Text fontSize="xs" color="gray.500" fontStyle="italic">
