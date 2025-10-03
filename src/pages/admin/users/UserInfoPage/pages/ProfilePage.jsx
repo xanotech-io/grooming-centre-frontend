@@ -206,6 +206,14 @@ const ProfilePage = () => {
               href={`/admin/users/details/${user?.id}/courses`}
               isLoading={userIsLoading}
             />
+              <OverviewBox
+              value={user?.completedAssessment}
+              name="Examination records"
+              icon={<HiOutlineSwitchHorizontal />}
+              iconBackgroundColor="accent.8"
+              href={`/admin/users/details/${user?.id}/examination-records`}
+              isLoading={userIsLoading}
+            />
           </Grid>
         </Section>
       </Box>
