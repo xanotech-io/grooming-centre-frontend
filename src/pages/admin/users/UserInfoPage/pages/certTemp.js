@@ -34,7 +34,7 @@ export const Certificate = ({ name, title }) => {
           <div
             style={{
               position: "absolute",
-              top: "290px", // Adjusted for the new template
+              top: "250px", // Adjusted for the new template
               left: "50%",
               transform: "translateX(-50%)",
               fontSize: "32px",
@@ -47,6 +47,25 @@ export const Certificate = ({ name, title }) => {
             }}
           >
             {name}
+          </div>
+            {/* title field positioned over the certificate blank line */}
+          <div
+                style={{
+                    position: "absolute",
+                    top: "311px", // Adjusted for the new template
+                    left: "58%",
+                    transform: "translateX(-50%)",
+                    fontSize: "13px",
+                    fontFamily: "serif",
+                    color: "#333",
+                    textAlign: "left",
+                    fontWeight: "bold",
+                    letterSpacing: "0px",
+                    maxWidth: "230px",
+                    lineClamp: 1
+                }}
+            >
+                {title}
           </div>
         </div>
       </div>
