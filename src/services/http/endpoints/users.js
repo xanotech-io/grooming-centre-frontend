@@ -42,6 +42,7 @@ export const adminGetUserListing = async (params) => {
       lastName: user.lastName,
       email: user.email,
       userRoleId: user.userRole.id,
+      active: user.active,
       userRoleName: user.userRole.name,
       departmentId: user.departments[0]?.id,
       gender: user.gender,
