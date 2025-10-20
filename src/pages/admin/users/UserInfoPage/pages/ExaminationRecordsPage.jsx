@@ -62,6 +62,7 @@ const ExaminationRecordsPage = () => {
   const borderColor = useColorModeValue('gray.200', 'gray.600');
 
   // Debug logging
+  //TODO: Remove or comment out in production
   console.log('ExaminationRecordsPage Component Rendered!');
   console.log('ExaminationRecordsPage Debug:', {
     userId,

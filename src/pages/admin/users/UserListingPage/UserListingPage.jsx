@@ -1,6 +1,7 @@
 import { Flex } from "@chakra-ui/layout";
 import { Route } from "react-router-dom";
 import { FaSortAmountUpAlt } from "react-icons/fa";
+import { Badge } from "@chakra-ui/react";
 import {
   Button,
   Heading,
@@ -136,6 +137,23 @@ const UserListingPage = () => {
         fraction: "250px",
       },
       { id: "6", key: "gradePoint", text: "GP (%)", fraction: "75px" },
+      { 
+        id: "7", 
+        key: "status", 
+        text: "Status", 
+        fraction: "100px",
+        renderContent: (data) => {
+          const isActive = data.active || data.status?.active || (data.text === "Approved");
+          return (
+            <Badge 
+              colorScheme={isActive ? "green" : "orange"}
+              variant="solid"
+            >
+              {isActive ? "Approved" : "Pending"}
+            </Badge>
+          );
+        },
+      },
       // { id: '6', key: 'certificates', text: 'Certificates', fraction: '75px', },
     ],
 
@@ -161,20 +179,27 @@ const UserListingPage = () => {
     },
   };
 
-  const mapUserToRow = (user) => ({
-    ...user,
-    fullName: {
-      text: `${user.firstName} ${user.lastName}`,
-      userId: user.id,
-    },
-    userId: {
-      text: `${user.displayId}`,
-      userId: user.id,
-    },
-    department: user.departmentName,
-    noOfDepartments: user.departmentNumber,
-    certificates: user.noOfCertificate,
-  });
+  const mapUserToRow = (user) => {
+    const mappedUser = {
+      ...user,
+      fullName: {
+        text: `${user.firstName} ${user.lastName}`,
+        userId: user.id,
+      },
+      userId: {
+        text: `${user.displayId}`,
+        userId: user.id,
+      },
+      department: user.departmentName,
+      noOfDepartments: user.departmentNumber,
+      certificates: user.noOfCertificate,
+      status: {
+        active: user.active,
+        text: user.active ? "Approved" : "Pending",
+      },
+    };
+    return mappedUser;
+  };
 
   const fetcher = (props) => async () => {
     const { users, showingDocumentsCount, totalDocumentsCount } =

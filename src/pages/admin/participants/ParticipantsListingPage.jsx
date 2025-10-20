@@ -23,11 +23,8 @@ const ParticipantsListingPage = () => {
   const [depsCurrentPage, setDepsCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(5);
   const [depsRecordsPerPage, setDepsRecordsPerPage] = useState(5);
-
-  const lastIndex = currentPage * recordsPerPage;
-  const firstIndex = lastIndex - recordsPerPage;
-  const depslastIndex = depsCurrentPage * depsRecordsPerPage;
-  const depsfirstIndex = depslastIndex - depsRecordsPerPage;
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalDepartments, setTotalDepartments] = useState(0);
 
   const [details, setDetails] = useState({
     loading: false,
@@ -42,7 +39,8 @@ const ParticipantsListingPage = () => {
         position: 'top',
         status: 'success',
       });
-      window.location.reload(true);
+      // Refresh the current page after deletion
+      getParticipants();
     } catch (error) {
       toast({
         description: error.message,
@@ -55,28 +53,48 @@ const ParticipantsListingPage = () => {
   const getParticipants = useCallback(async () => {
     setDetails({ loading: true });
     try {
-      const { users, departments } = await getStandaloneExaminationParticipants(
-        examinationId
+      const params = {
+        page: currentPage,
+        length: recordsPerPage,
+        depsPage: depsCurrentPage,
+        depsLength: depsRecordsPerPage,
+      };
+      
+      const { users, departments, pagination } = await getStandaloneExaminationParticipants(
+        examinationId,
+        params
       );
-      setUsers(users);
-      setDepartments(departments);
+      
+      setUsers(users || []);
+      setDepartments(departments || []);
+      
+      // Use pagination info from API if available
+      if (pagination) {
+        setTotalUsers(pagination.users?.totalCount || 0);
+        setTotalDepartments(pagination.departments?.totalCount || 0);
+      } else {
+        // Fallback to array length
+        setTotalUsers(users?.length || 0);
+        setTotalDepartments(departments?.length || 0);
+      }
+      
       setDetails({ loading: false });
     } catch (error) {
       setDetails({ err: error.message });
       setDetails({ loading: false });
     }
-  }, [examinationId]);
+  }, [examinationId, currentPage, recordsPerPage, depsCurrentPage, depsRecordsPerPage]);
+
   useEffect(() => {
     getParticipants();
   }, [getParticipants]);
 
-  const usersRecord = users?.slice(firstIndex, lastIndex);
+  // Since we're doing server-side pagination, we don't need to slice the data
+  const usersRecord = users;
+  const depsRecord = departments;
 
-  const depsRecord = departments?.slice(depsfirstIndex, depslastIndex);
-
-  const npages = Math.ceil(users.length / recordsPerPage);
-
-  const nDepspages = Math.ceil(departments.length / depsRecordsPerPage);
+  const npages = Math.ceil(totalUsers / recordsPerPage);
+  const nDepspages = Math.ceil(totalDepartments / depsRecordsPerPage);
 
   return (
     <Box marginLeft="20px" marginRight="25px" marginTop="20px">
@@ -102,53 +120,59 @@ const ParticipantsListingPage = () => {
 
       {/* for users */}
       <div className="users_details">
-        <table className="content-table">
-          <thead>
-            <tr>
-              {HEADING.map((item, i) => (
-                <th key={i}>{item?.desc}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {usersRecord?.map((item, index) => (
-              <tr key={index}>
-                <td>{index + 1}</td>
-                <td>{item?.firstName}</td>
-                <td>{item?.lastName}</td>
-                <td>{item?.username}</td>
-                <td>{item?.email}</td>
-                <td>{item?.gender}</td>
-                <td>
-                  <div
-                    style={{
-                      backgroundColor: 'red',
-                      padding: '5px',
-                      textAlign: 'center',
-                      borderRadius: '5px',
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => handleDelete(item?.id)}
-                  >
-                    Delete
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <ParticipantsPagination
-          documentCount={usersRecord?.length}
-          totalCount={users?.length}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          recordsPerPage={recordsPerPage}
-          setRecordsPerPage={setRecordsPerPage}
-          firstIndex={firstIndex}
-          lastIndex={lastIndex}
-          nPages={npages}
-          name={'user'}
-        />
+        {details.loading ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div>
+        ) : (
+          <>
+            <table className="content-table">
+              <thead>
+                <tr>
+                  {HEADING.map((item, i) => (
+                    <th key={i}>{item?.desc}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {usersRecord?.map((item, index) => (
+                  <tr key={index}>
+                    <td>{(currentPage - 1) * recordsPerPage + index + 1}</td>
+                    <td>{item?.firstName}</td>
+                    <td>{item?.lastName}</td>
+                    <td>{item?.username}</td>
+                    <td>{item?.email}</td>
+                    <td>{item?.gender}</td>
+                    <td>
+                      <div
+                        style={{
+                          backgroundColor: 'red',
+                          padding: '5px',
+                          textAlign: 'center',
+                          borderRadius: '5px',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => handleDelete(item?.id)}
+                      >
+                        Delete
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <ParticipantsPagination
+              documentCount={usersRecord?.length}
+              totalCount={totalUsers}
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              recordsPerPage={recordsPerPage}
+              setRecordsPerPage={setRecordsPerPage}
+              firstIndex={(currentPage - 1) * recordsPerPage + 1}
+              lastIndex={Math.min(currentPage * recordsPerPage, totalUsers)}
+              nPages={npages}
+              name={'user'}
+            />
+          </>
+        )}
       </div>
 
       {/* for departments */}
@@ -168,50 +192,56 @@ const ParticipantsListingPage = () => {
       </Box>
 
       <div className="users_details">
-        <table className="content-table">
-          <thead>
-            <tr>
-              {HEADING_DEPARTMENTS?.map((item) => (
-                <th key={item?.id}>{item?.desc}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {depsRecord?.map((item, index) => (
-              <tr key={index}>
-                <td>{index + 1}</td>
-                <td>{item?.name}</td>
-                <td>
-                  <div
-                    style={{
-                      backgroundColor: 'red',
-                      padding: '5px',
-                      textAlign: 'center',
-                      borderRadius: '5px',
-                      width: '50%',
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => handleDelete(item?.id)}
-                  >
-                    Delete
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <ParticipantsPagination
-          documentCount={depsRecord?.length}
-          totalCount={departments.length}
-          nPages={nDepspages}
-          currentPage={depsCurrentPage}
-          setCurrentPage={setDepsCurrentPage}
-          recordsPerPage={depsRecordsPerPage}
-          setRecordsPerPage={setDepsRecordsPerPage}
-          firstIndex={depsfirstIndex}
-          lastIndex={depslastIndex}
-          name={'docs'}
-        />
+        {details.loading ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div>
+        ) : (
+          <>
+            <table className="content-table">
+              <thead>
+                <tr>
+                  {HEADING_DEPARTMENTS?.map((item) => (
+                    <th key={item?.id}>{item?.desc}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {depsRecord?.map((item, index) => (
+                  <tr key={index}>
+                    <td>{(depsCurrentPage - 1) * depsRecordsPerPage + index + 1}</td>
+                    <td>{item?.name}</td>
+                    <td>
+                      <div
+                        style={{
+                          backgroundColor: 'red',
+                          padding: '5px',
+                          textAlign: 'center',
+                          borderRadius: '5px',
+                          width: '50%',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => handleDelete(item?.id)}
+                      >
+                        Delete
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <ParticipantsPagination
+              documentCount={depsRecord?.length}
+              totalCount={totalDepartments}
+              nPages={nDepspages}
+              currentPage={depsCurrentPage}
+              setCurrentPage={setDepsCurrentPage}
+              recordsPerPage={depsRecordsPerPage}
+              setRecordsPerPage={setDepsRecordsPerPage}
+              firstIndex={(depsCurrentPage - 1) * depsRecordsPerPage + 1}
+              lastIndex={Math.min(depsCurrentPage * depsRecordsPerPage, totalDepartments)}
+              name={'docs'}
+            />
+          </>
+        )}
       </div>
     </Box>
   );
