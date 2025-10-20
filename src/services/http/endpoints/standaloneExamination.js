@@ -250,16 +250,17 @@ export const adminGetStandaloneExaminationParticipants = async (id, params) => {
   };
 };
 
-export const getStandaloneExaminationParticipants = async (id) => {
-  const path = `-examination/participants/${id}`;
+export const getStandaloneExaminationParticipants = async (id, params = {}) => {
+  const path = `/stand-alone-examination/participants/${id}`;
 
   const {
     data: { data },
-  } = await http.get(path);
+  } = await http.get(path, { params });
 
   return {
     users: data.users,
     departments: data.departments,
+    pagination: data.pagination, // Include pagination info
   };
 };
 
