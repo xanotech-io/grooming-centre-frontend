@@ -38,6 +38,7 @@ import {
   FiAward,
   FiTrendingUp,
   FiBarChart,
+  FiDownload,
 } from 'react-icons/fi';
 import { MdQuiz, MdSchool } from 'react-icons/md';
 import { BiTask } from 'react-icons/bi';
@@ -109,64 +110,316 @@ const ExaminationRecordsPage = () => {
   };
 
   const getTypeIcon = (type) => {
-    return type === 'regular' ? <MdSchool /> : <MdQuiz />;
+    return type === 'regular' ? MdSchool : MdQuiz;
   };
 
   const getTypeColor = (type) => {
     return type === 'regular' ? 'blue' : 'purple';
   };
 
+  // Parse question JSON to extract text
+  const getQuestionText = (questionJson) => {
+    try {
+      if (typeof questionJson === 'string') {
+        const parsed = JSON.parse(questionJson);
+        if (parsed.blocks && parsed.blocks.length > 0) {
+          return parsed.blocks.map(block => block.text).join(' ');
+        }
+      }
+      return questionJson;
+    } catch (error) {
+      return questionJson;
+    }
+  };
+
+  // Download examination records as JSON/CSV
+  const handleDownload = () => {
+    try {
+      // Prepare data for download
+      const downloadData = {
+        userId,
+        generatedAt: new Date().toISOString(),
+        statistics: {
+          overall: stats?.overall || {},
+          regular: stats?.regular || {},
+          standalone: stats?.standalone || {},
+        },
+        examinations: examinationRecords?.map(record => ({
+          id: record.id,
+          type: record.type,
+          title: record.examination?.title,
+          course: record.examination?.course?.title || 'N/A',
+          dateTaken: record.dateTaken,
+          score: record.score,
+          numberOfQuestions: record.examination?.amountOfQuestions || 0,
+          numberOfCorrectAnswers: record.numberOfCorrectAnswers || 0,
+          questions: record.examination?.questions?.map((q, index) => ({
+            questionNumber: index + 1,
+            question: getQuestionText(q.question),
+            hasFile: !!q.file,
+            fileUrl: q.file || null,
+            options: q.options?.map(opt => ({
+              index: opt.optionIndex,
+              text: opt.name,
+              isCorrectAnswer: opt.isCorrectAnswer,
+            })) || [],
+          })) || [],
+        })) || [],
+      };
+
+      // Create blob and download
+      const blob = new Blob([JSON.stringify(downloadData, null, 2)], { 
+        type: 'application/json' 
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `examination-records-${userId}-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading data:', error);
+      alert('Failed to download examination records. Please try again.');
+    }
+  };
+
+  // Download as CSV
+  const handleDownloadCSV = () => {
+    try {
+      // Prepare CSV header
+      let csv = 'Examination Type,Title,Course,Date Taken,Score (%),Questions,Correct Answers\n';
+      
+      // Add data rows
+      examinationRecords?.forEach(record => {
+        const type = record.type === 'regular' ? 'Course Exam' : 'Standalone';
+        const title = (record.examination?.title || 'Unknown').replace(/,/g, ';');
+        const course = (record.examination?.course?.title || 'N/A').replace(/,/g, ';');
+        const date = new Date(record.dateTaken).toLocaleString();
+        const score = record.score;
+        const questions = record.examination?.amountOfQuestions || 0;
+        const correct = record.numberOfCorrectAnswers || 0;
+        
+        csv += `${type},"${title}","${course}","${date}",${score},${questions},${correct}\n`;
+      });
+
+      // Create blob and download
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `examination-records-${userId}-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading CSV:', error);
+      alert('Failed to download CSV. Please try again.');
+    }
+  };
+
   return (
     <Box p={6} minH="100vh">
       {/* Header */}
       <VStack align="start" spacing={4} mb={6}>
-        <Heading size="lg" color="primary.base">
-          Examination Records (User ID: {userId})
-        </Heading>
-        <Text color="gray.600">
-          Comprehensive view of examination performance and answer sheets
-        </Text>
-        <Text fontSize="sm" color="blue.500">
-          Debug: Records: {examinationRecords?.length || 0}, Loading: {isLoading.toString()}, Error: {error || 'none'}
-        </Text>
-        <Box bg="gray.100" p={3} borderRadius="md" fontSize="xs" fontFamily="mono">
-          <Text fontWeight="bold">Raw Data Debug:</Text>
-          <Text>Records Array: {JSON.stringify(examinationRecords, null, 2)}</Text>
-          <Text>Stats: {JSON.stringify(stats, null, 2)}</Text>
-        </Box>
+        <Flex justify="space-between" align="center" w="full">
+          <Box>
+            <Heading size="lg" color="primary.base">
+              Examination Records (User: {userId})
+            </Heading>
+            <Text color="gray.600" mt={2}>
+              Comprehensive view of examination performance and answer sheets
+            </Text>
+          </Box>
+          <HStack spacing={2}>
+            <Tooltip label="Download as CSV">
+              <Button
+                leftIcon={<Icon as={FiDownload} />}
+                colorScheme="green"
+                variant="outline"
+                onClick={handleDownloadCSV}
+                isDisabled={!examinationRecords || examinationRecords.length === 0}
+              >
+                CSV
+              </Button>
+            </Tooltip>
+            <Tooltip label="Download as JSON (includes questions and answers)">
+              <Button
+                leftIcon={<Icon as={FiDownload} />}
+                colorScheme="primary"
+                onClick={handleDownload}
+                isDisabled={!examinationRecords || examinationRecords.length === 0}
+              >
+                JSON
+              </Button>
+            </Tooltip>
+          </HStack>
+        </Flex>
       </VStack>
 
-      {/* Statistics Cards */}
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={8}>
-        <StatCard
-          icon={<Icon as={FiBarChart} />}
-          label="Total Examinations"
-          value={stats?.overall?.totalExaminations || 0}
-          helpText="All time"
-          colorScheme="blue"
-        />
-        <StatCard
-          icon={<Icon as={FiTrendingUp} />}
-          label="Average Score"
-          value={`${stats?.overall?.averageScore || 0}%`}
-          helpText="Across all exams"
-          colorScheme="green"
-        />
-        <StatCard
-          icon={<Icon as={FiCheckCircle} />}
-          label="Passed"
-          value={stats?.overall?.totalPassed || 0}
-          helpText="Successful attempts"
-          colorScheme="green"
-        />
-        <StatCard
-          icon={<Icon as={FiXCircle} />}
-          label="Failed"
-          value={stats?.overall?.totalFailed || 0}
-          helpText="Needs improvement"
-          colorScheme="red"
-        />
-      </SimpleGrid>
+      {/* Overall Statistics Cards */}
+      <VStack spacing={6} mb={8} align="stretch">
+        <Heading size="md" color="gray.700">Overall Statistics</Heading>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+          <StatCard
+            icon={<Icon as={FiBarChart} />}
+            label="Total Examinations"
+            value={stats?.overall?.totalExaminations || 0}
+            helpText="All time"
+            colorScheme="blue"
+          />
+          <StatCard
+            icon={<Icon as={FiTrendingUp} />}
+            label="Average Score"
+            value={`${stats?.overall?.averageScore || 0}%`}
+            helpText="Across all exams"
+            colorScheme="green"
+          />
+          <StatCard
+            icon={<Icon as={FiCheckCircle} />}
+            label="Passed"
+            value={stats?.overall?.totalPassed || 0}
+            helpText="Successful attempts"
+            colorScheme="green"
+          />
+          <StatCard
+            icon={<Icon as={FiXCircle} />}
+            label="Failed"
+            value={stats?.overall?.totalFailed || 0}
+            helpText="Needs improvement"
+            colorScheme="red"
+          />
+        </SimpleGrid>
+
+        {/* Detailed Statistics - Collapsible */}
+        <Accordion allowMultiple defaultIndex={[0, 1]}>
+          {/* Regular Examinations Statistics */}
+          <AccordionItem borderWidth="1px" borderRadius="md" mb={4}>
+            <AccordionButton py={3} _hover={{ bg: 'gray.50' }}>
+              <HStack flex="1" textAlign="left">
+                <Icon as={MdSchool} color="blue.500" boxSize={5} />
+                <Heading size="md" color="gray.700">
+                  Course Examinations Statistics
+                </Heading>
+                <Badge colorScheme="blue" ml={2}>
+                  {stats?.regular?.totalExaminations || 0} exams
+                </Badge>
+              </HStack>
+              <AccordionIcon />
+            </AccordionButton>
+            <AccordionPanel pb={4}>
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 6 }} spacing={4}>
+                <StatCard
+                  label="Total"
+                  value={stats?.regular?.totalExaminations || 0}
+                  helpText="Course exams taken"
+                  colorScheme="blue"
+                  size="sm"
+                />
+                <StatCard
+                  label="Average Score"
+                  value={`${stats?.regular?.averageScore || 0}%`}
+                  helpText="Average"
+                  colorScheme="blue"
+                  size="sm"
+                />
+                <StatCard
+                  label="Highest Score"
+                  value={`${stats?.regular?.highestScore || 0}%`}
+                  helpText="Best result"
+                  colorScheme="green"
+                  size="sm"
+                />
+                <StatCard
+                  label="Lowest Score"
+                  value={`${stats?.regular?.lowestScore || 0}%`}
+                  helpText="Lowest result"
+                  colorScheme="orange"
+                  size="sm"
+                />
+                <StatCard
+                  label="Passed"
+                  value={stats?.regular?.passedExaminations || 0}
+                  helpText="Successful"
+                  colorScheme="green"
+                  size="sm"
+                />
+                <StatCard
+                  label="Failed"
+                  value={stats?.regular?.failedExaminations || 0}
+                  helpText="Unsuccessful"
+                  colorScheme="red"
+                  size="sm"
+                />
+              </SimpleGrid>
+            </AccordionPanel>
+          </AccordionItem>
+
+          {/* Standalone Examinations Statistics */}
+          <AccordionItem borderWidth="1px" borderRadius="md">
+            <AccordionButton py={3} _hover={{ bg: 'gray.50' }}>
+              <HStack flex="1" textAlign="left">
+                <Icon as={MdQuiz} color="purple.500" boxSize={5} />
+                <Heading size="md" color="gray.700">
+                  Standalone Examinations Statistics
+                </Heading>
+                <Badge colorScheme="purple" ml={2}>
+                  {stats?.standalone?.totalExaminations || 0} exams
+                </Badge>
+              </HStack>
+              <AccordionIcon />
+            </AccordionButton>
+            <AccordionPanel pb={4}>
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 6 }} spacing={4}>
+                <StatCard
+                  label="Total"
+                  value={stats?.standalone?.totalExaminations || 0}
+                  helpText="Standalone exams taken"
+                  colorScheme="purple"
+                  size="sm"
+                />
+                <StatCard
+                  label="Average Score"
+                  value={`${stats?.standalone?.averageScore || 0}%`}
+                  helpText="Average"
+                  colorScheme="purple"
+                  size="sm"
+                />
+                <StatCard
+                  label="Highest Score"
+                  value={`${stats?.standalone?.highestScore || 0}%`}
+                  helpText="Best result"
+                  colorScheme="green"
+                  size="sm"
+                />
+                <StatCard
+                  label="Lowest Score"
+                  value={`${stats?.standalone?.lowestScore || 0}%`}
+                  helpText="Lowest result"
+                  colorScheme="orange"
+                  size="sm"
+                />
+                <StatCard
+                  label="Passed"
+                  value={stats?.standalone?.passedExaminations || 0}
+                  helpText="Successful"
+                  colorScheme="green"
+                  size="sm"
+                />
+                <StatCard
+                  label="Failed"
+                  value={stats?.standalone?.failedExaminations || 0}
+                  helpText="Unsuccessful"
+                  colorScheme="red"
+                  size="sm"
+                />
+              </SimpleGrid>
+            </AccordionPanel>
+          </AccordionItem>
+        </Accordion>
+      </VStack>
 
       {/* Filter Buttons */}
       <HStack spacing={4} mb={6}>
@@ -252,28 +505,43 @@ const ExaminationRecordsPage = () => {
   );
 };
 
-const StatCard = ({ icon, label, value, helpText, colorScheme }) => {
+const StatCard = ({ icon, label, value, helpText, colorScheme, size = 'md' }) => {
   const cardBg = useColorModeValue('white', 'gray.700');
   
   return (
-    <Box bg={cardBg} borderRadius="md" p={4} borderWidth="1px" borderColor="gray.200">
+    <Box bg={cardBg} borderRadius="md" p={size === 'sm' ? 3 : 4} borderWidth="1px" borderColor="gray.200">
       <Stat>
-        <HStack>
-          <Box color={`${colorScheme}.500`}>
-            {icon}
-          </Box>
+        {icon && size === 'md' && (
+          <HStack>
+            <Box color={`${colorScheme}.500`}>
+              {icon}
+            </Box>
+            <Box>
+              <StatLabel fontSize="sm" color="gray.500">
+                {label}
+              </StatLabel>
+              <StatNumber fontSize="2xl" fontWeight="bold">
+                {value}
+              </StatNumber>
+              <StatHelpText fontSize="xs">
+                {helpText}
+              </StatHelpText>
+            </Box>
+          </HStack>
+        )}
+        {(!icon || size === 'sm') && (
           <Box>
-            <StatLabel fontSize="sm" color="gray.500">
+            <StatLabel fontSize={size === 'sm' ? 'xs' : 'sm'} color="gray.500">
               {label}
             </StatLabel>
-            <StatNumber fontSize="2xl" fontWeight="bold">
+            <StatNumber fontSize={size === 'sm' ? 'xl' : '2xl'} fontWeight="bold">
               {value}
             </StatNumber>
             <StatHelpText fontSize="xs">
               {helpText}
             </StatHelpText>
           </Box>
-        </HStack>
+        )}
       </Stat>
     </Box>
   );
@@ -314,7 +582,7 @@ const ExaminationCard = ({ record }) => {
   };
 
   const getTypeIcon = (type) => {
-    return type === 'regular' ? <MdSchool /> : <MdQuiz />;
+    return type === 'regular' ? MdSchool : MdQuiz;
   };
 
   return (
@@ -401,17 +669,41 @@ const ExaminationCard = ({ record }) => {
 const QuestionCard = ({ question, questionNumber }) => {
   const cardBg = useColorModeValue('gray.50', 'gray.600');
   
+  // Parse the question JSON to extract text
+  const getQuestionText = (questionJson) => {
+    try {
+      if (typeof questionJson === 'string') {
+        const parsed = JSON.parse(questionJson);
+        if (parsed.blocks && parsed.blocks.length > 0) {
+          return parsed.blocks.map(block => block.text).join(' ');
+        }
+      }
+      return questionJson;
+    } catch (error) {
+      console.error('Error parsing question:', error);
+      return questionJson;
+    }
+  };
+  
   return (
     <Box bg={cardBg} p={4} borderRadius="md">
       <VStack align="start" spacing={3}>
-        <HStack>
-          <Badge colorScheme="gray">Q{questionNumber}</Badge>
-          <Text fontWeight="medium">{question.question}</Text>
+        <HStack align="start">
+          <Badge colorScheme="gray" mt={1}>Q{questionNumber}</Badge>
+          <Text fontWeight="medium">{getQuestionText(question.question)}</Text>
         </HStack>
         
         {question.file && (
-          <Box>
-            <img src={question.file} alt="Question image" style={{ maxWidth: '100%', height: 'auto' }} />
+          <Box borderWidth="1px" borderColor="gray.300" borderRadius="md" overflow="hidden" maxW="full">
+            <img 
+              src={question.file} 
+              alt={`Question ${questionNumber} attachment`} 
+              style={{ 
+                maxWidth: '100%', 
+                height: 'auto',
+                display: 'block'
+              }} 
+            />
           </Box>
         )}
         
@@ -437,10 +729,6 @@ const QuestionCard = ({ question, questionNumber }) => {
             <Text fontSize="sm" color="gray.500">No options available</Text>
           )}
         </VStack>
-        
-        <Text fontSize="xs" color="gray.500" fontStyle="italic">
-          Note: User's selected answers are not stored in the current system schema
-        </Text>
       </VStack>
     </Box>
   );
