@@ -29,13 +29,13 @@ import {
   Spinner,
   Alert,
   AlertIcon,
+  useToast,
 } from '@chakra-ui/react';
 import {
   FiCheckCircle,
   FiXCircle,
   FiClock,
   FiBook,
-  FiAward,
   FiTrendingUp,
   FiBarChart,
   FiDownload,
@@ -44,9 +44,12 @@ import { MdQuiz, MdSchool } from 'react-icons/md';
 import { BiTask } from 'react-icons/bi';
 import { Route, useParams } from 'react-router-dom';
 import { useExaminationRecords } from './hooks/useExaminationRecords';
+import { downloadUserTranscript } from '../../../../../services/http/endpoints/examinationRecords';
 
 const ExaminationRecordsPage = () => {
   const { id: userId } = useParams();
+  const toast = useToast();
+  const [isDownloadingTranscript, setIsDownloadingTranscript] = React.useState(false);
   const {
     examinationRecords,
     stats,
@@ -132,91 +135,54 @@ const ExaminationRecordsPage = () => {
     }
   };
 
-  // Download examination records as JSON/CSV
-  const handleDownload = () => {
+  // Download academic transcript from backend
+  const handleDownloadTranscript = async () => {
     try {
-      // Prepare data for download
-      const downloadData = {
-        userId,
-        generatedAt: new Date().toISOString(),
-        statistics: {
-          overall: stats?.overall || {},
-          regular: stats?.regular || {},
-          standalone: stats?.standalone || {},
-        },
-        examinations: examinationRecords?.map(record => ({
-          id: record.id,
-          type: record.type,
-          title: record.examination?.title,
-          course: record.examination?.course?.title || 'N/A',
-          dateTaken: record.dateTaken,
-          score: record.score,
-          numberOfQuestions: record.examination?.amountOfQuestions || 0,
-          numberOfCorrectAnswers: record.numberOfCorrectAnswers || 0,
-          questions: record.examination?.questions?.map((q, index) => ({
-            questionNumber: index + 1,
-            question: getQuestionText(q.question),
-            hasFile: !!q.file,
-            fileUrl: q.file || null,
-            options: q.options?.map(opt => ({
-              index: opt.optionIndex,
-              text: opt.name,
-              isCorrectAnswer: opt.isCorrectAnswer,
-            })) || [],
-          })) || [],
-        })) || [],
-      };
+      setIsDownloadingTranscript(true);
 
-      // Create blob and download
-      const blob = new Blob([JSON.stringify(downloadData, null, 2)], { 
-        type: 'application/json' 
+      toast({
+        title: 'Generating transcript...',
+        description: 'Please wait while we prepare your academic transcript.',
+        status: 'info',
+        duration: 2000,
+        isClosable: true,
       });
+
+      // Get the Excel blob from backend
+      const blob = await downloadUserTranscript(userId);
+
+      // Create download link
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `examination-records-${userId}-${new Date().toISOString().split('T')[0]}.json`;
+
+      // Extract filename from blob or use default
+      const fileName = `Academic-Transcript-${userId}-${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.download = fileName;
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading data:', error);
-      alert('Failed to download examination records. Please try again.');
-    }
-  };
 
-  // Download as CSV
-  const handleDownloadCSV = () => {
-    try {
-      // Prepare CSV header
-      let csv = 'Examination Type,Title,Course,Date Taken,Score (%),Questions,Correct Answers\n';
-      
-      // Add data rows
-      examinationRecords?.forEach(record => {
-        const type = record.type === 'regular' ? 'Course Exam' : 'Standalone';
-        const title = (record.examination?.title || 'Unknown').replace(/,/g, ';');
-        const course = (record.examination?.course?.title || 'N/A').replace(/,/g, ';');
-        const date = new Date(record.dateTaken).toLocaleString();
-        const score = record.score;
-        const questions = record.examination?.amountOfQuestions || 0;
-        const correct = record.numberOfCorrectAnswers || 0;
-        
-        csv += `${type},"${title}","${course}","${date}",${score},${questions},${correct}\n`;
+      toast({
+        title: 'Transcript downloaded successfully',
+        description: 'The academic transcript Excel file has been saved to your device.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
       });
-
-      // Create blob and download
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `examination-records-${userId}-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading CSV:', error);
-      alert('Failed to download CSV. Please try again.');
+      console.error('Error downloading transcript:', error);
+      toast({
+        title: 'Failed to download transcript',
+        description: error.response?.data?.message || error.message || 'An error occurred while downloading the transcript.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsDownloadingTranscript(false);
     }
   };
 
@@ -234,25 +200,15 @@ const ExaminationRecordsPage = () => {
             </Text>
           </Box>
           <HStack spacing={2}>
-            <Tooltip label="Download as CSV">
+            <Tooltip label="Download complete academic transcript as Excel file (includes personal info, grades, GPA, and examination statistics)">
               <Button
                 leftIcon={<Icon as={FiDownload} />}
-                colorScheme="green"
-                variant="outline"
-                onClick={handleDownloadCSV}
-                isDisabled={!examinationRecords || examinationRecords.length === 0}
+                colorScheme="purple"
+                onClick={handleDownloadTranscript}
+                isLoading={isDownloadingTranscript}
+                loadingText="Generating..."
               >
-                CSV
-              </Button>
-            </Tooltip>
-            <Tooltip label="Download as JSON (includes questions and answers)">
-              <Button
-                leftIcon={<Icon as={FiDownload} />}
-                colorScheme="primary"
-                onClick={handleDownload}
-                isDisabled={!examinationRecords || examinationRecords.length === 0}
-              >
-                JSON
+                Academic Transcript
               </Button>
             </Tooltip>
           </HStack>
@@ -425,7 +381,7 @@ const ExaminationRecordsPage = () => {
       <HStack spacing={4} mb={6}>
         <Button
           variant={filterType === 'all' ? 'solid' : 'outline'}
-          colorScheme="primary"
+          colorScheme="teal"
           onClick={() => setFilterType('all')}
         >
           All Examinations
@@ -507,7 +463,7 @@ const ExaminationRecordsPage = () => {
 
 const StatCard = ({ icon, label, value, helpText, colorScheme, size = 'md' }) => {
   const cardBg = useColorModeValue('white', 'gray.700');
-  
+
   return (
     <Box bg={cardBg} borderRadius="md" p={size === 'sm' ? 3 : 4} borderWidth="1px" borderColor="gray.200">
       <Stat>
@@ -591,9 +547,9 @@ const ExaminationCard = ({ record }) => {
         <Flex justify="space-between" align="start">
           <VStack align="start" spacing={2}>
             <HStack>
-              <Icon 
-                as={getTypeIcon(record.type)} 
-                color={`${getTypeColor(record.type)}.500`} 
+              <Icon
+                as={getTypeIcon(record.type)}
+                color={`${getTypeColor(record.type)}.500`}
               />
               <Heading size="md">{record.examination?.title || 'Unknown Examination'}</Heading>
               <Badge colorScheme={getTypeColor(record.type)}>
@@ -617,10 +573,10 @@ const ExaminationCard = ({ record }) => {
             </HStack>
           </VStack>
           <VStack align="end" spacing={2}>
-            <Badge 
-              colorScheme={getScoreColor(record.score)} 
-              fontSize="lg" 
-              px={3} 
+            <Badge
+              colorScheme={getScoreColor(record.score)}
+              fontSize="lg"
+              px={3}
               py={1}
             >
               {record.score}%
@@ -633,7 +589,7 @@ const ExaminationCard = ({ record }) => {
           </VStack>
         </Flex>
       </Box>
-      
+
       <Box pt={0} px={4} pb={4}>
         <Accordion allowToggle>
           <AccordionItem border="none">
@@ -649,14 +605,14 @@ const ExaminationCard = ({ record }) => {
               <Divider mb={4} />
               <VStack spacing={4} align="stretch">
                 {record.examination?.questions?.map((question, index) => (
-                  <QuestionCard 
-                    key={question.id} 
-                    question={question} 
+                  <QuestionCard
+                    key={question.id}
+                    question={question}
                     questionNumber={index + 1}
                   />
                 )) || (
-                  <Text color="gray.500">No questions available</Text>
-                )}
+                    <Text color="gray.500">No questions available</Text>
+                  )}
               </VStack>
             </AccordionPanel>
           </AccordionItem>
@@ -668,7 +624,7 @@ const ExaminationCard = ({ record }) => {
 
 const QuestionCard = ({ question, questionNumber }) => {
   const cardBg = useColorModeValue('gray.50', 'gray.600');
-  
+
   // Parse the question JSON to extract text
   const getQuestionText = (questionJson) => {
     try {
@@ -684,7 +640,7 @@ const QuestionCard = ({ question, questionNumber }) => {
       return questionJson;
     }
   };
-  
+
   return (
     <Box bg={cardBg} p={4} borderRadius="md">
       <VStack align="start" spacing={3}>
@@ -692,21 +648,21 @@ const QuestionCard = ({ question, questionNumber }) => {
           <Badge colorScheme="gray" mt={1}>Q{questionNumber}</Badge>
           <Text fontWeight="medium">{getQuestionText(question.question)}</Text>
         </HStack>
-        
+
         {question.file && (
           <Box borderWidth="1px" borderColor="gray.300" borderRadius="md" overflow="hidden" maxW="full">
-            <img 
-              src={question.file} 
-              alt={`Question ${questionNumber} attachment`} 
-              style={{ 
-                maxWidth: '100%', 
+            <img
+              src={question.file}
+              alt={`Question ${questionNumber} attachment`}
+              style={{
+                maxWidth: '100%',
                 height: 'auto',
                 display: 'block'
-              }} 
+              }}
             />
           </Box>
         )}
-        
+
         <VStack align="start" spacing={2} w="full">
           {question.options?.map((option) => (
             <HStack key={option.id} w="full" justify="space-between">
@@ -726,8 +682,8 @@ const QuestionCard = ({ question, questionNumber }) => {
               )}
             </HStack>
           )) || (
-            <Text fontSize="sm" color="gray.500">No options available</Text>
-          )}
+              <Text fontSize="sm" color="gray.500">No options available</Text>
+            )}
         </VStack>
       </VStack>
     </Box>

@@ -44,3 +44,17 @@ export const getUserExaminationStats = async (userId) => {
 
     return data;
 };
+
+/**
+ * Download user academic transcript as Excel file
+ * @param {string} userId - User ID
+ * @returns {Promise<Blob>} Excel file blob
+ */
+export const downloadUserTranscript = async (userId) => {
+    const path = `/examination/transcript/download/${userId}`;
+    const response = await http.get(path, {
+        responseType: 'blob', // Important: tell axios to expect binary data
+    });
+
+    return response.data;
+};
