@@ -35,6 +35,7 @@ import {
   adminDeleteAssessmentQuestion,
   adminDeleteExaminationQuestion,
   adminDeleteStandaloneExaminationQuestion,
+  adminEditStandaloneExaminationQuestion,
 } from "../../../services";
 import { PageLoaderLayout } from "../../../layouts";
 import { FiMoreHorizontal } from "react-icons/fi";
@@ -125,13 +126,13 @@ const QuestionsStandalone = () => {
 const ButtonNavItem = ({ number, answered, isCurrent, link }) => {
   const styleProps = answered
     ? {
-        backgroundColor: "primary.base",
-        color: "white",
-        borderColor: "transparent",
-      }
+      backgroundColor: "primary.base",
+      color: "white",
+      borderColor: "transparent",
+    }
     : {
-        borderColor: "primary.base",
-      };
+      borderColor: "primary.base",
+    };
 
   return (
     <Link href={link}>
@@ -211,13 +212,14 @@ const CreateQuestionPage = (assessmentManager) => {
   const { id: courseId, assessmentId } = useParams();
   const questionId = useQueryParams().get("question");
   const isExamination = useQueryParams().get("examination");
+  const isEditMode = useQueryParams().get("edit") === "true";
 
   const isStandaloneExamination =
     courseId === "not-set" && assessmentId === "not-set" && isExamination
       ? true
       : false;
 
-  const isDeleteMode = questionId && questionId !== "new";
+  const isExistingQuestion = questionId && questionId !== "new";
 
   const { question, isLoading, error } = useQuestionDetails(assessmentManager);
   console.log(question, "quest");
@@ -312,21 +314,36 @@ const CreateQuestionPage = (assessmentManager) => {
   // const { handleDelete } = useCache();
   const onSubmit = async (data) => {
     try {
-      if (isDeleteMode) {
+      // Handle delete mode (only if not in edit mode)
+      if (isExistingQuestion && !isEditMode) {
         const ok = window.confirm(
           "Are you sure you want to delete this question?"
         );
 
         if (!ok) return;
+
+        const { message } = await adminDeleteStandaloneExaminationQuestion(
+          question.id
+        );
+
+        toast({
+          description: capitalizeFirstLetter(message),
+          position: "top",
+          status: "success",
+        });
+
+        assessmentManager.handleFetch(true);
+        push(getQuestionListingLink(isExamination, questionId));
+        return;
       }
 
+      // Handle create or edit mode
       const file = questionImageManager.handleGetFileAndValidate(
         "Question Cover",
-        true // TODO: remove comment
+        true
       );
 
       const questionText =
-        !isDeleteMode &&
         questionRichTextManager.handleGetValueAndValidate("Question");
 
       console.log(data);
@@ -344,69 +361,44 @@ const CreateQuestionPage = (assessmentManager) => {
       const hasAnswer = options.find((opt) => opt.isAnswer);
       if (!hasAnswer) throw new Error("Please select an answer");
 
-      data =
-        isDeleteMode && !isExamination
-          ? {
-              file,
-              question: JSON.stringify({
-                id: questionId,
-                question: questionText,
-                assessmentId,
-                // active: true,
-              }),
-              options: JSON.stringify(
-                options?.map((opt) => ({
-                  ...opt,
-                  id: question?.options.find(({ name }) => opt.name === name)
-                    ?.id,
-                  assessmentQuestionId: questionId,
-                  // active: true,
-                }))
-              ),
-            }
-          : isDeleteMode && isExamination
-          ? {
-              file,
-              question: JSON.stringify({
-                id: questionId,
-                question: questionText,
-                examinationId: isExamination,
-                active: true,
-              }),
-              options: JSON.stringify(
-                options?.map((opt) => ({
-                  ...opt,
-                  id: question?.options.find(
-                    ({ name }) => (opt.answer || opt.name) === name
-                  )?.id,
-                  examinationQuestionId: questionId,
-                  active: true,
-                }))
-              ),
-            }
-          : // is Create Mode
-          isExamination
-          ? {
-              file,
-              standAloneExaminationId: isExamination,
-              question: questionText,
-              options: JSON.stringify(options),
-            }
-          : {
-              file,
-              assessmentId,
-              question: questionText,
-              options: JSON.stringify(options),
-            };
-      console.log(JSON.parse(data.options));
-      const body = appendFormData(data);
+      // Prepare data for edit or create
+      let requestData;
 
-      const { message } = await (isDeleteMode && !isExamination
-        ? adminDeleteAssessmentQuestion(question.id)
-        : isDeleteMode && isExamination
-        ? adminDeleteExaminationQuestion(question.id)
-        : // Create mode
-          adminCreateStandaloneExaminationQuestion(body));
+      if (isEditMode) {
+        // Edit mode - for standalone examination
+        requestData = {
+          file,
+          question: JSON.stringify({
+            id: questionId,
+            question: questionText,
+            standAloneExaminationId: isExamination,
+          }),
+          options: JSON.stringify(
+            options?.map((opt) => ({
+              ...opt,
+              id: question?.options.find(
+                ({ name }) => (opt.answer || opt.name) === name
+              )?.id,
+              standAloneExaminationQuestionId: questionId,
+            }))
+          ),
+        };
+      } else {
+        // Create mode
+        requestData = {
+          file,
+          standAloneExaminationId: isExamination,
+          question: questionText,
+          options: JSON.stringify(options),
+        };
+      }
+
+      console.log(JSON.parse(requestData.options));
+      const body = appendFormData(requestData);
+
+      const { message } = await (isEditMode
+        ? adminEditStandaloneExaminationQuestion(body)
+        : adminCreateStandaloneExaminationQuestion(body));
 
       toast({
         description: capitalizeFirstLetter(message),
@@ -418,7 +410,22 @@ const CreateQuestionPage = (assessmentManager) => {
       reset();
 
       assessmentManager.handleFetch(true);
-      push(getQuestionListingLink(isExamination, questionId));
+
+      // Navigate appropriately based on mode
+      if (isEditMode) {
+        // After editing, go back to view mode
+        const viewLink = getEditLink(
+          questionId,
+          isStandaloneExamination,
+          isExamination,
+          courseId,
+          assessmentId
+        );
+        push(viewLink);
+      } else {
+        // After creating, go to listing
+        push(getQuestionListingLink(isExamination, questionId));
+      }
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -452,7 +459,7 @@ const CreateQuestionPage = (assessmentManager) => {
         paddingBottom="60px"
         backgroundColor="white"
       >
-        {isDeleteMode ? (
+        {isExistingQuestion && !isEditMode ? (
           <RichTextToView
             marginBottom={2}
             padding={2}
@@ -475,7 +482,7 @@ const CreateQuestionPage = (assessmentManager) => {
           />
         )}
         <Box marginTop={8}>
-          {isDeleteMode && !question?.file ? null : (
+          {isExistingQuestion && !isEditMode && !question?.file ? null : (
             <Upload
               id="coverImage"
               label="Question Image"
@@ -484,7 +491,7 @@ const CreateQuestionPage = (assessmentManager) => {
               // deleteRequestServiceFunction={deleteImage}
               imageUrl={questionImageManager.image.url}
               accept={questionImageManager.accept}
-              disabled={isDeleteMode}
+              disabled={isExistingQuestion && !isEditMode}
             />
           )}
         </Box>
@@ -503,7 +510,7 @@ const CreateQuestionPage = (assessmentManager) => {
               onClick={handleMultipleChoiceOptionsToggle}
               leftIcon={isMultipleChoiceOptions && <BsCheckCircle />}
               ghost={!isMultipleChoiceOptions}
-              disabled={isDeleteMode}
+              disabled={isExistingQuestion && !isEditMode}
             >
               Multiple Choices
             </Button>
@@ -511,7 +518,7 @@ const CreateQuestionPage = (assessmentManager) => {
               onClick={handleMultipleChoiceOptionsToggle}
               leftIcon={!isMultipleChoiceOptions && <BsCheckCircle />}
               ghost={isMultipleChoiceOptions}
-              disabled={isDeleteMode}
+              disabled={isExistingQuestion && !isEditMode}
             >
               True/False
             </Button>
@@ -522,7 +529,7 @@ const CreateQuestionPage = (assessmentManager) => {
           <Flex flexDirection="row" paddingBottom={6}>
             <Flex paddingTop={12} paddingRight={6}>
               <input
-                disabled={isDeleteMode}
+                disabled={isExistingQuestion && !isEditMode}
                 type="radio"
                 checked={answer === "1"}
                 onChange={handleAnswerChange}
@@ -535,14 +542,14 @@ const CreateQuestionPage = (assessmentManager) => {
               id="option-1"
               label="Option 01"
               {...register("option-1", { required: true })}
-              disabled={!isMultipleChoiceOptions || isDeleteMode}
+              disabled={!isMultipleChoiceOptions || (isExistingQuestion && !isEditMode)}
               placeholder="Enter the first option here"
             />
           </Flex>
           <Flex flexDirection="row" paddingBottom={6}>
             <Flex paddingTop={12} paddingRight={6}>
               <input
-                disabled={isDeleteMode}
+                disabled={isExistingQuestion && !isEditMode}
                 type="radio"
                 checked={answer === "2"}
                 onChange={handleAnswerChange}
@@ -555,7 +562,7 @@ const CreateQuestionPage = (assessmentManager) => {
               id="option-2"
               label="Option 02"
               {...register("option-2", { required: true })}
-              disabled={!isMultipleChoiceOptions || isDeleteMode}
+              disabled={!isMultipleChoiceOptions || (isExistingQuestion && !isEditMode)}
               placeholder="Enter the second option here"
             />
           </Flex>
@@ -564,7 +571,7 @@ const CreateQuestionPage = (assessmentManager) => {
               <Flex flexDirection="row" paddingBottom={6}>
                 <Flex paddingTop={12} paddingRight={6}>
                   <input
-                    disabled={isDeleteMode}
+                    disabled={isExistingQuestion && !isEditMode}
                     type="radio"
                     checked={answer === "3"}
                     onChange={handleAnswerChange}
@@ -574,7 +581,7 @@ const CreateQuestionPage = (assessmentManager) => {
                   />
                 </Flex>
                 <Input
-                  disabled={isDeleteMode}
+                  disabled={isExistingQuestion && !isEditMode}
                   id="option-3"
                   label="Option 03"
                   {...register("option-3", { required: true })}
@@ -584,7 +591,7 @@ const CreateQuestionPage = (assessmentManager) => {
               <Flex flexDirection="row" paddingBottom={6}>
                 <Flex paddingTop={12} paddingRight={6}>
                   <input
-                    disabled={isDeleteMode}
+                    disabled={isExistingQuestion && !isEditMode}
                     type="radio"
                     checked={answer === "4"}
                     onChange={handleAnswerChange}
@@ -594,7 +601,7 @@ const CreateQuestionPage = (assessmentManager) => {
                   />
                 </Flex>
                 <Input
-                  disabled={isDeleteMode}
+                  disabled={isExistingQuestion && !isEditMode}
                   id="option-4"
                   label="Option 04"
                   {...register("option-4", { required: true })}
@@ -606,14 +613,51 @@ const CreateQuestionPage = (assessmentManager) => {
         </Stack>
         {/* </fieldset> */}
       </Box>
-      <Flex justifyContent="flex-end" paddingTop={8}>
+      <Flex justifyContent="flex-end" paddingTop={8} gap={3}>
+        {isExistingQuestion && !isEditMode && (
+          <Button
+            onClick={() => {
+              const editLink = getEditLink(
+                questionId,
+                isStandaloneExamination,
+                isExamination,
+                courseId,
+                assessmentId
+              );
+              push(editLink + "&edit=true");
+            }}
+          >
+            Edit Question
+          </Button>
+        )}
+        {isEditMode && (
+          <Button
+            onClick={() => {
+              const viewLink = getEditLink(
+                questionId,
+                isStandaloneExamination,
+                isExamination,
+                courseId,
+                assessmentId
+              );
+              push(viewLink);
+            }}
+          >
+            Cancel
+          </Button>
+        )}
         <Button
           type="submit"
           disabled={isLoading || isSubmitting || error}
           isLoading={isLoading || isSubmitting}
-          leftIcon={isDeleteMode && <FaTrash />}
+          leftIcon={isExistingQuestion && !isEditMode && <FaTrash />}
         >
-          {isDeleteMode ? "Delete" : "Add"} Question
+          {isExistingQuestion && !isEditMode
+            ? "Delete"
+            : isEditMode
+              ? "Update"
+              : "Add"}{" "}
+          Question
         </Button>
       </Flex>
     </Box>
@@ -787,6 +831,10 @@ export const MoreIconButton = ({ editLink, onDelete }) => {
     push(editLink);
   };
 
+  const handleEditClick = () => {
+    push(editLink + "&edit=true");
+  };
+
   return (
     <Menu placement="bottom-end">
       <MenuButton
@@ -803,7 +851,8 @@ export const MoreIconButton = ({ editLink, onDelete }) => {
 
       <MenuList position="relative" zIndex={2}>
         <MenuItem onClick={handleViewClick}>Preview question</MenuItem>
-        <MenuItem onClick={onDelete}>Delete question</MenuItem>
+        <MenuItem onClick={handleEditClick}>Edit question</MenuItem>
+        <MenuItem onClick={onDelete} color="red.500">Delete question</MenuItem>
       </MenuList>
     </Menu>
   );
@@ -817,14 +866,22 @@ const getQuestionListingLink = (isExamination, questionId) =>
 //   }${questionId ? `&question=${questionId}` : ''}`;
 
 const getEditQuestionLink = (questionId, isExamination) => {
-  return `/admin/standalone-exams/questions/${
-    isExamination ? `?examination=${isExamination}` : ""
-  }${questionId ? `&question=${questionId}` : ""}`;
+  return `/admin/standalone-exams/questions/${isExamination ? `?examination=${isExamination}` : ""
+    }${questionId ? `&question=${questionId}` : ""}`;
+};
+
+const getEditLink = (
+  questionId,
+  isStandaloneExamination,
+  isExamination,
+  courseId,
+  assessmentId
+) => {
+  return `/admin/standalone-exams/questions/?examination=${isExamination}&question=${questionId}`;
 };
 
 const getQuestionNumber = (index) =>
-  `Question ${
-    index + 1 < 9 ? `0${index + 1}` : index === undefined ? "01" : index + 1
+  `Question ${index + 1 < 9 ? `0${index + 1}` : index === undefined ? "01" : index + 1
   }`;
 
 const buildOptions = (data, isStandaloneExamination) => {

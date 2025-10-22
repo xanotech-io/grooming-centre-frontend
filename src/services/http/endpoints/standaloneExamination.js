@@ -337,6 +337,22 @@ export const adminDeleteStandaloneExaminationQuestion = async (questionId) => {
 
   return { message };
 };
+
+/**
+ * Endpoint for standalone examination question modification/update
+ * @param {object} body
+ * @returns {Promise<{ message: string }>}
+ */
+export const adminEditStandaloneExaminationQuestion = async (body) => {
+  const path = `/stand-alone-examination-question/edit`;
+
+  const {
+    data: { message },
+  } = await http.patch(path, body);
+
+  return { message };
+};
+
 /**
  * Endpoint to for admin to edit a examination
  * @param {{ title: ?string, duration: number, amountOfQuestions: number, startTime: ?Date, courseId: string }} body
