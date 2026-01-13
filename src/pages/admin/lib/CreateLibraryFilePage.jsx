@@ -171,6 +171,9 @@ const CreateLibraryFilePage = () => {
       });
 
       if (isEditMode) push(`/admin/library/details/${fileId}`);
+      else {
+        push(`/admin/library/details/${fileId}`);
+      }
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -223,7 +226,14 @@ const CreateLibraryFilePage = () => {
         submitButtonIsDisabled={!allMetadata}
         submitButtonIsLoading={isSubmitting}
       >
-        <Grid templateColumns="repeat(2, 1fr)" gap={10} marginBottom={10}>
+        <Box
+          as="div"
+          display={{ lg: "grid", sm: "flex", md: "flex" }}
+          flexDirection="column"
+          gridTemplateColumns="1fr 1fr"
+          gap={10}
+          marginBottom={10}
+        >
           {/* Row 1 */}
           <GridItem>
             <Input
@@ -247,7 +257,7 @@ const CreateLibraryFilePage = () => {
               error={errors.departmentId?.message}
             />
           </GridItem>
-        </Grid>
+        </Box>
         {/* Row 2 */}
         <Grid marginBottom={10}>
           <Textarea
@@ -268,7 +278,7 @@ const CreateLibraryFilePage = () => {
         </Grid>
 
         <Grid marginBottom={10}>
-          <GridItem width="50%">
+          <GridItem width={{ lg: "50%", base: "100%" }}>
             <Select
               id="libraryTypeId"
               label="File type"
@@ -296,7 +306,7 @@ const CreateLibraryFilePage = () => {
               videoUrl={fileManager.video.url}
               pdfUrl={fileManager.pdf.url}
               audioUrl={fileManager.audio.url}
-              disabled={!getValues("libraryTypeId")}
+              //disabled={!getValues("libraryTypeId")}
               onFileSelect={fileManager.handleFileSelect}
               accept={fileManager.accept}
             />

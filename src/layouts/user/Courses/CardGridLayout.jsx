@@ -1,6 +1,8 @@
 import { Grid, GridItem } from "@chakra-ui/layout";
 import { CourseBoxCard, Button } from "../../../components";
 import { EmptyState } from "../../../layouts";
+import CoursesPagination from "../../../components/Pagination/CoursesPagination";
+import { useEffect, useState } from "react";
 
 export const CardGridLayout = ({ cardContents }) => {
   const cardContentsIsEmpty =
@@ -14,6 +16,21 @@ export const CardGridLayout = ({ cardContents }) => {
   const IsAudio = /audio/i.test(window.location.pathname);
 
   const IsPdf = /books/i.test(window.location.pathname);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setitemsPerPage] = useState(4);
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+
+  const pageLength = cardContents?.data?.length;
+
+  const currentItems = cardContents?.data?.slice(
+    indexOfFirstItem,
+    indexOfLastItem
+  );
+
+  const npages = Math.ceil(pageLength / itemsPerPage);
 
   return (
     <>
@@ -40,8 +57,7 @@ export const CardGridLayout = ({ cardContents }) => {
         className="card-grid-layout"
         templateColumns={{
           base: "repeat(1, 1fr)",
-          "mobile-m": "repeat(2, 250px)",
-          "mobile-l": "repeat(2, 1fr)",
+
           tablet: "repeat(3, 1fr)",
           laptop: "repeat(4, 1fr)",
           // "laptop-l": "repeat(5, 1fr)",
@@ -53,9 +69,9 @@ export const CardGridLayout = ({ cardContents }) => {
           "mobile-l": "hidden",
         }}
         overflowY="hidden"
-        columnGap={{ base: "40px", laptop: "60px" }}
+        columnGap={{ base: "20px", laptop: "30px" }}
         rowGap={{ base: "40px", laptop: "50px" }}
-        padding={1}
+        padding={5}
       >
         {cardContents.err && (
           <GridItem
@@ -79,7 +95,7 @@ export const CardGridLayout = ({ cardContents }) => {
             .fill("")
             .map((_, index) => <CourseBoxCard key={index} isLoading />)}
 
-        {cardContents.data?.map((cardContent, index) => (
+        {currentItems?.map((cardContent, index) => (
           <CourseBoxCard
             key={index}
             {...cardContent}
@@ -87,6 +103,13 @@ export const CardGridLayout = ({ cardContents }) => {
           />
         ))}
       </Grid>
+      <CoursesPagination
+        itemsPerPage={itemsPerPage}
+        pageLength={pageLength}
+        setCurrentPage={setCurrentPage}
+        currentPage={currentPage}
+        npages={npages}
+      />
     </>
   );
 };

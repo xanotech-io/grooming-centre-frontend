@@ -1,8 +1,8 @@
-import { useToast } from "@chakra-ui/toast";
-import Icon from "@chakra-ui/icon";
-import { useHistory } from "react-router-dom";
-import { Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/menu";
-import { Box, Flex, HStack, Stack } from "@chakra-ui/layout";
+import { useToast } from '@chakra-ui/toast';
+import Icon from '@chakra-ui/icon';
+import { useHistory } from 'react-router-dom';
+import { Menu, MenuButton, MenuItem, MenuList } from '@chakra-ui/menu';
+import { Box, Flex, HStack, Stack } from '@chakra-ui/layout';
 import {
   Modal,
   ModalOverlay,
@@ -10,17 +10,17 @@ import {
   ModalFooter,
   ModalBody,
   useDisclosure,
-} from "@chakra-ui/react";
-import PropTypes from "prop-types";
-import { BiComment } from "react-icons/bi";
-import { HiDotsVertical } from "react-icons/hi";
-import { Image, Link, SelectedTags, Text } from "..";
-import thumbnailPlaceholder from "../../assets/images/onboarding1.png";
-import { capitalizeWords, formatToUsername, getFullName } from "../../utils";
-import { Button } from "../";
-import { useLoggedInUserIsTheCreator } from "../../hooks";
-import { AiOutlineCloseCircle } from "react-icons/ai";
-import { userForumDeleteQuestion } from "../../services";
+} from '@chakra-ui/react';
+import PropTypes from 'prop-types';
+import { BiComment } from 'react-icons/bi';
+import { HiDotsVertical } from 'react-icons/hi';
+import { Image, Link, SelectedTags, Text } from '..';
+import thumbnailPlaceholder from '../../assets/images/onboarding1.png';
+import { capitalizeWords, formatToUsername, getFullName } from '../../utils';
+import { Button } from '../';
+import { useLoggedInUserIsTheCreator } from '../../hooks';
+import { AiOutlineCloseCircle } from 'react-icons/ai';
+import { userForumDeleteQuestion } from '../../services';
 
 export const QuestionListCard = ({
   id,
@@ -36,11 +36,11 @@ export const QuestionListCard = ({
   mentionedUser,
 }) => {
   const boxStyle = {
-    boxShadow: "2px 1px 5px rgba(0, 0, 0, 0.15)",
-    margin: "4px",
-    marginBottom: "28px",
-    display: "block",
-    borderRadius: "5px",
+    boxShadow: '2px 1px 5px rgba(0, 0, 0, 0.15)',
+    margin: '4px',
+    marginBottom: '28px',
+    display: 'block',
+    borderRadius: '5px',
   };
 
   const showMoreIconButton = useLoggedInUserIsTheCreator(user);
@@ -61,19 +61,19 @@ export const QuestionListCard = ({
       await userForumDeleteQuestion(id);
 
       toast({
-        description: "Question deleted successfully",
-        position: "top",
+        description: 'Question deleted successfully',
+        position: 'top',
         duration: 500,
-        status: "success",
+        status: 'success',
       });
 
       onDeleteSuccess();
     } catch (error) {
       toast({
         description: capitalizeWords(error.message),
-        position: "top",
+        position: 'top',
         duration: 1000,
-        status: "error",
+        status: 'error',
       });
     }
   };
@@ -87,8 +87,8 @@ export const QuestionListCard = ({
       position="relative"
       _hover={
         !disabled && {
-          transform: "scale(1.005)",
-          cursor: "pointer",
+          transform: 'scale(1.005)',
+          cursor: 'pointer',
         }
       }
     >
@@ -96,11 +96,11 @@ export const QuestionListCard = ({
         <Link
           href={`/forum/questions/details/${id}`}
           style={{
-            position: "absolute",
+            position: 'absolute',
             top: 0,
             left: 0,
-            width: "100%",
-            height: "100%",
+            width: '100%',
+            height: '100%',
           }}
         ></Link>
       )}
@@ -138,7 +138,7 @@ export const QuestionListCard = ({
 
       {mentionedUser && (
         <Text opacity={0.76}>
-          Mentioned{" "}
+          Mentioned{' '}
           <Box as="b" color="secondary.6">
             {formatToUsername(getFullName(mentionedUser))}
           </Box>
@@ -183,7 +183,7 @@ export const QuestionListCard = ({
 };
 
 export const ForumMessageCardMoreIconButton = ({
-  context = "question",
+  context = 'question',
   onEdit,
   onDelete,
   deleteStatusIsLoading,
@@ -194,7 +194,7 @@ export const ForumMessageCardMoreIconButton = ({
       <MenuButton
         padding={2}
         rounded="full"
-        _hover={{ backgroundColor: "secondary.05" }}
+        _hover={{ backgroundColor: 'secondary.05' }}
         {...rest}
       >
         <HiDotsVertical />
@@ -256,7 +256,7 @@ export function DeleteMenuItemButton({
   );
 }
 
-export const DeletedMsg = ({ context = "question" }) => (
+export const DeletedMsg = ({ context = 'question' }) => (
   <Flex flexDir="column" justifyContent="center" alignItems="center" h="80px">
     <Icon color="red.500" fontSize="heading.h3">
       <AiOutlineCloseCircle />

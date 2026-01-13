@@ -35,8 +35,8 @@ const useAssessmentPreview = (
 
   const queryParams = useQueryParams();
   const isExamination = queryParams.get("examination");
-  const isStandaloneExamination =
-    courseId === "not-set" && isExamination ? true : false;
+
+  const isStandaloneExamination = !courseId && isExamination ? true : false;
 
   const index = sidebarLinks?.findIndex((link) => link.id === assessmentId);
   const currentAssessmentLink = { text: sidebarLinks?.[index]?.text };
@@ -55,7 +55,7 @@ const useAssessmentPreview = (
       : requestAssessmentDetails(assessmentId, isForAdmin));
 
     return isExamination ? data.examination : data.assessment;
-  }, [assessmentId, isExamination, isForAdmin, isStandaloneExamination]);
+  }, []);
 
   const fetchAssessmentDetails = useCallback(
     async (bypassCache) => {

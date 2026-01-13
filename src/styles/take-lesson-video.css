@@ -1,0 +1,8 @@
+.take-lesson-video-wrapper video::-webkit-media-controls-timeline {
+  display: none;
+}
+.take-lesson-video-wrapper video::-webkit-media-controls-fullscreen-button {
+  position: relative;
+  z-index: 100;
+  transform: translateX(100%);
+}

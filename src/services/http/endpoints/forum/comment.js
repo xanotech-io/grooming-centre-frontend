@@ -1,5 +1,5 @@
-import { getFullName } from "../../../../utils";
-import { http } from "../../http";
+import { getFullName } from '../../../../utils';
+import { http } from '../../http';
 
 export const getExpressionCount = (expText, expressions) =>
   Array.isArray(expressions)
@@ -19,32 +19,47 @@ export const getExpressionCount = (expText, expressions) =>
  * }
  */
 export const userForumGetYourAnswers = async () => {
-  const path = `/forum/your-answers`;
+  const path = `/forum/answers`;
 
   const {
     data: { data },
   } = await http.get(path);
 
+  console.log(data);
+
   const comments = data.map((comment) => ({
     id: comment.id,
     questionId: comment.questionId,
+    updatedAt: comment.updatedAt,
     createdAt: comment.createdAt,
     body: comment.comment,
-    commentId: comment.commentId,
-    replyCount: comment.replies.length,
-    likes: getExpressionCount("like", comment.expressions),
-    dislikes: getExpressionCount("dislike", comment.expressions),
-    expressions: comment.expressions,
+    commentId: comment?.commentId,
+    likes: getExpressionCount('like', comment.expressions),
+    dislikes: getExpressionCount('dislike', comment.expressions),
     active: comment.active,
-    replies: comment.replies.map((reply) => ({
-      id: reply.id,
-      body: reply.comment,
-      user: {
-        id: reply.user.id,
-        fullName: getFullName(reply.user),
-      },
-    })),
+    user: comment.userId,
   }));
+
+  // const comments = data?.map((comment) => ({
+  //   id: comment.id,
+  //   questionId: comment.questionId,
+  //   createdAt: comment.createdAt,
+  //   body: comment.comment,
+  //   commentId: comment.commentId,
+  //   replyCount: comment.replies.length,
+  //   likes: getExpressionCount('like', comment.expressions),
+  //   dislikes: getExpressionCount('dislike', comment.expressions),
+  //   expressions: comment.expressions,
+  //   active: comment.active,
+  //   replies: comment.replies.map((reply) => ({
+  //     id: reply.id,
+  //     body: reply.comment,
+  //     user: {
+  //       id: reply.user.id,
+  //       fullName: getFullName(reply.user),
+  //     },
+  //   })),
+  // }));
 
   return { comments };
 };
@@ -66,6 +81,8 @@ export const userForumGetComments = async (questionId) => {
     data: { data },
   } = await http.get(path);
 
+  console.log(data);
+
   const comments = data
     .filter((comment) => comment.commentId === null)
     .map((comment) => ({
@@ -73,8 +90,8 @@ export const userForumGetComments = async (questionId) => {
       createdAt: comment.createdAt,
       body: comment.comment,
       replyCount: comment.comments?.length || 0,
-      likes: getExpressionCount("like", comment.expressions),
-      dislikes: getExpressionCount("dislike", comment.expressions),
+      likes: getExpressionCount('like', comment.expressions),
+      dislikes: getExpressionCount('dislike', comment.expressions),
       expressions: Array.isArray(comment.expressions)
         ? comment.expressions
         : [],
@@ -97,6 +114,7 @@ export const userForumGetComments = async (questionId) => {
         : [],
     }));
 
+  console.log(comments);
   return { comments };
 };
 
@@ -124,8 +142,8 @@ export const userForumEditComment = async (commentId, body) => {
     active: data.active,
     questionId: data.questionId,
     createdAt: data.createdAt,
-    likes: getExpressionCount("like", data.expressions),
-    dislikes: getExpressionCount("dislike", data.expressions),
+    likes: getExpressionCount('like', data.expressions),
+    dislikes: getExpressionCount('dislike', data.expressions),
     expressions: Array.isArray(data.expressions) ? data.expressions : [],
     replyCount: data.comments?.length || 0,
     replies:
@@ -170,14 +188,16 @@ export const userForumAddComment = async (body) => {
     data: { message, data },
   } = await http.post(path, { ...body });
 
+  console.log(data);
+
   const comment = {
     id: data.id,
     body: data.comment,
     active: data.active,
     questionId: data.questionId,
     createdAt: data.createdAt,
-    likes: getExpressionCount("like", data.expressions),
-    dislikes: getExpressionCount("dislike", data.expressions),
+    likes: getExpressionCount('like', data.expressions),
+    dislikes: getExpressionCount('dislike', data.expressions),
     expressions: Array.isArray(data.expressions) ? data.expressions : [],
   };
 

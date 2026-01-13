@@ -44,20 +44,31 @@ export const requestEndLesson = async (id) => {
  *
  * @returns {Promise<{ message: string, lesson: { id: string } }>}
  */
-export const adminCreateLesson = async (body) => {
+export const adminCreateLesson = async (body, onProgressCallback) => {
   const path = `/lesson/create`;
+  let uploadProgress = 0;
+  const config = {
+    onUploadProgress: (progressEvent) => {
+      uploadProgress = Math.round(
+        (progressEvent.loaded / progressEvent.total) * 100
+      );
 
-  const {
-    data: { message, data },
-  } = await http.post(path, body);
-
-  const lesson = {
-    id: data.id,
+      onProgressCallback(uploadProgress);
+    },
   };
+  try {
+    const {
+      data: { message, data },
+    } = await http.post(path, body, config);
 
-  return { message, lesson };
+    const lesson = { id: data.id };
+
+    return { message, lesson };
+  } catch (error) {
+    console.error("Error creating lesson:", error);
+    throw error;
+  }
 };
-
 /**
  * Endpoint to for admin to edit a lesson
  * @param {{ title: ?string, content: ?string, lessonTypeId: ?string, startTime: ?Date, endTime: ?Date, file: ?File, courseId: string }} body
@@ -87,12 +98,10 @@ export const adminEditLesson = async (lessonId, body) => {
  * @returns {Promise<{ message: string, lessons: Array<{ id: string, title: string, startTime: Date, active: boolean, courseId: string }>}>}
  */
 export const adminGetLessonListing = async (courseId, params, body) => {
-  const path = `/lesson/admin/${courseId}`;
-
+  const path = `/lesson/admin/${courseId}?sort=asc`;
   const {
     data: { message, data },
   } = await http.get(path, { params }, body);
-
   return {
     message,
     lessons: data.rows.map((lesson) => ({
@@ -105,4 +114,13 @@ export const adminGetLessonListing = async (courseId, params, body) => {
     showingDocumentsCount: data.rows.length,
     totalDocumentsCount: data.rows.length,
   };
+};
+export const adminDeleteLesson = async (ids) => {
+  const path = `/lesson/delete`;
+  let formattedIds = [];
+  for (let i = 0; i < ids.length; i++) {
+    formattedIds.push(ids[i].id);
+  }
+  const body = { lessonIds: formattedIds };
+  await http.delete(path, { data: body });
 };

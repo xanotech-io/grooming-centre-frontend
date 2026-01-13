@@ -25,8 +25,10 @@ import dayjs from "dayjs";
 const CourseDetailsPage = () => {
   const { courseDetails, fetchCourseDetails } = useCourseDetails();
 
+  console.log("=== Course Details State ===", courseDetails);
+
   useEffect(() => {
-    fetchCourseDetails();
+    fetchCourseDetails(true);
   }, [fetchCourseDetails]);
 
   const courseDetailsData = courseDetails.data;
@@ -84,7 +86,13 @@ const CourseDetailsPage = () => {
           title={item?.title}
           date={`${getDuration(item?.duration).combinedText}`}
           icon={
-            item?.lessonType?.name !== "video" ? <VscFiles /> : <IoVideocam />
+            isAssessment || isExamination ? (
+              <VscFiles />
+            ) : item?.lessonType?.name === "video" ? (
+              <IoVideocam />
+            ) : (
+              <VscFiles />
+            )
           }
           flex={1}
           marginLeft={16}
@@ -116,11 +124,91 @@ const CourseDetailsPage = () => {
     );
   };
 
-  const renderCurriculumList = (key) => {
-    const isAssessment = key === "assessments";
+  const renderCurriculumList = () => {
+    const combinedItems = [];
 
-    return courseDetailsData?.[key].map((lesson) => {
-      return renderItem(lesson, { isAssessment });
+    if (courseDetailsData?.lessons) {
+      courseDetailsData.lessons.forEach((lesson) => {
+        combinedItems.push({
+          ...lesson,
+          itemType: "lesson",
+        });
+      });
+    }
+
+    if (courseDetailsData?.assessments) {
+      courseDetailsData.assessments.forEach((assessment) => {
+        combinedItems.push({
+          ...assessment,
+          itemType: "assessment",
+        });
+      });
+    }
+
+    const extractModuleNumber = (title) => {
+      const match = title.match(/(module|lesson)\s+(\d+)/i);
+      return match ? parseInt(match[2], 10) : null;
+    };
+
+    const extractAssessmentModules = (title) => {
+      const numbers = title.match(/\d+/g);
+      if (numbers && numbers.length > 0) {
+        return Math.max(...numbers.map((n) => parseInt(n, 10)));
+      }
+      return null;
+    };
+
+    const itemsWithSortKeys = combinedItems.map((item) => {
+      let sortKey;
+
+      if (item.itemType === "lesson") {
+        const moduleNum = extractModuleNumber(item.title);
+        if (moduleNum !== null) {
+          sortKey = moduleNum;
+        } else {
+          const createdTime = new Date(item.createdAt).getTime();
+          sortKey = -createdTime / 1e15;
+        }
+      } else if (item.itemType === "assessment") {
+        const maxModule = extractAssessmentModules(item.title);
+        if (maxModule !== null) {
+          sortKey = maxModule + 0.5;
+        } else {
+          sortKey = 9999;
+        }
+      }
+
+      return { ...item, sortKey };
+    });
+
+    itemsWithSortKeys.forEach((item, index) => {
+      console.log(
+        `${index + 1}. [${item.itemType}] ${item.title} - sortKey: ${
+          item.sortKey
+        }`
+      );
+    });
+
+    const sortedItems = itemsWithSortKeys.sort((a, b) => {
+      if (a.sortKey !== b.sortKey) {
+        return a.sortKey - b.sortKey;
+      }
+      const createdA = new Date(a.createdAt).getTime();
+      const createdB = new Date(b.createdAt).getTime();
+      return createdA - createdB;
+    });
+
+    sortedItems.forEach((item, index) => {
+      console.log(
+        `${index + 1}. [${item.itemType}] ${item.title} - sortKey: ${
+          item.sortKey
+        }`
+      );
+    });
+
+    return sortedItems.map((item) => {
+      const isAssessment = item.itemType === "assessment";
+      return renderItem(item, { isAssessment });
     });
   };
 
@@ -237,9 +325,9 @@ const CourseDetailsPage = () => {
         </Accordion>
 
         <Accordion heading="Course Curriculum">
-          {renderCurriculumList("lessons")}
-          {renderCurriculumList("assessments")}
-          {renderItem(courseDetailsData?.examination, { isExamination: true })}
+          {renderCurriculumList()}
+          {courseDetailsData?.examination &&
+            renderItem(courseDetailsData?.examination, { isExamination: true })}
         </Accordion>
         {/* {courseDetailsData?.lessons[0] && (
           <Box textAlign="right" pr={2}>
@@ -264,7 +352,7 @@ const Accordion = ({ heading, children }) => {
     <Box as="section" marginBottom={7}>
       <Flex
         as="header"
-        backgroundColor="secondary.7"
+        backgroundColor="primary.base"
         color="white"
         paddingX={8}
         paddingY={3}
@@ -289,7 +377,7 @@ const Accordion = ({ heading, children }) => {
       <Box
         overflowY="hidden"
         transition=".5s"
-        maxHeight={accordionManager.isOpen ? "1000px" : "0px"}
+        // maxHeight={accordionManager.isOpen ? "1000px" : "0px"}
       >
         {children}
       </Box>

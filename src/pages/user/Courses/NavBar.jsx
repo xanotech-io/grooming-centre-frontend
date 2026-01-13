@@ -22,7 +22,7 @@ const links = [
 
 const NavBar = ({ ...rest }) => {
   return (
-    <Flex as="nav" {...rest}>
+    <Flex as="nav" {...rest} className="">
       <Flex listStyleType="none" as="ul">
         {links.map((link) => (
           <li key={link.href}>

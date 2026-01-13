@@ -1,41 +1,41 @@
-import { Box, Flex, HStack } from "@chakra-ui/layout";
-import { Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/menu";
-import { useCallback, useEffect } from "react";
-import { BiGridSmall, BiRightArrowAlt } from "react-icons/bi";
-import { BsArrowUpLeft, BsClockHistory } from "react-icons/bs";
-import { GoIssueClosed } from "react-icons/go";
-import { HiDotsVertical } from "react-icons/hi";
-import { Route, useHistory } from "react-router-dom";
-import { Button } from "../../../components";
-import { useQueryParams, useTab } from "../../../hooks";
-import { adminGetEventListing } from "../../../services";
-import { isUpcoming } from "../../../utils";
+import { Box, Flex, HStack } from '@chakra-ui/layout';
+import { Menu, MenuButton, MenuItem, MenuList } from '@chakra-ui/menu';
+import { useCallback, useEffect } from 'react';
+import { BiGridSmall, BiRightArrowAlt } from 'react-icons/bi';
+import { BsArrowUpLeft, BsClockHistory } from 'react-icons/bs';
+import { GoIssueClosed } from 'react-icons/go';
+import { HiDotsVertical } from 'react-icons/hi';
+import { Route, useHistory } from 'react-router-dom';
+import { Button } from '../../../components';
+import { useQueryParams, useTab } from '../../../hooks';
+import { adminGetEventListing } from '../../../services';
+import { isUpcoming } from '../../../utils';
 import {
   EventListing,
   EventNameLink,
   useEventsPage,
   ViewEventButton,
-} from "../../user";
+} from '../../user';
 
 const links = [
   {
-    text: "All",
-    tab: "all",
+    text: 'All',
+    tab: 'all',
     icon: <BiGridSmall />,
   },
   {
-    text: "Ongoing",
-    tab: "ongoing",
+    text: 'Ongoing',
+    tab: 'ongoing',
     icon: <BsClockHistory />,
   },
   {
-    text: "Upcoming",
-    tab: "upcoming",
+    text: 'Upcoming',
+    tab: 'upcoming',
     icon: <BsArrowUpLeft />,
   },
   {
-    text: "Ended",
-    tab: "ended",
+    text: 'Ended',
+    tab: 'ended',
     icon: <GoIssueClosed />,
   },
 ];
@@ -43,7 +43,7 @@ const links = [
 export const useAdminEventsPage = (currentTab) => {
   const fetcher = useCallback(async () => {
     const { events } = await adminGetEventListing(
-      currentTab !== "all" && { status: currentTab }
+      currentTab !== 'all' && { status: currentTab }
     );
 
     return events.map((event) => ({
@@ -64,7 +64,7 @@ export const useAdminEventsPage = (currentTab) => {
 
   const { events, eventsIsEmpty, isLoading, hasError } = useEventsPage({
     fetcher,
-    cacheKey: "admin-events",
+    cacheKey: 'admin-events',
   });
 
   return { events, eventsIsEmpty, isLoading, hasError };
@@ -73,11 +73,11 @@ export const useAdminEventsPage = (currentTab) => {
 const EventsPage = () => {
   const { currentTab } = useTab();
   const { replace } = useHistory();
-  const tabQuery = useQueryParams().get("tab");
+  const tabQuery = useQueryParams().get('tab');
 
   useEffect(() => {
     if (!tabQuery) {
-      replace("/admin/events?tab=all");
+      replace('/admin/events?tab=all');
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -99,7 +99,6 @@ const Content = ({ currentTab }) => {
 
   return (
     <Box>
-      {/* {events && !eventsIsEmpty && ( */}
       <HStack alignSelf="flex-start" spacing={1} flex={1} mb={2}>
         {links.map((link) => (
           <Button
@@ -113,7 +112,6 @@ const Content = ({ currentTab }) => {
           </Button>
         ))}
       </HStack>
-      {/* )} */}
       <EventListing
         isLoading={isLoading}
         hasError={hasError}
@@ -134,7 +132,7 @@ const MoreIcon = ({ event }) => {
       <MenuButton
         padding={4}
         rounded="full"
-        _hover={{ backgroundColor: "secondary.05" }}
+        _hover={{ backgroundColor: 'secondary.05' }}
       >
         <HiDotsVertical />
       </MenuButton>
@@ -163,7 +161,7 @@ const EditButton = ({ event, isMenuItem }) => {
         isUpcoming(event.startTime, event.endTime) &&
         push(`/admin/events/edit/${event.id}`)
       }
-      cursor={!isUpcoming(event.startTime, event.endTime) && "no-drop"}
+      cursor={!isUpcoming(event.startTime, event.endTime) && 'no-drop'}
     >
       Edit
     </MenuItem>

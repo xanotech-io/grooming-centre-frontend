@@ -1,31 +1,24 @@
-import { useEffect } from "react";
-import { useCallback } from "react";
-import { useFetch } from "../../../../../hooks";
-import { userForumGetYourQuestions } from "../../../../../services";
+import { useEffect } from 'react';
+import { useCallback } from 'react';
+import { useFetch } from '../../../../../hooks';
+import { userForumGetYourQuestions } from '../../../../../services';
 
 const useQuestionsPage = () => {
   const { resource: questions, handleFetchResource } = useFetch();
 
-  const handleFetch = useCallback(() => {
-    handleFetchResource({
-      fetcher: async () => {
-        const { questions } = await userForumGetYourQuestions();
+  const fetcher = useCallback(async () => {
+    const { questions } = await userForumGetYourQuestions();
 
-        console.log(questions);
-
-        return questions;
-      },
-    });
-  }, [handleFetchResource]);
+    return questions;
+  }, []);
 
   // Handle fetch category
   useEffect(() => {
-    handleFetch();
-  }, [handleFetch]);
+    handleFetchResource({ fetcher });
+  }, [handleFetchResource, fetcher]);
 
   return {
     questions,
-    handleFetch,
   };
 };
 

@@ -1,6 +1,6 @@
-import { useCallback } from "react";
-import { useEffect } from "react";
-import { useApp } from "../contexts";
+import { useCallback } from 'react';
+import { useEffect } from 'react';
+import { useApp } from '../contexts';
 
 /**
  * Refresh the page after first login
@@ -11,12 +11,12 @@ import { useApp } from "../contexts";
 export const usePageRefreshAfterLogin = () => {
   const appManager = useApp();
 
-  const hasInitRefreshed = window.localStorage.getItem("refresh");
+  const hasInitRefreshed = window.localStorage.getItem('refresh');
 
   const handler = useCallback(() => {
     if (hasInitRefreshed === null) {
       window.location.reload();
-      window.localStorage.setItem("refresh", "1");
+      window.localStorage.setItem('refresh', '1');
     }
   }, [hasInitRefreshed]);
 
@@ -34,7 +34,7 @@ export const useRemoveRefresh = () => {
 
   useEffect(() => {
     if (!appManager.isAuthenticated) {
-      localStorage.removeItem("refresh");
+      localStorage.removeItem('refresh');
     }
   }, [appManager.isAuthenticated]);
 };

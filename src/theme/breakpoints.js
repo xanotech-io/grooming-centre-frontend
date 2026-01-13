@@ -14,4 +14,9 @@ export const maxWidthStyles_userPages = {
   paddingX: { base: 3, laptop: 6 },
 };
 
+export const pageWrapperSpacing_userPages = {
+	marginX: { base: 0, laptop: 6 },
+	paddingX: { base: 2, laptop: 0 },
+};
+
 export default breakpoints;

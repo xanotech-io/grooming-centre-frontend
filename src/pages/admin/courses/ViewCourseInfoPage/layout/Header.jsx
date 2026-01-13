@@ -1,32 +1,35 @@
-import { Flex } from "@chakra-ui/layout";
-import { Link, Text } from "../../../../../components";
-import colors from "../../../../../theme/colors";
+import { Flex } from '@chakra-ui/layout';
+import { Link, Text } from '../../../../../components';
+import colors from '../../../../../theme/colors';
 
 const links = [
   {
     href: (courseId) => `/admin/courses/details/${courseId}/info`,
-    text: "Info",
+    text: 'Info',
   },
   {
     href: (courseId) => `/admin/courses/details/${courseId}/lessons`,
-    text: "Lessons",
+    text: 'Lessons',
   },
   {
     href: (courseId) => `/admin/courses/details/${courseId}/assessment`,
-    text: "Assessment",
+    text: 'Assessment',
   },
   {
     href: (courseId) => `/admin/courses/details/${courseId}/exam`,
-    text: "Exam",
+    text: 'Exam',
+  },
+  {
+    href: (courseId) => `/admin/courses/details/${courseId}/progress-report`,
+    text: 'Progress Report',
   },
 ];
 
 const Header = () => {
-  
   const id = window.location.pathname
     .match(/\/details\/.{1,}\//)[0]
-    .replace("/details/", "")
-    .replace("/", "");
+    .replace('/details/', '')
+    .replace('/', '');
 
   return (
     <Flex
@@ -48,7 +51,7 @@ const Header = () => {
                 href={link.href(id)}
                 style={{
                   color: colors.accent[2],
-                  display: "block",
+                  display: 'block',
                 }}
                 activeStyle={{
                   color: colors.black,

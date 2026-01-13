@@ -7,7 +7,7 @@ import useAccordion from "./hooks/useAccordion";
 import { Box, Flex } from "@chakra-ui/layout";
 import { Link, Text } from "../../../components";
 
-const SidebarLink = ({ link }) => {
+const SidebarLink = ({ link, onClick }) => {
   const accordionManager = useAccordion();
 
   const handleTopLevelLinkClick = () => {
@@ -35,7 +35,7 @@ const SidebarLink = ({ link }) => {
       {...props}
       {...(accordionManager.isActive
         ? {
-            backgroundColor: colors.primary.base,
+            backgroundColor: colors.secondary.base,
             color: "white",
             borderRadius: "4px",
           }
@@ -62,6 +62,7 @@ const SidebarLink = ({ link }) => {
     <li>
       {link.href ? (
         <Link
+          onClick={onClick}
           navLink
           href={link.href}
           exact={link.exact}
@@ -71,7 +72,7 @@ const SidebarLink = ({ link }) => {
             color: colors.accent[3],
           }}
           activeStyle={{
-            backgroundColor: colors.primary.base,
+            backgroundColor: colors.others[3],
             color: "white",
           }}
         >

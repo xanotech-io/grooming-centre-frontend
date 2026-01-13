@@ -8,8 +8,9 @@ import { Grades } from "../../../../user";
 const useGradeDetails = () => {
   const { handleGetOrSetAndGet } = useCache();
   const componentIsMount = useComponentIsMount();
+  const [myGrades, setMyGrades] = useState({});
 
-  const {id: userId} = useParams();
+  const { id: userId } = useParams();
 
   const [gradeDetails, setGradeDetails] = useState({
     data: null,
@@ -18,15 +19,24 @@ const useGradeDetails = () => {
   });
 
   const fetcher = useCallback(async () => {
-    const { grades } = await adminGetUserGrades(userId);
-    return grades;
+    setGradeDetails({ loading: true });
+    try {
+      const { grades } = await adminGetUserGrades(userId);
+      setMyGrades(grades);
+    } catch (error) {
+      setGradeDetails({ err: error.message });
+      console.log(error.message);
+    }
   }, [userId]);
+
+  useEffect(() => {
+    fetcher();
+  }, [fetcher]);
+
   const fetchGradeDetails = useCallback(async () => {
     setGradeDetails({ loading: true });
-
     try {
       const gradeDetails = await handleGetOrSetAndGet("gradeDetails", fetcher);
-      // console.log(gradeDetails);
       if (componentIsMount) setGradeDetails({ data: gradeDetails });
     } catch (err) {
       console.log(err.message);
@@ -39,25 +49,24 @@ const useGradeDetails = () => {
   useEffect(() => {
     fetchGradeDetails();
   }, [fetchGradeDetails]);
-
-  const grades = gradeDetails.data;
+  const grade = gradeDetails.data;
   const isLoading = gradeDetails.loading;
   const error = gradeDetails.err;
-
+  console.log(grade);
   return {
-    grades,
+    grade,
     isLoading,
     error,
+    myGrades,
   };
 };
 
 const GradeHistoryPage = () => {
   const manager = useGradeDetails();
 
-  const { grades, isLoading } = manager;
-  console.log(grades);
+  const { grade, isLoading, myGrades } = manager;
 
-  return  <Grades isLoading={isLoading} grades={grades} />
+  return <Grades isLoading={isLoading} grades={grade} myGrades={myGrades} />;
 };
 
 const GradeHistoryPageRoute = ({ ...rest }) => {

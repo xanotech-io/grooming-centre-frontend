@@ -2,7 +2,7 @@ import { Flex } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Route, useHistory } from "react-router-dom";
+import { Route } from "react-router-dom";
 import {
   Brand,
   Button,
@@ -27,7 +27,7 @@ const SigninPage = () => {
   useBlockAuthenticatedUserFromPage();
 
   const toast = useToast();
-  const { replace } = useHistory();
+  // const { replace } = useHistory();
   const {
     register,
     handleSubmit,
@@ -45,11 +45,13 @@ const SigninPage = () => {
       appManager.handleSetToken(token);
       appManager.handleSetCurrentUser(user);
 
-      if (user.isInviteActive) {
-        replace("/auth/new-password");
-      } else {
-        setIsCheckingAuth(true);
-      }
+      setIsCheckingAuth(true);
+
+      // if (user.isInviteActive) {
+      //   replace("/auth/new-password");
+      // } else {
+      //   setIsCheckingAuth(true);
+      // }
 
       reset();
     } catch (err) {
@@ -72,14 +74,10 @@ const SigninPage = () => {
         <>
           <Input
             id="email"
-            type="email"
-            label="Email"
+            type="text"
+            label="Staff ID or Email"
             {...register("email", {
-              required: "Email can't be empty",
-              pattern: {
-                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i,
-                message: "Enter a valid e-mail address",
-              },
+              required: "Staff ID is required",
             })}
           />
 

@@ -33,7 +33,7 @@ export const EditPageLayout = ({
               {title}
             </Heading>
 
-            <Text as="level2">{subTitle}</Text>
+            {/* <Text as="level2">{subTitle}</Text> */}
           </Box>
         </Flex>
 

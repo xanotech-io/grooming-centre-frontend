@@ -6,7 +6,11 @@ import { Heading, Text } from "../../../components";
 
 const Hero = () => {
   return (
-    <Flex flexDirection="column" flex={1}>
+    <Flex
+      flexDirection="column"
+      flex={1}
+      display={{ lg: "flex", md: "none", sm: "none", base: "none" }}
+    >
       <Box flex={1.5} backgroundColor="primary.hover" position="relative">
         <Image
           position="absolute"

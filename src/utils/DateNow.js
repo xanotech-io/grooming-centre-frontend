@@ -1,1 +1,1 @@
-export const getServerDateNow = () => +localStorage.getItem("DateNow");
+export const getServerDateNow = () => +localStorage.getItem('DateNow');

@@ -10,9 +10,10 @@
   position: relative;
 
   &--disabled {
-    background-color: var(--accent.1);
+    background-color: var(--accent-1); // Fix: Use a hyphen
     opacity: 0.5;
   }
+  
 
   &:hover {
     transform: scale(0.992);

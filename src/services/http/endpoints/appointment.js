@@ -41,7 +41,9 @@ export const userGetDayAppointments = async (date) => {
     ...data.lessons.map(appointmentsMapper("LESSON")),
   ];
 
-  return { appointments };
+  const appointmentsCount = { events: data.events.length, lessons: data.lessons.length }
+
+  return { appointments, appointmentsCount };
 };
 
 /**
@@ -60,8 +62,6 @@ export const userGetMonthAppointments = async () => {
     ...courses.map(appointmentsMapper("COURSE")),
     ...events.map((e) => ({ ...e, title: e.name })).map(appointmentsMapper()),
   ];
-
-  console.log(appointments);
 
   return {
     // appointments: [

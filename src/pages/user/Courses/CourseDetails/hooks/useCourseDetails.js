@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react";
-import { useParams } from "react-router-dom";
-import { useCache } from "../../../../../contexts";
-import useComponentIsMount from "../../../../../hooks/useComponentIsMount";
-import { userGetCourseDetails } from "../../../../../services";
+import { useCallback, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useCache } from '../../../../../contexts';
+import useComponentIsMount from '../../../../../hooks/useComponentIsMount';
+import { userGetCourseDetails } from '../../../../../services';
 
 const useCourseDetails = (courseId) => {
   const { handleGetOrSetAndGet } = useCache();

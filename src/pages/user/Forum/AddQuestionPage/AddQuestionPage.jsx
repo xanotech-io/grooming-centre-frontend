@@ -1,21 +1,21 @@
-import { useToast } from "@chakra-ui/toast";
-import { Box, Stack } from "@chakra-ui/layout";
-import { useEffect, useState } from "react";
-import { Route } from "react-router-dom";
+import { useToast } from '@chakra-ui/toast';
+import { Box, Stack } from '@chakra-ui/layout';
+import { useEffect, useState } from 'react';
+import { Route } from 'react-router-dom';
 import {
   Button,
   Input,
   Select,
   TagsInput,
   Textarea,
-} from "../../../../components";
-import { getTagInput } from "../../../../components/Form/Input/TagsInput/hooks/useTagsInput";
-import { useSelectedTags } from "../../../../hooks";
-import { capitalizeFirstLetter } from "../../../../utils";
-import { userForumCreateTag } from "../../../../services";
-import useAddQuestionPage from "./hooks/useAddQuestionPage";
-import { useMentioning } from "../Comments/hooks/useMentioning";
-import { MentioningInput } from "../Comments/CommentForm";
+} from '../../../../components';
+import { getTagInput } from '../../../../components/Form/Input/TagsInput/hooks/useTagsInput';
+import { useSelectedTags } from '../../../../hooks';
+import { capitalizeFirstLetter } from '../../../../utils';
+import { userForumCreateTag } from '../../../../services';
+import useAddQuestionPage from './hooks/useAddQuestionPage';
+import { useMentioning } from '../Comments/hooks/useMentioning';
+import { MentioningInput } from '../Comments/CommentForm';
 
 const AddQuestionPage = () => {
   const {
@@ -43,15 +43,15 @@ const AddQuestionPage = () => {
     setValue: formManager.setValue,
     getValues: formManager.getValues,
     watch: formManager.watch,
-    inputId: "title",
-    inputName: "title",
+    inputId: 'title',
+    inputName: 'title',
   });
   const questionMentioning = useMentioning({
     setValue: formManager.setValue,
     getValues: formManager.getValues,
     watch: formManager.watch,
-    inputId: "question",
-    inputName: "question",
+    inputId: 'question',
+    inputName: 'question',
   });
 
   useEffect(() => {
@@ -63,7 +63,7 @@ const AddQuestionPage = () => {
   const questionInputMinChars = 10;
   const questionInputMaxChars = 250;
 
-  const [typedTagValue, setTypedTagValue] = useState("");
+  const [typedTagValue, setTypedTagValue] = useState('');
 
   const [isCreatingTag, setIsCreatingTag] = useState(false);
   const toast = useToast();
@@ -73,20 +73,20 @@ const AddQuestionPage = () => {
    * @param {ChangeEvent<HTMLInputElement>} event
    */
   const handleTagInputEnterKeyPress = async ({ key }) => {
-    if (key === "Enter") {
+    if (key === 'Enter') {
       try {
         setIsCreatingTag(true);
 
         const { tag } = await userForumCreateTag({ title: typedTagValue });
 
         handleTagSelectMany(tag);
-        getTagInput().value = "";
+        getTagInput().value = '';
         getTagInput().focus();
       } catch (err) {
         toast({
           description: capitalizeFirstLetter(err.message),
-          position: "top",
-          status: "error",
+          position: 'top',
+          status: 'error',
         });
       } finally {
         setIsCreatingTag(false);
@@ -100,7 +100,7 @@ const AddQuestionPage = () => {
 
   function handleStopSubmissionWithEnterKey(e) {
     var node = e.target ? e.target : e.srcElement ? e.srcElement : null;
-    if (node.type === "textarea") return true;
+    if (node.type === 'textarea') return true;
 
     var keyCode = e.keyCode || e.which;
     if (keyCode === 13) {
@@ -119,7 +119,7 @@ const AddQuestionPage = () => {
         onSubmit={handleSubmit()}
         onKeyPress={handleStopSubmissionWithEnterKey}
       >
-        <Select
+        {/* <Select
           id="categoryId"
           label="Category"
           placeholder="Choose category"
@@ -127,10 +127,10 @@ const AddQuestionPage = () => {
           isLoading={categories.loading || questionIsLoading}
           isRequired
           error={formManager.formState.errors.categoryId?.message}
-          {...formManager.register("categoryId", {
-            required: "Please choose a category",
+          {...formManager.register('categoryId', {
+            required: 'Please choose a category',
           })}
-        />
+        /> */}
 
         <MentioningInput
           usernameResults={titleMentioning.usernameResults}
@@ -142,8 +142,8 @@ const AddQuestionPage = () => {
             isRequired
             placeholder="Type catching attention title"
             error={formManager.formState.errors.title?.message}
-            {...formManager.register("title", {
-              required: "Title cannot be empty",
+            {...formManager.register('title', {
+              required: 'Title cannot be empty',
             })}
             onKeyUp={titleMentioning.handleKeyUp}
           />
@@ -160,11 +160,11 @@ const AddQuestionPage = () => {
             minHeight="150px"
             isRequired
             error={formManager.formState.errors.question?.message}
-            {...formManager.register("question", {
-              required: "You have to ask a question",
+            {...formManager.register('question', {
+              required: 'You have to ask a question',
               minLength: {
                 value: questionInputMinChars,
-                message: "Please a valid question",
+                message: 'Please a valid question',
               },
               maxLength: {
                 value: questionInputMaxChars,
@@ -194,7 +194,7 @@ const AddQuestionPage = () => {
             disabled={disableForm || questionIsLoading}
             isLoading={disableForm || questionIsLoading}
           >
-            {isEditMode ? "Update" : "Publish"}
+            {isEditMode ? 'Update' : 'Publish'}
           </Button>
         </Box>
       </Stack>

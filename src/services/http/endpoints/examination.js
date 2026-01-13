@@ -1,5 +1,5 @@
-import { getEndTime } from "../../../utils";
-import { http } from "../http";
+import { getEndTime } from '../../../utils';
+import { http } from '../http';
 
 /**
  * Endpoint to get `examination-details`
@@ -8,11 +8,21 @@ import { http } from "../http";
  * @returns {Promise<{ examination: Examination }>}
  */
 export const requestExaminationDetails = async (id, forAdmin) => {
-  const path = `/examination${forAdmin ? "/admin" : ""}/${id}`;
+  const path = `/examination${forAdmin ? '/admin' : ''}/${id}`;
 
   const {
     data: { data },
   } = await http.get(path);
+
+  const questionArray = data.examinationQuestions;
+
+  // shuffle questions
+  for (let i = questionArray.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * i);
+    const temp = questionArray[i];
+    questionArray[i] = questionArray[j];
+    questionArray[j] = temp;
+  }
 
   const examination = {
     id: data.id,
@@ -25,7 +35,7 @@ export const requestExaminationDetails = async (id, forAdmin) => {
     hasCompleted: data.examinationScoreSheets?.[0] ? true : false,
     minimumPercentageScoreToEarnABadge:
       data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
-    questions: data.examinationQuestions.map((q, index) => ({
+    questions: questionArray.map((q, index) => ({
       id: q.id,
       question: q.question,
       file: q.file,
@@ -109,6 +119,7 @@ export const adminEditStandaloneExamination = async (id, body) => {
 
   const examination = {
     id: data.id,
+    isPublished: data.isPublished,
   };
 
   return { message, examination };
@@ -151,10 +162,10 @@ export const submitExamination = async (body) => {
   const path = `/examination/scoresheet/create`;
 
   const {
-    data: { message },
+    data: { message, data },
   } = await http.post(path, body);
 
-  return { message };
+  return { message, data };
 };
 
 /**
@@ -163,7 +174,7 @@ export const submitExamination = async (body) => {
  * @returns {Promise<{ message: string }>}
  */
 export const adminCreateExaminationQuestion = async (body) => {
-  const path = "/examination/question/create";
+  const path = '/examination/question/create';
 
   const {
     data: { message },

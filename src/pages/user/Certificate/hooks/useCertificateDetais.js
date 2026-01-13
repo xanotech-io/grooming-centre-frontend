@@ -7,33 +7,38 @@ import useComponentIsMount from "../../../../hooks/useComponentIsMount";
 const useCertificateDetails = () => {
   const { handleGetOrSetAndGet } = useCache();
   const componentIsMount = useComponentIsMount();
-  const { course_id: courseId } = useParams();
-
+  const { course_id, id: user_id } = useParams();
+  console.log(user_id);
+  console.log(course_id);
   const [certificateDetails, setCertificateDetails] = useState({
     data: null,
     loading: false,
     err: null,
   });
-
+  const isAdmin = /admin/i.test(window.location.pathname);
   const fetcher = useCallback(async () => {
-    const { certificate } = await requestCertificateDetails(courseId);
+    const { certificate } = await requestCertificateDetails(
+      course_id,
+      user_id,
+      isAdmin
+    );
+
     return certificate;
-  }, [courseId]);
+  }, [course_id]);
   const fetchCertificateDetails = useCallback(async () => {
     setCertificateDetails({ loading: true });
 
     try {
-      const certificateDetails = await handleGetOrSetAndGet(courseId, fetcher);
+      const certificateDetails = await handleGetOrSetAndGet(course_id, fetcher);
 
       console.log(certificateDetails);
 
-      
       if (componentIsMount) setCertificateDetails({ data: certificateDetails });
     } catch (err) {
       if (componentIsMount) setCertificateDetails({ err: err.message });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, componentIsMount]);
+  }, [course_id, componentIsMount]);
 
   useEffect(() => {
     fetchCertificateDetails();

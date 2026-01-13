@@ -1,11 +1,12 @@
-import { useToast } from "@chakra-ui/toast";
-import { useEffect } from "react";
-import { useFetch } from "../../../../../hooks";
-import { userForumGetTags } from "../../../../../services";
-import { capitalizeFirstLetter } from "../../../../../utils";
+import { useToast } from '@chakra-ui/toast';
+import { useEffect } from 'react';
+import { useFetch } from '../../../../../hooks';
+import { userForumGetTags } from '../../../../../services';
+import { capitalizeFirstLetter } from '../../../../../utils';
 
 export const getTagInput = () => {
-  const tagsInput = document.querySelector("#tags");
+  const tagsInput = document.querySelector('#tags');
+
   return tagsInput;
 };
 
@@ -20,6 +21,7 @@ const useTagsInput = (props) => {
   } = useFetch();
 
   const fetcher = (value) => async () => {
+    console.log(value);
     const { tags } = await userForumGetTags({ word: value });
     return tags;
   };
@@ -39,8 +41,8 @@ const useTagsInput = (props) => {
     if (tagsResult.err) {
       toast({
         description: capitalizeFirstLetter(tagsResult.err),
-        position: "top",
-        status: "error",
+        position: 'top',
+        status: 'error',
       });
     }
   }, [tagsResult.err, toast]);

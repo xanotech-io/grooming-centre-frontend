@@ -1,0 +1,13 @@
+.hidden {
+  display: block;
+}
+
+@media screen and (max-width: 500px) {
+  .side-bar {
+    transform: translateX(-100%);
+    transition: 0.5s;
+  }
+  .hidden {
+    display: none;
+  }
+}

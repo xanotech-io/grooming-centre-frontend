@@ -1,4 +1,4 @@
-import { http } from "../..";
+import { http } from '../..';
 
 //
 //----------- Department Endpoints
@@ -7,18 +7,20 @@ import { http } from "../..";
  * @param {{name: string, active: boolean}} body
  * @returns {Promise<{ message: string, data: Department }>}
  */
-export const adminCreateDepartment = async (body) => {
-  const path = "/department/create";
 
-  const {
-    data: {
-      message,
-      data: { department: data },
-    },
-  } = await http.post(path, body);
+// admin create department 2
+// export const adminCreateDepartment = async (body) => {
+//   const path = '/department/create';
 
-  return { message, data };
-};
+//   const {
+//     data: {
+//       message,
+//       data: { department: data },
+//     },
+//   } = await http.post(path, body);
+
+//   return { message, data };
+// };
 //----------- END OF Department Endpoints
 //
 
@@ -30,7 +32,7 @@ export const adminCreateDepartment = async (body) => {
  * @returns {Promise<{ message: string }>}
  */
 export const adminInviteUser = async (body) => {
-  const path = "/admin/invite/user";
+  const path = '/admin/invite/user';
 
   const {
     data: { message },
@@ -39,13 +41,54 @@ export const adminInviteUser = async (body) => {
   return { message };
 };
 
+export const adminInvitBatcheUser = async (body) => {
+  const path = '/admin/invite/batch-user';
+
+  const {
+    data: { message },
+  } = await http.post(path, body);
+
+  return { message };
+};
+
+export const adminCreatePoll = async (body) => {
+  const path = '/polls/create';
+
+  const {
+    data: { message },
+  } = await http.post(path, body);
+
+  return { message };
+};
+
+export const adminCreateOption = async (body) => {
+  const path = '/polls/option/create';
+
+  const {
+    data: { message },
+  } = await http.post(path, body);
+
+  return { message };
+};
+
+
+export const adminGetDashboardStats = async () => {
+  const path = `/admin/dashboard-stats`;
+
+  const {
+    data: { data },
+  } = await http.get(path);
+
+  return data;
+};
+
 /**
  * Endpoint for first step to admin creation - (super admin)
  * @param {{ email: string, roleId: string, departmentId: string }} body
  * @returns {Promise<{ message: string }>}
  */
 export const superAdminInviteAdmin = async (body) => {
-  const path = "/superadmin/invite/admin";
+  const path = '/superadmin/invite/admin';
 
   const {
     data: { message },
@@ -61,7 +104,7 @@ export const superAdminInviteAdmin = async (body) => {
  * @returns {Promise<{ data: Object }>}
  */
 export const requestMetadata = async () => {
-  const path = "/metadata";
+  const path = '/metadata';
 
   const {
     data: { data },

@@ -12,6 +12,7 @@ import {
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrapper";
 import {
+  adminDeleteLesson,
   adminDeleteMultipleCourses,
   adminGetLessonListing,
 } from "../../../../../services";
@@ -133,9 +134,11 @@ const LessonPage = () => {
         },
       ],
       selection: true,
-      multipleDeleteFetcher: async (selectedLessons) => {
-        console.log(selectedLessons);
-        await adminDeleteMultipleCourses();
+      multipleDeleteFetcher: async (selectedDepartments) => {
+        let format = [];
+        format.push(selectedDepartments.map((datum) => datum.id));
+
+        await adminDeleteLesson(selectedDepartments);
       },
       pagination: true,
     },

@@ -11,8 +11,8 @@ export const useDaySchedule = () => {
 
   const fetcher = useCallback(
     (date) => async () => {
-      const { appointments } = await userGetDayAppointments(date);
-      return appointments;
+      const { appointments, appointmentsCount } = await userGetDayAppointments(date);
+      return { appointments, appointmentsCount };
     },
     []
   );

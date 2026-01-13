@@ -1,11 +1,11 @@
-import { useForm } from "react-hook-form";
-import { Route, useParams, useHistory } from "react-router";
-import { Input, Breadcrumb, Link, Button } from "../../../components";
-import { BreadcrumbItem, Box } from "@chakra-ui/react";
-import { adminCreateDepartment } from "../../../services";
-import { useToast } from "@chakra-ui/toast";
-import { appendFormData, capitalizeFirstLetter } from "../../../utils";
-import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
+import { useForm } from 'react-hook-form';
+import { Route, useParams, useHistory } from 'react-router';
+import { Input, Breadcrumb, Link, Button } from '../../../components';
+import { BreadcrumbItem, Box } from '@chakra-ui/react';
+import { adminCreateDepartment } from '../../../services';
+import { useToast } from '@chakra-ui/toast';
+import { appendFormData, capitalizeFirstLetter } from '../../../utils';
+import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
 
 const CreateDepartmentPage = () => {
   const { id: departmentId } = useParams();
@@ -30,17 +30,16 @@ const CreateDepartmentPage = () => {
 
       toast({
         description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
+        position: 'top',
+        status: 'success',
       });
 
       push(`/admin/departments`);
-      
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
-        position: "top",
-        status: "error",
+        position: 'top',
+        status: 'error',
       });
     }
   };
@@ -62,13 +61,18 @@ const CreateDepartmentPage = () => {
         />
       </Box>
       <Box as="form" onSubmit={handleSubmit(onSubmit)}>
-        <Box marginX={6} marginY={10} padding={10} backgroundColor="white">
+        <Box
+          marginY={10}
+          padding={10}
+          backgroundColor="white"
+          w={{ lg: '50%', md: '100%', sm: '100%' }}
+        >
           <Input
             label="Title"
             id="name"
-            width="50%"
-            {...register("name", {
-              required: "Title is required",
+            width="100%"
+            {...register('name', {
+              required: 'Title is required',
             })}
             error={errors.name?.message}
           />

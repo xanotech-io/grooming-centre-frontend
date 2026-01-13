@@ -1,0 +1,11 @@
+.courses-row-layout,
+.card-grid-layout {
+  padding-bottom: 10px;
+  scroll-snap-type: x proximity;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+.courses-row-layout .course-box-card,
+.card-grid-layout .course-box-card {
+  scroll-snap-align: center;
+}

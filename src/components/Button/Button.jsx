@@ -20,6 +20,8 @@ export const Button = ({
   reversePrimaryColor,
   sm,
   xs,
+  isFullwidth,
+  onClick,
   ...rest
 }) => {
   const getOutlineStyles = () => {
@@ -68,7 +70,7 @@ export const Button = ({
         }
       : {
           ...commonStyles,
-          backgroundColor: "primary.base",
+          backgroundColor: "others.3",
           textColor: "white",
           borderColor: "transparent",
         };
@@ -109,11 +111,19 @@ export const Button = ({
     };
 
     return asIcon ? (
-      <IconButton aria-label={iconAriaLabel} {...props}>
+      <IconButton onClick={onClick} aria-label={iconAriaLabel} {...props}>
         {children}
       </IconButton>
     ) : (
-      <ButtonChakraui position="relative" {...getButtonSizeStyles()} {...props}>
+      <ButtonChakraui
+      
+        position="relative"
+        {...getButtonSizeStyles()}
+        {...props}
+        textAlign="center"
+        w={isFullwidth}
+        onClick={onClick}
+      >
         {leftIcon && (
           <Icon
             position="absolute"
@@ -125,7 +135,6 @@ export const Button = ({
             {leftIcon}
           </Icon>
         )}
-
         {children}
 
         {rightIcon && (

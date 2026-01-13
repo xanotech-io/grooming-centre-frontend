@@ -40,6 +40,8 @@ const Header = ({ ...rest }) => {
   return (
     <Flex
       {...rest}
+      gap={6}
+      flexDirection={{ base: "column", md: "column", lg: "row" }}
       justifyContent={!pageDoNotRequireHeader ? "space-between" : "flex-end"}
     >
       {!pageDoNotRequireHeader() && !query && (
@@ -52,7 +54,9 @@ const Header = ({ ...rest }) => {
               {...getStyles(link.tab)}
               paddingX={3}
             >
-              {link.icon} <Box paddingRight={1}></Box> {link.text}
+              <Box display="flex" gap="5px">
+                {link.icon} <p>{link.text}</p>
+              </Box>
             </Button>
           ))}
         </HStack>

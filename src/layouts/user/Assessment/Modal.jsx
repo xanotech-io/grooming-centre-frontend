@@ -12,7 +12,12 @@ import { AiOutlineLeft } from "react-icons/ai";
 import { HiBadgeCheck } from "react-icons/hi";
 import { Heading, Text, Button } from "../../../components";
 
-export const CongratsModalContent = ({ redirectLink, contextText }) => (
+export const CongratsModalContent = ({
+  redirectLink,
+  contextText,
+  score,
+  isExamination,
+}) => (
   <Grid placeItems="center" minHeight="300px">
     <Heading as="h3">Congratulations</Heading>
 
@@ -29,6 +34,7 @@ export const CongratsModalContent = ({ redirectLink, contextText }) => (
         is completed
       </Text>
     </Flex>
+    <Text>Your score is {isExamination ? score : `${score}%`}</Text>
 
     <Button sm link={redirectLink} ghost leftIcon={<AiOutlineLeft />}>
       Back to course

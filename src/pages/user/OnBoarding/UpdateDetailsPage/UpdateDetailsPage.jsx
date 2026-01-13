@@ -1,7 +1,7 @@
-import { useToast } from "@chakra-ui/toast";
-import { Box, Flex, Grid, GridItem } from "@chakra-ui/react";
-import { useForm } from "react-hook-form";
-import { Route } from "react-router-dom";
+import { useToast } from '@chakra-ui/toast';
+import { Box, Flex, Grid, GridItem } from '@chakra-ui/react';
+import { useForm } from 'react-hook-form';
+import { Route } from 'react-router-dom';
 import {
   Text,
   Heading,
@@ -10,15 +10,15 @@ import {
   Upload,
   PasswordInput,
   PhoneNumberInput,
-} from "../../../../components";
-import { requestUpdateDetails } from "../../../../services";
-import { useHistory } from "react-router-dom";
-import { capitalizeFirstLetter } from "../../../../utils/formatString";
-import breakpoints from "../../../../theme/breakpoints";
+} from '../../../../components';
+import { requestUpdateDetails } from '../../../../services';
+import { useHistory } from 'react-router-dom';
+import { capitalizeFirstLetter } from '../../../../utils/formatString';
+import breakpoints from '../../../../theme/breakpoints';
 import {
   useRedirectNonAuthUserToSigninPage,
   usePageRefreshAfterLogin,
-} from "../../../../hooks";
+} from '../../../../hooks';
 
 const UpdateDetailsPage = () => {
   usePageRefreshAfterLogin();
@@ -42,17 +42,17 @@ const UpdateDetailsPage = () => {
       const { message } = await requestUpdateDetails(body);
       toast({
         description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
+        position: 'top',
+        status: 'success',
       });
       reset();
 
-      replace("/");
+      replace('/');
     } catch (err) {
       toast({
         description: capitalizeFirstLetter(err.message),
-        position: "top",
-        status: "error",
+        position: 'top',
+        status: 'error',
       });
     }
   };
@@ -114,8 +114,8 @@ const UpdateDetailsPage = () => {
                 error={errors.firstName?.message}
                 label="First Name"
                 isRequired
-                {...register("firstName", {
-                  required: "First Name is required",
+                {...register('firstName', {
+                  required: 'First Name is required',
                 })}
               />
               <Input
@@ -124,8 +124,8 @@ const UpdateDetailsPage = () => {
                 error={errors.lastName?.message}
                 label="Last Name"
                 isRequired
-                {...register("lastName", {
-                  required: "Last Name is required",
+                {...register('lastName', {
+                  required: 'Last Name is required',
                 })}
               />
 
@@ -158,8 +158,8 @@ const UpdateDetailsPage = () => {
                 label="Email Address"
                 type="email"
                 isRequired
-                {...register("email", {
-                  required: "Email is required",
+                {...register('email', {
+                  required: 'Email is required',
                 })}
               />
               <PhoneNumberInput
@@ -168,7 +168,7 @@ const UpdateDetailsPage = () => {
                 error={errors.phone?.message}
                 label="Phone Number"
                 type="number"
-                {...register("phone")}
+                {...register('phone')}
               />
             </Grid>
 
@@ -187,8 +187,8 @@ const UpdateDetailsPage = () => {
                 label="New Password"
                 type="password"
                 isRequired
-                {...register("password", {
-                  required: "New Password is required",
+                {...register('password', {
+                  required: 'New Password is required',
                 })}
               />
               <PasswordInput
@@ -198,10 +198,10 @@ const UpdateDetailsPage = () => {
                 label="Confirm Password"
                 type="password"
                 isRequired
-                {...register("confirmPassword", {
-                  required: "Confirm Password is required",
+                {...register('confirmPassword', {
+                  required: 'Confirm Password is required',
                   validate: (value) =>
-                    value === values.password || "Password must match",
+                    value === values.password || 'Password must match',
                 })}
               />
             </Grid>

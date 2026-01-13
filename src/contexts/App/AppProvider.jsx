@@ -1,4 +1,4 @@
-import { createContext, useMemo, useState } from "react";
+import { createContext, useMemo, useState } from 'react';
 
 export const AppContext = createContext();
 
@@ -7,6 +7,7 @@ export const AppProvider = (props) => {
     user: null,
     token: null,
     metadata: null,
+    examdata: [],
   });
   const value = useMemo(() => [state, setState], [state]);
 

@@ -87,7 +87,7 @@ const CreateAssessmentPage = ({ users }) => {
                 }),
           }
         : data;
-
+      console.log(body, "jjjjj");
       const { message, assessment, examination } =
         await (isStandaloneExamination
           ? adminCreateStandaloneExamination(body)
@@ -140,7 +140,12 @@ const CreateAssessmentPage = ({ users }) => {
           {isStandaloneExamination && (
             <>
               <Box>
-                <Flex justifyContent="space-between" mb={5} w="400px">
+                <Flex
+                  justifyContent="space-between"
+                  flexDirection={{ base: "column", md: "column", lg: "row" }}
+                  mb={5}
+                  w="400px"
+                >
                   <Flex alignItems={"center"}>
                     <input
                       type="radio"
@@ -248,7 +253,13 @@ const CreateAssessmentPage = ({ users }) => {
               required: "Title is required",
             })}
           />
-          <Grid templateColumns="repeat(2, 1fr)" gap={10} marginY={10}>
+          <Box
+            display={{ base: "flex", md: "flex", lg: "grid" }}
+            flexDirection="column"
+            templateColumns="repeat(2, 1fr)"
+            gap={10}
+            marginY={10}
+          >
             <GridItem>
               <DateTimePicker
                 id="startTime"
@@ -282,7 +293,7 @@ const CreateAssessmentPage = ({ users }) => {
                 })}
               />
             </GridItem>
-          </Grid>
+          </Box>
         </Box>
         <Flex paddingY={10} marginX={6} justifyContent="space-between">
           <Button secondary onClick={handleCancel}>

@@ -1,7 +1,7 @@
-import { Flex } from "@chakra-ui/layout";
-import { Route } from "react-router-dom";
-import Header from "./Header";
-import MainArea from "./MainArea";
+import { Flex } from '@chakra-ui/layout';
+import { Route } from 'react-router-dom';
+import Header from './Header';
+import MainArea from './MainArea';
 
 const UserInfoPage = () => {
   return (

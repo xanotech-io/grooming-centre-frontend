@@ -1,20 +1,21 @@
-import { BrowserRouter as Router, Switch } from "react-router-dom";
-import GlobalProviders from "./GlobalProviders";
-import "../styles/course-box-card.scss";
-import "../styles/courses-row-layout.scss";
-import "../styles/globalStyles.scss";
-import "../styles/user-header-nav-link.scss";
-import "../styles/user-forum-sidebar-link.scss";
-import "../styles/month-schedule.scss";
-import "../styles/take-lesson-video.scss";
+import { BrowserRouter as Router, Switch } from 'react-router-dom';
+import GlobalProviders from './GlobalProviders';
+import '../styles/course-box-card.scss';
+import '../styles/courses-row-layout.scss';
+import '../styles/globalStyles.scss';
+import '../styles/user-header-nav-link.scss';
+import '../styles/user-forum-sidebar-link.scss';
+import '../styles/month-schedule.scss';
+import '../styles/take-lesson-video.scss';
+import '../styles/responsiveness.css';
 import {
   AdminLayoutRoute,
   AssessmentLayoutRoute,
   TakeCourseLayoutRoute,
   UserLayoutRoute,
-} from "../layouts";
-import { useApp } from "../contexts";
-import { useEffect } from "react";
+} from '../layouts';
+import { useApp } from '../contexts';
+import { useEffect } from 'react';
 
 function App() {
   return (
@@ -53,11 +54,11 @@ export const useAppConfig = () => {
 
   useEffect(() => {
     if (appManager.state.user) {
-      let DateNow = localStorage.getItem("DateNow");
+      let DateNow = localStorage.getItem('DateNow');
       if (DateNow)
         setInterval(() => {
-          DateNow = +localStorage.getItem("DateNow") + 1000;
-          localStorage.setItem("DateNow", DateNow);
+          DateNow = +localStorage.getItem('DateNow') + 1000;
+          localStorage.setItem('DateNow', DateNow);
         }, 1000);
     }
   }, [appManager.state.user]);

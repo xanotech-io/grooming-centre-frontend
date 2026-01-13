@@ -17,7 +17,6 @@ const tableProps = {
       queryKey: "all-courses",
       width: "200px",
       position: "right-bottom",
-      // noFilterTags: true,
       body: {
         radios: [
           {
@@ -112,25 +111,25 @@ const tableProps = {
       id: "2",
       key: "id",
       text: "Course ID",
-      fraction: "120px",
+      fraction: "6fr",
     },
     {
       id: "title",
       key: "title",
       text: "Course Title",
-      fraction: "5fr",
+      fraction: "6fr",
     },
     {
       id: "4",
       key: "instructor",
       text: "Instructor",
-      fraction: "200px",
+      fraction: "4fr",
     },
     {
       id: "5",
       key: "status",
       text: "Status",
-      fraction: "100px",
+      fraction: "3fr",
       renderContent: (status) => (
         <Box>
           <Tag

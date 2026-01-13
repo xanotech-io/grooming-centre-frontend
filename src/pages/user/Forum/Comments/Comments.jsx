@@ -1,10 +1,10 @@
-import { Box } from "@chakra-ui/layout";
-import { useToast } from "@chakra-ui/react";
-import { useState } from "react";
-import { QuestionsPageErrorState } from "../..";
-import { Button, Heading, Text } from "../../../../components";
-import { PageLoaderLayout } from "../../../../layouts";
-import CommentForm from "./CommentForm";
+import { Box } from '@chakra-ui/layout';
+import { useToast } from '@chakra-ui/react';
+import { useState } from 'react';
+import { QuestionsPageErrorState } from '../..';
+import { Button, Heading, Text } from '../../../../components';
+import { PageLoaderLayout } from '../../../../layouts';
+import CommentForm from './CommentForm';
 
 const Comments = ({ commentsManager, children, canAddComment }) => {
   const { comments } = commentsManager;
@@ -45,8 +45,8 @@ const NoComments = ({ canAddComment }) => {
 
           toast.closeAll();
           toast({
-            position: "top",
-            status: "error",
+            position: 'top',
+            status: 'error',
             description: "Sorry, you can't comment on an inactive thread",
           });
         }}

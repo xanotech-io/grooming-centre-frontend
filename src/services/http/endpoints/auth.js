@@ -15,6 +15,7 @@ export const requestMyData = async () => {
   return { data };
 };
 
+
 /**
  * Endpoint for user to update his information - (auth)
  * @param {{ password: string, firstName: string, lastName: string, email: string, phone: string}} body
@@ -29,7 +30,15 @@ export const requestUpdateDetails = async (body) => {
 
   return { message };
 };
+export const updatePassword = async (body) => {
+  const path = "/password/create/new";
 
+  const {
+    data: { message },
+  } = await http.post(path, body);
+
+  return { message };
+};
 /**
  * Endpoint for user to create new password - (auth)
  * @param {{ password: string }} body
@@ -65,12 +74,12 @@ export const userForgetPassword = async (body) => {
  * @param {{ password: string }} body
  * @returns {Promise<{ message: string }>}
  */
-export const userResetPassword = async (body) => {
+export const userResetPassword = async (body, token) => {
   const path = "/password/reset";
 
   const {
     data: { message },
-  } = await http.patch(path, body);
+  } = await http.patch(path, body, {token});
 
   return { message };
 };

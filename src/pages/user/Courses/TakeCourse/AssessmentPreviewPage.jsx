@@ -5,20 +5,20 @@ import { Button, Heading, SkeletonText, Text } from "../../../../components";
 import { useTakeCourse } from "../../../../contexts";
 import { getDuration } from "../../../../utils";
 import useQueryParams from "../../../../hooks/useQueryParams";
-import useAssessmentPreview from "./hooks/useAssessmentPreview";
 import { EmptyState } from "../../../../layouts";
 import { useGoBack } from "../../../../hooks";
+import useCourseExamPreview from "./hooks/courseExamPreview/useCourseExamPreview";
 
 const AssessmentPreviewPage = ({ sidebarLinks, sidebarLinkClickedState }) => {
   const { assessment, isLoading, error, handleTryAgain, assessmentIsDisabled } =
-    useAssessmentPreview(sidebarLinks, null, null, sidebarLinkClickedState);
+    useCourseExamPreview(sidebarLinks, null, null, sidebarLinkClickedState);
   useTakeCourse();
-
+  console.log(assessment, "assessment");
   const isExamination = useQueryParams().get("examination");
   const duration = getDuration(assessment.duration);
   const handleGoBack = useGoBack();
 
-  console.log(assessment, assessmentIsDisabled);
+  // console.log(assessment, assessmentIsDisabled);
 
   return error ? (
     <EmptyState
@@ -38,10 +38,6 @@ const AssessmentPreviewPage = ({ sidebarLinks, sidebarLinkClickedState }) => {
     />
   ) : (
     <Box paddingTop={10} as="main" paddingX={6}>
-      <Heading as="h1" fontSize="heading.h3" marginBottom={5}>
-        {assessment.text}
-      </Heading>
-
       {!isLoading && (
         <Heading fontSize="heading.h4">Topics: {assessment.topic}</Heading>
       )}
@@ -49,7 +45,7 @@ const AssessmentPreviewPage = ({ sidebarLinks, sidebarLinkClickedState }) => {
       <Box
         borderBottom="1px"
         borderColor="accent.2"
-        marginY={10}
+        marginY={8}
         paddingBottom={10}
       >
         {isLoading ? (
@@ -111,14 +107,14 @@ const AssessmentPreviewPage = ({ sidebarLinks, sidebarLinkClickedState }) => {
 
       {isExamination ? (
         <Button
-          link={`/courses/take/${assessment.courseId}/assessment/start/${assessment.courseId}?examination=true`}
+          link={`/courses/take/${assessment?.courseId}/assessment/start/${assessment.courseId}?examination=true`}
           disabled={isLoading && error}
         >
           Take Examination
         </Button>
       ) : (
         <Button
-          link={`/courses/take/${assessment.courseId}/assessment/start/${assessment.id}`}
+          link={`/courses/take/${assessment?.courseId}/assessment/start/${assessment?.id}`}
           disabled={isLoading && error}
         >
           Take Assessment

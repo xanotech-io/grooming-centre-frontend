@@ -16,7 +16,7 @@ import {
 import { useApp } from "../../../contexts";
 import { useUpload, useGoBack } from "../../../hooks";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { requestUpdateDetails } from "../../../services";
+import { requestUpdateDetails, updatePassword } from "../../../services";
 import {
   appendFormData,
   capitalizeFirstLetter,
@@ -42,9 +42,16 @@ export const AccountPage = ({ onCallToActionClick }) => {
     formState: { errors, isSubmitting },
     reset,
   } = useForm();
-
+  const {
+    register: register2,
+    handleSubmit: handleSubmit2,
+    setValue: setValues2,
+    getValues: getvalues2,
+    formState: { errors: errors2, isSubmitting: isSubmitting2 },
+    reset: reset2,
+  } = useForm();
   const values = getValues();
-
+  const values2 = getvalues2();
   const onSubmit = async (data) => {
     try {
       const profilePicture =
@@ -86,9 +93,45 @@ export const AccountPage = ({ onCallToActionClick }) => {
       });
     }
   };
+  const onSubmit2 = async (data) => {
+    try {
+      data = {
+        password: data?.new_password,
+      };
+
+      const body = data;
+
+      const { message } = await updatePassword(body);
+      toast({
+        description: capitalizeFirstLetter(message),
+        position: "top",
+        status: "success",
+      });
+      reset();
+
+      if (message==="password changed") {
+        handleLogout();
+      }
+
+      fetchCurrentUser();
+
+      if (onCallToActionClick) {
+        return onCallToActionClick();
+      }
+
+      replace("/admin");
+    } catch (err) {
+      toast({
+        description: capitalizeFirstLetter(err.message),
+        position: "top",
+        status: "error",
+      });
+    }
+  };
 
   useEffect(() => {
     if (user) {
+      console.log({ user });
       setValue("firstName", user.firstName);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,14 +199,21 @@ export const AccountPage = ({ onCallToActionClick }) => {
   const handleGoBack = useGoBack();
 
   return (
-    <AdminMainAreaWrapper>
-      <Box as="form" paddingY={8} onSubmit={handleSubmit(onSubmit)}>
+    <AdminMainAreaWrapper bg='#fff'>
+      <Box as="form" paddingY={2} onSubmit={handleSubmit(onSubmit)}>
         {!onCallToActionClick && (
           <Heading fontSize="heading.h3" paddingBottom={4}>
             Account
           </Heading>
         )}
-        <Grid templateColumns="repeat(2, 1fr)" gap={10} marginBottom={6}>
+        <Box
+          as="div"
+          display={{ lg: "grid", base: "flex", md: "flex" }}
+          flexDirection="column"
+          gridTemplateColumns="1fr 1fr"
+          gap={10}
+          marginBottom={6}
+        >
           <GridItem colSpan={2}>
             <Heading marginBottom={4} fontSize="heading.h4">
               Profile
@@ -224,9 +274,17 @@ export const AccountPage = ({ onCallToActionClick }) => {
             {...register("role")}
             disabled
           />
-        </Grid>
+        </Box>
 
-        <Grid templateColumns="repeat(2, 1fr)" gap={10} marginBottom={6} pt={7}>
+        <Box
+          as="div"
+          display={{ lg: "grid", base: "flex", md: "flex" }}
+          flexDirection="column"
+          gridTemplateColumns="1fr 1fr"
+          gap={10}
+          marginBottom={6}
+          pt={7}
+        >
           <GridItem colSpan={2}>
             <Heading marginBottom={4} fontSize="heading.h4">
               Personal Information
@@ -277,29 +335,9 @@ export const AccountPage = ({ onCallToActionClick }) => {
               required: "Phone number is required",
             })}
           />
-          <PasswordInput
-            id="new-password"
-            label="New password"
-            error={errors.password?.message}
-            {...register("password", {
-              minLength: {
-                value: 3,
-                message: "Password should not be less than 3 characters",
-              },
-            })}
-          />
-          <PasswordInput
-            id="confirmPassword"
-            label="Confirm password"
-            error={errors.confirmPassword?.message}
-            {...register("confirmPassword", {
-              validate: (value) =>
-                value === values.password || "Password must match",
-            })}
-          />
-        </Grid>
+        </Box>
 
-        <Flex justifyContent="flex-end">
+        <Flex justifyContent={{ sm: "center", md: "center", lg: "flex-end" }}>
           <Button
             secondary
             marginRight={6}
@@ -312,6 +350,72 @@ export const AccountPage = ({ onCallToActionClick }) => {
             data-testid="submit"
             isLoading={isSubmitting}
             disabled={isSubmitting}
+          >
+            Update
+          </Button>
+        </Flex>
+      </Box>
+      <Box
+        onSubmit={handleSubmit2(onSubmit2)}
+        as="form"
+        display={{ lg: "grid", base: "flex", md: "flex" }}
+        flexDirection="column"
+        gridTemplateColumns="1fr 1fr"
+        gap={10}
+        marginBottom={6}
+        pt={7}
+      >
+        <GridItem colSpan={2}>
+          <Heading marginBottom={4} fontSize="heading.h4">
+            Password Update
+          </Heading>
+          <Text>
+            This information is private and will be used in the recovery of your
+            account
+          </Text>
+        </GridItem>
+
+        <PasswordInput
+          id="old_password"
+          label="Old password"
+          error={errors2.old_password && "Old password is required"}
+          {...register2("old_password", { required: true })}
+        />
+        <PasswordInput
+          id="new_password"
+          label="New password"
+          error={errors2.new_password &&"New password is required and must be different from old password"}
+          {...register2("new_password", {
+            required: true,
+            validate: (value) => value !== values2.old_password || "New password is required and must be different from old password",
+  
+            minLength: {
+              value: 3,
+            },
+          })}
+        />
+        <PasswordInput
+          id="confirmPassword"
+          label="Confirm password"
+          error={errors2.confirmPassword?.message}
+          {...register2("confirmPassword", {
+            validate: (value) =>
+              value === values2.new_password || "Password must match",
+          })}
+        />
+        <Flex justifyContent={{ sm: "center", md: "center", lg: "flex-end" }}>
+          <Button
+            secondary
+            marginRight={6}
+            onClick={onCallToActionClick || handleGoBack}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            data-testid="submit"
+            isLoading={isSubmitting2}
+            disabled={isSubmitting2}
           >
             Update
           </Button>

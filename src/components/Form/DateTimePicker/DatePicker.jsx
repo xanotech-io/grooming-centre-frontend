@@ -21,6 +21,7 @@ export const DatePicker = ({
           className="date-time-picker"
           value={value}
           onChange={onChange}
+          fullWidth
         />
       )}
     />

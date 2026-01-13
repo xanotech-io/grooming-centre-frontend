@@ -88,8 +88,14 @@ const Header = ({
     <Flex
       as="header"
       flexWrap="wrap"
-      alignItems="center"
-      justifyContent="space-between"
+      rowGap={4}
+      alignItems={{ lg: "center", sm: "flex-start", md: "flex-start" }}
+      flexDirection={{ lg: "row", md: "column", sm: "column", base: "column" }}
+      justifyContent={{
+        lg: "space-between",
+        sm: "flex-start",
+        md: "flex-start",
+      }}
       display={SearchBarVisibility}
     >
       <SearchBar
@@ -99,7 +105,6 @@ const Header = ({
         onSearch={handleSearch}
         onClear={handleClearSearch}
       />
-
       {filterControls && (
         <FilterButtonsGroup
           data={filterControls}

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useToast } from "@chakra-ui/toast";
 import { Flex, Grid, GridItem } from "@chakra-ui/layout";
 import { useForm } from "react-hook-form";
@@ -22,12 +23,19 @@ import {
   capitalizeWords,
 } from "../../../utils";
 import { useHistory, useParams } from "react-router";
-import { adminCreateCourse, adminEditCourse } from "../../../services";
+import {
+  adminCreateCourse,
+  adminEditCourse,
+  adminGetCoursesByDepartment,
+} from "../../../services";
 import { useUpload } from "../../../hooks";
 import useCourseDetails from "../../user/Courses/CourseDetails/hooks/useCourseDetails";
 import { useEffect, useMemo } from "react";
 
 const CreateCoursePage = ({ metadata: propMetadata }) => {
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState(null);
+  const [prerequisites, setPrerequisites] = useState([]);
+  const [prerequisiteLoading, setPrerequisiteLoading] = useState(true);
   const toast = useToast();
   const {
     register,
@@ -50,6 +58,10 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
 
   const onSubmit = async (data) => {
     try {
+      if (!selectedDepartmentId) {
+        throw new Error("Please select a department");
+      }
+
       const courseThumbnail =
         thumbnailUpload.handleGetFileAndValidate("Course Image");
       const certificate =
@@ -57,9 +69,11 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
 
       data = {
         ...data,
+        departmentId: selectedDepartmentId,
         courseThumbnail,
         certificate,
       };
+
       const body = appendFormData(data);
 
       const { course, message } = await (isEditMode
@@ -94,6 +108,31 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
   const isLoading = courseDetails.loading;
   const isError = courseDetails.err;
 
+  // get courses under selected department
+  useEffect(() => {
+    setPrerequisiteLoading(true);
+    const getPrerequisite = async () => {
+      try {
+        const { courses } = await adminGetCoursesByDepartment(
+          selectedDepartmentId
+        );
+        setPrerequisites(courses);
+        setPrerequisiteLoading(false);
+      } catch (error) {
+        toast({
+          description: capitalizeFirstLetter(error.message),
+          position: "top",
+          status: "error",
+        });
+      }
+    };
+
+    if (selectedDepartmentId) getPrerequisite();
+
+    // eslint-disable-next-line
+  }, [selectedDepartmentId]);
+
+  // set image files for edit
   useEffect(() => {
     if (courseDetailsData) {
       thumbnailUpload.handleInitialImageSelect(courseDetailsData.thumbnail);
@@ -102,18 +141,30 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseDetailsData]);
 
+  // set title for edit
   useEffect(() => {
     if (courseDetailsData) {
       setValue("title", courseDetailsData.title);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseDetailsData]);
+
+  // set department for edit
   useEffect(() => {
     if (courseDetailsData && metadata?.departments) {
-      setValue("departmentId", courseDetailsData.departmentId);
+      setSelectedDepartmentId(courseDetailsData.departmentId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseDetailsData, metadata?.departments]);
+
+  // set prerequisite for edit
+  useEffect(() => {
+    if (courseDetailsData && prerequisites) {
+      setValue("preRequisiteId", courseDetailsData.preRequisiteId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseDetailsData, prerequisites]);
+
   useEffect(() => {
     if (courseDetailsData) {
       setValue("description", courseDetailsData.description);
@@ -121,9 +172,16 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseDetailsData]);
 
-  const populateSelectOptions = (data, filterBody = () => true) => {
+  const populateDepartmentOptions = (data, filterBody = () => true) => {
     return data?.filter(filterBody)?.map((item) => ({
       label: capitalizeWords(item.name),
+      value: item.id,
+    }));
+  };
+
+  const populatePrerequisiteOptions = (data) => {
+    return data?.map((item) => ({
+      label: capitalizeWords(item.title),
       value: item.id,
     }));
   };
@@ -164,34 +222,54 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
         onSubmit={handleSubmit(onSubmit)}
         submitButtonIsLoading={isSubmitting}
       >
-        <Grid templateColumns="repeat(2, 1fr)" gap={10} marginBottom={10}>
+        <Box
+          as="div"
+          display={{ lg: "grid", base: "flex", md: "flex" }}
+          flexDirection={{ base: "column", md: "column" }}
+          gridTemplateColumns="1fr 1fr"
+          gap={10}
+          marginBottom={10}
+        >
           {/* Row 1 */}
-          <GridItem>
-            <Input
-              label="Course title"
-              isRequired
-              id="title"
-              {...register("title", {
-                required: "Title is required",
-              })}
-              error={errors.title?.message}
-            />
-          </GridItem>
-          <GridItem>
-            <Select
-              isRequired
-              label="Select department"
-              options={populateSelectOptions(metadata?.departments)}
-              id="departmentId"
-              isLoading={!metadata?.departments}
-              {...register("departmentId", {
-                required: "Please select a department",
-              })}
-              error={errors.departmentId?.message}
-            />
-          </GridItem>
-        </Grid>
-        {/* Row 2 */}
+          <Input
+            label="Course title"
+            isRequired
+            id="title"
+            {...register("title", {
+              required: "Title is required",
+            })}
+            error={errors.title?.message}
+          />
+          <Select
+            isRequired
+            label="Select department"
+            options={populateDepartmentOptions(metadata?.departments)}
+            id="departmentId"
+            isLoading={!metadata?.departments}
+            value={selectedDepartmentId}
+            onChange={(e) => setSelectedDepartmentId(e.target.value)}
+          />
+        </Box>
+        <Box
+          as="div"
+          display={{ lg: "grid", base: "flex", md: "flex" }}
+          flexDirection={{ base: "column", md: "column" }}
+          gridTemplateColumns="1fr 1fr"
+          gap={10}
+          marginBottom={10}
+        >
+          {/* Row 2 */}
+          <Select
+            label="Select prerequisite"
+            options={populatePrerequisiteOptions(prerequisites)}
+            id="preRequisiteId"
+            placeholder={prerequisiteLoading ? "waiting for department..." : ""}
+            isLoading={prerequisiteLoading}
+            {...register("preRequisiteId")}
+            error={errors.preRequisiteId?.message}
+          />
+        </Box>
+        {/* Row 3 */}
         <Grid marginBottom={10}>
           <Textarea
             minHeight="150px"
@@ -200,16 +278,11 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
             isRequired
             {...register("description", {
               required: "Please add a description",
-              maxLength: 1000,
             })}
-            error={
-              errors.description?.type === "maxLength"
-                ? "Maximum length of 1000 characters"
-                : errors.description?.message
-            }
+            error={errors.description?.message}
           />
         </Grid>
-        {/* Row 3 */}
+        {/* Row 4 */}
         <Grid marginBottom={10}>
           <GridItem colSpan={2}>
             <Upload
@@ -222,7 +295,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
             />
           </GridItem>
         </Grid>
-        {/* Row 4 */}
+        {/* Row 5 */}
         <Grid marginBottom={10}>
           <GridItem colSpan={2}>
             <Upload
@@ -235,7 +308,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
             />
           </GridItem>
         </Grid>
-        {/* Row 5 */}
+        {/* Row 6 */}
         <Grid marginBottom={10}>
           <GridItem>
             <Checkbox

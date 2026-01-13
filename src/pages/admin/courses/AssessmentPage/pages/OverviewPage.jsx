@@ -1,29 +1,29 @@
-import { Flex } from "@chakra-ui/layout";
-import { Route, useParams } from "react-router-dom";
-import { Heading, Spinner } from "../../../../../components";
-import useAssessmentPreview from "../../../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
-import EditAssessmentPage from "./EditAssessmentPage";
-import CreateAssessmentPage from "./CreateAssessmentPage";
-import { useFetch, useQueryParams } from "../../../../../hooks";
-import { useEffect } from "react";
-import { adminGetUserListing } from "../../../../../services";
-import { capitalizeFirstLetter } from "../../../../../utils";
-import { useToast } from "@chakra-ui/react";
+import { Flex } from '@chakra-ui/layout';
+import { Route, useParams } from 'react-router-dom';
+import { Heading, Spinner } from '../../../../../components';
+import useAssessmentPreview from '../../../../user/Courses/TakeCourse/hooks/useAssessmentPreview';
+import EditAssessmentPage from './EditAssessmentPage';
+import CreateAssessmentPage from './CreateAssessmentPage';
+import { useFetch, useQueryParams } from '../../../../../hooks';
+import { useEffect } from 'react';
+import { adminGetUserListing } from '../../../../../services';
+import { capitalizeFirstLetter } from '../../../../../utils';
+import { useToast } from '@chakra-ui/react';
 
 export const isStandaloneExaminationAndIsNotEditMode =
-  "isStandaloneExamination && isNotEdit";
+  'isStandaloneExamination && isNotEdit';
 
 const OverviewPage = () => {
   const { id: courseId, assessmentId } = useParams();
-  const examinationId = useQueryParams().get("examination");
+  const examinationId = useQueryParams().get('examination');
   const isStandaloneExamination =
-    courseId === "not-set" && assessmentId === "not-set" && examinationId
+    courseId === 'not-set' && assessmentId === 'not-set' && examinationId
       ? true
       : false;
 
   const isEditMode = isStandaloneExamination
-    ? examinationId && examinationId !== "new"
-    : assessmentId && assessmentId !== "new";
+    ? examinationId && examinationId !== 'new'
+    : assessmentId && assessmentId !== 'new';
 
   const { isLoading, error, assessment } = useAssessmentPreview(
     null,
@@ -48,8 +48,6 @@ const OverviewPage = () => {
           )} (${user.email})`,
         }));
 
-        console.log("ssdsd...");
-
         return users;
       },
     });
@@ -61,9 +59,9 @@ const OverviewPage = () => {
   useEffect(() => {
     if (users.err)
       toast({
-        description: "Something went wrong! please refresh the page",
-        position: "top",
-        status: "error",
+        description: 'Something went wrong! please refresh the page',
+        position: 'top',
+        status: 'error',
         duration: 60000,
       });
 

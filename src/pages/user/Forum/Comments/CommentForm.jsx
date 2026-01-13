@@ -1,19 +1,19 @@
-import { Box, Flex } from "@chakra-ui/layout";
-import { useToast } from "@chakra-ui/toast";
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { useParams } from "react-router";
-import { v4 as uuid } from "uuid";
-import { Button, Heading, Image, Textarea, Text } from "../../../../components";
-import { useApp } from "../../../../contexts";
+import { Box, Flex } from '@chakra-ui/layout';
+import { useToast } from '@chakra-ui/toast';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { useParams } from 'react-router';
+import { v4 as uuid } from 'uuid';
+import { Button, Heading, Image, Textarea, Text } from '../../../../components';
+import { useApp } from '../../../../contexts';
 import {
   userForumAddComment,
   userForumAddReply,
   userForumEditComment,
-} from "../../../../services";
-import { capitalizeFirstLetter, getFullName } from "../../../../utils";
-import thumbnailPlaceholder from "../../../../assets/images/onboarding1.png";
-import { useMentioning } from "./hooks/useMentioning";
+} from '../../../../services';
+import { capitalizeFirstLetter, getFullName } from '../../../../utils';
+import thumbnailPlaceholder from '../../../../assets/images/onboarding1.png';
+import { useMentioning } from './hooks/useMentioning';
 
 const CommentForm = ({
   initValue,
@@ -44,21 +44,21 @@ const CommentForm = ({
     formState: { isSubmitting },
   } = useForm();
 
-  const inputId = `${isReply ? "reply" : "comment"}--${uuid()}`;
+  const inputId = `${isReply ? 'reply' : 'comment'}--${uuid()}`;
 
   const {
     handleKeyUp,
     handleUserNameSelect,
     handleClearUsernameResults,
     usernameResults,
-  } = useMentioning({ setValue, getValues, watch, inputId, inputName: "text" });
+  } = useMentioning({ setValue, getValues, watch, inputId, inputName: 'text' });
 
   // Init `text` value
   useEffect(() => {
     let isMount = true;
 
     if (initValue && isMount) {
-      setValue("text", initValue);
+      setValue('text', initValue);
     }
 
     return () => {
@@ -82,8 +82,8 @@ const CommentForm = ({
 
       toast({
         description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
+        position: 'top',
+        status: 'success',
       });
 
       const currentUser = {
@@ -107,7 +107,7 @@ const CommentForm = ({
           replies: responseData.replies || [],
         };
 
-        onCommentSuccess(comment);
+        // onCommentSuccess(comment);
       }
 
       reset();
@@ -116,8 +116,8 @@ const CommentForm = ({
       console.error(error);
       toast({
         description: capitalizeFirstLetter(error.message),
-        position: "top",
-        status: "error",
+        position: 'top',
+        status: 'error',
       });
     }
   };
@@ -136,10 +136,10 @@ const CommentForm = ({
           placeholder="Type here your wise suggestion"
           onKeyUp={handleKeyUp}
           marginBottom={3}
-          {...register("text", {
+          {...register('text', {
             required: true,
           })}
-          minHeight={mute ? inputMinHeight || "40px" : "60px"}
+          minHeight={mute ? inputMinHeight || '40px' : '60px'}
         ></Textarea>
       </MentioningInput>
 
@@ -156,7 +156,7 @@ const CommentForm = ({
           isLoading={isSubmitting}
           sm={mute}
         >
-          {isEditMode ? "Update" : isReply ? "Reply" : "Comment"}
+          {isEditMode ? 'Update' : isReply ? 'Reply' : 'Comment'}
         </Button>
       </Flex>
     </Box>
@@ -213,7 +213,7 @@ export const MentioningInput = ({
               px={2}
               borderTop="1px"
               borderColor="accent.2"
-              _hover={{ bg: "white", cursor: "pointer" }}
+              _hover={{ bg: 'white', cursor: 'pointer' }}
               alignItems="center"
               onClick={handleUserNameSelect.bind(null, u)}
             >

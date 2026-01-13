@@ -1,4 +1,4 @@
-import { http } from "../http";
+import { http } from '../http';
 
 /**
  * Endpoint to get user event listing
@@ -14,6 +14,7 @@ export const userGetEventListing = async () => {
 
   const events = data.map((event) => ({
     id: event.id,
+    displayId: event.displayId,
     startTime: event.startTime,
     endTime: event.endTime,
     name: event.title,
@@ -53,6 +54,7 @@ export const adminGetEventListing = async (params) => {
 
   const events = data.map((event) => ({
     id: event.id,
+    displayId: event.displayId,
     startTime: event.startTime,
     endTime: event.endTime,
     name: event.title,

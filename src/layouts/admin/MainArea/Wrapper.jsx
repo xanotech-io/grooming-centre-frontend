@@ -1,9 +1,9 @@
 import { Box } from "@chakra-ui/layout";
 import PropTypes from "prop-types";
 
-export const AdminMainAreaWrapper = ({ children, ...rest }) => {
+export const AdminMainAreaWrapper = ({ children}) => {
   return (
-    <Box paddingX={5} paddingY={2} {...rest}>
+    <Box>
       {children}
     </Box>
   );

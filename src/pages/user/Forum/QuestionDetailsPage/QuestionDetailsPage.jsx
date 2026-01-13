@@ -1,12 +1,13 @@
-import { useState } from "react";
-import { Route } from "react-router-dom";
-import { QuestionListCard } from "../../../../components";
-import { PageLoaderLayout } from "../../../../layouts";
-import { QuestionsPageErrorState } from "../../../../pages/user";
-import Comments from "../Comments/Comments";
-import CommentList from "../Comments/CommentList";
-import CommentForm, { CommentsHeader } from "../Comments/CommentForm";
-import useQuestionDetailsPage from "./hooks/useQuestionDetailsPage";
+import { useState } from 'react';
+import { Route } from 'react-router-dom';
+import { QuestionListCard } from '../../../../components';
+import { PageLoaderLayout } from '../../../../layouts';
+import { QuestionsPageErrorState } from '../../../../pages/user';
+import Comments from '../Comments/Comments';
+import CommentList from '../Comments/CommentList';
+import CommentForm, { CommentsHeader } from '../Comments/CommentForm';
+import useQuestionDetailsPage from './hooks/useQuestionDetailsPage';
+import QuestionsUnavailable from './hooks/QuestionsUnavailable';
 
 const QuestionDetailsPage = () => {
   const { question, commentsManager } = useQuestionDetailsPage();
@@ -16,7 +17,16 @@ const QuestionDetailsPage = () => {
     <>
       {question.loading && <PageLoaderLayout height="70%" width="100%" />}
 
-      {question.err && <QuestionsPageErrorState />}
+      {question.err === 'Question unavailable, please try again' ? (
+        <QuestionsUnavailable />
+      ) : (
+        question.err === 'an unexpected error occurred' && (
+          <QuestionsPageErrorState />
+        )
+      )}
+
+      {/* 
+      {question.err && <QuestionsPageErrorState />} */}
 
       {question.data && (
         <>

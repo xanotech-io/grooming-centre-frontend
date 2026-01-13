@@ -1,6 +1,6 @@
-import { useCallback, useContext } from "react";
-import { requestMyData, requestMetadata } from "../../services";
-import { AppContext } from "./AppProvider";
+import { useCallback, useContext } from 'react';
+import { requestMyData, requestMetadata } from '../../services';
+import { AppContext } from './AppProvider';
 
 /**
  * App state `Manager` - its consumes the ContextProvider and returns whats necessary.
@@ -31,8 +31,8 @@ export const useApp = () => {
         ...prev,
         metadata: {
           ...data,
-          departments: data.departments.filter(
-            (department) => department.name !== "General"
+          departments: data?.departments?.filter(
+            (department) => department.name !== 'General'
           ),
         },
         allMetadata: data,
@@ -45,7 +45,7 @@ export const useApp = () => {
   const fetchCurrentUser = useCallback(async () => {
     try {
       const { data } = await requestMyData();
-      localStorage.setItem("DateNow", new Date(data.currentDateTime).getTime());
+      localStorage.setItem('DateNow', new Date(data.currentDateTime).getTime());
 
       setState((prev) => ({
         ...prev,
@@ -60,14 +60,14 @@ export const useApp = () => {
   }, [setState]);
 
   const handleGetTokenFromClientStorage = useCallback(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem('token');
     return token;
   }, []);
 
   const handleSetToken = useCallback(
     (token) => {
       if (token) {
-        localStorage.setItem("token", token);
+        localStorage.setItem('token', token);
         setState((prev) => ({ ...prev, token }));
       }
     },
@@ -82,12 +82,12 @@ export const useApp = () => {
   );
 
   const handleLogout = useCallback(() => {
-    localStorage.removeItem("token");
+    localStorage.removeItem('token');
     setState((prev) => ({ ...prev, user: null, token: null }));
   }, [setState]);
 
   const getOneMetadata = (arrayKey, id, options) =>
-    state[options?.allMetadata ? "allMetadata" : "metadata"]?.[arrayKey]?.find(
+    state[options?.allMetadata ? 'allMetadata' : 'metadata']?.[arrayKey]?.find(
       (item) => item.id === id
     );
 
