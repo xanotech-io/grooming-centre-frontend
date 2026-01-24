@@ -30,6 +30,7 @@ import {
   StandaloneExaminationListingPageRoute,
   StandaloneExaminationAllParticipantsPageRoute,
   ViewAuditRoute,
+  ReportRoute,
   DocumentsPageRoute,
 } from '../../../pages/admin';
 import PollsListingPageRoute from '../../../pages/admin/polls/PollsPage';
@@ -123,6 +124,7 @@ const MainArea = () => {
         <AnnouncementListingRoute exact path="/admin/announcement" />
         <CreateAnnouncementRoute exact path="/admin/announcement/edit" />
         <ViewAuditRoute exact path="/admin/audit" />
+        <ReportRoute exact path="/admin/report"/>
         <NotFoundPageRoute />
       </Switch>
     </Box>

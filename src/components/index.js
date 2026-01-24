@@ -4,6 +4,7 @@ export * from './Cards/CommentListCard';
 export * from './Cards/CourseBoxCard';
 export * from './Cards/QuestionListCard';
 export * from './Cards/ReplyListCard';
+export * from './Cards/DashboardMetricCard';
 export * from './Form/Checkbox';
 export * from './Form/DateTimePicker/DatePicker';
 export * from './Form/DateTimePicker/TimePicker';
