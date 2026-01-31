@@ -30,3 +30,4 @@ export * from './standaloneExams/StandaloneExaminationListingPage';
 export * from './standaloneExams/StandaloneExaminationAllParticipantsPage';
 export * from './audit/ViewAudit';
 export * from './documents/DocumentsPageRoute';
+export * from './report/ReportListingPage';
