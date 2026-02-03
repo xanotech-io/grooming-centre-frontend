@@ -1,24 +1,24 @@
 import { useState } from "react";
 import { Route } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
-import { Tabs, Tab, makeStyles, Table } from "@material-ui/core";
+import { Tabs, Tab, makeStyles } from "@material-ui/core";
 import ProgressReport from "./ProgressReport";
 import TranscriptReport from "./TranscriptReport";
 import ComplianceReport from "./ComplianceReport";
 import AssessmentReport from "./AssessmentReport";
 import AttendanceReport from "./AttendanceReport";
-import { Button, Breadcrumb, Link } from "../../../components";
+import { Button, Breadcrumb, Link } from "../../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
-import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 
 const useStyles = makeStyles((theme) => ({
-tabsContainer: {
-  borderBottom: `1px solid ${theme.palette.divider}`,
-  marginBottom: theme.spacing(3),
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-},
+  tabsContainer: {
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    marginBottom: theme.spacing(3),
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   card: {
     borderRadius: 16,
     padding: "16px",
@@ -43,14 +43,14 @@ tabsContainer: {
   },
 }));
 
-const Report = () => {
+const StudentReport = () => {
   const [viewMode, setViewMode] = useState(0);
   const classes = useStyles();
 
   const handleViewModeChange = (event, newValue) => {
     setViewMode(newValue);
   };
-  //  const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -77,7 +77,7 @@ const Report = () => {
         </Box>
       </Box>
 
-      <Box className={classes.tabsContainer} >
+      <Box className={classes.tabsContainer}>
         <Tabs className="" value={viewMode} onChange={handleViewModeChange}>
           <Tab label="Progress Report" />
           <Tab label="Transcript Report" />
@@ -97,8 +97,8 @@ const Report = () => {
   );
 };
 
-export const ReportRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <Report />} />;
+export const StudentReportRoute = ({ ...rest }) => {
+  return <Route {...rest} render={(props) => <StudentReport />} />;
 };
 
-export default ReportRoute;
+export default StudentReportRoute;

@@ -1,5 +1,5 @@
-import { Box, Flex } from '@chakra-ui/layout';
-import { Switch } from 'react-router-dom';
+import { Box, Flex } from "@chakra-ui/layout";
+import { Switch } from "react-router-dom";
 import {
   CourseListingPageRoute,
   // CoursesPageRoute,
@@ -27,26 +27,30 @@ import {
   LibraryListingPageRoute,
   CreateLibraryFilePageRoute,
   ViewFileDetailsPageRoute,
+
   StandaloneExaminationListingPageRoute,
   StandaloneExaminationAllParticipantsPageRoute,
   ViewAuditRoute,
-  ReportRoute,
+
   DocumentsPageRoute,
-} from '../../../pages/admin';
-import PollsListingPageRoute from '../../../pages/admin/polls/PollsPage';
-import { CreatePollsPageRoute } from '../../../pages/admin/polls/CreatePollsPage';
-import { ViewPollsInfoPageRoute } from '../../../pages/admin/polls/layout/ViewPollsInfoPage';
-import { CreateOptionsPageRoute } from '../../../pages/admin/polls/CreateOptionsPage';
-import { CreateStandalonePageRoute } from '../../../pages/admin/standaloneExams/CreateStandaloneExamPage';
-import QuestionsStandaloneRoute from '../../../pages/admin/standaloneExams/QuestionsStandalone';
-import { ParticipantsListingPageRoute } from '../../../pages/admin/participants/ParticipantsListingPage';
-import { AnnouncementListingRoute } from '../../../pages/admin/Annoncement/AnnouncementListing';
-import { CreateAnnouncementRoute } from '../../../pages/admin/Annoncement/CreateAnnouncement';
+} from "../../../pages/admin";
+import { ManagementReportRoute } from "../../../pages/admin/report/managementReport/managementReport";
+
+import { StudentReportRoute } from "../../../pages/admin/report/studentReport/StudentReport";
+import PollsListingPageRoute from "../../../pages/admin/polls/PollsPage";
+import { CreatePollsPageRoute } from "../../../pages/admin/polls/CreatePollsPage";
+import { ViewPollsInfoPageRoute } from "../../../pages/admin/polls/layout/ViewPollsInfoPage";
+import { CreateOptionsPageRoute } from "../../../pages/admin/polls/CreateOptionsPage";
+import { CreateStandalonePageRoute } from "../../../pages/admin/standaloneExams/CreateStandaloneExamPage";
+import QuestionsStandaloneRoute from "../../../pages/admin/standaloneExams/QuestionsStandalone";
+import { ParticipantsListingPageRoute } from "../../../pages/admin/participants/ParticipantsListingPage";
+import { AnnouncementListingRoute } from "../../../pages/admin/Annoncement/AnnouncementListing";
+import { CreateAnnouncementRoute } from "../../../pages/admin/Annoncement/CreateAnnouncement";
 
 const MainArea = () => {
   return (
     <Box
-      marginLeft={{ md: '270px', base: '0px', lg: '270px' }}
+      marginLeft={{ md: "270px", base: "0px", lg: "270px" }}
       paddingY="30px"
       paddingX="18px"
     >
@@ -124,7 +128,11 @@ const MainArea = () => {
         <AnnouncementListingRoute exact path="/admin/announcement" />
         <CreateAnnouncementRoute exact path="/admin/announcement/edit" />
         <ViewAuditRoute exact path="/admin/audit" />
-        <ReportRoute exact path="/admin/report"/>
+        <ManagementReportRoute exact path="/admin/report/managementReport" />
+        <StudentReportRoute exact path="/admin/report/studentReport" />
+
+
+
         <NotFoundPageRoute />
       </Switch>
     </Box>
