@@ -29,11 +29,17 @@ export * from "./lib/ViewFileDetailsPage";
 export * from "./standaloneExams/StandaloneExaminationListingPage";
 export * from "./standaloneExams/StandaloneExaminationAllParticipantsPage";
 export * from "./audit/ViewAudit";
-export * from "./report/ReportPage";
-export * from "./report/ProgressReport";
-export * from "./report/ProgressReport";
-export * from "./report/AttendanceReport";
-export * from "./report/AssessmentReport";
-export * from "./report/ComplianceReport";
-export * from "./report/TranscriptReport"
+export * from "./report/studentReport/StudentReport";
+export * from "./report/studentReport/ProgressReport";
+export * from "./report/studentReport/ProgressReport";
+export * from "./report/studentReport/AttendanceReport";
+export * from "./report/studentReport/AssessmentReport";
+export * from "./report/studentReport/ComplianceReport";
+export * from "./report/studentReport/TranscriptReport";
+export * from "./report/managementReport/courseReport"
+export * from "./report/managementReport/enrollmentReport"
+export * from "./report/managementReport/bulkDataReport"
+export * from "./report/managementReport/systemReport"
+export * from "./report/managementReport/multiSearchReport"
+
 export * from "./documents/DocumentsPageRoute";

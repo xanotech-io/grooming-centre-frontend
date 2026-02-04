@@ -1,24 +1,24 @@
 import { useState } from "react";
 import { Route } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
-import { Tabs, Tab, makeStyles, Table } from "@material-ui/core";
+import { Tabs, Tab, makeStyles } from "@material-ui/core";
 import ProgressReport from "./ProgressReport";
 import TranscriptReport from "./TranscriptReport";
 import ComplianceReport from "./ComplianceReport";
 import AssessmentReport from "./AssessmentReport";
 import AttendanceReport from "./AttendanceReport";
-import { Button, Breadcrumb, Link } from "../../../components";
+import { Button, Breadcrumb, Link } from "../../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
-import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 
 const useStyles = makeStyles((theme) => ({
-tabsContainer: {
-  borderBottom: `1px solid ${theme.palette.divider}`,
-  marginBottom: theme.spacing(3),
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-},
+  tabsContainer: {
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    marginBottom: theme.spacing(3),
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   card: {
     borderRadius: 16,
     padding: "16px",
@@ -41,16 +41,22 @@ tabsContainer: {
     fontWeight: 500,
     color: "#1A8F3A", // Green like your design
   },
+  tab: {
+    whiteSpace: "nowrap",
+    minWidth: "auto",
+    paddingLeft: 40,
+    paddingRight: 40,
+  }
 }));
 
-const Report = () => {
+const StudentReport = () => {
   const [viewMode, setViewMode] = useState(0);
   const classes = useStyles();
 
   const handleViewModeChange = (event, newValue) => {
     setViewMode(newValue);
   };
-  //  const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -62,7 +68,7 @@ const Report = () => {
         <Breadcrumb
           item2={
             <BreadcrumbItem isCurrentPage>
-              <Link href="/admin/report">Student Report</Link>
+              <Link href="/admin/report/studentReport">Student Report</Link>
             </BreadcrumbItem>
           }
         />
@@ -77,13 +83,13 @@ const Report = () => {
         </Box>
       </Box>
 
-      <Box className={classes.tabsContainer} >
+      <Box className={classes.tabsContainer}>
         <Tabs className="" value={viewMode} onChange={handleViewModeChange}>
-          <Tab label="Progress Report" />
-          <Tab label="Transcript Report" />
-          <Tab label="Attendance Report" />
-          <Tab label="Assessment & Quizzes" />
-          <Tab label="Compliance & Training" />
+          <Tab className={classes.tab} label="Progress Report" />
+          <Tab className={classes.tab} label="Transcript Report" />
+          <Tab className={classes.tab} label="Attendance Report" />
+          <Tab className={classes.tab} label="Assessment & Quizzes" />
+          <Tab className={classes.tab} label="Compliance & Training" />
         </Tabs>
       </Box>
       <Box mt={3}>
@@ -97,8 +103,8 @@ const Report = () => {
   );
 };
 
-export const ReportRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <Report />} />;
+export const StudentReportRoute = ({ ...rest }) => {
+  return <Route {...rest} render={(props) => <StudentReport />} />;
 };
 
-export default ReportRoute;
+export default StudentReportRoute;

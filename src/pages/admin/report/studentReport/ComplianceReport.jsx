@@ -1,22 +1,23 @@
-
+import { Box, Flex } from "@chakra-ui/layout";
+import {
+  Button,
+  Table,
+  Text,
+  Spinner,
+  DashboardMetricCard,
+} from "../../../../components";
+import { useTableRows } from "../../../../hooks";
+import { mockStudentReportsResponse } from "../../../../mocks/server/controllers/student-report/reponses";
 import { useState } from "react";
-import { Button, Table, Text, Spinner } from "../../../components";
-import { EmptyState } from "../../../layouts";
-import { Flex,Box } from "@chakra-ui/layout";
-import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { DashboardMetricCard } from "../../../components";
-import dayjs from "dayjs";
-import { Avatar } from "@chakra-ui/avatar";
-import { Tag } from "@chakra-ui/tag";
-import { useTableRows } from "../../../hooks";
-import { mockStudentReportsResponse } from "../../../mocks/server/controllers/student-report/reponses";
+import { EmptyState } from "../../../../layouts";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 
-const ProgressReport = () => {
+const ComplianceReport = () => {
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
 
-  const fetchReports = async (params = {}) => {
+  const fetchAttendanceReports = async (params = {}) => {
     setLoading(true);
     setError(null);
 
@@ -64,14 +65,14 @@ const ProgressReport = () => {
     certificate: report?.certificate,
     lastAccess: report?.lastAccess,
   });
-  // Setup Table
+
   const tableProps = {
     searchKey: "search",
     filterControls: [
       {
         triggerText: "Status",
         queryKey: "status",
-        width: "180px",
+        width: "150px",
         body: {
           checks: [
             { label: "Completed", queryValue: "Completed" },
@@ -81,50 +82,31 @@ const ProgressReport = () => {
         },
       },
     ],
-
     columns: [
       {
         id: "studentId",
-        key: "studentId",
+        key: "studentName",
         text: "Student ID",
-        fraction: "130px",
-       
+        fraction: "200px",
       },
-
       {
-        id: "courseTitle",
-        key: "courseTitle",
-        text: "Course Title",
-        fraction: "220px",
+        id: "course",
+        key: "course",
+        text: "Course",
+        fraction: "200px",
       },
-
       {
-        id: "enrollmentDate",
-        key: "enrollmentDate",
-        text: "Enrollment Date",
-        fraction: "130px",
-        renderContent: (date) => (
-          <Box>
-            <Text fontSize="sm">{dayjs(date).format("DD/MM/YYYY")}</Text>
-            <Text fontSize="xs" color="gray.500">
-              {dayjs(date).format("h:mm A")}
-            </Text>
-          </Box>
-        ),
-      },
-
-      {
-        id: "modulesCompleted",
-        key: "modulesCompleted",
-        text: "Module Completed",
+        id: "assignedDate",
+        key: "assignedDate",
+        text: "Assigned Date",
         fraction: "150px",
       },
 
       {
-        id: "score",
-        key: "score",
-        text: "Score (%)",
-        fraction: "100px",
+        id: "completionDate",
+        key: "completionDate",
+        text: "Completion Date",
+        fraction: "150px",
       },
 
       {
@@ -132,43 +114,13 @@ const ProgressReport = () => {
         key: "status",
         text: "Status",
         fraction: "150px",
-        renderContent: (status) => (
-          <Tag
-            size="sm"
-            borderRadius="full"
-            colorScheme={
-              status === "Completed"
-                ? "green"
-                : status === "In Progress"
-                  ? "yellow"
-                  : "red"
-            }
-          >
-            {status}
-          </Tag>
-        ),
       },
 
       {
-        id: "certificate",
-        key: "certificate",
-        text: "Certificate",
-        fraction: "100px",
-        renderContent: (value) => <Text>{value ? "Yes" : "No"}</Text>,
-      },
-      {
-        id: "lastAccess",
-        key: "lastAccess",
-        text: "Last Access",
-        fraction: "180px",
-        renderContent: (date) => (
-          <Box>
-            <Text fontSize="sm">{dayjs(date).format("DD/MM/YYYY")}</Text>
-            <Text fontSize="xs" color="gray.500">
-              {dayjs(date).format("h:mm A")}
-            </Text>
-          </Box>
-        ),
+        id: "overdueDays",
+        key: "overdueDays",
+        text: "Overdue Days",
+        fraction: "220px",
       },
     ],
 
@@ -183,8 +135,9 @@ const ProgressReport = () => {
       pagination: true,
     },
   };
+
   const fetcher = (props) => async () => {
-    return await fetchReports(props?.params);
+    return await fetchAttendanceReports(props?.params);
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
@@ -207,22 +160,16 @@ const ProgressReport = () => {
           />
 
           <DashboardMetricCard
-            title="Average Assessment Score"
-            value="82%"
-            change="+5% vs last month"
-            changeColor="#1A8F3A"
-          />
-          <DashboardMetricCard
-            title="Average Time Spent"
-            value="5h 32mins"
-            change="per learner"
+            title="Non-Compliance Ratio"
+            value="15%"
+            change="+5% vs last semester"
             changeColor="#1A8F3A"
           />
 
           <DashboardMetricCard
-            title="Weakly Activity Rate"
-            value="4.2"
-            change="logins/week"
+            title="Overdue Count"
+            value="10"
+            change="per course"
             changeColor="#1A8F3A"
           />
         </Box>
@@ -241,7 +188,7 @@ const ProgressReport = () => {
           <EmptyState
             heading="Failed to load student reports"
             description={error}
-            cta={<Button onClick={fetchRowItems}>Try Again SCKKK</Button>}
+            cta={<Button onClick={fetchRowItems}>Try Again</Button>}
           />
         ) : (
           <Table
@@ -258,4 +205,4 @@ const ProgressReport = () => {
   );
 };
 
-export default ProgressReport;
+export default ComplianceReport;

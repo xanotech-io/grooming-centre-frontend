@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Route } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 import {
   Button,
@@ -7,24 +6,21 @@ import {
   Text,
   Spinner,
   DashboardMetricCard,
-} from "../../../components";
-import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { EmptyState } from "../../../layouts";
-import { Avatar } from "@chakra-ui/avatar";
-import { Tag } from "@chakra-ui/tag";
-import { useTableRows } from "../../../hooks";
+} from "../../../../components";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { mockStudentReportsResponse } from "../../../mocks/server/controllers/student-report/reponses";
+import { useTableRows } from "../../../../hooks";
+import { EmptyState } from "../../../../layouts";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
+import { mockStudentReportsResponse } from "../../../../mocks/server/controllers/student-report/reponses";
 
 dayjs.extend(relativeTime);
-
-const StudentReport = () => {
+const AssessmentReport = () => {
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
 
-  const fetchReports = async (params = {}) => {
+  const fetchAssessmentReports = async (params = {}) => {
     setLoading(true);
     setError(null);
 
@@ -80,7 +76,7 @@ const StudentReport = () => {
       {
         triggerText: "Status",
         queryKey: "status",
-        width: "180px",
+        width: "150px",
         body: {
           checks: [
             { label: "Completed", queryValue: "Completed" },
@@ -93,25 +89,16 @@ const StudentReport = () => {
 
     columns: [
       {
-        id: "studentId",
-        key: "studentId",
-        text: "Student ID",
-        fraction: "130px",
-        
+        id: "assessmentTitle",
+        key: "assessmentTitle",
+        text: "Assessment Title",
+        fraction: "200px",
       },
-
       {
-        id: "courseTitle",
-        key: "courseTitle",
-        text: "Course Title",
-        fraction: "220px",
-      },
-
-      {
-        id: "enrollmentDate",
-        key: "enrollmentDate",
-        text: "Enrollment Date",
-        fraction: "130px",
+        id: "date",
+        key: "date",
+        text: "Date",
+        fraction: "200px",
         renderContent: (date) => (
           <Box>
             <Text fontSize="sm">{dayjs(date).format("DD/MM/YYYY")}</Text>
@@ -121,63 +108,39 @@ const StudentReport = () => {
           </Box>
         ),
       },
-
-      {
-        id: "modulesCompleted",
-        key: "modulesCompleted",
-        text: "Module Completed",
-        fraction: "150px",
-      },
-
       {
         id: "score",
         key: "score",
         text: "Score (%)",
-        fraction: "100px",
-      },
-
-      {
-        id: "status",
-        key: "status",
-        text: "Status",
         fraction: "150px",
-        renderContent: (status) => (
-          <Tag
-            size="sm"
-            borderRadius="full"
-            colorScheme={
-              status === "Completed"
-                ? "green"
-                : status === "In Progress"
-                  ? "yellow"
-                  : "red"
-            }
-          >
-            {status}
-          </Tag>
-        ),
       },
 
       {
-        id: "certificate",
-        key: "certificate",
-        text: "Certificate",
-        fraction: "100px",
-        renderContent: (value) => <Text>{value ? "Yes" : "No"}</Text>,
+        id: "grade",
+        key: "grade",
+        text: "Grade",
+        fraction: "150px",
       },
+
       {
-        id: "lastAccess",
-        key: "lastAccess",
-        text: "Last Access",
-        fraction: "180px",
-        renderContent: (date) => (
-          <Box>
-            <Text fontSize="sm">{dayjs(date).format("DD/MM/YYYY")}</Text>
-            <Text fontSize="xs" color="gray.500">
-              {dayjs(date).format("h:mm A")}
-            </Text>
-          </Box>
-        ),
+        id: "result",
+        key: "result",
+        text: "Result",
+        fraction: "150px",
+      },
+
+      {
+        id: "duration",
+        key: "duration",
+        text: "Duration",
+        fraction: "150px",
+      },
+
+      {
+        id: "remarks",
+        key: "remarks",
+        text: "Remarks",
+        fraction: "130px",
       },
     ],
 
@@ -186,7 +149,6 @@ const StudentReport = () => {
         {
           text: "Archive Report",
           link: (row) => `/archiiveReport/${row.id}/archive`,
-          
         },
       ],
       selection: true,
@@ -195,7 +157,7 @@ const StudentReport = () => {
   };
 
   const fetcher = (props) => async () => {
-    return await fetchReports(props?.params);
+    return await fetchAssessmentReports(props?.params);
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
@@ -211,23 +173,29 @@ const StudentReport = () => {
           mb={10}
         >
           <DashboardMetricCard
-            title="GPA or Weighted Avg Score"
+            title="Average Assessment Score"
             value="82%"
             change="+5% vs last month"
             changeColor="#1A8F3A"
           />
 
           <DashboardMetricCard
-            title="Course Completion Rate"
+            title="Highest vs. Lowest Score"
+            value="95% / 45%"
+            change="per course"
+            changeColor="#1A8F3A"
+          />
+          <DashboardMetricCard
+            title="Pass Rate"
             value="82%"
-            change="+5% vs last month"
+            change="+5% vs last period"
             changeColor="#1A8F3A"
           />
 
           <DashboardMetricCard
-            title="Certification Ratio"
-            value="80%"
-            change="of completed  course"
+            title="Question Difficulty Impact"
+            value="Medium"
+            change=""
             changeColor="#1A8F3A"
           />
         </Box>
@@ -263,8 +231,4 @@ const StudentReport = () => {
   );
 };
 
-export const StudentReportRoute = (props) => {
-  return <Route {...props} render={(p) => <StudentReport {...p} />} />;
-};
-
-export default StudentReportRoute;
+export default AssessmentReport;

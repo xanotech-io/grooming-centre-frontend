@@ -76,11 +76,27 @@ export const links = [
     text: "user audit",
     icon: <AiOutlineAudit />,
   },
-   {
-    href: "/admin/report",
+  //  {
+  //   href: "/admin/report",
+  //   text: "Report",
+  //   icon: <AiOutlineAudit />,
+  // },
+  {
     text: "Report",
     icon: <AiOutlineAudit />,
+    href: "/admin/report/studentReport",
+    links: [
+      {
+        href: "/admin/report/studentReport",
+        text: "Student Report",
+      },
+      {
+        href: "/admin/report/managementReport",
+        text: "Management Report",
+      },
+    ],
   },
+
 ];
 
 export const superAdminSettingsLinks = [
