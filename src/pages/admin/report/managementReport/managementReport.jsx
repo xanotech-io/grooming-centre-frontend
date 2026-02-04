@@ -3,8 +3,8 @@ import { Route } from "react-router-dom";
 import { useState } from "react";
 import { Box } from "@chakra-ui/layout";
 import EnrollmentReport from "./enrollmentReport";
-import CustomerReport from "./customReport";
-import BulkReport from "./bulkReport";
+import MultiSearchReport from "./multiSearchReport";
+import BulkReport from "./bulkDataReport";
 import CourseReport from "./courseReport"
 import { Button, Breadcrumb, Link } from "../../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
@@ -41,6 +41,12 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 500,
     color: "#1A8F3A", // Green like your design
   },
+  tab: {
+    whiteSpace: "nowrap",
+    minWidth: "auto",
+    paddingLeft: 20,
+    paddingRight: 20,
+  }
 }));
 
 const ManagementReport = () => {
@@ -62,7 +68,7 @@ const ManagementReport = () => {
         <Breadcrumb
           item2={
             <BreadcrumbItem isCurrentPage>
-              <Link href="/admin/report">Student Report</Link>
+              <Link href="/admin/report/managementReport">Management Report</Link>
             </BreadcrumbItem>
           }
         />
@@ -78,21 +84,26 @@ const ManagementReport = () => {
       </Box>
 
       <Box className={classes.tabsContainer}>
-        <Tabs className="" value={viewMode} onChange={handleViewModeChange}>
-          <Tab label="Enrollment Status Report" />
-          <Tab label="Course Roaster Report" />
-          <Tab label="Bulk User Data Report" />
-          <Tab label="System Utiization Report" />
-          <Tab label="Management Report" />
+        <Tabs
+          className=""
+          value={viewMode}
+          onChange={handleViewModeChange}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab className={classes.tab} label="Enrollment Status Report" />
+          <Tab className={classes.tab} label="Course Roaster Report" />
+          <Tab className={classes.tab} label="Bulk User Data Report" />
+          <Tab className={classes.tab} label="System Utiization Report" />
+          <Tab className={classes.tab} label="Multi-search / Custom Report " />
         </Tabs>
       </Box>
       <Box mt={3}>
         {viewMode === 0 && <EnrollmentReport />}
-        {viewMode === 1 && <CustomerReport />}
+        {viewMode === 1 && <CourseReport />}
         {viewMode === 2 && <BulkReport />}
-        {viewMode === 3 && <CustomerReport />}
-        {viewMode === 4 && <CourseReport />}
-        {viewMode === 5 && <SystemReport />}
+        {viewMode === 3 && <SystemReport />}
+        {viewMode === 4 && <MultiSearchReport />}
       </Box>
     </AdminMainAreaWrapper>
   );

@@ -41,6 +41,12 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 500,
     color: "#1A8F3A", // Green like your design
   },
+  tab: {
+    whiteSpace: "nowrap",
+    minWidth: "auto",
+    paddingLeft: 40,
+    paddingRight: 40,
+  }
 }));
 
 const StudentReport = () => {
@@ -62,7 +68,7 @@ const StudentReport = () => {
         <Breadcrumb
           item2={
             <BreadcrumbItem isCurrentPage>
-              <Link href="/admin/report">Student Report</Link>
+              <Link href="/admin/report/studentReport">Student Report</Link>
             </BreadcrumbItem>
           }
         />
@@ -79,11 +85,11 @@ const StudentReport = () => {
 
       <Box className={classes.tabsContainer}>
         <Tabs className="" value={viewMode} onChange={handleViewModeChange}>
-          <Tab label="Progress Report" />
-          <Tab label="Transcript Report" />
-          <Tab label="Attendance Report" />
-          <Tab label="Assessment & Quizzes" />
-          <Tab label="Compliance & Training" />
+          <Tab className={classes.tab} label="Progress Report" />
+          <Tab className={classes.tab} label="Transcript Report" />
+          <Tab className={classes.tab} label="Attendance Report" />
+          <Tab className={classes.tab} label="Assessment & Quizzes" />
+          <Tab className={classes.tab} label="Compliance & Training" />
         </Tabs>
       </Box>
       <Box mt={3}>

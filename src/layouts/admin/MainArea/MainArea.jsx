@@ -42,8 +42,6 @@ import { CreatePollsPageRoute } from "../../../pages/admin/polls/CreatePollsPage
 import { ViewPollsInfoPageRoute } from "../../../pages/admin/polls/layout/ViewPollsInfoPage";
 import { CreateOptionsPageRoute } from "../../../pages/admin/polls/CreateOptionsPage";
 import { CreateStandalonePageRoute } from "../../../pages/admin/standaloneExams/CreateStandaloneExamPage";
-import QuestionsStandaloneRoute from "../../../pages/admin/standaloneExams/QuestionsStandalone";
-import { ParticipantsListingPageRoute } from "../../../pages/admin/participants/ParticipantsListingPage";
 import { AnnouncementListingRoute } from "../../../pages/admin/Annoncement/AnnouncementListing";
 import { CreateAnnouncementRoute } from "../../../pages/admin/Annoncement/CreateAnnouncement";
 

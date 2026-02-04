@@ -38,8 +38,8 @@ export * from "./report/studentReport/ComplianceReport";
 export * from "./report/studentReport/TranscriptReport";
 export * from "./report/managementReport/courseReport"
 export * from "./report/managementReport/enrollmentReport"
-export * from "./report/managementReport/bulkReport"
+export * from "./report/managementReport/bulkDataReport"
 export * from "./report/managementReport/systemReport"
-export * from "./report/managementReport/customReport"
+export * from "./report/managementReport/multiSearchReport"
 
 export * from "./documents/DocumentsPageRoute";

@@ -7,28 +7,45 @@ import {
   Text,
   Spinner,
   DashboardMetricCard,
-  Avatar,
 } from "../../../../components";
 import { EmptyState } from "../../../../layouts";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../hooks";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { mockCourseRoasterReportsResponse } from "../../../../mocks/server/controllers/management-report/reponses";
+import { mockBulkDataReportsResponse } from "../../../../mocks/server/controllers/management-report/reponses";
+import { FiDownload, FiUpload } from "react-icons/fi";
 
 dayjs.extend(relativeTime);
 
-const CourseRoasterReport = () => {
+const BulkDataReport = () => {
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
 
-  const fetchRoasterReports = async (params = {}) => {
+  const fetchBulkReports = async (params = {}) => {
     setLoading(true);
     setError(null);
 
     try {
       // Mocking the full API response:
-      const response = mockCourseRoasterReportsResponse;
+      let response = mockBulkDataReportsResponse;
+
+      // Filter by Date if params are present
+      if (params.startDate && params.endDate) {
+        const start = dayjs(params.startDate);
+        const end = dayjs(params.endDate);
+
+        const filteredRows = response.data.rows.filter(row => {
+          // Assuming row.dateTime format needs parsing or is compatible
+          // For mock data which is "26/11/2025 11:30am", we might need custom parsing
+          // But for demonstration, we'll just log it. 
+          // In a real app, this filtering would happen on the backend.
+          return true;
+        });
+
+        console.log("Filtering by date:", start.format(), end.format());
+      }
+
 
       const rows =
         response.data.rows?.map((report) => mapReportToRow(report)) || [];
@@ -45,7 +62,7 @@ const CourseRoasterReport = () => {
       };
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to fetch course roaster reports");
+      setError(err.message || "Unable to fetch bulk data reports");
       return {
         rows: [],
         showingDocumentsCount: 0,
@@ -60,13 +77,14 @@ const CourseRoasterReport = () => {
 
   const mapReportToRow = (report) => ({
     id: report?.id,
-    studentName: report?.studentName,
-    email: report?.email,
-    course: report?.course,
-    enrollmentDate: report?.enrollmentDate,
+    operationMode: report?.operationMode,
+    fileName: report?.fileName,
+    dateTime: report?.dateTime,
+    record: report?.record,
+    successful: report?.successful,
+    failed: report?.failed,
+    user: report?.user,
     status: report?.status,
-    attendance: report?.attendance,
-    score: report?.score,
   });
 
   const tableProps = {
@@ -78,8 +96,8 @@ const CourseRoasterReport = () => {
         width: "150px",
         body: {
           checks: [
-            { label: "Active", queryValue: "Active" },
             { label: "Completed", queryValue: "Completed" },
+            { label: "Failed", queryValue: "Failed" },
           ],
         },
       },
@@ -87,35 +105,56 @@ const CourseRoasterReport = () => {
 
     columns: [
       {
-        id: "studentName",
-        key: "studentName",
-        text: "Student ID",
-        fraction: "250px",
-        formatter: (cell, row) => {
+        id: "operationMode",
+        key: "operationMode",
+        text: "Operation Mode",
+        fraction: "200px",
+        formatter: (cell) => {
+          const isImport = cell === "Import";
           return (
-            <Box>
-              <Text fontWeight="600" fontSize="14px" color="#101828">{row?.studentName}</Text>
-              <Text fontWeight="400" fontSize="12px" color="#667085">{row?.id}</Text>
+            <Box display="flex" alignItems="center" gap="8px">
+              <Box color={isImport ? "#1A8F3A" : "#1A8F3A"}>
+                {isImport ? <FiDownload size={18} /> : <FiUpload size={18} />}
+              </Box>
+              <Text>{cell}</Text>
             </Box>
-          );
-        },
+          )
+        }
       },
       {
-        id: "email",
-        key: "email",
-        text: "Email address",
+        id: "fileName",
+        key: "fileName",
+        text: "File Name",
         fraction: "200px",
       },
       {
-        id: "course",
-        key: "course",
-        text: "Course",
+        id: "dateTime",
+        key: "dateTime",
+        text: "Date and Time",
         fraction: "200px",
       },
       {
-        id: "enrollmentDate",
-        key: "enrollmentDate",
-        text: "Enrollment Date",
+        id: "record",
+        key: "record",
+        text: "Record",
+        fraction: "100px",
+      },
+      {
+        id: "successful",
+        key: "successful",
+        text: "Successful",
+        fraction: "100px",
+      },
+      {
+        id: "failed",
+        key: "failed",
+        text: "Failed",
+        fraction: "100px",
+      },
+      {
+        id: "user",
+        key: "user",
+        text: "User",
         fraction: "150px",
       },
       {
@@ -124,8 +163,8 @@ const CourseRoasterReport = () => {
         text: "Status",
         fraction: "150px",
         formatter: (cell) => {
-          const bg = cell === "Active" ? "#FFF9F0" : "#F6FEF9";
-          const color = cell === "Active" ? "#F79009" : "#1A8F3A";
+          const bg = cell === "Completed" ? "#F6FEF9" : "#FFF4F3";
+          const color = cell === "Completed" ? "#1A8F3A" : "#D92D20";
           return (
             <Box
               bg={bg}
@@ -143,18 +182,6 @@ const CourseRoasterReport = () => {
           );
         },
       },
-      {
-        id: "attendance",
-        key: "attendance",
-        text: "Attendance",
-        fraction: "120px",
-      },
-      {
-        id: "score",
-        key: "score",
-        text: "Score",
-        fraction: "100px",
-      },
     ],
 
     options: {
@@ -164,13 +191,14 @@ const CourseRoasterReport = () => {
           link: (row) => `/archiveReport/${row.id}`,
         },
       ],
-      selection: true,
+      selection: false,
       pagination: true,
+      dateFilter: true,
     },
   };
 
   const fetcher = (props) => async () => {
-    return await fetchRoasterReports(props?.params);
+    return await fetchBulkReports(props?.params);
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
@@ -184,22 +212,22 @@ const CourseRoasterReport = () => {
         mb={10}
       >
         <DashboardMetricCard
-          title="Enrollment-to-Completion Ratio"
+          title="Data Import Success Rate (%)"
           value="79%"
           change="+5% vs last period"
           changeColor="#1A8F3A"
         />
 
         <DashboardMetricCard
-          title="Active Enrollment Count"
-          value="16:40"
+          title="Error Rate per Batch (%)"
+          value="3%"
           change="-5% vs last period"
           changeColor="#D92D20"
         />
 
         <DashboardMetricCard
-          title="Average Attendance Rate"
-          value="5%"
+          title="Average Processing Time (seconds)"
+          value="150secs"
           change="+5% vs last period"
           changeColor="#1A8F3A"
         />
@@ -235,4 +263,4 @@ const CourseRoasterReport = () => {
   );
 };
 
-export default CourseRoasterReport;
+export default BulkDataReport;

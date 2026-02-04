@@ -84,7 +84,7 @@ export const links = [
   {
     text: "Report",
     icon: <AiOutlineAudit />,
-    href: "/admin/report",
+    href: "/admin/report/studentReport",
     links: [
       {
         href: "/admin/report/studentReport",
