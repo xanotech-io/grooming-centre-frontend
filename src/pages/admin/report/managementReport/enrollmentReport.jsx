@@ -57,22 +57,22 @@ const EnrollmentReport = () => {
     }
   };
 
- const mapReportToRow = (report) => ({
-  id: report?.id,
-  course: report?.course,
-  instructor: report?.instructor,
-  total: report?.total,
-  approved: report?.approved,
-  completed: report?.completed,
-  dropped: report?.dropped,
-  trend: report?.trend, // "growth" | "fall" | "stable"
-});
+  const mapReportToRow = (report) => ({
+    id: report?.id,
+    course: report?.course,
+    instructor: report?.instructor,
+    total: report?.total,
+    approved: report?.approved,
+    completed: report?.completed,
+    dropped: report?.dropped,
+    trend: report?.trend, // "growth" | "fall" | "stable"
+  });
 
   const tableProps = {
     searchKey: "search",
     filterControls: [
       {
-        triggerText: "Status",
+        triggerText: "Filter",
         queryKey: "status",
         width: "150px",
         body: {
@@ -143,6 +143,7 @@ const EnrollmentReport = () => {
       ],
       selection: true,
       pagination: true,
+
     },
   };
 

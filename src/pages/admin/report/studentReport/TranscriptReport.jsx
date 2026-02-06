@@ -77,7 +77,7 @@ const StudentReport = () => {
     searchKey: "search",
     filterControls: [
       {
-        triggerText: "Status",
+        triggerText: "Filter",
         queryKey: "status",
         width: "180px",
         body: {

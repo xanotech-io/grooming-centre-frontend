@@ -70,7 +70,7 @@ const ComplianceReport = () => {
     searchKey: "search",
     filterControls: [
       {
-        triggerText: "Status",
+        triggerText: "Filter",
         queryKey: "status",
         width: "150px",
         body: {
