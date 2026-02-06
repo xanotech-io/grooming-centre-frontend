@@ -7,6 +7,7 @@ import TranscriptReport from "./TranscriptReport";
 import ComplianceReport from "./ComplianceReport";
 import AssessmentReport from "./AssessmentReport";
 import AttendanceReport from "./AttendanceReport";
+import ScheduleReportModal from "./ScheduleReportModal";
 import { Button, Breadcrumb, Link } from "../../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
@@ -53,6 +54,8 @@ const StudentReport = () => {
   const [viewMode, setViewMode] = useState(0);
   const classes = useStyles();
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const handleViewModeChange = (event, newValue) => {
     setViewMode(newValue);
   };
@@ -74,7 +77,7 @@ const StudentReport = () => {
         />
 
         <Box display={"flex"} gap="8px">
-          <Button secondary link={`/admin/announcement/edit/?announcement=new`}>
+          <Button secondary onClick={() => setIsModalOpen(true)}>
             Schedule report
           </Button>
           <Button link={`/admin/announcement/edit/?announcement=new`}>
@@ -99,6 +102,7 @@ const StudentReport = () => {
         {viewMode === 3 && <AssessmentReport />}
         {viewMode === 4 && <ComplianceReport />}
       </Box>
+      <ScheduleReportModal open={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </AdminMainAreaWrapper>
   );
 };
