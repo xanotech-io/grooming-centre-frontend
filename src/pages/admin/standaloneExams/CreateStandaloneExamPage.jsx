@@ -8,6 +8,7 @@ import StandAloneHeader from '../courses/AssessmentPage/layout/StandAloneHeader'
 import OverViewStandalone from './OverViewStandalone';
 
 import QuestionsStandaloneRoute from './QuestionsStandalone';
+import TemplateStandalone from './TemplateStandalone';
 import useAssessmentPreview from '../../user/Courses/TakeCourse/hooks/useAssessmentPreview';
 
 import { ParticipantsListingPageRoute } from '../participants/ParticipantsListingPage';
@@ -29,6 +30,7 @@ export const CreateStandaloneExamPage = () => {
       <StandAloneHeader assessment={assessment} />
       <Switch>
         <QuestionsStandaloneRoute path="/admin/standalone-exams/questions" />
+        <Route path="/admin/standalone-exams/template" render={(props) => <TemplateStandalone {...props} />} />
         <OverViewStandalone path="/admin/standalone-exams/overview" />
         <ParticipantsListingPageRoute
           exact

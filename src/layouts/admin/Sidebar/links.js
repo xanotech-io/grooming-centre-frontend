@@ -7,7 +7,8 @@ import { AiOutlineUsergroupDelete, AiOutlineAudit } from "react-icons/ai";
 import { VscLibrary } from "react-icons/vsc";
 import { TiPen } from "react-icons/ti";
 import { MdOutlineAnnouncement } from "react-icons/md";
-import { FaFolderOpen } from "react-icons/fa";
+import { FaFolderOpen, FaSitemap } from "react-icons/fa";
+import { FiAward } from "react-icons/fi";
 
 export const links = [
   {
@@ -34,6 +35,11 @@ export const links = [
   {
     href: "/admin/standalone-exams",
     text: "Standalone Exams",
+    icon: <TiPen />,
+  },
+  {
+    href: "/admin/examination",
+    text: "Examination",
     icon: <TiPen />,
   },
   {
@@ -96,7 +102,16 @@ export const links = [
       },
     ],
   },
-
+  {
+    href: "/admin/workflow",
+    text: "Approval Workflow",
+    icon: <FaSitemap />,
+  },
+  {
+    href: "/admin/badge-support",
+    text: "Badge Support",
+    icon: <FiAward />,
+  },
 ];
 
 export const superAdminSettingsLinks = [

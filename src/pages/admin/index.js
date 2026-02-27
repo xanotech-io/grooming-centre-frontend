@@ -28,6 +28,10 @@ export * from "./lib/CreateLibraryFilePage";
 export * from "./lib/ViewFileDetailsPage";
 export * from "./standaloneExams/StandaloneExaminationListingPage";
 export * from "./standaloneExams/StandaloneExaminationAllParticipantsPage";
+export * from "./standaloneExams/ExaminationPage";
+export * from "./standaloneExams/ExaminationDetailPage";
+export * from "./standaloneExams/SingleExaminationPage";
+export * from "./standaloneExams/GradeQuestionPage";
 export * from "./audit/ViewAudit";
 export * from "./report/studentReport/StudentReport";
 export * from "./report/studentReport/ProgressReport";
@@ -43,3 +47,5 @@ export * from "./report/managementReport/systemReport"
 export * from "./report/managementReport/multiSearchReport"
 
 export * from "./documents/DocumentsPageRoute";
+export * from "./workflow/AutomatedApprovalWorkflow";
+export * from "./workflow/ReviewSubmissionPage";

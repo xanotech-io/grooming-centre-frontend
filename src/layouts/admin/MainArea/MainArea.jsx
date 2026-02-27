@@ -33,7 +33,14 @@ import {
   ViewAuditRoute,
 
   DocumentsPageRoute,
+  ExaminationPageRoute,
+  ExaminationDetailPageRoute,
+  SingleExaminationPageRoute,
+  GradeQuestionPageRoute,
+  AutomatedApprovalWorkflowRoute,
+  ReviewSubmissionPageRoute,
 } from "../../../pages/admin";
+import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
 import { ManagementReportRoute } from "../../../pages/admin/report/managementReport/managementReport";
 
 import { StudentReportRoute } from "../../../pages/admin/report/studentReport/StudentReport";
@@ -42,6 +49,7 @@ import { CreatePollsPageRoute } from "../../../pages/admin/polls/CreatePollsPage
 import { ViewPollsInfoPageRoute } from "../../../pages/admin/polls/layout/ViewPollsInfoPage";
 import { CreateOptionsPageRoute } from "../../../pages/admin/polls/CreateOptionsPage";
 import { CreateStandalonePageRoute } from "../../../pages/admin/standaloneExams/CreateStandaloneExamPage";
+import { TemplateLibraryPageRoute } from "../../../pages/admin/standaloneExams/TemplateLibraryPage";
 import { AnnouncementListingRoute } from "../../../pages/admin/Annoncement/AnnouncementListing";
 import { CreateAnnouncementRoute } from "../../../pages/admin/Annoncement/CreateAnnouncement";
 
@@ -92,6 +100,22 @@ const MainArea = () => {
           exact
           path="/admin/standalone-exams"
         />
+        <TemplateLibraryPageRoute
+          exact
+          path="/admin/standalone-exams/temporary-library"
+        />
+        <ExaminationPageRoute
+          exact
+          path="/admin/examination"
+        />
+        <ExaminationDetailPageRoute
+          exact
+          path="/admin/examination/:id"
+        />
+        <SingleExaminationPageRoute
+          exact
+          path="/admin/examination/:examId/:studentId"
+        />
         {/* <ParticipantsListingPageRoute exact path ="/"/> */}
         {/* <QuestionsStandaloneRoute
           exact
@@ -119,6 +143,9 @@ const MainArea = () => {
         <ViewFileDetailsPageRoute exact path="/admin/library/details/:id" />
 
         <DocumentsPageRoute exact path="/admin/documents" />
+        <AutomatedApprovalWorkflowRoute exact path="/admin/workflow" />
+        <ReviewSubmissionPageRoute exact path="/admin/workflow/review/:id" />
+        <BadgeSupportPageRoute exact path="/admin/badge-support" />
 
         <SecurityPageRoute path="/admin/settings/security" />
         <GradeCriteriaPageRoute path="/admin/settings/grade-criteria" />

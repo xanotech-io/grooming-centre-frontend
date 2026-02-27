@@ -3,10 +3,20 @@ import {
   ButtonGroup,
   Flex,
   Grid,
+  GridItem,
   Heading,
   Stack,
   Text,
   useToast,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
+  Icon,
+  Input as ChakraInput,
+  InputGroup,
+  InputRightAddon
 } from "@chakra-ui/react";
 import {
   useUpload,
@@ -15,11 +25,11 @@ import {
   useQueryParams,
 } from "../../../hooks";
 import { Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/menu";
-import { Button, Image, Input, Link, Spinner } from "../../../components";
+import { Button, Image, Input, Link, Spinner, Select } from "../../../components";
 import React, { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { BsCheckCircle } from "react-icons/bs";
-import { FaTrash } from "react-icons/fa";
+import { FaTrash, FaArrowRight } from "react-icons/fa";
 import { Route, useHistory, useParams } from "react-router-dom";
 import { RichText, RichTextToView, Upload } from "../../../components";
 import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
@@ -459,6 +469,14 @@ const CreateQuestionPage = (assessmentManager) => {
         paddingBottom="60px"
         backgroundColor="white"
       >
+        <Heading fontSize="22px" mb={6} color="#1A202C">
+          {getQuestionNumber(
+            question && questionId !== "new"
+              ? question.index
+              : assessmentManager.assessment?.questions?.length
+          )}
+        </Heading>
+
         {isExistingQuestion && !isEditMode ? (
           <RichTextToView
             marginBottom={2}
@@ -471,148 +489,124 @@ const CreateQuestionPage = (assessmentManager) => {
           <RichText
             height="250px"
             id="question"
-            label={getQuestionNumber(
-              question && questionId !== "new"
-                ? question.index
-                : assessmentManager.assessment?.questions?.length
-            )}
-            placeholder="Enter your question here"
+            label="Question"
+            placeholder="Enter your question here..."
             onChange={questionRichTextManager.handleChange}
             defaultValue={questionRichTextManager.data.default}
           />
         )}
-        <Box marginTop={8}>
+        <Box marginTop={8} bg="#F7FAFC" p={4} borderRadius="8px">
           {isExistingQuestion && !isEditMode && !question?.file ? null : (
             <Upload
               id="coverImage"
-              label="Question Image"
+              label="Question Image/Video"
               onFileSelect={questionImageManager.handleFileSelect}
-              // onDelete={questionImageManager.handleFileDelete}
-              // deleteRequestServiceFunction={deleteImage}
               imageUrl={questionImageManager.image.url}
               accept={questionImageManager.accept}
               disabled={isExistingQuestion && !isEditMode}
             />
           )}
         </Box>
+
+        <Grid templateColumns="repeat(2, 1fr)" gap={6} marginTop={10}>
+          <GridItem>
+            <Select
+              label="Difficulty Level"
+              id="difficulty"
+              placeholder="Easy"
+              options={[
+                { label: "Easy", value: "easy" },
+                { label: "Medium", value: "medium" },
+                { label: "Hard", value: "hard" },
+              ]}
+              {...register("difficulty")}
+            />
+          </GridItem>
+          <GridItem>
+            <Text fontSize="14px" fontWeight="500" mb="8px" color="#1A202C">Default point</Text>
+            <InputGroup size="lg">
+              <ChakraInput
+                id="defaultPoint"
+                defaultValue="10"
+                type="number"
+                bg="#F7FAFC"
+                borderColor="#E2E8F0"
+                {...register("defaultPoint")}
+              />
+              <InputRightAddon bg="transparent" border="none" color="#A0AEC0" paddingRight="4">
+                points
+              </InputRightAddon>
+            </InputGroup>
+          </GridItem>
+        </Grid>
       </Box>
 
-      <Box marginTop={10} padding={6} backgroundColor="white">
-        <Heading fontSize="heading.h4">Enter the Options</Heading>
-        <Text paddingTop={2} paddingBottom={8}>
-          Mark the correct option
-        </Text>
-        {/* <fieldset onChange={setAnswer} id="radio" value={answer}> */}
+      <Box marginTop={6} padding={6} backgroundColor="white">
+        <Heading fontSize="18px" mb={4} color="#1A202C">Options</Heading>
 
-        <Box borderBottom="1px" borderColor="accent.2" pb={2} mb={5}>
-          <ButtonGroup size="xs">
-            <Button
-              onClick={handleMultipleChoiceOptionsToggle}
-              leftIcon={isMultipleChoiceOptions && <BsCheckCircle />}
-              ghost={!isMultipleChoiceOptions}
-              disabled={isExistingQuestion && !isEditMode}
-            >
-              Multiple Choices
-            </Button>
-            <Button
-              onClick={handleMultipleChoiceOptionsToggle}
-              leftIcon={!isMultipleChoiceOptions && <BsCheckCircle />}
-              ghost={isMultipleChoiceOptions}
-              disabled={isExistingQuestion && !isEditMode}
-            >
-              True/False
-            </Button>
-          </ButtonGroup>
-        </Box>
+        <Tabs colorScheme="purple" defaultIndex={2}>
+          <TabList borderBottom="1px solid #E2E8F0" mb="24px">
+            <Tab _selected={{ color: '#6b006b', borderColor: '#6b006b', fontWeight: "bold" }}>Mutiple Choice (MCQ)</Tab>
+            <Tab _selected={{ color: '#6b006b', borderColor: '#6b006b', fontWeight: "bold" }}>True/False</Tab>
+            <Tab _selected={{ color: '#6b006b', borderColor: '#6b006b', fontWeight: "bold" }}>Matching</Tab>
+            <Tab _selected={{ color: '#6b006b', borderColor: '#6b006b', fontWeight: "bold" }}>Fill in the blank</Tab>
+          </TabList>
 
-        <Stack direction="column">
-          <Flex flexDirection="row" paddingBottom={6}>
-            <Flex paddingTop={12} paddingRight={6}>
-              <input
-                disabled={isExistingQuestion && !isEditMode}
-                type="radio"
-                checked={answer === "1"}
-                onChange={handleAnswerChange}
-                name="radio"
-                value="1"
-                id="radio-1"
-              />
-            </Flex>
-            <Input
-              id="option-1"
-              label="Option 01"
-              {...register("option-1", { required: true })}
-              disabled={!isMultipleChoiceOptions || (isExistingQuestion && !isEditMode)}
-              placeholder="Enter the first option here"
-            />
-          </Flex>
-          <Flex flexDirection="row" paddingBottom={6}>
-            <Flex paddingTop={12} paddingRight={6}>
-              <input
-                disabled={isExistingQuestion && !isEditMode}
-                type="radio"
-                checked={answer === "2"}
-                onChange={handleAnswerChange}
-                name="radio"
-                value="2"
-                id="radio-2"
-              />
-            </Flex>
-            <Input
-              id="option-2"
-              label="Option 02"
-              {...register("option-2", { required: true })}
-              disabled={!isMultipleChoiceOptions || (isExistingQuestion && !isEditMode)}
-              placeholder="Enter the second option here"
-            />
-          </Flex>
-          {isMultipleChoiceOptions && (
-            <>
-              <Flex flexDirection="row" paddingBottom={6}>
-                <Flex paddingTop={12} paddingRight={6}>
-                  <input
-                    disabled={isExistingQuestion && !isEditMode}
-                    type="radio"
-                    checked={answer === "3"}
-                    onChange={handleAnswerChange}
-                    name="radio"
-                    value="3"
-                    id="radio-3"
-                  />
+          <TabPanels>
+            {/* MCQ Panel (Hidden/Empty for now layout match) */}
+            <TabPanel p={0}></TabPanel>
+
+            {/* T/F Panel */}
+            <TabPanel p={0}></TabPanel>
+
+            {/* Matching Panel UI */}
+            <TabPanel p={0}>
+              <Grid templateColumns="40px 1fr 40px 1fr" gap={4} alignItems="center" mb={4}>
+                <Box></Box>
+                <Text fontWeight="600" fontSize="14px" color="#1A202C">Column 1</Text>
+                <Box></Box>
+                <Text fontWeight="600" fontSize="14px" color="#1A202C">Column 2</Text>
+
+                {/* Row 1 */}
+                <Flex justifyContent="center">
+                  <input type="radio" style={{ accentColor: '#6b006b', transform: 'scale(1.5)' }} defaultChecked />
                 </Flex>
-                <Input
-                  disabled={isExistingQuestion && !isEditMode}
-                  id="option-3"
-                  label="Option 03"
-                  {...register("option-3", { required: true })}
-                  placeholder="Enter the third option here"
-                />
-              </Flex>
-              <Flex flexDirection="row" paddingBottom={6}>
-                <Flex paddingTop={12} paddingRight={6}>
-                  <input
-                    disabled={isExistingQuestion && !isEditMode}
-                    type="radio"
-                    checked={answer === "4"}
-                    onChange={handleAnswerChange}
-                    name="radio"
-                    value="4"
-                    id="radio-4"
-                  />
+                <ChakraInput size="lg" placeholder="Option 1" defaultValue="Option 1" bg="white" borderColor="#E2E8F0" />
+                <Flex justifyContent="center"><Icon as={FaArrowRight} color="#6b006b" /></Flex>
+                <ChakraInput size="lg" placeholder="Answer" defaultValue="Answer" bg="white" borderColor="#E2E8F0" />
+
+                {/* Row 2 */}
+                <Flex justifyContent="center">
+                  <input type="radio" style={{ accentColor: '#6b006b', transform: 'scale(1.5)' }} />
                 </Flex>
-                <Input
-                  disabled={isExistingQuestion && !isEditMode}
-                  id="option-4"
-                  label="Option 04"
-                  {...register("option-4", { required: true })}
-                  placeholder="Enter the last option here"
-                />
-              </Flex>
-            </>
-          )}
-        </Stack>
-        {/* </fieldset> */}
+                <ChakraInput size="lg" placeholder="Option 2" defaultValue="Option 2" bg="white" borderColor="#E2E8F0" />
+                <Flex justifyContent="center"><Icon as={FaArrowRight} color="#6b006b" /></Flex>
+                <ChakraInput size="lg" placeholder="Answer" defaultValue="Answer" bg="white" borderColor="#E2E8F0" />
+
+                {/* Row 3 */}
+                <Flex justifyContent="center">
+                  <input type="radio" style={{ accentColor: '#6b006b', transform: 'scale(1.5)' }} />
+                </Flex>
+                <ChakraInput size="lg" placeholder="Option 3" defaultValue="Option 3" bg="white" borderColor="#E2E8F0" />
+                <Flex justifyContent="center"><Icon as={FaArrowRight} color="#6b006b" /></Flex>
+                <ChakraInput size="lg" placeholder="Answer" defaultValue="Answer" bg="white" borderColor="#E2E8F0" />
+
+                {/* Row 4 */}
+                <Flex justifyContent="center">
+                  <input type="radio" style={{ accentColor: '#6b006b', transform: 'scale(1.5)' }} />
+                </Flex>
+                <ChakraInput size="lg" placeholder="Option 4" defaultValue="Option 4" bg="white" borderColor="#E2E8F0" />
+                <Flex justifyContent="center"><Icon as={FaArrowRight} color="#6b006b" /></Flex>
+                <ChakraInput size="lg" placeholder="Answer" defaultValue="Answer" bg="white" borderColor="#E2E8F0" />
+              </Grid>
+            </TabPanel>
+
+            {/* Fill blank Panel */}
+            <TabPanel p={0}></TabPanel>
+          </TabPanels>
+        </Tabs>
       </Box>
+
       <Flex justifyContent="flex-end" paddingTop={8} gap={3}>
         {isExistingQuestion && !isEditMode && (
           <Button
