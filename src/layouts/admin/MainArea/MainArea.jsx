@@ -32,6 +32,12 @@ import {
   ViewAuditRoute,
   DocumentsPageRoute,
   ReportListingPageRoute,
+  ComplianceSecurityReportPageRoute,
+  CustomAdHocReportPageRoute,
+  ElectronicRegistersReportPageRoute,
+  TrackingReportingPageRoute,
+  MISReportsPageRoute,
+  AutomatedApprovalWorkflowPageRoute,
 } from '../../../pages/admin';
 import PollsListingPageRoute from '../../../pages/admin/polls/PollsPage';
 import { CreatePollsPageRoute } from '../../../pages/admin/polls/CreatePollsPage';
@@ -124,6 +130,12 @@ const MainArea = () => {
         <AnnouncementListingRoute exact path="/admin/announcement" />
         <CreateAnnouncementRoute exact path="/admin/announcement/edit" />
         <ViewAuditRoute exact path="/admin/audit" />
+        <ComplianceSecurityReportPageRoute exact path="/admin/report/audit-details" />
+        <CustomAdHocReportPageRoute exact path="/admin/report/custom" />
+        <ElectronicRegistersReportPageRoute exact path="/admin/report/electronic-registers" />
+        <TrackingReportingPageRoute exact path="/admin/report/tracking" />
+        <MISReportsPageRoute exact path="/admin/report/mis" />
+        <AutomatedApprovalWorkflowPageRoute exact path="/admin/report/automated-approval" />
         <ReportListingPageRoute exact path="/admin/report" />
         <NotFoundPageRoute />
       </Switch>

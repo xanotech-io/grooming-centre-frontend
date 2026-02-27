@@ -31,13 +31,20 @@ import {
   Spacer,
   VStack,
   Icon,
+  useDisclosure,
 } from '@chakra-ui/react';
-import { Route } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Route, useHistory } from 'react-router-dom';
 import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight, FiPlusCircle, FiBell, FiSettings, FiChevronDown } from 'react-icons/fi';
 import { AiOutlineArrowUp, AiOutlineArrowDown } from 'react-icons/ai';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 import { AdminMainAreaWrapper } from '../../../layouts';
 import colors from '../../../theme/colors';
+import QuestionBankUsageReport from './QuestionBankUsageReport';
+import RandomizationIntegrityReport from './RandomizationIntegrityReport';
+import ProctoringAuditReport from './ProctoringAuditReport';
+import ExaminationPaperMarking from './ExaminationPaperMarking';
+import ScheduleReportModal from './components/ScheduleReportModal';
 
 // Sample Data
 const summaryStats = [
@@ -137,6 +144,9 @@ const lineChartData = {
 };
 
 const ReportListingPage = () => {
+  const history = useHistory();
+  const { isOpen: isScheduleOpen, onOpen: onScheduleOpen, onClose: onScheduleClose } = useDisclosure();
+
   return (
     <AdminMainAreaWrapper>
     
@@ -146,7 +156,17 @@ const ReportListingPage = () => {
           <Icon as={FiChevronDown} />
         </HStack>
         <HStack spacing={4}>
-          <Button variant="outline" colorScheme="#660066" borderColor="#660066" borderRadius="md" size="md" fontSize="16px" fontWeight="600" color="#660066">
+          <Button 
+            variant="outline" 
+            colorScheme="#660066" 
+            borderColor="#660066" 
+            borderRadius="md" 
+            size="md" 
+            fontSize="16px" 
+            fontWeight="600" 
+            color="#660066"
+            onClick={onScheduleOpen}
+          >
             Schedule report
           </Button>
           <Button bg="#660066" color="white" _hover={{ bg: "#550055" }} borderRadius="md" size="md" fontSize="16px" fontWeight="600">
@@ -158,14 +178,15 @@ const ReportListingPage = () => {
       {/* Tabs */}
       <Tabs colorScheme="purple" variant="line" mb={8} mt={4}>
         <TabList borderBottom="1.5px solid #D5D7DA" borderColor="gray.200">
-          <Tab fontWeight="600" px={0} mr={8} _selected={{ color: "#660066", fontSize: "16px", fontWeight: "500", borderBottom: "1px solid #660066" }}>Exam Result Analysis Report</Tab>
-          <Tab fontSize="16px" fontWeight="500" px={0} mr={8} color="#101928">Question Bank Usage Report</Tab>
-          <Tab fontSize="16px" fontWeight="500" px={0} mr={8} color="#101928">Randomization & Integrity Report</Tab>
-          <Tab fontSize="16px" fontWeight="500" px={0} color="#101928">Proctoring & Audit Report</Tab>
+          <Tab fontWeight="600" px={0} mr={8} _selected={{ color: "#660066", fontSize: "14px", fontWeight: "500", borderBottom: "1px solid #660066" }} _focus={{ boxShadow: "none" }}>Exam Result Analysis Report</Tab>
+          <Tab fontSize="14px" fontWeight="500" px={0} mr={8} color="#101928" _focus={{ boxShadow: "none" }}>Question Bank Usage Report</Tab>
+          <Tab fontSize="14px" fontWeight="500" px={0} mr={8} color="#101928" _focus={{ boxShadow: "none" }}>Randomization & Integrity Report</Tab>
+          <Tab fontSize="14px" fontWeight="500" px={0} mr={8} color="#101928" _focus={{ boxShadow: "none" }}>Proctoring & Audit Report</Tab>
+          <Tab fontSize="14px" fontWeight="500" px={0} color="#101928" _focus={{ boxShadow: "none" }}>Examination Paper Marking</Tab>
         </TabList>
 
         <TabPanels>
-          <TabPanel px={0} pt={6}>
+            <TabPanel px={0} pt={6} as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             {/* Stats Cards */}
             <Grid templateColumns="repeat(5, 1fr)" gap={3} mb={8}>
               {summaryStats.map((stat, index) => (
@@ -310,9 +331,11 @@ const ReportListingPage = () => {
                       </Td>
                       <Td>
                         <Menu>
-                          <MenuButton as={IconButton} icon={<FiMoreVertical />} variant="ghost" size="xs" />
+                          <MenuButton as={IconButton} icon={<FiMoreVertical />}
+                            borderColor="#E4E7EC" border="1px"
+                           variant="ghost" size="xs" />
                           <MenuList>
-                            <MenuItem>Archive report</MenuItem>
+                            <MenuItem onClick={() => history.push('/admin/report/custom')}>Archive report</MenuItem>
                           </MenuList>
                         </Menu>
                       </Td>
@@ -342,8 +365,21 @@ const ReportListingPage = () => {
               </Flex>
             </Box>
           </TabPanel>
+          <TabPanel px={0} pt={6}>
+            <QuestionBankUsageReport />
+          </TabPanel>
+          <TabPanel px={0} pt={6} as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+             <RandomizationIntegrityReport />
+          </TabPanel>
+          <TabPanel px={0} pt={6}>
+             <ProctoringAuditReport />
+          </TabPanel>
+          <TabPanel px={0} pt={6}>
+             <ExaminationPaperMarking />
+          </TabPanel>
         </TabPanels>
       </Tabs>
+      <ScheduleReportModal isOpen={isScheduleOpen} onClose={onScheduleClose} />
     </AdminMainAreaWrapper>
   );
 };
