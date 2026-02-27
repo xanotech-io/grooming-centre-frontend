@@ -190,7 +190,7 @@ const StandaloneExaminationListingPage = () => {
         </Heading>
 
         <Box display={"flex"} gap="8px">
-          <Button link={`/admin/standalone-exams`} secondary>Exam Template Library</Button>
+          <Button link={`/admin/standalone-exams/temporary-library`} secondary>Exam Template Library</Button>
 
           <Button link={`/admin/standalone-exams/overview`}>Create New Exam</Button>
         </Box>
