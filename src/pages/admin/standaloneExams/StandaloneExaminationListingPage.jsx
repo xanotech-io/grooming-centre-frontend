@@ -72,7 +72,13 @@ const tableProps = {
     {
       id: "3",
       key: "noOfUsers",
-      text: "No. of Candidates",
+      text: "No of Candidates",
+      fraction: "200px",
+    },
+    {
+      id: "instructor",
+      key: "instructor",
+      text: "Instructor",
       fraction: "200px",
     },
     {
@@ -121,6 +127,7 @@ const tableProps = {
     multipleDeleteFetcher: async (selectedExaminations) => {
       await deleteStandaloneExamination(selectedExaminations[0]?.id);
     },
+    selection: true,
     pagination: true,
   },
 };
@@ -134,9 +141,10 @@ const StandaloneExaminationListingPage = () => {
       examinationId: examination.id,
       // courseId,
     },
-    startDate: dayjs(examination.startTime).format("DD/MM/YYYY h:mm a"),
+    startDate: dayjs(examination.startTime).format("DD/MM/YYYY h:mma"),
     duration: getDuration(examination.duration).combinedText,
     noOfUsers: examination.noOfUsers,
+    instructor: examination.instructor ? `${examination.instructor.firstName} ${examination.instructor.lastName}` : "James Samuel",
     status: examination.isPublished,
   });
 
@@ -159,13 +167,13 @@ const StandaloneExaminationListingPage = () => {
             <Link href="/admin/standalone-exams"> Standalone Examination</Link>
           </BreadcrumbItem>
         }
-        // item3={
-        //   <BreadcrumbItem isCurrentPage>
-        //     <Link href="/admin/standalone-exams/:examinationId/:examinationName">
-        //       Examination
-        //     </Link>
-        //   </BreadcrumbItem>
-        // }
+      // item3={
+      //   <BreadcrumbItem isCurrentPage>
+      //     <Link href="/admin/standalone-exams/:examinationId/:examinationName">
+      //       Examination
+      //     </Link>
+      //   </BreadcrumbItem>
+      // }
       />
 
       <Box
@@ -178,10 +186,15 @@ const StandaloneExaminationListingPage = () => {
         marginBottom={5}
       >
         <Heading as="h1" fontSize="heading.h3">
-          Examination
+          Standalone Exams
         </Heading>
 
-        <Button link={`/admin/standalone-exams/overview`}>Create Exam</Button>
+        <Box display={"flex"} gap="8px">
+          <Button link={`/admin/standalone-exams/temporary-library`} secondary>Exam Template Library</Button>
+
+          <Button link={`/admin/standalone-exams/overview`}>Create New Exam</Button>
+        </Box>
+
       </Box>
 
       <Table

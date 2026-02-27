@@ -15,7 +15,6 @@ import { FaSortAmountUpAlt, FaUser, FaClock, FaTrash } from 'react-icons/fa';
 import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
 import { useToast } from '@chakra-ui/toast';
 import { EmptyState } from '../../../layouts';
-import { Tag } from '@chakra-ui/tag';
 import { Avatar } from '@chakra-ui/avatar';
 import { useTableRows } from '../../../hooks';
 import { http } from '../../../services/http/http';
