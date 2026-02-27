@@ -248,6 +248,7 @@ export const Table = ({
         filterControls={filterControls}
         setParams={manager.setParams}
         setCanFilter={manager.setCanFilter}
+        showDateFilter={commonProps.options?.dateFilter}
       />
 
       <Box paddingTop={3} marginTop={3} borderTop="1px" borderColor="accent.2">
@@ -344,6 +345,7 @@ Table.propTypes = {
     ),
     selection: PropTypes.bool,
     multipleDeleteFetcher: PropTypes.func,
+    dateFilter: PropTypes.bool,
   }),
   rows: PropTypes.shape({
     data: PropTypes.shape({
