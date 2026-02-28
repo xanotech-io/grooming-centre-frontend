@@ -1,5 +1,5 @@
-import { Box, Flex } from "@chakra-ui/layout";
-import { Switch } from "react-router-dom";
+import { Box, Flex } from '@chakra-ui/layout';
+import { Switch } from 'react-router-dom';
 import {
   CourseListingPageRoute,
   // CoursesPageRoute,
@@ -27,36 +27,32 @@ import {
   LibraryListingPageRoute,
   CreateLibraryFilePageRoute,
   ViewFileDetailsPageRoute,
-
   StandaloneExaminationListingPageRoute,
   StandaloneExaminationAllParticipantsPageRoute,
   ViewAuditRoute,
-
   DocumentsPageRoute,
-  ExaminationPageRoute,
-  ExaminationDetailPageRoute,
-  SingleExaminationPageRoute,
-  GradeQuestionPageRoute,
-  AutomatedApprovalWorkflowRoute,
-  ReviewSubmissionPageRoute,
-} from "../../../pages/admin";
-import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
-import { ManagementReportRoute } from "../../../pages/admin/report/managementReport/managementReport";
-
-import { StudentReportRoute } from "../../../pages/admin/report/studentReport/StudentReport";
-import PollsListingPageRoute from "../../../pages/admin/polls/PollsPage";
-import { CreatePollsPageRoute } from "../../../pages/admin/polls/CreatePollsPage";
-import { ViewPollsInfoPageRoute } from "../../../pages/admin/polls/layout/ViewPollsInfoPage";
-import { CreateOptionsPageRoute } from "../../../pages/admin/polls/CreateOptionsPage";
-import { CreateStandalonePageRoute } from "../../../pages/admin/standaloneExams/CreateStandaloneExamPage";
-import { TemplateLibraryPageRoute } from "../../../pages/admin/standaloneExams/TemplateLibraryPage";
-import { AnnouncementListingRoute } from "../../../pages/admin/Annoncement/AnnouncementListing";
-import { CreateAnnouncementRoute } from "../../../pages/admin/Annoncement/CreateAnnouncement";
+  ReportListingPageRoute,
+  ComplianceSecurityReportPageRoute,
+  CustomAdHocReportPageRoute,
+  ElectronicRegistersReportPageRoute,
+  TrackingReportingPageRoute,
+  MISReportsPageRoute,
+  AutomatedApprovalWorkflowPageRoute,
+} from '../../../pages/admin';
+import PollsListingPageRoute from '../../../pages/admin/polls/PollsPage';
+import { CreatePollsPageRoute } from '../../../pages/admin/polls/CreatePollsPage';
+import { ViewPollsInfoPageRoute } from '../../../pages/admin/polls/layout/ViewPollsInfoPage';
+import { CreateOptionsPageRoute } from '../../../pages/admin/polls/CreateOptionsPage';
+import { CreateStandalonePageRoute } from '../../../pages/admin/standaloneExams/CreateStandaloneExamPage';
+import QuestionsStandaloneRoute from '../../../pages/admin/standaloneExams/QuestionsStandalone';
+import { ParticipantsListingPageRoute } from '../../../pages/admin/participants/ParticipantsListingPage';
+import { AnnouncementListingRoute } from '../../../pages/admin/Annoncement/AnnouncementListing';
+import { CreateAnnouncementRoute } from '../../../pages/admin/Annoncement/CreateAnnouncement';
 
 const MainArea = () => {
   return (
     <Box
-      marginLeft={{ md: "270px", base: "0px", lg: "270px" }}
+      marginLeft={{ md: '270px', base: '0px', lg: '270px' }}
       paddingY="30px"
       paddingX="18px"
     >
@@ -100,22 +96,6 @@ const MainArea = () => {
           exact
           path="/admin/standalone-exams"
         />
-        <TemplateLibraryPageRoute
-          exact
-          path="/admin/standalone-exams/temporary-library"
-        />
-        <ExaminationPageRoute
-          exact
-          path="/admin/examination"
-        />
-        <ExaminationDetailPageRoute
-          exact
-          path="/admin/examination/:id"
-        />
-        <SingleExaminationPageRoute
-          exact
-          path="/admin/examination/:examId/:studentId"
-        />
         {/* <ParticipantsListingPageRoute exact path ="/"/> */}
         {/* <QuestionsStandaloneRoute
           exact
@@ -143,9 +123,6 @@ const MainArea = () => {
         <ViewFileDetailsPageRoute exact path="/admin/library/details/:id" />
 
         <DocumentsPageRoute exact path="/admin/documents" />
-        <AutomatedApprovalWorkflowRoute exact path="/admin/workflow" />
-        <ReviewSubmissionPageRoute exact path="/admin/workflow/review/:id" />
-        <BadgeSupportPageRoute exact path="/admin/badge-support" />
 
         <SecurityPageRoute path="/admin/settings/security" />
         <GradeCriteriaPageRoute path="/admin/settings/grade-criteria" />
@@ -153,11 +130,13 @@ const MainArea = () => {
         <AnnouncementListingRoute exact path="/admin/announcement" />
         <CreateAnnouncementRoute exact path="/admin/announcement/edit" />
         <ViewAuditRoute exact path="/admin/audit" />
-        <ManagementReportRoute exact path="/admin/report/managementReport" />
-        <StudentReportRoute exact path="/admin/report/studentReport" />
-
-
-
+        <ComplianceSecurityReportPageRoute exact path="/admin/report/audit-details" />
+        <CustomAdHocReportPageRoute exact path="/admin/report/custom" />
+        <ElectronicRegistersReportPageRoute exact path="/admin/report/electronic-registers" />
+        <TrackingReportingPageRoute exact path="/admin/report/tracking" />
+        <MISReportsPageRoute exact path="/admin/report/mis" />
+        <AutomatedApprovalWorkflowPageRoute exact path="/admin/report/automated-approval" />
+        <ReportListingPageRoute exact path="/admin/report" />
         <NotFoundPageRoute />
       </Switch>
     </Box>

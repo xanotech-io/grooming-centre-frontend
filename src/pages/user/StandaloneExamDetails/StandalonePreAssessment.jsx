@@ -1,14 +1,12 @@
 import { Box } from '@chakra-ui/react';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, Route } from 'react-router-dom';
-import { useParams } from 'react-router-dom';
 import { AiFillClockCircle } from 'react-icons/ai';
 import { MdVerified, MdPlayLesson } from 'react-icons/md';
 import { Button } from '../../../components';
 import { useQueryParams } from '../../../hooks';
 import useTakeStandalone from '../../../contexts/TakeStandaloneExam/useTakeStandalone';
 import timeConverter from './timeConverter';
-import { AppContext } from '../../../contexts';
 
 const StandalonePreAssessment = () => {
   const [exams, setExams] = useState([]);
