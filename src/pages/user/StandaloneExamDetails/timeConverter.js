@@ -1,4 +1,3 @@
-import React from 'react';
 
 const timeConverter = (num) => {
   if (num === 1) {
