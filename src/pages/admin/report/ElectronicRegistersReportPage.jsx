@@ -37,7 +37,6 @@ import {
   FiMoreVertical, 
   FiChevronLeft, 
   FiChevronRight,
-  FiChevronDown
 } from 'react-icons/fi';
 import { useHistory, Route } from 'react-router-dom';
 import { AdminMainAreaWrapper } from '../../../layouts';

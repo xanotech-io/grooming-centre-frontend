@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useHistory } from 'react-router-dom';
 import {
   Box,
@@ -17,7 +17,6 @@ import {
   Th,
   Td,
   HStack,
-  VStack,
   IconButton,
   Menu,
   MenuButton,

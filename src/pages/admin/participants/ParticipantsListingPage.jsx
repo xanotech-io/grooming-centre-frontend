@@ -6,12 +6,8 @@ import { FaRegSave, FaFileAlt, FaSearch, FaFilter, FaChevronLeft, FaChevronRight
 import { FiMoreVertical } from "react-icons/fi";
 import { useQueryParams } from '../../../hooks';
 import {
-  deleteStandaloneExaminationParticipants,
   getStandaloneExaminationParticipants,
 } from '../../../services';
-import { capitalizeFirstLetter } from '../../../utils';
-import ParticipantsPagination from './ParticipantsPagination';
-import { useHistory } from 'react-router-dom';
 
 const ParticipantsListingPage = () => {
   const examinationId = useQueryParams().get('examination');

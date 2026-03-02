@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { Box, Stack } from "@chakra-ui/layout";
 import { Link, useHistory } from "react-router-dom";
 import { Route } from "react-router-dom";

@@ -20,7 +20,6 @@ import {
   GetApp as Download,
   OpenInNew,
   Info,
-  DateRange,
   Storage,
   Fingerprint,
   Image,

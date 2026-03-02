@@ -12,7 +12,6 @@ import {
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminDeleteCourse,
-  adminDeleteMultipleCourses,
   adminGetCourseListing,
 } from "../../../../services";
 import { Tag } from "@chakra-ui/tag";

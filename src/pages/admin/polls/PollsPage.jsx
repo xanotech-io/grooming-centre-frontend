@@ -10,7 +10,6 @@ import {
 } from "../../../components";
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { adminDeleteMultipleCourses } from "../../../services";
 import { useTableRows } from "../../../hooks";
 import {
   adminDeletePolls,
