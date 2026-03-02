@@ -275,6 +275,8 @@ const CustomAdHocReportPage = () => {
         </GridItem>
       </Grid>
 
+      {setStatus("")}
+
       {/* Results Table - Only shown in Finalized state */}
       {status === 'Finalized' && (
         <Box mt={8}>

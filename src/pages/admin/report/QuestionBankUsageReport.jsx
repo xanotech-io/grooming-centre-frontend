@@ -25,7 +25,7 @@ import {
 } from '@chakra-ui/react';
 import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { Bar, Line } from 'react-chartjs-2';
-import colors from '../../../theme/colors';
+// import colors from '../../../theme/colors';
 import { motion } from 'framer-motion';
 
 // --- Mock Data ---
@@ -102,22 +102,22 @@ const chartOptions = {
   },
 };
 
-const lineChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-        x: { display: false }, // Hide X axis labels for cleaner look like design
-        y: { 
-            beginAtZero: true, 
-            grid: { display: false },
-            ticks: {
-                stepSize: 20,
-                callback: (val) => val === 0 ? '0%' : val + 'k' // Mock formatting to look like generic scale
-            }
-        },
-    },
-};
+// const lineChartOptions = {
+//     responsive: true,
+//     maintainAspectRatio: false,
+//     plugins: { legend: { display: false } },
+//     scales: {
+//         x: { display: false },
+//         y: { 
+//             beginAtZero: true, 
+//             grid: { display: false },
+//             ticks: {
+//                 stepSize: 20,
+//                 callback: (val) => val === 0 ? '0%' : val + 'k'
+//             }
+//         },
+//     },
+// };
 
 const QuestionBankUsageReport = () => {
   return (

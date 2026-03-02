@@ -35,9 +35,9 @@ const useCourseExamPreview = (
 
   const fetcher = useCallback(async () => {
     const data = await (!isExamination
-      ? requestAssessmentDetails(assessment_id, isForAdmin)
-      : requestExaminationDetails(assessmentId, isForAdmin)); // `assessmentId` is `courseId` in this case
-
+      ? requestAssessmentDetails(assessmentId, isForAdmin)
+      : requestExaminationDetails(assessmentId, isForAdmin));
+  
     return isExamination ? data?.examination : data?.assessment;
   }, [assessmentId, isExamination, isForAdmin]);
 
