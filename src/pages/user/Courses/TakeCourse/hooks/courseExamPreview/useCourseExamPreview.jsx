@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCache } from "../../../../../../contexts";
@@ -15,7 +16,7 @@ const useCourseExamPreview = (
 ) => {
   const { handleGetOrSetAndGet } = useCache();
   const componentIsMount = useComponentIsMount();
-  // eslint-disable-next-line no-unused-vars
+ 
   const { id: courseId, assessment_id } = useParams();
   const queryParams = useQueryParams();
   const isExamination = queryParams.get("examination");

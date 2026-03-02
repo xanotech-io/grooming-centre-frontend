@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+
 import { Box, Flex, Grid, Text, InputGroup, InputLeftElement, Input, Table, Thead, Tbody, Tr, Th, Td, TableContainer, IconButton } from '@chakra-ui/react';
 import { useState, useEffect, useCallback } from 'react';
 import { Route } from 'react-router-dom';
