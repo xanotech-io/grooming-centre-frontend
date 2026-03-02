@@ -10,7 +10,11 @@
   position: relative;
 
   &--disabled {
+<<<<<<< Updated upstream
     background-color: var(--accent-1); // Fix: Use a hyphen
+=======
+    background-color: var(--accent-1);
+>>>>>>> Stashed changes
     opacity: 0.5;
   }
   
