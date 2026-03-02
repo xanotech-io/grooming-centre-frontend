@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import {
   Box,
   Flex,
@@ -37,8 +38,6 @@ import {
   capitalizeWords,
 } from "../../../utils";
 import {
-  adminCreateAssessmentQuestion,
-  adminCreateExaminationQuestion,
   adminCreateStandaloneExaminationQuestion,
   adminDeleteAssessmentQuestion,
   adminDeleteExaminationQuestion,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import  { useState } from 'react';
 import {
   Box,
   Flex,
@@ -39,7 +39,7 @@ import {
   FiChevronLeft, 
   FiChevronRight,
 } from 'react-icons/fi';
-import { useHistory, Route } from 'react-router-dom';
+import {  Route } from 'react-router-dom';
 import { AdminMainAreaWrapper } from '../../../layouts';
 import { motion } from 'framer-motion';
 import ScheduleReportModal from './components/ScheduleReportModal';
@@ -54,7 +54,6 @@ const SummaryCard = ({ title, value, subtext, subtextColor }) => (
 );
 
 const MISReportsPage = () => {
-  const history = useHistory();
   const [activeTab, setActiveTab] = useState(0);
   const { isOpen, onOpen, onClose } = useDisclosure();
 

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { Box, Flex, GridItem } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
 import { useEffect } from "react";

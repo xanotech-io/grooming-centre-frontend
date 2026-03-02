@@ -10,11 +10,9 @@ import { useQueryParams } from '../../../../hooks';
 import { PageLoaderLayout, EmptyState } from '../../../../layouts';
 import { AskAQuestionButton } from '../../../../layouts/user/Forum/Header/Header';
 import useQuestionsPage from './hooks/useQuestionsPage';
-import { useHistory } from 'react-router-dom';
 
 const QuestionsPage = () => {
   const { questions, handleFetch } = useQuestionsPage();
-  const push = useHistory();
 
   const questionsIsEmpty =
     !questions.loading && !questions.err && !questions.data?.length
