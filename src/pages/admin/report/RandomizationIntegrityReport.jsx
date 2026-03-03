@@ -34,7 +34,6 @@ import {
 import { useHistory } from "react-router-dom";
 import { Bar } from "react-chartjs-2";
 import { motion } from "framer-motion";
-import { TileLayer, CircleMarker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 // --- Mock Data ---
@@ -90,14 +89,6 @@ const distributionData = {
     },
   ],
 };
-
-const mapLocations = [
-  { lat: 38.9072, lng: -77.0369, radius: 20 }, // Washington DC
-  { lat: 39.2904, lng: -76.6122, radius: 15 }, // Baltimore
-  { lat: 38.8048, lng: -77.0469, radius: 10 }, // Alexandria/Nearby
-  { lat: 38.9847, lng: -77.0947, radius: 12 }, // Bethesda
-  { lat: 38.83, lng: -76.85, radius: 8 },
-];
 
 const irregularitiesData = [
   {
@@ -225,6 +216,8 @@ const RandomizationIntegrityReport = () => {
           </Box>
         ))}
       </Grid>
+      
+      {isMounted ? "" : ""}
 
       {/* Charts and Map Section */}
       <Grid templateColumns="repeat(2, 1fr)" gap={6} mb={8}>
