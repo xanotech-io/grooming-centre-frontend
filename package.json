@@ -65,7 +65,7 @@
   "test": "react-scripts test",
   "eject": "react-scripts eject",
   "postbuild": "node webconfig/copyWebConfig.js"
-}
+},
   "resolutions": {
     "react-error-overlay": "6.0.9"
   },
