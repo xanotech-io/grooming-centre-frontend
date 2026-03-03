@@ -59,7 +59,7 @@
     "xlsx": "^0.18.5"
   },
   "scripts": {
-    "dev": "cross-env PORT=4000 react-scripts start",
+    "dev": "cross-env PORT=3001 react-scripts start",
     "start": "serve -s build",
     "build": "react-scripts --max_old_space_size=4096 build",
     "test": "react-scripts test",

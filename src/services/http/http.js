@@ -8,12 +8,8 @@ axios.interceptors.response.use(null, (err) => {
   return Promise.reject(error);
 });
 
-<<<<<<< HEAD
 export const baseURL = 'http://52.228.43.176:8089/api/v1';
 // 'https://privateapi.groomingcentre.net/api/v1';
-=======
-export const baseURL = 'http://52.228.43.176:8089';
->>>>>>> a91ed591fb8e3310c6514836fa1ea8f868337bf1
 const token = localStorage.getItem('token');
 
 const defaultOptions = (explicitToken = token) => ({
