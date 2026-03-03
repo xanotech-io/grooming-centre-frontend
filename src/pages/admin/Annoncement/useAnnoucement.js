@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useComponentIsMount, useQueryParams } from '../../../hooks';
-import { useCache } from '../../../contexts';
+import { useQueryParams } from '../../../hooks';
 import { adminGetAnnouncement } from '../../../services';
 
 const useAnnoucement = () => {

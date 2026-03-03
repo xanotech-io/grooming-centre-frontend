@@ -8,7 +8,6 @@ import { Button, Text } from "..";
 import { DeleteMenuItemButton } from "../Cards/QuestionListCard";
 import { AiFillMinusSquare } from "react-icons/ai";
 import { BiTrash } from "react-icons/bi";
-import breakpoints from "../../theme/breakpoints";
 import { useFetch } from "../../hooks";
 import { capitalizeFirstLetter } from "../../utils";
 import { useToast } from "@chakra-ui/toast";
@@ -207,7 +206,7 @@ export const Table = ({
   const getTemplateColumns = () =>
     columns.reduce(
       (prev, col) => (prev += col.fraction ? `${col.fraction} ` : "2fr "),
-      ""
+      "",
     );
 
   generalRowStyles = {
@@ -271,7 +270,7 @@ export const Table = ({
             <DeleteMenuItemButton
               onDelete={manager.handleDeleteRows.bind(
                 null,
-                manager.selectedRows
+                manager.selectedRows,
               )}
               renderTrigger={({ onOpen }) => (
                 <Button
@@ -281,7 +280,7 @@ export const Table = ({
                   onClick={onOpen}
                   onDoubleClick={manager.handleDeleteRows.bind(
                     null,
-                    manager.selectedRows
+                    manager.selectedRows,
                   )}
                   color="secondary.7"
                 >
@@ -331,7 +330,7 @@ Table.propTypes = {
       key: PropTypes.string.isRequired,
       text: PropTypes.string.isRequired,
       minWidth: PropTypes.string,
-    })
+    }),
   ).isRequired,
   options: PropTypes.shape({
     action: PropTypes.arrayOf(
@@ -341,7 +340,7 @@ Table.propTypes = {
         link: PropTypes.func,
         props: PropTypes.object,
         onClick: PropTypes.func,
-      })
+      }),
     ),
     selection: PropTypes.bool,
     multipleDeleteFetcher: PropTypes.func,

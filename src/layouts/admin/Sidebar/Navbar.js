@@ -10,7 +10,6 @@ import {
   Box,
   CloseButton,
   Flex,
-  Icon,
   Stack,
   useColorModeValue,
   Link,
@@ -88,7 +87,14 @@ export const SidebarContent = ({ onClose, ...rest }) => {
         </Text>
         <CloseButton display={{ base: "flex", md: "none" }} onClick={onClose} />
       </Flex>
-      <Box as="div" w="full" paddingRight={1} display="flex" flexDirection="column" height="calc(100vh - 80px)">
+      <Box
+        as="div"
+        w="full"
+        paddingRight={1}
+        display="flex"
+        flexDirection="column"
+        height="calc(100vh - 80px)"
+      >
         {isSettingsPage ? (
           <Box paddingTop={10} paddingX={5}>
             <Heading fontSize="heading.h3" paddingBottom={2}>

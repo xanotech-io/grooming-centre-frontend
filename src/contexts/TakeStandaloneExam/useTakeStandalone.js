@@ -13,7 +13,7 @@ const useTakeStandalone = () => {
     } catch (error) {
       console.log(error);
     }
-  }, []);
+  }, [examination]);
 
   useEffect(() => {
     fetcher();

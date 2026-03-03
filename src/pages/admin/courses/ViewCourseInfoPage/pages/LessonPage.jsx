@@ -13,7 +13,6 @@ import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminDeleteLesson,
-  adminDeleteMultipleCourses,
   adminGetLessonListing,
 } from "../../../../../services";
 import { Tag } from "@chakra-ui/tag";
@@ -25,7 +24,7 @@ const LessonPage = () => {
   const appManager = useApp();
 
   const departmentName = appManager.state.metadata?.departments.map(
-    (department) => department.name
+    (department) => department.name,
   );
 
   const tableProps = {

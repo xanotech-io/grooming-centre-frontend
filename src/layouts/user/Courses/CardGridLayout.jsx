@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { Grid, GridItem } from "@chakra-ui/layout";
 import { CourseBoxCard, Button } from "../../../components";
 import { EmptyState } from "../../../layouts";

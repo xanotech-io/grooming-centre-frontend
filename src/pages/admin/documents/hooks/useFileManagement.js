@@ -1,7 +1,12 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useCallback } from 'react';
 import axios from 'axios';
 
+<<<<<<< HEAD
 const BASE_URL = 'http://52.228.43.176:8089/api/v1';
+=======
+const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://52.228.43.176:8089';
+>>>>>>> a91ed591fb8e3310c6514836fa1ea8f868337bf1
 
 export const useFileManagement = () => {
     const [files, setFiles] = useState([]);

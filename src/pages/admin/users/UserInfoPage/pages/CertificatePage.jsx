@@ -1,5 +1,5 @@
 import { Route } from "react-router-dom";
-import { Flex, Box, Text } from "@chakra-ui/layout";
+import { Flex } from "@chakra-ui/layout";
 
 import { Certificate } from "./certTemp";
 import useCertificateDetails from "../../../../user/Certificate/hooks/useCertificateDetais";

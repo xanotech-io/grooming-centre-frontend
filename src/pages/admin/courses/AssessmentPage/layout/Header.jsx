@@ -32,11 +32,11 @@ const Header = () => {
 
   const examinationId = useQueryParams().get("examination");
   const isExamination = examinationId;
-  const isStandaloneExamination =
-    courseId === "not-set" && assessmentId === "not-set" && examinationId
-      ? true
-      : false;
-  const standaloneExaminationName = useQueryParams().get("examinationName");
+  // const isStandaloneExamination =
+  //   courseId === "not-set" && assessmentId === "not-set" && examinationId
+  //     ? true
+  //     : false;
+  // const standaloneExaminationName = useQueryParams().get("examinationName");
 
   const isActiveLink = (LinkMatcher) =>
     window.location.pathname.includes(LinkMatcher);

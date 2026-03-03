@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+
 import { Box, Flex, Grid, Text, InputGroup, InputLeftElement, Input, Table, Thead, Tbody, Tr, Th, Td, TableContainer, IconButton } from '@chakra-ui/react';
 import { useState, useEffect, useCallback } from 'react';
 import { Route } from 'react-router-dom';
@@ -6,12 +8,8 @@ import { FaRegSave, FaFileAlt, FaSearch, FaFilter, FaChevronLeft, FaChevronRight
 import { FiMoreVertical } from "react-icons/fi";
 import { useQueryParams } from '../../../hooks';
 import {
-  deleteStandaloneExaminationParticipants,
   getStandaloneExaminationParticipants,
 } from '../../../services';
-import { capitalizeFirstLetter } from '../../../utils';
-import ParticipantsPagination from './ParticipantsPagination';
-import { useHistory } from 'react-router-dom';
 
 const ParticipantsListingPage = () => {
   const examinationId = useQueryParams().get('examination');
