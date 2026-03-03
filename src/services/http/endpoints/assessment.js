@@ -15,27 +15,27 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
   } = await http.get(path);
 
   const assessment = {
-    id: data.id,
-    courseId: data.courseId,
-    topic: data.title,
-    duration: data.duration,
-    questionCount: data.amountOfQuestions,
-    startTime: data.startTime,
+    id: data?.id,
+    courseId: data?.courseId,
+    topic: data?.title,
+    duration: data?.duration,
+    questionCount: data?.amountOfQuestions,
+    startTime: data?.startTime,
     endTime: getEndTime(data.startTime, data.duration),
-    hasCompleted: data.assessmentScoreSheets?.[0] ? true : false,
+    hasCompleted: data?.assessmentScoreSheets?.[0] ? true : false,
     minimumPercentageScoreToEarnABadge:
       data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
-    questions: data.assessmentQuestions
-      ? data.assessmentQuestions.map((q, index) => ({
+    questions: data?.assessmentQuestions
+      ? data?.assessmentQuestions?.map((q, index) => ({
           id: q.id,
-          question: q.question,
-          file: q.file,
+          question: q?.question,
+          file: q?.file,
           questionIndex: index,
-          options: q.options.map((opt) => ({
-            id: opt.id,
-            isAnswer: opt.isAnswer,
-            name: opt.name,
-            optionIndex: +opt.optionIndex,
+          options: q?.options.map((opt) => ({
+            id: opt?.id,
+            isAnswer: opt?.isAnswer,
+            name: opt?.name,
+            optionIndex: +opt?.optionIndex,
           })),
         }))
       : "not set",
@@ -60,10 +60,10 @@ export const submitAssessment = async (body) => {
   const path = `/assessment/scoresheet/create`;
 
   const {
-    data: { message },
+    data: { message, data },
   } = await http.post(path, body);
 
-  return { message };
+  return { message, data };
 };
 
 /**
@@ -81,7 +81,7 @@ export const adminCreateAssessment = async (body) => {
   const assessment = {
     id: data.id,
   };
-
+  console.log(assessment);
   return { message, assessment };
 };
 

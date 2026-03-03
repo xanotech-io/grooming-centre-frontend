@@ -11,6 +11,7 @@ import {
   Link,
   Heading,
   Spinner,
+  Text,
 } from "../../../components";
 import { CreatePageLayout } from "../../../layouts";
 import { BreadcrumbItem, Box } from "@chakra-ui/react";
@@ -23,7 +24,7 @@ import {
   populateSelectOptions,
 } from "../../../utils";
 import { useApp, useCache } from "../../../contexts";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { adminCreateLesson, adminEditLesson } from "../../../services";
 import useViewLessonInfo from "./hooks/useViewLessonInfo";
 
@@ -31,7 +32,7 @@ const CreateLessonPage = () => {
   const { courseId, lessonId } = useParams();
   const isEditMode = lessonId && lessonId !== "new";
   const courseIsUnknown = courseId === "unknown";
-
+  const [loader, setUploadProgress] = useState(0);
   const { push } = useHistory();
   const toast = useToast();
   const { handleDelete } = useCache();
@@ -49,7 +50,10 @@ const CreateLessonPage = () => {
     state: { metadata },
     getOneMetadata,
   } = useApp();
-
+  const file = watch("lessonTypeId");
+  const handleUploadProgress = (progress) => {
+    setUploadProgress(progress);
+  };
   const startTimeManager = useDateTimePicker();
   const endTimeManager = useDateTimePicker();
   const fileManager = useUpload({ previewElementId: "file-video" });
@@ -74,27 +78,16 @@ const CreateLessonPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson]);
 
-  const disableEndTime =
-    getOneMetadata("lessonType", getValues("lessonTypeId"))?.name === "video"
-      ? true
-      : false;
-  // Get EndTime from Video Duration
   useEffect(() => {
-    if (fileManager.video.duration && startTimeManager.value) {
-      const extraTimeMinutes = 10; // TODO: change this according to business rules
-
-      const endTime = new Date(
-        new Date(startTimeManager.value).getTime() +
-          (fileManager.video.duration + extraTimeMinutes * 60) * 1000
-      );
-      console.log();
-
-      endTimeManager.handleChange(endTime);
+    if (lesson) {
+      startTimeManager.handleChange(lesson.startTime);
+      endTimeManager.handleChange(lesson.endTime);
     }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileManager.video.duration, startTimeManager.value]);
+  }, [lesson]);
 
+  // Allow manual input for end date
+  const disableEndTime = false;
   // Init `Content` data
   useEffect(() => {
     if (lesson) {
@@ -113,6 +106,12 @@ const CreateLessonPage = () => {
     if (lessonType === "video") {
       fileManager.handleAcceptChange("video/mp4, video/mkv");
     }
+
+    if (lessonType === "PowerPoint") {
+      fileManager.handleAcceptChange(
+        ".ppt, .pptx, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      );
+    }
   };
 
   // Init `lessonTypeId` value and set `accept` for file upload input
@@ -130,12 +129,17 @@ const CreateLessonPage = () => {
     if (lesson) {
       const fileIsAVideo = /((\.)(mp4|mkv))$/i.test(lesson.file);
       const fileIsPDF = /(\.pdf)$/i.test(lesson.file);
+      const fileIsPowerPoint = /((\.)(ppt|pptx))$/i.test(lesson.file);
 
       if (fileIsAVideo) {
         fileManager.handleInitialVideoSelect(lesson.file);
       }
       if (fileIsPDF) {
         fileManager.handleInitialPdfSelect(lesson.file);
+      }
+
+      if (fileIsPowerPoint) {
+        fileManager.handleInitialPowerpointSelect(lesson.file);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -182,10 +186,12 @@ const CreateLessonPage = () => {
       if (isEditMode) Reflect.deleteProperty(data, "courseId");
 
       const body = appendFormData(data);
-
+      {
+        console.log(fileManager.pdf.url);
+      }
       const { message, lesson } = await (isEditMode
         ? adminEditLesson(lessonId, body)
-        : adminCreateLesson(body));
+        : adminCreateLesson(body, handleUploadProgress));
 
       if (isEditMode) handleDelete(lesson.id);
 
@@ -195,7 +201,7 @@ const CreateLessonPage = () => {
         status: "success",
       });
 
-      push(`/admin/courses/${courseId}/lesson/${lesson.id}/view`);
+      push(`/admin/courses/${courseId}/lesson/${lesson?.id}/view`);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -298,7 +304,6 @@ const CreateLessonPage = () => {
           <GridItem>
             <DateTimePicker
               id="EndTime"
-              isRequired
               label="End date & time"
               value={endTimeManager.value}
               onChange={endTimeManager.handleChange}
@@ -333,7 +338,7 @@ const CreateLessonPage = () => {
               })}
             />
           </GridItem>
-
+          {console.log(fileManager.pdf.url)}
           <GridItem colSpan={2}>
             <Upload
               id="file"
@@ -342,10 +347,40 @@ const CreateLessonPage = () => {
               isRequired
               videoUrl={fileManager.video.url}
               pdfUrl={fileManager.pdf.url}
+              powerpointUrl={fileManager.powerpoint.url}
               disabled={!getValues("lessonTypeId")}
               onFileSelect={fileManager.handleFileSelect}
               accept={fileManager.accept}
             />
+            {file && (
+              <Box marginTop={"30px"} width={"300px"}>
+                <Text fontSize={"17px"} mb={"10px"}>
+                  File progress
+                </Text>
+                <Box
+                  overflow={"hidden"}
+                  width={"100%"}
+                  height={"8px"}
+                  borderRadius={"10px"}
+                  backgroundColor={"gray.300"}
+                >
+                  <Box
+                    w={`${loader}%`}
+                    h={"100%"}
+                    transitionDuration={"0.5s"}
+                    backgroundColor={"orange.600"}
+                  ></Box>
+                </Box>
+                <Text
+                  fontSize={"17px"}
+                  display="flex"
+                  justifyContent="flex-end"
+                  mt={"10px"}
+                >
+                  {loader}%
+                </Text>
+              </Box>
+            )}
           </GridItem>
         </Grid>
       </CreatePageLayout>

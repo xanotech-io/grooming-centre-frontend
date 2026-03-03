@@ -1,6 +1,7 @@
 import { Flex } from "@chakra-ui/layout";
 import { Route } from "react-router-dom";
 import { FaSortAmountUpAlt } from "react-icons/fa";
+import { Badge } from "@chakra-ui/react";
 import {
   Button,
   Heading,
@@ -12,6 +13,8 @@ import {
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminDeleteMultipleCourses,
+  adminDeleteMultipleUsers,
+  adminDeleteUser,
   adminGetUserListing,
 } from "../../../../services";
 import { BreadcrumbItem } from "@chakra-ui/react";
@@ -105,22 +108,53 @@ const UserListingPage = () => {
     columns: [
       {
         id: "1",
-        key: "fullName",
-        text: "Full name",
+        key: "userId",
+        text: "User ID",
+        fraction: "100px",
         renderContent: (data) => (
           <Link href={`/admin/users/details/${data.userId}/profile`}>
             <Text>{data.text}</Text>
           </Link>
         ),
       },
-      { id: "2", key: "department", text: "Department" },
       {
-        id: "3",
+        id: "2",
+        key: "fullName",
+        text: "Full name",
+        fraction: "200px",
+        renderContent: (data) => (
+          <Link href={`/admin/users/details/${data.userId}/profile`}>
+            <Text>{data.text}</Text>
+          </Link>
+        ),
+      },
+      { id: "3", key: "department", text: "Department", fraction: "200px" },
+      { id: "4", key: "noOfDepartments", text: "No. of Departments", fraction: "150px" },
+      {
+        id: "5",
         key: "email",
         text: "Email Address",
+        fraction: "250px",
       },
-      { id: "4", key: "gradePoint", text: "% Grade point" },
-      { id: "5", key: "certificates", text: "Certificates" },
+      { id: "6", key: "gradePoint", text: "GP (%)", fraction: "75px" },
+      { 
+        id: "7", 
+        key: "status", 
+        text: "Status", 
+        fraction: "100px",
+        renderContent: (data) => {
+          const isActive = data.active || data.status?.active || (data.text === "Approved");
+          return (
+            <Badge 
+              colorScheme={isActive ? "green" : "orange"}
+              variant="solid"
+            >
+              {isActive ? "Approved" : "Pending"}
+            </Badge>
+          );
+        },
+      },
+      // { id: '6', key: 'certificates', text: 'Certificates', fraction: '75px', },
     ],
 
     options: {
@@ -139,22 +173,33 @@ const UserListingPage = () => {
       ],
       selection: true,
       multipleDeleteFetcher: async (selectedUsers) => {
-        console.log(selectedUsers);
-        await adminDeleteMultipleCourses();
+        await adminDeleteMultipleUsers(selectedUsers);
       },
       pagination: true,
     },
   };
 
-  const mapUserToRow = (user) => ({
-    ...user,
-    fullName: {
-      text: `${user.firstName} ${user.lastName}`,
-      userId: user.id,
-    },
-    department: user.departmentName,
-    certificates: user.noOfCertificate,
-  });
+  const mapUserToRow = (user) => {
+    const mappedUser = {
+      ...user,
+      fullName: {
+        text: `${user.firstName} ${user.lastName}`,
+        userId: user.id,
+      },
+      userId: {
+        text: `${user.displayId}`,
+        userId: user.id,
+      },
+      department: user.departmentName,
+      noOfDepartments: user.departmentNumber,
+      certificates: user.noOfCertificate,
+      status: {
+        active: user.active,
+        text: user.active ? "Approved" : "Pending",
+      },
+    };
+    return mappedUser;
+  };
 
   const fetcher = (props) => async () => {
     const { users, showingDocumentsCount, totalDocumentsCount } =
@@ -178,7 +223,9 @@ const UserListingPage = () => {
       />
       <Flex
         justifyContent="space-between"
-        alignItems="center"
+        flexDirection={{ lg: "row", base: "column", md: "column" }}
+        alignItems={{ base: "flex-start", md: "flex-start" }}
+        rowGap={6}
         borderBottom="1px"
         borderColor="accent.2"
         paddingBottom={5}

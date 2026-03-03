@@ -1,0 +1,74 @@
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 40px;
+}
+
+.pagination__item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e2e8f0;
+  background-color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  color: #718096;
+  cursor: pointer;
+}
+
+.pagination__item a {
+  padding: 8px 16px;
+}
+
+.pagination__item-previous {
+  position: relative;
+  display: inline-flex;
+  items: center;
+  border-radius: 0.25rem 0 0 0.25rem;
+  border: 1px solid #e2e8f0;
+  background-color: #fff;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #718096;
+  cursor: pointer;
+}
+
+.pagination__item-next {
+  position: relative;
+  display: inline-flex;
+  items: center;
+  border-radius: 0 0.25rem 0.25rem 0;
+  border: 1px solid #e2e8f0;
+  background-color: #fff;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #718096;
+  cursor: pointer;
+}
+
+.active {
+  background-color: gray;
+}
+
+.bg-primary {
+  background-color: gray;
+}
+
+.border-primary {
+  border-color: purple;
+}
+
+.text-white {
+  color: #fff;
+}
+
+.pointer-events-none {
+  pointer-events: none;
+}
+
+.cursor-not-allowed {
+  cursor: not-allowed;
+}

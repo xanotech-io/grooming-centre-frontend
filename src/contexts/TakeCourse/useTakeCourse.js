@@ -17,6 +17,7 @@ import { TakeCourseContext } from "./TakeCourseProvider";
  */
 export const useTakeCourse = () => {
   const { course_id } = useParams();
+
   // console.log(course_id);
 
   const { fetchCourseDetails } = useCourseDetails(course_id);
@@ -38,7 +39,7 @@ export const useTakeCourse = () => {
 
       try {
         await fetchCourseDetails();
-
+        
         // const data = await fetchTakeCourseData();
 
         // if (isMounted) {

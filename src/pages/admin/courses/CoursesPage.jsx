@@ -1,9 +1,9 @@
-import { ButtonGroup } from "@chakra-ui/button";
-import { Box, Grid } from "@chakra-ui/layout";
-import { Skeleton } from "@chakra-ui/skeleton";
-import { Route } from "react-router-dom";
-import { Button, SearchBar } from "../../../components";
-import { AdminMainAreaWrapper } from "../../../layouts";
+import { ButtonGroup } from '@chakra-ui/button';
+import { Box, Grid } from '@chakra-ui/layout';
+import { Skeleton } from '@chakra-ui/skeleton';
+import { Route } from 'react-router-dom';
+import { Button, SearchBar } from '../../../components';
+import { AdminMainAreaWrapper } from '../../../layouts';
 
 export const CoursesPage = () => {
   return (

@@ -11,6 +11,15 @@ export const adminDeleteUser = async (id) => {
 
   await http.delete(path);
 };
+export const adminDeleteMultipleUsers = async (ids) => {
+  const path = `/admin/delete/user/multiple`;
+  let formattedIds = [];
+  for (let i = 0; i < ids.length; i++) {
+    formattedIds.push(ids[i].id);
+  }
+  const body = { userIds: formattedIds };
+  await http.patch(path, body);
+};
 
 /**
  * Endpoint to get `user-listing`
@@ -28,14 +37,17 @@ export const adminGetUserListing = async (params) => {
   return {
     users: data.rows.map((user) => ({
       id: user.id,
+      displayId: user.displayId,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
       userRoleId: user.userRole.id,
+      active: user.active,
       userRoleName: user.userRole.name,
-      departmentId: user.department?.id,
+      departmentId: user.departments[0]?.id,
       gender: user.gender,
-      departmentName: user.department?.name,
+      departmentName: user.departments[0]?.name,
+      departmentNumber: user.departments.length,
       certificates: user.certificates,
       gradePoint: user.averageGradeScore,
       noOfCertificate: user.noOfCertificate,
@@ -58,6 +70,8 @@ export const adminGetUserDetails = async (id) => {
     data: { data },
   } = await http.get(path);
 
+  const deptNames = data.departments.map((dept) => dept.name).join(", ");
+
   const user = {
     id: data.id,
     firstName: data.firstName,
@@ -65,9 +79,9 @@ export const adminGetUserDetails = async (id) => {
     email: data.email,
     userRoleId: data.userRole.id,
     userRoleName: data.userRole.name,
-    departmentId: data.department?.id,
+    departmentId: data.departments[0]?.id,
     gender: data.gender,
-    departmentName: data.department?.name,
+    departmentName: deptNames,
     certificates: data.certificates ? data.certificates : "notset",
     gradePoint: data.averageGradeScore ? data.averageGradeScore : 0,
     noOfCertificate: data.certificate ? data.certificate.length : 0,
@@ -80,6 +94,9 @@ export const adminGetUserDetails = async (id) => {
     phone: data.phone ? data.phone : "notset",
     profilePics: data.profilePics,
     isInviteActive: data.isInviteActive,
+    professionalCertification: data.professionalCertification
+      ? data.professionalCertification
+      : "notset",
   };
 
   return { user };

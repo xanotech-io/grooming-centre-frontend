@@ -1,25 +1,27 @@
-import { Box } from "@chakra-ui/layout";
-import { Route } from "react-router-dom";
+import { Box } from '@chakra-ui/layout';
+import { Route } from 'react-router-dom';
 import {
   Button,
   Heading,
   QuestionListCard,
   Text,
-} from "../../../../components";
-import { useQueryParams } from "../../../../hooks";
-import { PageLoaderLayout, EmptyState } from "../../../../layouts";
-import { AskAQuestionButton } from "../../../../layouts/user/Forum/Header/Header";
-import useQuestionsPage from "./hooks/useQuestionsPage";
+} from '../../../../components';
+import { useQueryParams } from '../../../../hooks';
+import { PageLoaderLayout, EmptyState } from '../../../../layouts';
+import { AskAQuestionButton } from '../../../../layouts/user/Forum/Header/Header';
+import useQuestionsPage from './hooks/useQuestionsPage';
+import { useHistory } from 'react-router-dom';
 
 const QuestionsPage = () => {
   const { questions, handleFetch } = useQuestionsPage();
+  const push = useHistory();
 
   const questionsIsEmpty =
     !questions.loading && !questions.err && !questions.data?.length
       ? true
       : false;
 
-  const query = useQueryParams().get("q");
+  const query = useQueryParams().get('q');
 
   return (
     <>
@@ -45,7 +47,7 @@ const QuestionsPage = () => {
           <Heading as="h4">
             <Box as="span" color="primary.base">
               <q>{query}</q>
-            </Box>{" "}
+            </Box>{' '}
             {questions.data.length} Questions Found
           </Heading>
         </Box>

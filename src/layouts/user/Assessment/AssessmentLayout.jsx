@@ -11,19 +11,21 @@ import {
 } from "../../../components";
 import breakpoints from "../../../theme/breakpoints";
 import { PageLoaderLayout } from "../../global/PageLoader/PageLoaderLayout";
-import useAssessment from "./hooks/useAssessment";
 import { CustomModal } from "./Modal";
 import { EmptyState } from "../..";
+import useAssessment from "./hooks/useAssessment";
 
 const AssessmentLayout = () => {
   const {
     assessment,
+
     course_id,
     currentQuestion,
     disablePreviousQuestion,
     error,
     isLoading,
     modalManager,
+    end,
     shouldSubmit,
     selectedAnswers,
     timerCountdownManger,
@@ -33,8 +35,9 @@ const AssessmentLayout = () => {
     handleNextQuestion,
     handlePreviousQuestion,
     handleOptionSelect,
+    nav,
   } = useAssessment();
-
+  console.log(assessment, "assessment");
   const renderSubHeading = (heading) => (
     <Box
       as="header"
@@ -57,7 +60,12 @@ const AssessmentLayout = () => {
 
   const renderContent = () => (
     <>
-      <NavigationBlocker when={!submitStatus.success && !error && isLoading} />
+      {nav === true ? null : (
+        <NavigationBlocker
+          when={!submitStatus.success && !error && isLoading && end}
+          disable={end}
+        />
+      )}
 
       {isLoading ? (
         <PageLoaderLayout />
@@ -87,8 +95,9 @@ const AssessmentLayout = () => {
             justifyContent="center"
             alignItems="flex-start"
             backgroundColor="accent.1"
-            height="100vh"
+            minHeight="100vh"
             width="100vw"
+            pb={10}
           >
             <Box
               width="100%"
@@ -144,12 +153,12 @@ const AssessmentLayout = () => {
                         flex={0.2}
                         text={currentQuestion?.question}
                       />
-                      {currentQuestion?.image && (
+                      {currentQuestion?.file && (
                         <Image
-                          src={currentQuestion?.image}
+                          src={currentQuestion?.file}
                           alt={currentQuestion?.question}
-                          width="100%"
-                          height="400px"
+                          width="200px"
+                          height="200px"
                           rounded="sm"
                         />
                       )}
@@ -184,6 +193,13 @@ const AssessmentLayout = () => {
                         Previous
                       </Button>
 
+                      {/* {pageLength === index ? (
+                        <Button onClick={handleSubmit}>Submit</Button>
+                      ) : (
+                        <Button type="submit" onClick={handleNextQuestion}>
+                          Next
+                        </Button>
+                      )} */}
                       <Button type="submit">
                         {shouldSubmit ? "Submit" : "Next"}
                       </Button>
@@ -259,7 +275,9 @@ const AssessmentLayout = () => {
                             question.questionIndex
                           }
                           answered={selectedAnswers[question?.id]}
-                          onClick={handleQuestionChange.bind(null, question)}
+                          onClick={() => {
+                            handleQuestionChange(question);
+                          }}
                         />
                       ))}
                     </Grid>

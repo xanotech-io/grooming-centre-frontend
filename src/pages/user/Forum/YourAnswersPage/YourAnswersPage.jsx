@@ -1,7 +1,8 @@
-import { Route } from "react-router-dom";
-import Comments from "../Comments/Comments";
-import CommentList from "../Comments/CommentList";
-import useYourAnswersPage from "./hooks/useYourAnswersPage";
+import { Route } from 'react-router-dom';
+import Comments from '../Comments/Comments';
+import CommentList from '../Comments/CommentList';
+import useYourAnswersPage from './hooks/useYourAnswersPage';
+import AnswersList from './hooks/AnswersList';
 
 const YourAnswersPage = () => {
   const { commentsManager } = useYourAnswersPage();
@@ -20,7 +21,24 @@ const YourAnswersPage = () => {
         expStatusIsLoading,
       }) => (
         <>
-          <CommentList
+          <AnswersList
+            data={comments.data}
+            deleteStatusIsLoading={deleteStatusIsLoading}
+            expStatusIsLoading={expStatusIsLoading}
+            commentCardHandlers={{
+              onCommentEditSuccess: handleEditComment,
+              onCommentDelete: handleDeleteComment,
+              onReplySuccess: handleAddReply,
+              onReplyDeleteSuccess: handleDeleteReply,
+              onReplyEditSuccess: handleEditReply,
+              onCommentExpression: handleCommentExpression,
+            }}
+            replyCardHandlers={{
+              onReplyDeleteSuccess: handleDeleteReply,
+              onReplyEditSuccess: handleEditReply,
+            }}
+          />
+          {/* <CommentList
             data={comments.data}
             commentCardProps={{ noBorder: true }}
             deleteStatusIsLoading={deleteStatusIsLoading}
@@ -37,7 +55,7 @@ const YourAnswersPage = () => {
               onReplyDeleteSuccess: handleDeleteReply,
               onReplyEditSuccess: handleEditReply,
             }}
-          />
+          /> */}
         </>
       )}
     </Comments>

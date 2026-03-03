@@ -1,11 +1,11 @@
-import { useToast } from "@chakra-ui/toast";
-import { useEffect, useCallback, useState } from "react";
-import { useHistory } from "react-router-dom";
-import { useFetch } from "../../../../../hooks";
+import { useToast } from '@chakra-ui/toast';
+import { useEffect, useCallback, useState } from 'react';
+import { useHistory } from 'react-router-dom';
+import { useFetch } from '../../../../../hooks';
 import {
   userForumCreateExpression,
   userForumDeleteComment,
-} from "../../../../../services";
+} from '../../../../../services';
 
 const useComments = (fetcher) => {
   const {
@@ -54,10 +54,10 @@ const useComments = (fetcher) => {
 
     if (deleteStatus.success && isMount) {
       toast({
-        description: "Deleted Successfully!",
-        position: "top",
+        description: 'Deleted Successfully!',
+        position: 'top',
         duration: 1000,
-        status: "success",
+        status: 'success',
       });
       setDeleteStatus({});
     }
@@ -65,9 +65,9 @@ const useComments = (fetcher) => {
       console.error(deleteStatus.error || expStatus.error);
       toast({
         description: (deleteStatus.error || expStatus.error).message,
-        position: "top",
+        position: 'top',
         duration: 1000,
-        status: "error",
+        status: 'error',
       });
       setDeleteStatus({});
       setExpStatus({});
@@ -126,19 +126,19 @@ const useComments = (fetcher) => {
           expression.expression;
 
       if (expressionNotFound) {
-        if (expression.expression === "like") comment.likes += 1;
+        if (expression.expression === 'like') comment.likes += 1;
         else comment.dislikes += 1;
 
         comment.expressions = [expression, ...comment.expressions];
       } else {
         if (!isSwitchExpression) {
-          if (expression.expression === "like") comment.likes -= 1;
+          if (expression.expression === 'like') comment.likes -= 1;
           else comment.dislikes -= 1;
         }
 
         comment.expressions.splice(expressionIndex, 1);
         if (isSwitchExpression) {
-          if (expression.expression === "like") {
+          if (expression.expression === 'like') {
             comment.likes += 1;
             comment.dislikes -= 1;
           } else {

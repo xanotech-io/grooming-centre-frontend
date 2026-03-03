@@ -3,8 +3,9 @@ import { Box, Flex, HStack, Stack } from "@chakra-ui/layout";
 import { Tag, TagCloseButton, TagLabel } from "@chakra-ui/tag";
 import { useEffect } from "react";
 import { useState } from "react";
-import { AiOutlineClose, AiOutlineDown } from "react-icons/ai";
-import { Button, Checkbox, SearchBar, Text } from "../..";
+import { AiOutlineClose, AiOutlineDown, AiOutlineCalendar } from "react-icons/ai";
+import { Button, Checkbox, SearchBar, Text, DatePicker } from "../..";
+
 
 const Header = ({
   filterControls,
@@ -12,6 +13,7 @@ const Header = ({
   placeholder,
   setParams,
   setCanFilter,
+  showDateFilter,
 }) => {
   const [tags, setTags] = useState({});
 
@@ -88,26 +90,143 @@ const Header = ({
     <Flex
       as="header"
       flexWrap="wrap"
-      alignItems="center"
-      justifyContent="space-between"
-      display={SearchBarVisibility}
+      rowGap={4}
+      alignItems={{ lg: "center", sm: "flex-start", md: "flex-start" }}
+      flexDirection={{ lg: "row", md: "column", sm: "column", base: "column" }}
+      justifyContent={{
+        lg: "space-between",
+        sm: "flex-start",
+        md: "flex-start",
+      }}
+      display={SearchBarVisibility ? SearchBarVisibility : "flex"}
     >
-      <SearchBar
-        placeholder={placeholder}
-        width="375px"
-        sm
-        onSearch={handleSearch}
-        onClear={handleClearSearch}
-      />
-
-      {filterControls && (
-        <FilterButtonsGroup
-          data={filterControls}
-          tags={tags}
-          setTags={setTags}
+      <Box display="flex" gap={2} alignItems="center">
+        <SearchBar
+          placeholder={placeholder}
+          width="375px"
+          sm
+          onSearch={handleSearch}
+          onClear={handleClearSearch}
+          display={SearchBarVisibility === "none" ? "none" : "flex"}
+          flexShrink={0}
         />
-      )}
+        {filterControls && (
+          <FilterButtonsGroup
+            data={filterControls}
+            tags={tags}
+            setTags={setTags}
+          />
+        )}
+      </Box>
+
+      {showDateFilter && <DateFilterButton setParams={setParams} />}
     </Flex>
+  );
+};
+
+const DateFilterButton = ({ setParams }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+
+  const handleOpen = () => setIsOpen(true);
+  const handleClose = () => setIsOpen(false);
+
+  const handleApply = () => {
+    setParams((prev) => ({
+      ...prev,
+      startDate: startDate ? startDate.toISOString() : undefined,
+      endDate: endDate ? endDate.toISOString() : undefined,
+    }));
+    handleClose();
+  };
+
+  const handleClear = () => {
+    setStartDate(null);
+    setEndDate(null);
+    setParams((prev) => {
+      const newParams = { ...prev };
+      delete newParams.startDate;
+      delete newParams.endDate;
+      return newParams;
+    });
+    handleClose();
+  };
+
+  return (
+    <Box position="relative">
+      <Button
+        onClick={handleOpen}
+        secondary
+        sm
+        backgroundColor="white"
+        color="accent.3"
+        leftIcon={<AiOutlineCalendar />} // Ensure this icon exists or import it
+        rightIcon={<AiOutlineDown />}
+      >
+        Select dates
+      </Button>
+
+      {isOpen && (
+        <>
+          <Box
+            data-testid="filter-overlay"
+            backgroundColor="black"
+            opacity={0.2}
+            position="fixed"
+            width="100%"
+            height="100%"
+            top={0}
+            left={0}
+            zIndex={1}
+            onClick={handleClose}
+          ></Box>
+          <Box
+            backgroundColor="white"
+            position="absolute"
+            zIndex={2}
+            width="300px" // Adjusted width
+            top="calc(100% + 5px)"
+            right={0}
+            rounded="4px"
+            border="1px"
+            borderColor="accent.3"
+            shadow="md"
+            p={4}
+          >
+            <Stack spacing={4}>
+              <Box>
+                <Text fontSize="sm" mb={1}>Start Date</Text>
+                <DatePicker
+                  value={startDate}
+                  onChange={setStartDate}
+                  inputVariant="outlined"
+                  size="small"
+                />
+              </Box>
+              <Box>
+                <Text fontSize="sm" mb={1}>End Date</Text>
+                <DatePicker
+                  value={endDate}
+                  onChange={setEndDate}
+                  inputVariant="outlined"
+                  size="small"
+                />
+              </Box>
+
+              <HStack justifyContent="space-between">
+                <Button ghost xs onClick={handleClear}>
+                  Clear
+                </Button>
+                <Button xs onClick={handleApply}>
+                  Apply
+                </Button>
+              </HStack>
+            </Stack>
+          </Box>
+        </>
+      )}
+    </Box>
   );
 };
 
@@ -317,6 +436,7 @@ export const FilterBody = ({ data, tags = [], onClose, onApplyFilter }) => {
                   )}
                   onChange={handleCheckboxChange}
                 />
+
               ))}
             </Stack>
           )}

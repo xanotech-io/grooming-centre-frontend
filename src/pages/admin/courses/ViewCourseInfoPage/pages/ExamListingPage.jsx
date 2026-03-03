@@ -12,6 +12,7 @@ import {
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrapper";
 import {
+  adminDeleteExamination,
   adminDeleteMultipleCourses,
   adminGetExaminationListing,
 } from "../../../../../services";
@@ -19,93 +20,90 @@ import { getDuration } from "../../../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../../hooks";
 
-const tableProps = {
-  filterControls: [
-    {
-      triggerText: "Sort",
-      queryKey: "sort",
-      triggerIcon: <FaSortAmountUpAlt />,
-      width: "200px",
-      position: "right-bottom",
-      // noFilterTags: true,
-      body: {
-        radios: [
-          {
-            label: "Alphabetically: ascending",
-            queryValue: "asc",
-            additionalParams: { date: false },
-          },
-          {
-            label: "Alphabetically: descending",
-            queryValue: "desc",
-            additionalParams: { date: false },
-          },
-          {
-            label: "Date: ascending",
-            queryValue: "asc",
-            additionalParams: { date: true },
-          },
-          {
-            label: "Date: descending",
-            queryValue: "desc",
-            additionalParams: { date: true },
-          },
-        ],
-      },
-    },
-  ],
-
-  columns: [
-    {
-      id: "2",
-      key: "title",
-      text: "Examination Title",
-      fraction: "2fr",
-      renderContent: (data) => (
-        <Link
-          href={`/admin/courses/${data.courseId}/assessment/${data.courseId}/overview?examination=${data.examinationId}`}
-        >
-          <Text>{data.text}</Text>
-        </Link>
-      ),
-    },
-    {
-      id: "4",
-      key: "startDate",
-      text: "Start Date",
-      fraction: "200px",
-    },
-    {
-      id: "5",
-      key: "duration",
-      text: "Duration",
-      fraction: "150px",
-    },
-  ],
-
-  options: {
-    action: [
-      {
-        text: "Edit",
-        link: (examination) =>
-          `/admin/courses/${examination.courseId}/assessment/${examination.courseId}/overview?examination=${examination.id}`,
-      },
-      {
-        isDelete: true,
-      },
-    ],
-    selection: true,
-    multipleDeleteFetcher: async (selectedExaminations) => {
-      console.log(selectedExaminations);
-      await adminDeleteMultipleCourses();
-    },
-    pagination: false,
-  },
-};
-
 const ExamListingPage = () => {
   const { id: courseId } = useParams();
+  const tableProps = {
+    filterControls: [
+      {
+        triggerText: "Sort",
+        queryKey: "sort",
+        triggerIcon: <FaSortAmountUpAlt />,
+        width: "200px",
+        position: "right-bottom",
+        // noFilterTags: true,
+        body: {
+          radios: [
+            {
+              label: "Alphabetically: ascending",
+              queryValue: "asc",
+              additionalParams: { date: false },
+            },
+            {
+              label: "Alphabetically: descending",
+              queryValue: "desc",
+              additionalParams: { date: false },
+            },
+            {
+              label: "Date: ascending",
+              queryValue: "asc",
+              additionalParams: { date: true },
+            },
+            {
+              label: "Date: descending",
+              queryValue: "desc",
+              additionalParams: { date: true },
+            },
+          ],
+        },
+      },
+    ],
 
+    columns: [
+      {
+        id: "2",
+        key: "title",
+        text: "Examination Title",
+        fraction: "2fr",
+        renderContent: (data) => (
+          <Link
+            href={`/admin/courses/${data.courseId}/assessment/${data.courseId}/overview?examination=${data.examinationId}`}
+          >
+            <Text>{data.text}</Text>
+          </Link>
+        ),
+      },
+      {
+        id: "4",
+        key: "startDate",
+        text: "Start Date",
+        fraction: "200px",
+      },
+      {
+        id: "5",
+        key: "duration",
+        text: "Duration",
+        fraction: "150px",
+      },
+    ],
+
+    options: {
+      action: [
+        {
+          text: "Edit",
+          link: (examination) =>
+            `/admin/courses/${examination.courseId}/assessment/${examination.courseId}/overview?examination=${examination.id}`,
+        },
+        {
+          isDelete: true,
+        },
+      ],
+      selection: true,
+      multipleDeleteFetcher: async () => {
+        await adminDeleteExamination(courseId);
+      },
+      pagination: false,
+    },
+  };
   const mapExaminationToRow = (examination) => ({
     id: examination.id,
     courseId,
@@ -120,7 +118,7 @@ const ExamListingPage = () => {
 
   const fetcher = () => async () => {
     const { examinations } = await adminGetExaminationListing(courseId);
-
+    console.log(examinations, "exam");
     const rows = examinations.map(mapExaminationToRow);
 
     return { rows };

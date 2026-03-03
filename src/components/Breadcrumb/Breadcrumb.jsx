@@ -2,11 +2,10 @@ import {
   Breadcrumb as BreadcrumbChakraui,
   BreadcrumbItem,
 } from "@chakra-ui/react";
-import { ChevronRight } from "@material-ui/icons"
-import {Link} from "../"
+import { ChevronRight } from "@material-ui/icons";
+import { Link } from "../";
 
-export const Breadcrumb = ({ item2, item3, item4, props}) => {
-
+export const Breadcrumb = ({ item2, item3, item4, props }) => {
   return (
     <BreadcrumbChakraui
       paddingY={4}
@@ -14,7 +13,7 @@ export const Breadcrumb = ({ item2, item3, item4, props}) => {
       color="accent.3"
       fontSize={14}
       {...props}
-      separator={<ChevronRight style={{fontSize: 18}} />}
+      separator={<ChevronRight style={{ fontSize: 18 }} />}
     >
       <BreadcrumbItem>
         <Link href="/admin">Home</Link>
@@ -24,5 +23,4 @@ export const Breadcrumb = ({ item2, item3, item4, props}) => {
       {item4}
     </BreadcrumbChakraui>
   );
-}
-
+};

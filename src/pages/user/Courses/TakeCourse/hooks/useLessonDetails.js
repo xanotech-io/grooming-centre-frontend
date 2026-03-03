@@ -127,6 +127,7 @@ const useLessonDetails = (sidebarLinks, setCourseState) => {
   };
 
   const handleCompleteAndContinue = async () => {
+    handleEndLesson();
     handleContinueToNextLesson();
   };
 

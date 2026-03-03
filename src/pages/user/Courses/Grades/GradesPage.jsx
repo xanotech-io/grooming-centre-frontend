@@ -15,6 +15,8 @@ import { PageLoaderLayout } from "../../../../layouts";
 import { getDuration } from "../../../../utils";
 import { ReactComponent as NoData } from "../../../../assets/images/no-data.svg";
 import { useEffect } from "react";
+import { utils, writeFile } from "xlsx";
+import { useParams } from "react-router-dom/cjs/react-router-dom.min";
 
 const totalCourseChartConfig = {
   data: {
@@ -38,19 +40,25 @@ const totalCourseChartConfig = {
 const GradesPage = () => {
   const manager = useGradeDetails();
 
-  const { grades, isLoading } = manager;
-  console.log(grades);
+  const { grades, isLoading, myGrades } = manager;
 
+  console.log(grades);
   return (
     <>
-      <Grades isLoading={isLoading} grades={grades} />
+      <Grades isLoading={isLoading} grades={grades} myGrades={myGrades} />
     </>
   );
 };
 
-export const Grades = ({ isLoading, grades, duration }) => {
-  const isAdmin = /admin/i.test(window.location.pathname);
+export const Grades = ({ isLoading, grades, myGrades }) => {
+  const { id: userId } = useParams();
 
+  const isAdmin = /admin/i.test(window.location.pathname);
+  console.log("New update");
+
+  const completedCourses = myGrades?.completedCourses;
+  console.log(completedCourses);
+  const ongoingCourses = myGrades?.ongoingCourses;
   const { hash } = useLocation();
 
   useEffect(() => {
@@ -59,6 +67,177 @@ export const Grades = ({ isLoading, grades, duration }) => {
     }
   }, [hash]);
 
+  const handleGetData = () => {
+    const wb = utils.book_new();
+    const ws = utils.json_to_sheet([
+      {
+        column1: "PERFORMANCE OVERVIEW",
+        column2: "",
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "No of Courses",
+        column2: `${myGrades?.overview?.totalCoursesCount}`,
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "Courses Completed",
+        column2: `${myGrades?.overview?.completedCourseLength}`,
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "Attendance",
+        column2: `${myGrades?.overview?.averageAttendanceScore}%`,
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "Assessment",
+        column2: `${myGrades?.overview?.averageAssessmentScore}%`,
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "Examination",
+        column2: `${myGrades?.overview?.averageExaminationScore}%`,
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "",
+        column2: "",
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "COMPLETED COURSES",
+        column2: "",
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "course name",
+        column2: "attendance",
+        column3: "assessment",
+        column4: "examination",
+      },
+      ...completedCourses?.map((data) => ({
+        column1: data.courseTitle,
+        column2: `${data.attendanceScore}%`,
+        column3: `${data.assessmentScore}%`,
+        column4: `${data.examinationScore}%`,
+      })),
+      {
+        column1: "",
+        column2: "",
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "ONGOING COURSES",
+        column2: "",
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "course name",
+        column2: "attendance",
+        column3: "assessment",
+        column4: "examination",
+      },
+    ]);
+    utils.book_append_sheet(wb, ws, "Orders");
+    writeFile(wb, "PerformanceData.xlsx");
+  };
+  const handleGetData2 = () => {
+    const wb = utils.book_new();
+    const ws = utils.json_to_sheet([
+      {
+        column1: "PERFORMANCE OVERVIEW",
+        column2: "",
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "No of Courses",
+        column2: `${grades?.overview?.totalCoursesCount}`,
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "Courses Completed",
+        column2: `${grades?.overview?.completedCourseLength}`,
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "Attendance",
+        column2: `${grades?.overview?.averageAttendanceScore}%`,
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "Assessment",
+        column2: `${grades?.overview?.averageAssessmentScore}%`,
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "Examination",
+        column2: `${grades?.overview?.averageExaminationScore}%`,
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "",
+        column2: "",
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "COMPLETED COURSES",
+        column2: "",
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "course name",
+        column2: "attendance",
+        column3: "assessment",
+        column4: "examination",
+      },
+      ...grades?.completedCourses?.map((data) => ({
+        column1: data.courseTitle,
+        column2: `${data.attendanceScore}%`,
+        column3: `${data.assessmentScore}%`,
+        column4: `${data.examinationScore}%`,
+      })),
+      {
+        column1: "",
+        column2: "",
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "ONGOING COURSES",
+        column2: "",
+        column3: "",
+        column4: "",
+      },
+      {
+        column1: "course name",
+        column2: "attendance",
+        column3: "assessment",
+        column4: "examination",
+      },
+    ]);
+    utils.book_append_sheet(wb, ws, "Orders");
+    writeFile(wb, "PerformanceData.xlsx");
+  };
+
   return (
     <Flex flexDirection="column" height="100%" width="100%">
       {isLoading ? (
@@ -66,91 +245,179 @@ export const Grades = ({ isLoading, grades, duration }) => {
       ) : (
         <>
           <Box
-            bgGradient="linear(to-l, #390411 31.84%, #540D1E 46.72%, #69192D 80.18%)"
+            bg="primary.base"
             paddingY={10}
             width="100%"
-            paddingX={{ base: "40px", tablet: "80px", laptop: "160px" }}
+            padding={
+              isAdmin
+                ? "20px"
+                : { base: "40px", tablet: "80px", laptop: "160px" }
+            }
           >
             <Heading fontSize="24" color="accent.1">
               Performance Overview
             </Heading>
             <Text pt={3} color="accent.1" fontSize="lg">
-              {`${grades?.overview.completedCourseLength} courses completed`}
+              {isAdmin
+                ? `${myGrades?.overview?.completedCourseLength} courses completed`
+                : `${grades?.overview?.completedCourseLength} courses completed`}
             </Text>
 
-            <HStack
-              width="100%"
-              flexDirection={{ base: "column", laptop: "row" }}
-              spacing={6}
-              mt={6}
-            >
-              <PerformanceOverviewCard
-                title="Attendance"
-                percentage={grades?.overview.averageAttendanceScore}
-                completedCourses={grades?.overview.completedCourseLength}
-                totalCourses={grades?.overview.totalCoursesCount}
-                color="others.2"
-                progress={grades?.overview.averageAttendanceScore}
-              />
+            {isAdmin ? (
+              <HStack
+                width="100%"
+                flexDirection={{ base: "column", laptop: "row" }}
+                gap={{ base: 4, lg: 2, md: 4 }}
+                mt={6}
+              >
+                <PerformanceOverviewCard
+                  title="Attendance"
+                  percentage={myGrades?.overview?.averageAttendanceScore ?? 0}
+                  completedCourses={myGrades?.overview?.completedCourseLength}
+                  totalCourses={myGrades?.overview?.totalCoursesCount}
+                  color="others.2"
+                  progress={myGrades?.overview?.averageAttendanceScore}
+                />
 
-              <PerformanceOverviewCard
-                title="Assessment"
-                percentage={grades?.overview.averageAssessmentScore}
-                completedCourses={grades?.overview.completedCourseLength}
-                totalCourses={grades?.overview.totalCoursesCount}
-                color="others.4"
-                progress={grades?.overview.averageAssessmentScore}
-              />
+                <PerformanceOverviewCard
+                  title="Assessment"
+                  percentage={myGrades?.overview?.averageAssessmentScore ?? 0}
+                  completedCourses={myGrades?.overview?.completedCourseLength}
+                  totalCourses={myGrades?.overview?.totalCoursesCount}
+                  color="others.4"
+                  progress={myGrades?.overview?.averageAssessmentScore}
+                />
 
-              <PerformanceOverviewCard
-                title="Examination"
-                percentage={grades?.overview.averageExaminationScore}
-                completedCourses={grades?.overview.completedCourseLength}
-                totalCourses={grades?.overview.totalCoursesCount}
-                color="primary.base"
-                progress={grades?.overview.averageExaminationScore}
-              />
-            </HStack>
+                <PerformanceOverviewCard
+                  title="Examination"
+                  percentage={myGrades?.overview?.averageExaminationScore ?? 0}
+                  completedCourses={myGrades?.overview?.completedCourseLength}
+                  totalCourses={myGrades?.overview?.totalCoursesCount}
+                  color="primary.base"
+                  progress={myGrades?.overview?.averageExaminationScore}
+                />
+              </HStack>
+            ) : (
+              <HStack
+                width="100%"
+                flexDirection={{ base: "column", laptop: "row" }}
+                gap={{ base: 4, lg: 2, md: 4 }}
+                mt={6}
+              >
+                <PerformanceOverviewCard
+                  title="Attendance"
+                  percentage={grades?.overview?.averageAttendanceScore ?? 0}
+                  completedCourses={grades?.overview?.completedCourseLength}
+                  totalCourses={grades?.overview?.totalCoursesCount}
+                  color="others.2"
+                  progress={grades?.overview?.averageAttendanceScore}
+                />
+
+                <PerformanceOverviewCard
+                  title="Assessment"
+                  percentage={grades?.overview?.averageAssessmentScore ?? 0}
+                  completedCourses={grades?.overview?.completedCourseLength}
+                  totalCourses={grades?.overview?.totalCoursesCount}
+                  color="others.4"
+                  progress={grades?.overview?.averageAssessmentScore}
+                />
+
+                <PerformanceOverviewCard
+                  title="Examination"
+                  percentage={grades?.overview?.averageExaminationScore ?? 0}
+                  completedCourses={grades?.overview?.completedCourseLength}
+                  totalCourses={grades?.overview?.totalCoursesCount}
+                  color="primary.base"
+                  progress={grades?.overview?.averageExaminationScore}
+                />
+              </HStack>
+            )}
           </Box>
           <Box
             pt={10}
             paddingX={{ base: "40px", tablet: "80px", laptop: "160px" }}
             backgroundColor="white"
           >
+            <Box marginTop="5px" display="flex" justifyContent="flex-end">
+              <Button
+                onClick={() => (isAdmin ? handleGetData() : handleGetData2())}
+              >
+                Export Data
+              </Button>
+            </Box>
             <Text color="seondary.9" fontSize="24" fontWeight="500">
               Courses in Progress
             </Text>
-            {grades?.ongoingCourses[0] ? (
-              grades?.ongoingCourses.map((grade) => {
-                const duration = getDuration(grade.courseDuration);
-                return (
-                  <Box key={grade.id}>
-                    <CourseOverviewCard
-                      courseTitle={grade.courseTitle}
-                      courseTimeline={grade.courseTimeline}
-                      time={`${duration.hours} hours, ${duration.minutes} minutes`}
-                      attendance={grade.attendanceTitle}
-                      attendanceProgress={grade.attendanceScore}
-                      attendancePercentage={grade.attendanceScore}
-                      assessment={grade.assessmentTitle}
-                      assessmentPercentage={grade.assessmentScore}
-                      assessmentProgress={grade.assessmentScore}
-                      examination={grade.examinationTitle}
-                      examinationProgress={grade.examinationScore}
-                      examinationPercentage={grade.examinationScore}
-                      totalPercentage={grade.totalScore}
-                    />
-                  </Box>
-                );
-              })
+            {isAdmin ? (
+              <>
+                {ongoingCourses ? (
+                  ongoingCourses?.map((grade) => {
+                    const duration = getDuration(grade.courseDuration);
+                    return (
+                      <Box key={grade.id}>
+                        <CourseOverviewCard
+                          courseTitle={grade.courseTitle}
+                          courseTimeline={grade.courseTimeline}
+                          time={`${duration.hours} hours, ${duration.minutes} minutes`}
+                          attendance={grade.attendanceTitle}
+                          attendanceProgress={grade.attendanceScore}
+                          attendancePercentage={grade.attendanceScore}
+                          assessment={grade.assessmentTitle}
+                          assessmentPercentage={grade.assessmentScore}
+                          assessmentProgress={grade.assessmentScore}
+                          examination={grade.examinationTitle}
+                          examinationProgress={grade.examinationScore}
+                          examinationPercentage={grade.examinationScore}
+                          totalPercentage={grade.totalScore}
+                        />
+                      </Box>
+                    );
+                  })
+                ) : (
+                  <EmptyState
+                    text={
+                      isAdmin
+                        ? "This user has no ongoing course"
+                        : "You have no ongoing course"
+                    }
+                  />
+                )}
+              </>
             ) : (
-              <EmptyState
-                text={
-                  isAdmin
-                    ? "This user has not completed any course"
-                    : "You have not completed any course"
-                }
-              />
+              <>
+                {grades?.ongoingCourses?.[0] ? (
+                  grades?.ongoingCourses?.map((grade) => {
+                    const duration = getDuration(grade.courseDuration);
+                    return (
+                      <Box key={grade.id}>
+                        <CourseOverviewCard
+                          courseTitle={grade.courseTitle}
+                          courseTimeline={grade.courseTimeline}
+                          time={`${duration.hours} hours, ${duration.minutes} minutes`}
+                          attendance={grade.attendanceTitle}
+                          attendanceProgress={grade.attendanceScore}
+                          attendancePercentage={grade.attendanceScore}
+                          assessment={grade.assessmentTitle}
+                          assessmentPercentage={grade.assessmentScore}
+                          assessmentProgress={grade.assessmentScore}
+                          examination={grade.examinationTitle}
+                          examinationProgress={grade.examinationScore}
+                          examinationPercentage={grade.examinationScore}
+                          totalPercentage={grade.totalScore}
+                        />
+                      </Box>
+                    );
+                  })
+                ) : (
+                  <EmptyState
+                    text={
+                      isAdmin
+                        ? "This user has no ongoing course"
+                        : "You have no ongoing course"
+                    }
+                  />
+                )}
+              </>
             )}
           </Box>
           <Box
@@ -162,45 +429,97 @@ export const Grades = ({ isLoading, grades, duration }) => {
             <Text color="seondary.9" fontSize="24" fontWeight="500">
               Courses Completed
             </Text>
-            {grades?.completedCourses[0] ? (
-              grades?.completedCourses.map((grade) => {
-                const duration = getDuration(grade.courseDuration);
-                return (
-                  <Box key={grade.id}>
-                    <CourseOverviewCard
-                      courseTitle={grade.courseTitle}
-                      courseTimeline={grade.courseTimeline}
-                      time={`${duration.hours} hours, ${duration.minutes} minutes`}
-                      attendance={grade.attendanceTitle}
-                      attendanceProgress={grade.attendanceScore}
-                      attendancePercentage={grade.attendanceScore}
-                      assessment={grade.assessmentTitle}
-                      assessmentPercentage={grade.assessmentScore}
-                      assessmentProgress={grade.assessmentScore}
-                      examination={grade.examinationTitle}
-                      examinationProgress={grade.examinationScore}
-                      examinationPercentage={grade.examinationScore}
-                      totalPercentage={grade.totalScore}
-                    >
-                      <Button
-                        mt="4"
-                        link={`/courses/${grade.id}/certificate`}
-                        size="sm"
-                      >
-                        View Certificate
-                      </Button>
-                    </CourseOverviewCard>
-                  </Box>
-                );
-              })
+            {isAdmin ? (
+              <>
+                {completedCourses ? (
+                  completedCourses.map((grade) => {
+                    const duration = getDuration(grade.courseDuration);
+                    return (
+                      <Box key={grade.id}>
+                        <CourseOverviewCard
+                          courseTitle={grade.courseTitle}
+                          courseTimeline={grade.courseTimeline}
+                          time={`${duration.hours} hours, ${duration.minutes} minutes`}
+                          attendance={grade.attendanceTitle}
+                          attendanceProgress={grade.attendanceScore}
+                          attendancePercentage={grade.attendanceScore}
+                          assessment={grade.assessmentTitle}
+                          assessmentPercentage={grade.assessmentScore}
+                          assessmentProgress={grade.assessmentScore}
+                          examination={grade.examinationTitle}
+                          examinationProgress={grade.examinationScore}
+                          examinationPercentage={grade.examinationScore}
+                          totalPercentage={grade.totalScore}
+                        >
+                          {console.log(grade, "gggg")}
+                          <Button
+                            mt="4"
+                            link={
+                              isAdmin
+                                ? `/admin/users/details/${grade.id}/certificate/${userId}`
+                                : `/courses/${grade.id}/certificate`
+                            }
+                            size="sm"
+                          >
+                            View Certificate
+                          </Button>
+                        </CourseOverviewCard>
+                      </Box>
+                    );
+                  })
+                ) : (
+                  <EmptyState
+                    text={
+                      isAdmin
+                        ? "This user has not completed any course"
+                        : "You have not completed any course"
+                    }
+                  />
+                )}
+              </>
             ) : (
-              <EmptyState
-                text={
-                  isAdmin
-                    ? "This user has not completed any course"
-                    : "You have not completed any course"
-                }
-              />
+              <>
+                {grades?.completedCourses?.[0] ? (
+                  grades?.completedCourses.map((grade) => {
+                    const duration = getDuration(grade.courseDuration);
+                    return (
+                      <Box key={grade.id}>
+                        <CourseOverviewCard
+                          courseTitle={grade.courseTitle}
+                          courseTimeline={grade.courseTimeline}
+                          time={`${duration.hours} hours, ${duration.minutes} minutes`}
+                          attendance={grade.attendanceTitle}
+                          attendanceProgress={grade.attendanceScore}
+                          attendancePercentage={grade.attendanceScore}
+                          assessment={grade.assessmentTitle}
+                          assessmentPercentage={grade.assessmentScore}
+                          assessmentProgress={grade.assessmentScore}
+                          examination={grade.examinationTitle}
+                          examinationProgress={grade.examinationScore}
+                          examinationPercentage={grade.examinationScore}
+                          totalPercentage={grade.totalScore}
+                        >
+                          <Button
+                            mt="4"
+                            link={`/courses/${grade.id}/certificate`}
+                            size="sm"
+                          >
+                            View Certificate
+                          </Button>
+                        </CourseOverviewCard>
+                      </Box>
+                    );
+                  })
+                ) : (
+                  <EmptyState
+                    text={
+                      isAdmin
+                        ? "This user has not completed any course"
+                        : "You have not completed any course"
+                    }
+                  />
+                )}
+              </>
             )}
           </Box>
         </>
@@ -222,8 +541,11 @@ export const EmptyState = ({ text }) => (
     p={8}
     mb={6}
   >
-    <NoData />
-    <Text paddingTop={4} as="level1" color="secondary.5">
+    <Text color="#660066">
+      <NoData />
+    </Text>
+
+    <Text paddingTop={4} as="level1" color="others.3">
       {text}
     </Text>
   </Flex>
@@ -254,7 +576,7 @@ const PerformanceOverviewCard = ({
             {`${percentage}%`}
           </Text>
           <Text fontSize="14" color="accent.3">
-            {`${completedCourses} out of ${totalCourses} courses`}
+            {`${completedCourses ?? 0} out of ${totalCourses ?? 0} courses`}
           </Text>
         </Box>
         <Center>
@@ -313,7 +635,7 @@ const CourseOverviewCard = ({
           flexDirection="column"
           justifyContent="center"
         >
-          <Flex justifyContent="space-between">
+          <Flex>
             <Box>
               <Text color="accent.3">{attendance}</Text>
               <Progress
@@ -326,7 +648,11 @@ const CourseOverviewCard = ({
               {`${attendancePercentage}%`}
             </Text>
           </Flex>
-          <Flex justifyContent="space-between" paddingY="2">
+          <Flex
+            justifyContent="space-between"
+            flexDirection={{ base: "column", md: "column", lg: "row" }}
+            paddingY="2"
+          >
             <Box>
               <Text color="accent.3" fontSize="14">
                 {assessment}
@@ -334,7 +660,7 @@ const CourseOverviewCard = ({
               <Progress size="xs" value={assessmentProgress} />
             </Box>
             <Text fontWeight="700" color="seondary.9" fontSize="18">
-              {`${assessmentPercentage}%`}
+              {`${assessmentPercentage}`}
             </Text>
           </Flex>
           <Flex justifyContent="space-between">
@@ -347,7 +673,7 @@ const CourseOverviewCard = ({
               />
             </Box>
             <Text fontWeight="700" color="seondary.9" fontSize="18">
-              {`${examinationPercentage}%`}
+              {`${examinationPercentage}`}
             </Text>
           </Flex>
         </Box>

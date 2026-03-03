@@ -6,18 +6,31 @@ import { useCache } from "../../../../contexts";
 import { Text } from "../../../../components";
 import useQueryParams from "../../../../hooks/useQueryParams";
 import useAssessmentPreview from "../../../../pages/user/Courses/TakeCourse/hooks/useAssessmentPreview";
-import { submitAssessment } from "../../../../services";
+import { createCertificate, submitAssessment } from "../../../../services";
 import { submitExamination } from "../../../../services/http/endpoints/examination";
 import { hasEnded, isUpcoming, sortByIndexField } from "../../../../utils";
 import { CongratsModalContent } from "../Modal";
 import useTimerCountdown from "./useTimerCountdown";
 import { Box } from "@chakra-ui/layout";
+import useCourseExamPreview from "../../../../pages/user/Courses/TakeCourse/hooks/courseExamPreview/useCourseExamPreview";
+import {
+  useHistory,
+  useLocation,
+} from "react-router-dom/cjs/react-router-dom.min";
+import { Warning } from "@material-ui/icons";
 
 const useAssessment = () => {
-  const { assessment, isLoading, error, setError } = useAssessmentPreview();
+  const { assessment, isLoading, error, setError } = useCourseExamPreview();
   const { course_id } = useParams();
   const isExamination = useQueryParams().get("examination");
-
+  const [score, setScore] = useState("");
+  const [end, setEnd] = useState(true);
+  const [count, increaseCount] = useState(0);
+  const { push } = useHistory();
+  const totalSteps = 3;
+  const [nav, setNav] = useState(false);
+  const [exitAttempts, setExitAttempts] = useState(0);
+  const [onblur, setIsOnblur] = useState(false);
   assessment.questions = sortByIndexField(
     assessment.questions,
     "questionIndex"
@@ -25,7 +38,7 @@ const useAssessment = () => {
   assessment.questions?.forEach((question) => {
     question.options = sortByIndexField(question.options, "optionIndex");
   });
-
+  const file = assessment?.questions.map((q) => q?.file);
   const [currentQuestion, setCurrentQuestion] = useState({});
 
   const timerCountdownManger = useTimerCountdown({
@@ -111,8 +124,17 @@ const useAssessment = () => {
 
       console.log(questionIdArr, optionIdArr);
 
-      await (isExamination ? submitExamination(body) : submitAssessment(body));
+      const { message, data } = await (isExamination
+        ? submitExamination(body)
+        : submitAssessment(body));
 
+      setScore(data?.score);
+      toast({
+        description:
+          exitAttempts === totalSteps ? "Exam auto submitted" : message,
+        position: "top",
+        status: "success",
+      });
       setSubmitStatus({
         success: true,
       });
@@ -137,7 +159,6 @@ const useAssessment = () => {
     // user?.id,
   ]);
 
-  // Automatically submit when timeout
   useEffect(() => {
     if (timerCountdownManger.hasEnded.timeout) {
       handleSubmit();
@@ -150,6 +171,19 @@ const useAssessment = () => {
   const [modalCanClose, setModalCanClose] = useState(true);
 
   const { handleDelete } = useCache();
+  const handleCert = async () => {
+    try {
+      const body = {
+        courseId: assessment.courseId,
+      };
+    } catch (error) {
+      toast({
+        description: error.message,
+        position: "top",
+        status: "error",
+      });
+    }
+  };
 
   const handleAfterSubmit = () => {
     modalManager.onOpen();
@@ -160,6 +194,8 @@ const useAssessment = () => {
       <CongratsModalContent
         redirectLink={`/courses/details/${course_id}`}
         contextText={assessment.topic}
+        score={score}
+        isExamination={isExamination}
       />
     );
     timerCountdownManger.handleStopCountdown();
@@ -206,10 +242,52 @@ const useAssessment = () => {
         </>
       ),
       submitProps: {
-        onClick: handleSubmit,
+        onClick: () => {
+          handleSubmit();
+        },
       },
     });
   };
+
+  const handleExitAttempt = () => {
+    if (exitAttempts < totalSteps) {
+      setExitAttempts(exitAttempts + 1);
+    }
+    if (exitAttempts === totalSteps) {
+      setNav(true);
+      push("/courses");
+      handleSubmit();
+    }
+  };
+
+  useEffect(() => {
+    const handleUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = ""; // Standard for most browsers
+      handleExitAttempt();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        handleExitAttempt();
+        exitAttempts !== 3 &&
+          toast({
+            position: "top",
+            status: "error",
+            title:
+              "Note leaving this tab three times will automatically submit your exam",
+          });
+      }
+    };
+
+    window.addEventListener("beforeunload", handleUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [exitAttempts]);
 
   const handleQuestionChange = (question) => setCurrentQuestion(question);
 
@@ -247,10 +325,12 @@ const useAssessment = () => {
     assessment,
     course_id,
     isLoading,
+    end,
     error,
     submitStatus,
     currentQuestion,
     shouldSubmit,
+    file,
     disablePreviousQuestion,
     selectedAnswers,
     handleSubmitConfirmation,
@@ -258,6 +338,8 @@ const useAssessment = () => {
     handleNextQuestion,
     handlePreviousQuestion,
     handleOptionSelect,
+    handleCert,
+    nav,
     timerCountdownManger,
     modalManager: {
       ...modalManager,

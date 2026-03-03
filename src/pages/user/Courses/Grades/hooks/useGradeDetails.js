@@ -17,6 +17,7 @@ const useGradeDetails = () => {
     const { grades } = await userGetGrades();
     return grades;
   }, []);
+
   const fetchGradeDetails = useCallback(async () => {
     setGradeDetails({ loading: true });
 

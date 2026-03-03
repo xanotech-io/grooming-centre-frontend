@@ -19,7 +19,7 @@ const MainArea = () => {
       <Switch>
         <SigninPageRoute exact path="/auth/signin" />
         <ForgotPasswordPageRoute exact path="/auth/forgot-password" />
-        <NewPasswordPageRoute exact path="/auth/new-password" />
+        <NewPasswordPageRoute exact path="/auth/new-password/:token" />
         {/* <UpdateDetailsPageRoute exact path="/auth/update-details" /> */}
 
         <Redirect to="/not-found" />

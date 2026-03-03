@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState } from 'react';
 
-export const useDateTimePicker = (initDate = "Invalid Date") => {
+export const useDateTimePicker = (initDate = 'Invalid Date') => {
   const [value, setValue] = useState(new Date(initDate));
 
   const handleChange = (value) => setValue(value);

@@ -10,7 +10,7 @@ import {
   SkeletonText,
   RichTextToView,
 } from "../../../components";
-import { FaEdit } from "react-icons/fa";
+import { FaEdit, FaDownload, FaFilePowerpoint } from "react-icons/fa";
 import useViewLessonInfo from "./hooks/useViewLessonInfo";
 import { Skeleton } from "@chakra-ui/skeleton";
 import dayjs from "dayjs";
@@ -21,9 +21,21 @@ const ViewLessonInfoPage = () => {
 
   const { lesson, isLoading } = manager;
 
-  console.log(lesson, isLoading);
+  console.log(lesson?.file);
 
   const fileIsAVideo = /((\.)(mp4|mkv))$/i.test(lesson?.file);
+  const fileIsPowerPoint = /((\.)(ppt|pptx))$/i.test(lesson?.file) || lesson?.lessonType?.name === "PowerPoint";
+
+  const handleDownloadFile = () => {
+    if (lesson?.file) {
+      const link = document.createElement('a');
+      link.href = lesson.file;
+      link.download = lesson.file.split('/').pop() || 'lesson-file';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   return (
     <Box paddingX={4}>
@@ -172,7 +184,35 @@ const ViewLessonInfoPage = () => {
                 {console.log(lesson?.file)}
                 <Heading fontSize="heading.6">Lesson File</Heading>
                 <Box paddingTop={6}>
-                  {fileIsAVideo ? (
+                  {fileIsPowerPoint ? (
+                    <Flex
+                      direction="column"
+                      alignItems="center"
+                      justifyContent="center"
+                      border="2px dashed"
+                      borderColor="gray.300"
+                      borderRadius="md"
+                      padding={8}
+                      minHeight="300px"
+                      backgroundColor="gray.50"
+                    >
+                      <FaFilePowerpoint size={80} color="#D24726" style={{ marginBottom: '16px' }} />
+                      <Heading fontSize="lg" color="gray.700" marginBottom={2}>
+                        PowerPoint Presentation
+                      </Heading>
+                      <Text color="gray.600" marginBottom={4} textAlign="center">
+                        {lesson?.file?.split('/').pop() || 'Presentation.pptx'}
+                      </Text>
+                      <Button
+                        leftIcon={<FaDownload />}
+                        colorScheme="orange"
+                        size="lg"
+                        onClick={handleDownloadFile}
+                      >
+                        Download PowerPoint File
+                      </Button>
+                    </Flex>
+                  ) : fileIsAVideo ? (
                     <iframe
                       title="Lesson Video"
                       src={lesson?.file}

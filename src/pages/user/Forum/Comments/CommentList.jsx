@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState } from 'react';
 import {
   CommentListCard,
   QuestionListCard,
   ReplyListCard,
-} from "../../../../components";
+} from '../../../../components';
 
 const CommentList = ({
   data,
@@ -78,6 +78,7 @@ const CommentListItem = ({
   expStatusIsLoading,
 }) => {
   const [displayReplies, setDisplayReplies] = useState(false);
+
   const handleDisplayRepliesToggle = () => setDisplayReplies((prev) => !prev);
   const renderReplies = () =>
     displayReplies &&

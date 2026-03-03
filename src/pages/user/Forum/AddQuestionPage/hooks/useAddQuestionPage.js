@@ -1,21 +1,21 @@
-import { useToast } from "@chakra-ui/toast";
-import { useCallback } from "react";
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { useHistory } from "react-router";
-import { useApp } from "../../../../../contexts";
+import { useToast } from '@chakra-ui/toast';
+import { useCallback } from 'react';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { useHistory } from 'react-router';
+import { useApp } from '../../../../../contexts';
 import {
   useFetch,
   useFetchAndCache,
   useQueryParams,
-} from "../../../../../hooks";
+} from '../../../../../hooks';
 import {
   userForumEditQuestion,
   userForumGetCategories,
   userForumGetQuestionDetails,
   userForumPublishQuestion,
-} from "../../../../../services";
-import { capitalizeFirstLetter } from "../../../../../utils/formatString";
+} from '../../../../../services';
+import { capitalizeFirstLetter } from '../../../../../utils/formatString';
 
 /**
  * Manages AddQuestionPage state
@@ -34,7 +34,7 @@ const useAddQuestionPage = ({ selectedTags, handleClearAllSelectedTags }) => {
 
   // Handle fetch category
   useEffect(() => {
-    handleFetchResource({ cacheKey: "forum-categories", fetcher });
+    handleFetchResource({ cacheKey: 'forum-categories', fetcher });
   }, [handleFetchResource, fetcher]);
 
   // Handle category error
@@ -42,8 +42,8 @@ const useAddQuestionPage = ({ selectedTags, handleClearAllSelectedTags }) => {
     if (categories.err) {
       toast({
         description: capitalizeFirstLetter(categories.err),
-        position: "top",
-        status: "error",
+        position: 'top',
+        status: 'error',
       });
     }
 
@@ -57,8 +57,8 @@ const useAddQuestionPage = ({ selectedTags, handleClearAllSelectedTags }) => {
 
   const { resource: question, handleFetchResource: handleFetchQuestion } =
     useFetch();
-  const questionId = useQueryParams().get("questionId");
-  const redirectTo = useQueryParams().get("redirectTo");
+  const questionId = useQueryParams().get('questionId');
+  const redirectTo = useQueryParams().get('redirectTo');
   const { push } = useHistory();
 
   const questionFetcher = useCallback(async () => {
@@ -75,7 +75,7 @@ const useAddQuestionPage = ({ selectedTags, handleClearAllSelectedTags }) => {
   useEffect(() => {
     if (question.data) {
       console.log(question.data);
-      formManager.setValue("categoryId", question.data.categoryId);
+      formManager.setValue('categoryId', question.data.categoryId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.data]);
@@ -84,7 +84,7 @@ const useAddQuestionPage = ({ selectedTags, handleClearAllSelectedTags }) => {
   useEffect(() => {
     if (question.data) {
       console.log(question.data);
-      formManager.setValue("title", question.data.title);
+      formManager.setValue('title', question.data.title);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.data]);
@@ -93,17 +93,16 @@ const useAddQuestionPage = ({ selectedTags, handleClearAllSelectedTags }) => {
   useEffect(() => {
     if (question.data) {
       console.log(question.data);
-      formManager.setValue("question", question.data.body);
+      formManager.setValue('question', question.data.body);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.data]);
 
   const handlePublishQuestion = async (question) => {
+    console.log(question);
     try {
       if (!selectedTags.length)
-        throw new Error("Please select at least one tag");
-
-      console.log(selectedTags);
+        throw new Error('Please select at least one tag');
 
       const body = {
         title: question.title,
@@ -119,8 +118,8 @@ const useAddQuestionPage = ({ selectedTags, handleClearAllSelectedTags }) => {
 
       toast({
         description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
+        position: 'top',
+        status: 'success',
       });
 
       formManager.reset();
@@ -130,8 +129,8 @@ const useAddQuestionPage = ({ selectedTags, handleClearAllSelectedTags }) => {
     } catch (err) {
       toast({
         description: capitalizeFirstLetter(err.message),
-        position: "top",
-        status: "error",
+        position: 'top',
+        status: 'error',
       });
     }
   };

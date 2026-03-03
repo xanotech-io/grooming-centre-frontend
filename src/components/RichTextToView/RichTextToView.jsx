@@ -1,7 +1,7 @@
-import { Box } from "@chakra-ui/layout";
-import { convertFromRaw } from "draft-js";
+import { Box } from '@chakra-ui/layout';
+import { convertFromRaw } from 'draft-js';
 
-import { stateToHTML } from "draft-js-export-html";
+import { stateToHTML } from 'draft-js-export-html';
 
 export const RichTextToView = ({ text, ...rest }) => {
   return (

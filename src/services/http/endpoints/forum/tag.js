@@ -1,4 +1,4 @@
-import { http } from "../../http";
+import { http } from '../../http';
 
 /**
  * Endpoint to get forum tags

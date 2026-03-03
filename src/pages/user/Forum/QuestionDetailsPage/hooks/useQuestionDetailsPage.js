@@ -1,12 +1,12 @@
-import { useEffect } from "react";
-import { useCallback } from "react";
-import { useParams } from "react-router";
-import { useFetch } from "../../../../../hooks";
+import { useEffect } from 'react';
+import { useCallback } from 'react';
+import { useParams } from 'react-router';
+import { useFetch } from '../../../../../hooks';
 import {
   userForumGetComments,
   userForumGetQuestionDetails,
-} from "../../../../../services";
-import useComments from "../../Comments/hooks/useComments";
+} from '../../../../../services';
+import useComments from '../../Comments/hooks/useComments';
 
 const useQuestionDetailsPage = () => {
   const { resource: question, handleFetchResource } = useFetch();
@@ -14,6 +14,7 @@ const useQuestionDetailsPage = () => {
 
   const fetcher = useCallback(async () => {
     const { question } = await userForumGetQuestionDetails(id);
+
     return question;
   }, [id]);
 

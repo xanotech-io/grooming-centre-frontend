@@ -1,20 +1,20 @@
-import { Box, Flex, HStack, Stack } from "@chakra-ui/layout";
-import PropTypes from "prop-types";
-import { useState } from "react";
+import { Box, Flex, HStack, Stack } from '@chakra-ui/layout';
+import PropTypes from 'prop-types';
+import { useState } from 'react';
 import {
   AiFillDislike,
   AiFillLike,
   AiOutlineDislike,
   AiOutlineLike,
-} from "react-icons/ai";
-import { FiChevronsDown, FiCornerDownRight, FiMenu } from "react-icons/fi";
-import { DeletedMsg, Image, Link, Text } from "..";
-import { ForumMessageCardMoreIconButton } from "./QuestionListCard";
-import thumbnailPlaceholder from "../../assets/images/onboarding1.png";
-import { capitalizeWords, formatToUsername, getFullName } from "../../utils";
-import CommentForm from "../../pages/user/Forum/Comments/CommentForm";
-import { useLoggedInUserIsTheCreator } from "../../hooks";
-import { useApp } from "../../contexts";
+} from 'react-icons/ai';
+import { FiChevronsDown, FiCornerDownRight, FiMenu } from 'react-icons/fi';
+import { DeletedMsg, Image, Link, Text } from '..';
+import { ForumMessageCardMoreIconButton } from './QuestionListCard';
+import thumbnailPlaceholder from '../../assets/images/onboarding1.png';
+import { capitalizeWords, formatToUsername, getFullName } from '../../utils';
+import CommentForm from '../../pages/user/Forum/Comments/CommentForm';
+import { useLoggedInUserIsTheCreator } from '../../hooks';
+import { useApp } from '../../contexts';
 
 const useCommentListCard = () => {
   const [displayEditForm, setDisplayEditForm] = useState(false);
@@ -78,8 +78,8 @@ export const CommentListCard = ({
     (exp) => exp.userId === loggedInUser?.id
   );
 
-  const hasLiked = currentExpression?.expression === "like";
-  const hasDisliked = currentExpression?.expression === "dislike";
+  const hasLiked = currentExpression?.expression === 'like';
+  const hasDisliked = currentExpression?.expression === 'dislike';
 
   return (
     <Stack
@@ -89,7 +89,7 @@ export const CommentListCard = ({
       shadow="2px 1px 5px rgba(0, 0, 0, 0.15)"
       margin={1}
       marginBottom={5}
-      borderLeft={!noBorder && "5px solid"}
+      borderLeft={!noBorder && '5px solid'}
       borderColor="accent.7"
       position="relative"
     >
@@ -143,7 +143,7 @@ export const CommentListCard = ({
         )}
         {mentionedUser && (
           <Text opacity={0.76}>
-            Mentioned{" "}
+            Mentioned{' '}
             <Box as="b" color="secondary.6">
               {formatToUsername(getFullName(mentionedUser))}
             </Box>
@@ -179,23 +179,23 @@ export const CommentListCard = ({
           <HStack spacing={3}>
             <PlainButtonWithIcon
               _active={{
-                transform: "scale(1.03)",
+                transform: 'scale(1.03)',
               }}
               text={likes}
               icon={hasLiked ? <AiFillLike color="blue" /> : <AiOutlineLike />}
               onClick={onCommentExpression?.bind(null, id, {
                 commentId: id,
-                expression: "like",
+                expression: 'like',
                 userId: loggedInUser?.id,
               })}
               disabled={expStatusIsLoading === id ? true : false}
-              cursor={expStatusIsLoading === id ? "no-drop" : "pointer"}
-              opacity={expStatusIsLoading === id ? ".7" : "1"}
+              cursor={expStatusIsLoading === id ? 'no-drop' : 'pointer'}
+              opacity={expStatusIsLoading === id ? '.7' : '1'}
             />
 
             <PlainButtonWithIcon
               _active={{
-                transform: "scale(1.03)",
+                transform: 'scale(1.03)',
               }}
               text={dislikes}
               icon={
@@ -207,12 +207,12 @@ export const CommentListCard = ({
               }
               onClick={onCommentExpression?.bind(null, id, {
                 commentId: id,
-                expression: "dislike",
+                expression: 'dislike',
                 userId: loggedInUser?.id,
               })}
               disabled={expStatusIsLoading === id ? true : false}
-              cursor={expStatusIsLoading === id ? "no-drop" : "pointer"}
-              opacity={expStatusIsLoading === id ? ".7" : "1"}
+              cursor={expStatusIsLoading === id ? 'no-drop' : 'pointer'}
+              opacity={expStatusIsLoading === id ? '.7' : '1'}
             />
           </HStack>
         )}
@@ -221,7 +221,7 @@ export const CommentListCard = ({
           {questionId && (
             <PlainButtonWithIcon
               color="accent.6"
-              text={"View question"}
+              text={'View question'}
               icon={<FiMenu />}
               link={`/forum/questions/details/${questionId}`}
             />
@@ -231,7 +231,7 @@ export const CommentListCard = ({
             <PlainButtonWithIcon
               color="accent.6"
               text={`${
-                displayReplies ? "Hide" : "Show"
+                displayReplies ? 'Hide' : 'Show'
               } All Replies (${replyCount})`}
               icon={<FiChevronsDown />}
               onClick={onReplyToggle}
@@ -266,7 +266,7 @@ export const CommentListCard = ({
 
 export const PlainButtonWithIcon = ({ icon, text, link, ...rest }) => {
   const renderContent = () => (
-    <Flex {...rest} alignItems="center" as={!link && "button"}>
+    <Flex {...rest} alignItems="center" as={!link && 'button'}>
       {icon}
 
       <Text as="level5" marginLeft={1}>

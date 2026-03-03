@@ -76,13 +76,14 @@ const GradeCriteriaPage = () => {
 
   return (
     <AdminMainAreaWrapper paddingY={8}>
-      <Heading fontSize="heading.h3" marginBottom={4}>
+      <Heading fontSize="heading.h3" marginBottom={4} marginTop={6}>
         Grade Criteria
       </Heading>
       <Grid
-        templateColumns="repeat(3, minmax(150px, 1fr))"
+        templateColumns={{ lg: "repeat(3, minmax(150px, 1fr))" }}
         gridAutoRows="100px"
         gap={3}
+        rowGap={6}
       >
         <OverviewBox
           href="#"
@@ -148,50 +149,52 @@ const GradeCriteriaPage = () => {
           iconBackgroundColor="secondary.5"
         />
       </Grid>
-      <Heading fontSize="heading.h3" marginTop={12}>
-        Change the Grade Criteria
-      </Heading>
-      <Box
-        as="form"
-        onSubmit={handleSubmit(onSubmit)}
-        marginTop={6}
-        padding={6}
-        boxShadow="0 0 10px 3px rgba(0, 0, 0, .1)"
-      >
-        <Stack spacing={8} width="50%">
-          <Input
-            type="number"
-            label="Examination"
-            id="totalExaminationScore"
-            {...register("totalExaminationScore", {
-              required: "Examination score is required",
-            })}
-            error={errors.totalExaminationScore?.message}
-          />
-          <Input
-            type="number"
-            label="Assessment"
-            id="totalAssessmentScore"
-            {...register("totalAssessmentScore", {
-              required: "Assessment score is required",
-            })}
-            error={errors.totalAssessmentScore?.message}
-          />
-          <Input
-            type="number"
-            label="Attendance"
-            id="totalAttendanceScore"
-            {...register("totalAttendanceScore", {
-              required: "Attendance score is required",
-            })}
-            error={errors.totalAttendanceScore?.message}
-          />
-        </Stack>
-        <Flex paddingTop={8} justifyContent="flex-end">
-          <Button type="submit" isLoading={isSubmitting}>
-            Update
-          </Button>
-        </Flex>
+      <Box backgroundColor="white" padding={10} mt={6}>
+        <Heading fontSize="heading.h3" marginTop={12}>
+          Change the Grade Criteria
+        </Heading>
+        <Box
+          as="form"
+          onSubmit={handleSubmit(onSubmit)}
+          marginTop={6}
+          padding={6}
+          boxShadow="0 0 10px 3px rgba(0, 0, 0, .1)"
+        >
+          <Stack spacing={8} width={{ lg: "50%", base: "100%" }}>
+            <Input
+              type="number"
+              label="Examination"
+              id="totalExaminationScore"
+              {...register("totalExaminationScore", {
+                required: "Examination score is required",
+              })}
+              error={errors.totalExaminationScore?.message}
+            />
+            <Input
+              type="number"
+              label="Assessment"
+              id="totalAssessmentScore"
+              {...register("totalAssessmentScore", {
+                required: "Assessment score is required",
+              })}
+              error={errors.totalAssessmentScore?.message}
+            />
+            <Input
+              type="number"
+              label="Attendance"
+              id="totalAttendanceScore"
+              {...register("totalAttendanceScore", {
+                required: "Attendance score is required",
+              })}
+              error={errors.totalAttendanceScore?.message}
+            />
+          </Stack>
+          <Flex paddingTop={8} justifyContent="flex-end">
+            <Button type="submit" isLoading={isSubmitting}>
+              Update
+            </Button>
+          </Flex>
+        </Box>
       </Box>
     </AdminMainAreaWrapper>
   );

@@ -1,20 +1,23 @@
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
-import { Route } from "react-router-dom";
+import { Route, useHistory } from "react-router-dom";
 import { Button, Heading, PasswordInput } from "../../../components";
 import { OnBoardingFormLayout } from "../../../layouts";
 import { userCreateNewPassword, userResetPassword } from "../../../services";
 import { useApp } from "../../../contexts";
-import useQueryParams from "../../../hooks/useQueryParams";
 import { capitalizeFirstLetter } from "../../../utils/formatString";
 import {
-  useRedirectNonAuthUserToSigninPage,
+  // useRedirectNonAuthUserToSigninPage,
   usePageRefreshAfterLogin,
 } from "../../../hooks";
 
 const NewPasswordPage = () => {
   usePageRefreshAfterLogin();
-  useRedirectNonAuthUserToSigninPage();
+  // useRedirectNonAuthUserToSigninPage();
+  const {
+    replace,
+    location: { pathname },
+  } = useHistory();
 
   const toast = useToast();
   const {
@@ -27,15 +30,15 @@ const NewPasswordPage = () => {
   const values = getValues();
 
   const { handleLogout } = useApp();
-  const queryParams = useQueryParams();
 
-  const resetToken = queryParams.get("resetToken");
+  const splitUrl = pathname.split("/");
+  const token = splitUrl[splitUrl.length - 1];
 
   const onSubmit = async (data) => {
-    const handleRequest = (body) =>
-      resetToken ? userResetPassword(body) : userCreateNewPassword(body);
-
     try {
+      const handleRequest = (body) =>
+        token ? userResetPassword(body, token) : userCreateNewPassword(body);
+
       if (data.password !== data.confirmPassword) {
         throw new Error("Passwords must match");
       }
@@ -50,6 +53,8 @@ const NewPasswordPage = () => {
       });
       handleLogout();
       reset();
+
+      replace("");
     } catch (err) {
       toast({
         description: capitalizeFirstLetter(err.message),
@@ -98,7 +103,7 @@ const NewPasswordPage = () => {
       )}
       renderSubmit={(props) => (
         <Button {...props} isLoading={isSubmitting}>
-          {resetToken ? "Reset password" : "Create new password"}
+          {token ? "Reset password" : "Create new password"}
         </Button>
       )}
     />

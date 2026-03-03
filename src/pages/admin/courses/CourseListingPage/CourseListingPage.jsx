@@ -11,6 +11,7 @@ import {
 } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
+  adminDeleteCourse,
   adminDeleteMultipleCourses,
   adminGetCourseListing,
 } from "../../../../services";
@@ -19,9 +20,14 @@ import { BreadcrumbItem } from "@chakra-ui/react";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../hooks";
 import { useApp } from "../../../../contexts";
+import { utils, writeFile } from "xlsx";
+import { useState } from "react";
 
 const CourseListingPage = () => {
   const appManager = useApp();
+
+  const [data, setData] = useState([]);
+  console.log(data);
 
   const departmentName = appManager.state.metadata?.departments.map(
     (department) => department.name
@@ -79,9 +85,20 @@ const CourseListingPage = () => {
     columns: [
       {
         id: "1",
+        key: "displayId",
+        text: "Course ID",
+        fraction: "100px",
+        renderContent: (data) => (
+          <Link href={`/admin/courses/details/${data.courseId}/info`}>
+            <Text>{data.text}</Text>
+          </Link>
+        ),
+      },
+      {
+        id: "2",
         key: "title",
         text: "Course Title",
-        fraction: "3fr",
+        fraction: "300px",
         renderContent: (data) => (
           <Link href={`/admin/courses/details/${data.courseId}/info`}>
             <Text>{data.text}</Text>
@@ -92,7 +109,7 @@ const CourseListingPage = () => {
         id: "3",
         key: "instructor",
         text: "Instructor",
-        fraction: "100px",
+        fraction: "130px",
       },
       {
         id: "4",
@@ -135,9 +152,8 @@ const CourseListingPage = () => {
         },
       ],
       selection: true,
-      multipleDeleteFetcher: async (selectedCourses) => {
-        console.log(selectedCourses);
-        await adminDeleteMultipleCourses();
+      multipleDeleteFetcher: async (course) => {
+        await adminDeleteCourse(course[0]?.id);
       },
       pagination: true,
     },
@@ -145,6 +161,7 @@ const CourseListingPage = () => {
 
   const mapCourseToRow = (course) => ({
     id: course.id,
+    displayId: { text: course.displayId, courseId: course.id },
     title: { text: course.title, courseId: course.id },
     startDate:
       course.startDate === "not set"
@@ -159,11 +176,26 @@ const CourseListingPage = () => {
       await adminGetCourseListing(props?.params);
 
     const rows = courses.map(mapCourseToRow);
-
+    setData(rows);
     return { rows, showingDocumentsCount, totalDocumentsCount };
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
+  const handleGetCourseList = () => {
+    const wb = utils.book_new();
+    const ws = utils.json_to_sheet(
+      data?.map((order) => ({
+        courseId: order.displayId.courseId,
+        id: order.id,
+        instructor: order.instructor,
+        title: order.title.text,
+      }))
+    );
+
+    utils.book_append_sheet(wb, ws, "Orders");
+    writeFile(wb, "CourseList.xlsx");
+  };
 
   return (
     <AdminMainAreaWrapper>
@@ -175,23 +207,30 @@ const CourseListingPage = () => {
         }
       />
       <Flex
-        justifyContent="space-between"
-        alignItems="center"
+        justifyContent={{ lg: "space-between", base: "flex-start" }}
+        alignItems={{ lg: "center", base: "flex-start" }}
+        flexDirection={{ lg: "row", base: "column" }}
         borderBottom="1px"
         borderColor="accent.2"
         paddingBottom={5}
+        rowGap={6}
         marginBottom={5}
       >
         <Heading as="h1" fontSize="heading.h3">
           Courses
         </Heading>
 
-        <Button link="/admin/courses/edit/new">Add Course</Button>
+        <Box display="flex" gap="8px">
+          <Button secondary onClick={() => handleGetCourseList()}>
+            Export Course List
+          </Button>
+          <Button link="/admin/courses/edit/new">Add Course</Button>
+        </Box>
       </Flex>
 
       <Table
         {...tableProps}
-        placeholder="Title, department, instructor, published, unpublished"
+        placeholder="Id, Title, department, instructor, published, unpublished"
         rows={rows}
         setRows={setRows}
         handleFetch={fetchRowItems}

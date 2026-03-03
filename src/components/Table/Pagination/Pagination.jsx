@@ -1,21 +1,21 @@
-import { Flex } from "@chakra-ui/layout";
-import { useEffect } from "react";
-import { useState } from "react";
-import { BiChevronLeft, BiChevronRight } from "react-icons/bi";
-import { useHistory } from "react-router";
-import { Button, Select, Text } from "../..";
-import { useQueryParams } from "../../../hooks";
+import { Flex } from '@chakra-ui/layout';
+import { useEffect } from 'react';
+import { useState } from 'react';
+import { BiChevronLeft, BiChevronRight } from 'react-icons/bi';
+import { useHistory } from 'react-router';
+import { Button, Select, Text } from '../..';
+import { useQueryParams } from '../../../hooks';
 
 const Pagination = ({
-  showingDocumentsCount = 0,
-  totalDocumentsCount = 0,
+  showingDocumentsCount,
+  totalDocumentsCount,
   setParams,
   setCanFilter,
 }) => {
-  const p = useQueryParams().get("page");
-  const l = useQueryParams().get("limit");
+  const p = useQueryParams().get('page');
+  const l = useQueryParams().get('limit');
   const initialPage = p ? parseInt(p) : 1;
-  const initialLimit = l || "10";
+  const initialLimit = l || '20';
 
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [limit, setLimit] = useState(initialLimit);
@@ -38,8 +38,8 @@ const Pagination = ({
 
   useEffect(() => {
     history.push({
-      pathname: "",
-      search: `?page=${currentPage}${limit ? `&limit=${limit}` : ""}`,
+      pathname: '',
+      search: `?page=${currentPage}${limit ? `&limit=${limit}` : ''}`,
     });
   }, [currentPage, limit, history]);
 
@@ -63,13 +63,13 @@ const Pagination = ({
           size="sm"
           border="none"
           group={{
-            width: "100px",
+            width: '100px',
           }}
           options={[
-            { value: "10", label: "10" },
-            { value: "20", label: "20" },
-            { value: "50", label: "50" },
-            { value: "100", label: "100" },
+            { value: '10', label: '10' },
+            { value: '20', label: '20' },
+            { value: '50', label: '50' },
+            { value: '100', label: '100' },
           ]}
           onChange={handleSelectChange}
           noEmptyOption
@@ -78,10 +78,9 @@ const Pagination = ({
 
       <Flex alignItems="center" mr={5}>
         <Text mr={5} ml={1}>
-          Showing <b>{showingDocumentsCount}</b> out of{" "}
-          <b>{totalDocumentsCount}</b> documents
+          Showing <b>{showingDocumentsCount}</b> out of{' '}
+          <b>{totalDocumentsCount}</b> items
         </Text>
-
         <Button asIcon onClick={handleGoPrevPage}>
           <BiChevronLeft />
         </Button>

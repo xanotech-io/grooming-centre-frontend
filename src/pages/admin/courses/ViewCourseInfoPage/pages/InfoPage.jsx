@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { Route } from "react-router-dom";
-import { Box, Grid, Flex } from "@chakra-ui/layout";
-import { BreadcrumbItem } from "@chakra-ui/react";
+import { useEffect, useState } from 'react';
+import { Route } from 'react-router-dom';
+import { Box, Grid, Flex } from '@chakra-ui/layout';
+import { BreadcrumbItem } from '@chakra-ui/react';
 import {
   Heading,
   Breadcrumb,
@@ -11,22 +11,22 @@ import {
   Link,
   Image,
   Spinner,
-} from "../../../../../components";
-import { OverviewBox } from "../../../users/UserInfoPage/pages/ProfilePage";
-import { FiCheckSquare } from "react-icons/fi";
-import { BiCertification } from "react-icons/bi";
-import { ImArrowUp } from "react-icons/im";
-import useCourseDetails from "../../../../user/Courses/CourseDetails/hooks/useCourseDetails";
-import { FaEdit } from "react-icons/fa";
-import { HiBadgeCheck } from "react-icons/hi";
+} from '../../../../../components';
+import { OverviewBox } from '../../../users/UserInfoPage/pages/ProfilePage';
+import { FiCheckSquare } from 'react-icons/fi';
+import { BiCertification } from 'react-icons/bi';
+import { ImArrowUp } from 'react-icons/im';
+import useCourseDetails from '../../../../user/Courses/CourseDetails/hooks/useCourseDetails';
+import { FaEdit } from 'react-icons/fa';
+import { HiBadgeCheck } from 'react-icons/hi';
 import {
   adminPublishCourse,
   adminUnpublishCourse,
-} from "../../../../../services";
-import { AiOutlineClose } from "react-icons/ai";
-import { useToast } from "@chakra-ui/toast";
-import { capitalizeFirstLetter } from "../../../../../utils";
-import { EmptyState } from "../../../../../layouts";
+} from '../../../../../services';
+import { AiOutlineClose } from 'react-icons/ai';
+import { useToast } from '@chakra-ui/toast';
+import { capitalizeFirstLetter } from '../../../../../utils';
+import { EmptyState } from '../../../../../layouts';
 
 const InfoPage = () => {
   const { courseDetails, fetchCourseDetails } = useCourseDetails();
@@ -39,7 +39,6 @@ const InfoPage = () => {
   const isLoading = courseDetails.loading;
   const isError = courseDetails.err;
 
-  console.log(courseDetailsData);
   const toast = useToast();
   const [isPublishing, setIsPublishing] = useState(false);
   const handlePublishCourse = async () => {
@@ -52,19 +51,19 @@ const InfoPage = () => {
       toast({
         description: capitalizeFirstLetter(
           courseDetailsData?.isPublished
-            ? "Unpublished successfully"
-            : "Published successfully"
+            ? 'Unpublished successfully'
+            : 'Published successfully'
         ),
-        position: "top",
-        status: "success",
+        position: 'top',
+        status: 'success',
       });
       fetchCourseDetails(true);
     } catch (error) {
       console.error(error);
       toast({
         description: capitalizeFirstLetter(error.message),
-        position: "top",
-        status: "error",
+        position: 'top',
+        status: 'error',
       });
     } finally {
       setIsPublishing(false);
@@ -96,7 +95,7 @@ const InfoPage = () => {
         <Breadcrumb
           item2={
             <BreadcrumbItem isCurrentPage>
-              <Link href="/admin/courses">Courses </Link>
+              <Link href="/admin/courses">Courses</Link>
             </BreadcrumbItem>
           }
           item3={
@@ -131,7 +130,7 @@ const InfoPage = () => {
               marginRight={4}
               onClick={handlePublishCourse}
             >
-              {courseDetailsData?.isPublished ? "Unpublished" : "Publish"} this
+              {courseDetailsData?.isPublished ? 'Unpublished' : 'Publish'} this
               course
             </Button>
             <Button
@@ -163,10 +162,10 @@ const InfoPage = () => {
 
           <Flex
             width="100%"
-            flexDirection={{ base: "column", laptop: "row" }}
+            flexDirection={{ base: 'column', laptop: 'row' }}
             alignItems="center"
           >
-            <Box width={{ base: "100%", laptop: "60%" }}>
+            <Box width={{ base: '100%', laptop: '60%' }}>
               <Image
                 backgroundColor="accent.3"
                 src={courseDetailsData?.thumbnail}

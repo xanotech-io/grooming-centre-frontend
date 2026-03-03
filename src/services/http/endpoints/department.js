@@ -1,7 +1,8 @@
+import axios from "axios";
 import { http } from "../http";
 
 /**
- * Endpoint for assessment listing
+  Endpoint for assessment listing
  * @param {object} params
  *
  * @returns {Promise<{ assessments: Array<{ id: string, name: string, createdAt: Date, noOfUsers: number }> }>}
@@ -27,12 +28,25 @@ export const adminGetDepartmentListing = async (params) => {
     totalDocumentsCount: data.rows.length,
   };
 };
+export const adminDeleteDepartment = async (ids) => {
+  const path = `/department/delete`;
+  let formattedIds = [];
+  for (let i = 0; i < ids.length; i++) {
+    formattedIds.push(ids[i].id);
+  }
+
+  const body = { departmentsId: formattedIds };
+  console.log(body, "body");
+  await http.delete(path, { data: body });
+};
 
 /**
  * Endpoint for department creation
  * @param {{ name: string, departmentId: string, }} body
  * @returns {Promise<{ message: string, department: { id: string } }>}
  */
+
+// admincreatedepartment 1
 export const adminCreateDepartment = async (body) => {
   const path = "/department/create";
 
@@ -43,6 +57,39 @@ export const adminCreateDepartment = async (body) => {
   const department = { id: data.id };
 
   return { message, department };
+};
+
+
+/**
+ * Endpoint to add selected users to a department
+ * @param {string} departmentId
+ * @param {Array<string>} userIds
+ * @returns {Promise<{ message: string, data: object }>}
+ */
+export const adminAddSelectedUsersToDepartment = async (departmentId, userIds) => {
+  const path = `/department/${departmentId}/add-selected-users`;
+
+  const {
+    data: { message, data },
+  } = await http.post(path, { userIds });
+
+  return { message, data };
+};
+
+/**
+ * Endpoint to bulk add users to a department via file upload
+ * @param {string} departmentId
+ * @param {Array<object>} users - Array of user objects with email field
+ * @returns {Promise<{ message: string, data: object }>}
+ */
+export const adminBulkAddUsersToDepartment = async (departmentId, users) => {
+  const path = `/department/${departmentId}/bulk-add-users`;
+
+  const {
+    data: { message, data },
+  } = await http.post(path, { users });
+
+  return { message, data };
 };
 
 /**

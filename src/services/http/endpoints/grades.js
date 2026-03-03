@@ -11,7 +11,7 @@ export const userGetGrades = async () => {
   const {
     data: { data },
   } = await http.get(path);
-
+  console.log(data, "data");
   const grades = {
     overview: {
       averageAttendanceScore: data.overview.averageAttendanceScore,
@@ -24,7 +24,8 @@ export const userGetGrades = async () => {
       totalCoursesCount: data.overview.totalCoursesCount,
     },
     completedCourses: data.completedCourses.map((course) => ({
-      id: course.id,
+      id: course.courseId,
+      id2: course.id,
       attendanceScore: course.attendanceScore,
       assessmentScore: course.assessmentScore,
       examinationScore: course.examinationScore,
@@ -69,7 +70,7 @@ export const adminGetUserGrades = async (userId) => {
   const {
     data: { data },
   } = await http.get(path);
-
+  console.log(data, "data");
   const grades = {
     overview: {
       averageAttendanceScore: data.overview.averageAttendanceScore,
@@ -79,7 +80,7 @@ export const adminGetUserGrades = async (userId) => {
       totalCoursesCount: data.overview.totalCoursesCount,
     },
     completedCourses: data.completedCourses.map((course) => ({
-      id: course.id,
+      id: course?.courseId,
       attendanceScore: course.attendanceScore,
       assessmentScore: course.assessmentScore,
       examinationScore: course.examinationScore,

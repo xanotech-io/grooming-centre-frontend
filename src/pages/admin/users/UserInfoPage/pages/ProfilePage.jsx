@@ -34,6 +34,7 @@ export const useViewUserDetails = () => {
 
   const fetcher = useCallback(async () => {
     const { user } = await adminGetUserDetails(userId);
+    // console.log("User Details", user); // IGNORE
     return user;
   }, [userId]);
   const fetchUserDetails = useCallback(async () => {
@@ -55,9 +56,10 @@ export const useViewUserDetails = () => {
   }, [fetchUserDetails, userId]);
 
   const user = userDetails.data;
+  console.log("user details hook", user);
   const isLoading = userDetails.loading;
   const error = userDetails.err;
-
+  console.log(error);
   return {
     user,
     isLoading,
@@ -67,7 +69,6 @@ export const useViewUserDetails = () => {
 
 const ProfilePage = () => {
   const { user, isLoading } = useViewUserDetails();
-  console.log(user);
 
   const userIsLoading = isLoading;
 
@@ -113,7 +114,11 @@ const ProfilePage = () => {
               USER INFORMATION
             </Heading>
 
-            <Grid templateColumns="153px 1.5fr 1.5fr" gap={16}>
+            <Box
+              display="flex"
+              gap={5}
+              flexDirection={{ lg: "row", base: "column" }}
+            >
               <Box width="200px" height="200px">
                 {userIsLoading ? (
                   <SkeletonCircle size="200px" />
@@ -128,9 +133,9 @@ const ProfilePage = () => {
                 )}
               </Box>
 
-              <Box>
+              <Box marginTop={2} flex={1}>
                 {userIsLoading ? (
-                  <SkeletonText numberOfLines={6} spacing={5} />
+                  <SkeletonText numberOfLines={3} spacing={5} />
                 ) : (
                   <>
                     <Detail name="first name" value={user?.firstName} />
@@ -144,25 +149,28 @@ const ProfilePage = () => {
                     <Detail name="gender" value={user?.gender} />
                   </>
                 )}
+                <Box>
+                  {userIsLoading ? (
+                    <SkeletonText numberOfLines={2} spacing={5} />
+                  ) : (
+                    <>
+                      <Detail name="department" value={user?.departmentName} />
+                      <Detail name="role" value={user?.userRoleName} />
+                      <Detail name="professional certification" value={user?.professionalCertification} />
+                    </>
+                  )}
+                </Box>
               </Box>
-
-              <Box>
-                {userIsLoading ? (
-                  <SkeletonText numberOfLines={4} spacing={5} />
-                ) : (
-                  <>
-                    <Detail name="department" value={user?.departmentName} />
-                    <Detail name="role" value={user?.userRoleName} />
-                  </>
-                )}
-              </Box>
-            </Grid>
+            </Box>
           </Box>
         </Section>
 
         <Section heading="Overview">
           <Grid
-            templateColumns="repeat(3, minmax(150px, 1fr))"
+            templateColumns={{
+              lg: "repeat(3, minmax(150px, 1fr))",
+              base: "1fr",
+            }}
             gridAutoRows="100px"
             gap={3}
           >
@@ -198,6 +206,14 @@ const ProfilePage = () => {
               href={`/admin/users/details/${user?.id}/courses`}
               isLoading={userIsLoading}
             />
+              <OverviewBox
+              value={user?.completedAssessment}
+              name="Examination records"
+              icon={<HiOutlineSwitchHorizontal />}
+              iconBackgroundColor="accent.8"
+              href={`/admin/users/details/${user?.id}/examination-records`}
+              isLoading={userIsLoading}
+            />
           </Grid>
         </Section>
       </Box>
@@ -206,6 +222,7 @@ const ProfilePage = () => {
 };
 
 export const Detail = ({ name, value, valueProps }) => {
+  console.log("data sent to detail", name, value);
   return (
     <Grid templateColumns="110px 1fr" spacing={5} marginBottom={5}>
       <Text bold textTransform="capitalize">
@@ -219,11 +236,15 @@ export const Detail = ({ name, value, valueProps }) => {
 export const Section = ({ heading, children, editButton }) => {
   return (
     <Box as="section" marginBottom={10}>
-      <Box as="header" display="flex" justifyContent="space-between">
-        <Heading fontSize="heading.h3" marginLeft={6} marginBottom={5}>
-          {heading}
-        </Heading>
-        {editButton}
+      <Box
+        as="header"
+        display="flex"
+        flexDirection={{ lg: "row", base: "column" }}
+        justifyContent="space-between"
+        rowGap={4}
+      >
+        <Heading fontSize="heading.h3">{heading}</Heading>
+        <Box marginBottom={4}> {editButton}</Box>
       </Box>
       {children}
     </Box>

@@ -1,5 +1,5 @@
-import { truncateText, getFullName } from "../../../../utils";
-import { http } from "../../http";
+import { truncateText, getFullName } from '../../../../utils';
+import { http } from '../../http';
 
 /**
  * Endpoint to get the current user forum questions
@@ -16,6 +16,7 @@ export const userForumGetYourQuestions = async () => {
   const {
     data: { data },
   } = await http.get(path);
+  console.log(data);
 
   const questions = data.rows.map((question) => ({
     id: question.id,
@@ -26,7 +27,7 @@ export const userForumGetYourQuestions = async () => {
     tags: Array.isArray(question.tags) // TODO: pin
       ? question.tags.map((tag) => ({
           id: tag.id,
-          label: tag.name,
+          label: tag.title,
         }))
       : [],
     commentCount: question.forumComments.length || 0, // TODO: pin
@@ -107,7 +108,7 @@ export const userForumGetQuestionsByTagId = async (id) => {
     user: {
       id: question.userId,
       // profilePics: question.user.profilePics,
-      fullName: getFullName(question.user) || "not set",
+      fullName: getFullName(question.user) || 'not set',
     },
     // Fix from the backend
     commentCount: question.forumComments?.length || 0,
@@ -140,6 +141,7 @@ export const userForumGetQuestionDetails = async (id) => {
   const {
     data: { data },
   } = await http.get(path);
+  console.log(data);
 
   const question = {
     id: data.id,
@@ -190,6 +192,7 @@ export const userForumGetCategories = async () => {
  */
 export const userForumPublishQuestion = async (question) => {
   const path = `/forum/question/create`; // TODO: change path
+  console.log(question);
 
   const {
     data: { message },

@@ -54,7 +54,7 @@ const FormGroup = ({
           disabled: isLoading,
         })}
 
-        {isLoading && <Spinner size="md" position="absolute" right={2} />}
+        {isLoading && <Spinner size="md" position="absolute" right={30} />}
       </Flex>
 
       {error && (

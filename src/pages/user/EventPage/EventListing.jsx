@@ -94,97 +94,121 @@ const Listing = ({ events, headerButton }) => {
 
   return (
     <Box
-      minHeight="50vh"
-      maxWidth={breakpoints.laptop}
-      marginX="auto"
-      border="1px"
-      backgroundColor="white"
-      borderColor="accent.1"
-      rounded="md"
+      minHeight='50vh'
+      // width={breakpoints.tablet}
+      marginX='auto'
+      border='1px'
+      backgroundColor='white'
+      borderColor='accent.1'
+      rounded='md'
     >
       <Grid
-        columnGap={16}
-        templateColumns="70px 1fr 160px"
-        borderBottom="1px"
-        borderColor="accent.1"
-        px={3}
-        height="65px"
-        alignItems="center"
+				columnGap={10}
+				templateColumns='70px 50px 1fr 160px'
+				borderBottom='1px'
+				borderColor='accent.1'
+				px={3}
+				height='65px'
+				alignItems='center'
       >
-        <Text opacity={0.8} textAlign="center" bold>
+        <Text opacity={0.8} textAlign='center' bold>
+          Event ID
+        </Text>
+        <Text opacity={0.8} textAlign='center' bold>
           Date
         </Text>
-        <Text opacity={0.8} bold>
+        <Text opacity={0.8} textAlign='center' bold>
           Event Type
         </Text>
-
-        {headerButton}
+        <Box display="flex" alignItems="center">
+          {headerButton}
+          {/* {events &&
+            events.map((event) => (
+              <Box display={{ base: "block", md: "none", lg: "none" }}>
+                {event.renderAction ? (
+                  event.renderAction()
+                ) : (
+                  <ViewEventButton
+                    event={event}
+                    joinEventResource={joinEventResource}
+                    handleJoinEvent={handleJoinEvent}
+                    joinedEvents={joinedEvents}
+                  />
+                )}
+              </Box>
+            ))} */}
+        </Box>
       </Grid>
 
       <Box px={3}>
-        {events.map((event) => (
-          <Grid
-            key={event.id}
-            columnGap={16}
-            templateColumns="70px 1fr 160px"
-            borderBottom="1px"
-            borderColor="accent.1"
-            py={5}
-          >
-            <Box textAlign="center">
-              <Text color="primary.hover" as="level5">
-                {dayjs(event.startTime).format("dddd")}
-              </Text>
-              <Text fontSize="heading.h3" bold color="primary.base">
-                {dayjs(event.startTime).format("D")}
-              </Text>
-              <Text bold>{dayjs(event.startTime).format("MMM")}</Text>
-            </Box>
+        {events &&
+          events.map((event) => (
+            <Grid
+              key={event.id}
+              columnGap={10}
+              templateColumns='70px 50px 1fr 100px'
+              borderBottom='1px'
+              borderColor='accent.1'
+              py={5}
+            >
+              <Box textAlign='center'>
+                <Text bold>{event.displayId}</Text>
+              </Box>
 
-            <Box>
-              <Text color="primary.hover" as="level5">
-                {dayjs(event.startTime).format("h:mm A")} to{" "}
-                {dayjs(event.endTime).format("h:mm A")}
-                <Tag
-                  size="sm"
-                  variant="solid"
-                  marginLeft={6}
-                  colorScheme={
-                    isOngoing(event.startTime, event.endTime) ? "green" : "gray"
-                  }
-                >
-                  {isOngoing(event.startTime, event.endTime) && "Ongoing Event"}
-                  {hasEnded(event.endTime) && "Event Has Ended"}
-                  {isUpcoming(event.startTime) && "Event Is Upcoming"}
-                </Tag>
-              </Text>
+              <Box textAlign='center'>
+                <Text color='primary.hover' as='level5'>
+                  {dayjs(event.startTime).format('dddd')}
+                </Text>
+                <Text fontSize='heading.h3' bold color='primary.base'>
+                  {dayjs(event.startTime).format('D')}
+                </Text>
+                <Text bold>{dayjs(event.startTime).format('MMM')}</Text>
+              </Box>
 
-              {event.renderEventName ? (
-                event.renderEventName()
+              <Box>
+                <Text color='primary.hover' as='level5'>
+                  {dayjs(event.startTime).format('h:mm A')} to{' '}
+                  {dayjs(event.endTime).format('h:mm A')}
+                  <Tag
+                    size='sm'
+                    variant='solid'
+                    marginLeft={6}
+                    colorScheme={
+                      isOngoing(event.startTime, event.endTime) ? 'green' : 'gray'
+                    }
+                  >
+                    {isOngoing(event.startTime, event.endTime) && 'Ongoing Event'}
+                    {hasEnded(event.endTime) && 'Event Has Ended'}
+                    {isUpcoming(event.startTime) && 'Event Is Upcoming'}
+                  </Tag>
+                </Text>
+
+                {event.renderEventName ? (
+                  event.renderEventName()
+                ) : (
+                  <EventNameLink
+                    event={event}
+                    joinEventResource={joinEventResource}
+                    handleJoinEvent={handleJoinEvent}
+                    joinedEvents={joinedEvents}
+                  />
+                )}
+
+                <Text>{truncateText(event.description, 60)}</Text>
+              </Box>
+
+              {event.renderAction ? (
+                event.renderAction()
               ) : (
-                <EventNameLink
+                <ViewEventButton
                   event={event}
                   joinEventResource={joinEventResource}
                   handleJoinEvent={handleJoinEvent}
                   joinedEvents={joinedEvents}
                 />
               )}
-
-              <Text>{truncateText(event.description, 60)}</Text>
-            </Box>
-
-            {event.renderAction ? (
-              event.renderAction()
-            ) : (
-              <ViewEventButton
-                event={event}
-                joinEventResource={joinEventResource}
-                handleJoinEvent={handleJoinEvent}
-                joinedEvents={joinedEvents}
-              />
-            )}
-          </Grid>
-        ))}
+            </Grid>
+          ))}
       </Box>
     </Box>
   );
@@ -261,7 +285,7 @@ export const ViewEventButton = ({
     }
   }, [event.id, joinedEvents]);
 
-  event.link = event.link.replace(/\?pwd=(.)*$/, "");
+  event.link = event.link?.replace(/\?pwd=(.)*$/, "");
 
   return (
     <>

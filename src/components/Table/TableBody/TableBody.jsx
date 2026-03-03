@@ -1,15 +1,15 @@
-import { useState, useEffect } from "react";
-import { Icon } from "@chakra-ui/icon";
-import { Box, Grid } from "@chakra-ui/react";
-import { Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/menu";
-import { HiDotsHorizontal } from "react-icons/hi";
-import { Checkbox, Spinner, Text } from "../..";
-import { Link } from "react-router-dom";
-import { DeleteMenuItemButton } from "../../Cards/QuestionListCard";
-import { EmptyState } from "../../../layouts";
-import { fireDoubleClick } from "../../../utils";
-import { ImDatabase } from "react-icons/im";
-import Pagination from "../Pagination/Pagination";
+import { useState, useEffect } from 'react';
+import { Icon } from '@chakra-ui/icon';
+import { Box, Grid } from '@chakra-ui/react';
+import { Menu, MenuButton, MenuItem, MenuList } from '@chakra-ui/menu';
+import { HiDotsHorizontal } from 'react-icons/hi';
+import { Checkbox, Spinner, Text } from '../..';
+import { Link } from 'react-router-dom';
+import { DeleteMenuItemButton } from '../../Cards/QuestionListCard';
+import { EmptyState } from '../../../layouts';
+import { fireDoubleClick } from '../../../utils';
+import { ImDatabase } from 'react-icons/im';
+import Pagination from '../Pagination/Pagination';
 
 const TableBody = ({
   rows,
@@ -28,8 +28,8 @@ const TableBody = ({
   handleDeselectAllRows,
 }) => {
   const getTemplateColumns = () =>
-    `${options?.selection ? "20px " : ""}${templateColumns}${
-      options?.action ? " auto" : ""
+    `${options?.selection ? '20px ' : ''}${templateColumns}${
+      options?.action ? ' auto' : ''
     }`;
 
   const handleIsChecked = (rowId) =>
@@ -49,7 +49,7 @@ const TableBody = ({
             alignItems="center"
             templateColumns={getTemplateColumns}
             columnGap={columnGap}
-            height="40px"
+            height="55px"
             {...generalRowStyles}
           >
             {options?.selection && (
@@ -176,10 +176,10 @@ const ActionIconButton = ({
         padding={2}
         rounded="full"
         _hover={{
-          background: "none",
-          color: "others.3",
+          background: 'none',
+          color: 'others.3',
         }}
-        _focus={{ border: "none", background: "white" }}
+        _focus={{ border: 'none', background: 'white' }}
       >
         <HiDotsHorizontal />
       </MenuButton>
@@ -209,7 +209,7 @@ const ActionIconButton = ({
   );
 };
 
-const Cell = ({ cell, text, minWidth = "150px", renderText, ...rest }) => {
+const Cell = ({ cell, text, minWidth = '150px', renderText, ...rest }) => {
   return (
     <Box role="cell" minWidth={cell?.minWidth || minWidth} {...rest}>
       {renderText ? (

@@ -36,5 +36,8 @@
     "Usergroup",
     "Videocam",
     "wrld"
+  ],
+  "githubPullRequests.ignoredPullRequestBranches": [
+    "development"
   ]
 }

@@ -1,26 +1,24 @@
-import { Route } from "react-router-dom";
-import { Flex } from "@chakra-ui/layout";
-import { TakeCourseProvider } from "../../../../contexts";
-import breakpoints from "../../../../theme/breakpoints";
-import Sidebar from "./Sidebar";
-import useSidebar from "./hooks/useSidebar";
-import { Switch, Redirect } from "react-router-dom";
+import { Route } from 'react-router-dom';
+import { Flex } from '@chakra-ui/layout';
+import { TakeCourseProvider } from '../../../../contexts';
+import breakpoints from '../../../../theme/breakpoints';
+import Sidebar from './Sidebar';
+import useSidebar from './hooks/useSidebar';
+import { Switch, Redirect } from 'react-router-dom';
 import {
   AssessmentPreviewPageRoute,
   LessonDetailsPageRoute,
-} from "../../../../pages/user";
+} from '../../../../pages/user';
 import {
   useRedirectNonAuthUserToSigninPage,
-  useRedirectNewUserToNewPasswordPage,
-} from "../../../../hooks";
+} from '../../../../hooks';
 
 const TakeCourseLayout = () => {
   const sidebarManager = useSidebar();
   useRedirectNonAuthUserToSigninPage();
-  useRedirectNewUserToNewPasswordPage();
 
   return (
-    <Flex maxWidth={breakpoints["4k"]} marginX="auto" height="100vh">
+    <Flex maxWidth={breakpoints['4k']} marginX="auto" height="100vh">
       <Sidebar manager={sidebarManager} />
 
       <Switch>

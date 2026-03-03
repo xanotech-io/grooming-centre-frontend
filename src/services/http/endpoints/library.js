@@ -193,3 +193,36 @@ export const adminEditLibraryFile = async (id, body) => {
 
   return { message, library };
 };
+
+/**
+ * Endpoint to delete a single library file
+ * @param {string} id - library file id
+ *
+ * @returns {Promise<{ message: string }>}
+ */
+export const adminDeleteLibraryFile = async (id) => {
+  const path = `/library/${id}`;
+
+  const {
+    data: { message },
+  } = await http.delete(path);
+
+  return { message };
+};
+
+/**
+ * Endpoint to delete multiple library files
+ * @param {Array<{ id: string }>} selectedLibraryFiles - array of library file objects with id
+ *
+ * @returns {Promise<{ message: string }>}
+ */
+export const adminDeleteMultipleLibraryFiles = async (selectedLibraryFiles) => {
+  // Delete each file individually since there's no bulk delete endpoint
+  const deletePromises = selectedLibraryFiles.map(file =>
+    adminDeleteLibraryFile(file.id)
+  );
+
+  await Promise.all(deletePromises);
+
+  return { message: "Library files deleted successfully" };
+};

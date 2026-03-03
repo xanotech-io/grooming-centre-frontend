@@ -1,6 +1,6 @@
-import { useCallback, useEffect } from "react";
-import { useFetchAndCache } from "../../../../hooks";
-import { userGetCourseListing } from "../../../../services";
+import { useCallback, useEffect } from 'react';
+import { useFetchAndCache } from '../../../../hooks';
+import { userGetCourseListing } from '../../../../services';
 
 const useCourses = () => {
   // const { handleGetOrSetAndGet } = useCache();
@@ -34,7 +34,7 @@ const useCourses = () => {
   }, []);
 
   useEffect(() => {
-    handleFetchResource({ cacheKey: "courses", fetcher });
+    handleFetchResource({ cacheKey: 'courses', fetcher });
   }, [handleFetchResource, fetcher]);
 
   return {

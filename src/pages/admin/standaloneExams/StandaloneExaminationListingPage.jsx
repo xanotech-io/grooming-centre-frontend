@@ -1,5 +1,5 @@
 import { Route } from "react-router-dom";
-import { Flex } from "@chakra-ui/layout";
+import { Box } from "@chakra-ui/layout";
 import {
   Button,
   Heading,
@@ -8,10 +8,11 @@ import {
   Breadcrumb,
   Link,
 } from "../../../components";
+import { BreadcrumbItem, Tag } from "@chakra-ui/react";
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
-  adminDeleteMultipleCourses,
+  deleteStandaloneExamination,
   adminGetStandaloneExaminationListing,
 } from "../../../services";
 import { getDuration } from "../../../utils";
@@ -62,7 +63,7 @@ const tableProps = {
       fraction: "2fr",
       renderContent: (data) => (
         <Link
-          href={`/admin/standalone-exams/${data.examinationId}/${data.text}`}
+          href={`/admin/standalone-exams/overview?examination=${data.examinationId}`}
         >
           <Text>{data.text}</Text>
         </Link>
@@ -71,7 +72,13 @@ const tableProps = {
     {
       id: "3",
       key: "noOfUsers",
-      text: "No. of Candidates",
+      text: "No of Candidates",
+      fraction: "200px",
+    },
+    {
+      id: "instructor",
+      key: "instructor",
+      text: "Instructor",
       fraction: "200px",
     },
     {
@@ -86,6 +93,24 @@ const tableProps = {
       text: "Duration",
       fraction: "150px",
     },
+    {
+      id: "6",
+      key: "status",
+      text: "Status",
+      fraction: "150px",
+      renderContent: (status) => (
+        <Box>
+          <Tag
+            borderRadius="full"
+            size="sm"
+            backgroundColor={status ? "accent.4" : "accent.1"}
+            color={status ? "accent.5" : "accent.3"}
+          >
+            <Text bold>{status ? "Published" : "UnPublished"}</Text>
+          </Tag>
+        </Box>
+      ),
+    },
   ],
 
   options: {
@@ -93,17 +118,16 @@ const tableProps = {
       {
         text: "Edit",
         link: (examination) =>
-          `/admin/courses/not-set/assessment/not-set/overview?examination=${examination.id}&examinationName=${examination.title.text}`,
+          `/admin/standalone-exams/overview/?examination=${examination.id}`,
       },
       {
         isDelete: true,
       },
     ],
-    selection: true,
     multipleDeleteFetcher: async (selectedExaminations) => {
-      console.log(selectedExaminations);
-      await adminDeleteMultipleCourses();
+      await deleteStandaloneExamination(selectedExaminations[0]?.id);
     },
+    selection: true,
     pagination: true,
   },
 };
@@ -117,17 +141,19 @@ const StandaloneExaminationListingPage = () => {
       examinationId: examination.id,
       // courseId,
     },
-    startDate: dayjs(examination.startTime).format("DD/MM/YYYY h:mm a"),
+    startDate: dayjs(examination.startTime).format("DD/MM/YYYY h:mma"),
     duration: getDuration(examination.duration).combinedText,
     noOfUsers: examination.noOfUsers,
+    instructor: examination.instructor ? `${examination.instructor.firstName} ${examination.instructor.lastName}` : "James Samuel",
+    status: examination.isPublished,
   });
 
-  const fetcher = () => async () => {
+  const fetcher = (props) => async () => {
     const { examinations, showingDocumentsCount, totalDocumentsCount } =
-      await adminGetStandaloneExaminationListing();
+      await adminGetStandaloneExaminationListing(props?.params);
 
     const rows = examinations.map(mapExaminationToRow);
-
+    console.log(rows);
     return { rows, showingDocumentsCount, totalDocumentsCount };
   };
 
@@ -136,36 +162,40 @@ const StandaloneExaminationListingPage = () => {
   return (
     <AdminMainAreaWrapper>
       <Breadcrumb
-      // item2={
-      //   <BreadcrumbItem isCurrentPage>
-      //     <Link href="/admin/courses">Courses </Link>
-      //   </BreadcrumbItem>
-      // }
+        item2={
+          <BreadcrumbItem isCurrentPage>
+            <Link href="/admin/standalone-exams"> Standalone Examination</Link>
+          </BreadcrumbItem>
+        }
       // item3={
       //   <BreadcrumbItem isCurrentPage>
-      //     <Link href="#">Examination</Link>
+      //     <Link href="/admin/standalone-exams/:examinationId/:examinationName">
+      //       Examination
+      //     </Link>
       //   </BreadcrumbItem>
       // }
       />
 
-      <Flex
+      <Box
+        display="flex"
+        flexDirection={{ base: "column", md: "column", lg: "row" }}
         justifyContent="space-between"
-        alignItems="center"
-        borderBottom="1px"
-        borderColor="accent.2"
+        alignItems={{ base: "flex-start", md: "flex-start", lg: "center" }}
         paddingBottom={5}
+        gap={5}
         marginBottom={5}
       >
         <Heading as="h1" fontSize="heading.h3">
-          Standalone Examinations
+          Standalone Exams
         </Heading>
 
-        <Button
-          link={`/admin/courses/not-set/assessment/not-set/overview?examination=new`}
-        >
-          Add Examination
-        </Button>
-      </Flex>
+        <Box display={"flex"} gap="8px">
+          <Button link={`/admin/standalone-exams/temporary-library`} secondary>Exam Template Library</Button>
+
+          <Button link={`/admin/standalone-exams/overview`}>Create New Exam</Button>
+        </Box>
+
+      </Box>
 
       <Table
         {...tableProps}

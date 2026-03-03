@@ -29,6 +29,8 @@ export const Input = forwardRef(
             _focus={{
               borderColor: "secondary.1",
             }}
+            display="block"
+            width={{lg:"100%", base:"100%", md:"100%"}}
             ref={ref}
             value={value}
             onChange={onChange}

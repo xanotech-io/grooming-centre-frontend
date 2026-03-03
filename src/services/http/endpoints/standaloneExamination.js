@@ -1,47 +1,47 @@
 import { getEndTime } from "../../../utils";
 import { http } from "../http";
 
-// /**
-//  * Endpoint to get `examination-details`
-//  * @param {string} id - courseId
-//  *
-//  * @returns {Promise<{ examination: Examination }>}
-//  */
-// export const requestExaminationDetails = async (id, forAdmin) => {
-//   const path = `/examination${forAdmin ? "/admin" : ""}/${id}`;
+/**
+ * Endpoint to get `examination-details`
+ * @param {string} id - courseId
+ *
+ * @returns {Promise<{ examination: Examination }>}
+ */
+export const requestExaminationDetails = async (id, forAdmin) => {
+  const path = `/examination${forAdmin ? "/admin" : ""}/${id}`;
 
-//   const {
-//     data: { data },
-//   } = await http.get(path);
+  const {
+    data: { data },
+  } = await http.get(path);
 
-//   const examination = {
-//     id: data.id,
-//     courseId: data.courseId,
-//     topic: data.title,
-//     duration: data.duration,
-//     questionCount: data.amountOfQuestions,
-//     startTime: data.startTime,
-//     endTime: getEndTime(data.startTime, data.duration),
-//     hasCompleted: data.examinationScoreSheets?.[0] ? true : false,
-//     minimumPercentageScoreToEarnABadge:
-//       data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
-//     questions: data.examinationQuestions.map((q, index) => ({
-//       id: q.id,
-//       question: q.question,
-//       questionIndex: +q.questionIndex || index,
-//       options: q.options.map((opt) => ({
-//         id: opt.id,
-//         isAnswer: opt.isAnswer,
-//         name: opt.name,
-//         optionIndex: +opt.optionIndex,
-//       })),
-//     })),
-//   };
+  const examination = {
+    id: data.id,
+    courseId: data.courseId,
+    topic: data.title,
+    duration: data.duration,
+    questionCount: data.amountOfQuestions,
+    startTime: data.startTime,
+    endTime: getEndTime(data.startTime, data.duration),
+    hasCompleted: data.examinationScoreSheets?.[0] ? true : false,
+    minimumPercentageScoreToEarnABadge:
+      data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
+    questions: data.examinationQuestions.map((q, index) => ({
+      id: q.id,
+      question: q.question,
+      questionIndex: +q.questionIndex || index,
+      options: q.options.map((opt) => ({
+        id: opt.id,
+        isAnswer: opt.isAnswer,
+        name: opt.name,
+        optionIndex: +opt.optionIndex,
+      })),
+    })),
+  };
 
-//   return { examination };
-// };
+  return { examination };
+};
 
-// /**
+/**
 //  * Endpoint for examination creation
 //  * @param {{ title: string, courseId: string, duration: number, amountOfQuestions: string, startTime: string }} body
 //  * @returns {Promise<{ message: string, examination: { id: string } }>}
@@ -61,33 +61,104 @@ import { http } from "../http";
 // };
 
 /**
+ * Creates a new examination.
+ * @param {{
+ *   title: string,
+ *   courseId: string,
+ *   duration: number,
+ *   amountOfQuestions: number,
+ *   startTime: string
+ * }} body - The request body containing the examination details.
+ * @returns {Promise<{ message: string, examination: { id: string } }>}
+ */
+export const adminCreateExamination = async (body) => {
+  const path = "/examination/create";
+
+  const {
+    data: { message, data },
+  } = await http.post(path, body);
+
+  const examination = {
+    id: data.id,
+  };
+
+  return { message, examination };
+};
+/**
  * Endpoint for examination listing
  * @param {string} courseId
  *
  * @returns {Promise<{ examinations: Array<{ id: string, examinationId: string, title: string,  startTime: Date, duration: number }> }>}
  */
-export const adminGetStandaloneExaminationListing = async () => {
-  const path = `/stand-alone-examination/all`;
+export const adminGetStandaloneExaminationListing = async (params) => {
+  const path = `/stand-alone-examination/admin/all`;
+
+  const {
+    data: { data },
+  } = await http.get(path, { params });
+
+  const examinations = data?.data?.rows.map((exam) => ({
+    id: exam.id,
+    title: exam.title,
+    duration: exam.duration,
+    startTime: exam.startTime,
+    noOfUsers: exam.standAloneExaminationGrade.length,
+    isPublished: exam.isPublished,
+  }));
+
+  return {
+    examinations,
+    showingDocumentsCount: data?.data?.rows.length, // No pagination for now
+    totalDocumentsCount: data.countData, // No pagination for now
+    // showingDocumentsCount: data.length,
+    // totalDocumentsCount: data.length,
+  };
+};
+
+export const userCreateStandaloneExaminationGrade = async (body) => {
+  const path = `/stand-alone-examination-grade/create`;
+
+  const {
+    data: { message },
+  } = await http.post(path, body);
+
+  return { message };
+};
+
+export const adminGetAllStandaloneExaminationDetails = async (id) => {
+  const path = `/stand-alone-examination-grade/${id}`;
 
   const {
     data: { data },
   } = await http.get(path);
 
-  const examinations = data.map((exam) => ({
+  return {
+    data,
+  };
+};
+
+export const usersGetStandaloneExaminationListing = async () => {
+  const path = `/stand-alone-examination/all?pagination=false`;
+
+  const {
+    data: { data },
+  } = await http.get(path);
+
+  const examinations = data.Data.map((exam) => ({
     id: exam.id,
     title: exam.title,
-    examinationId: exam.examinationId,
     duration: exam.duration,
     startTime: exam.startTime,
-    noOfUsers: exam.examinationCandidateLength,
+    endTime: getEndTime(exam.startTime, exam.duration),
+    noOfUsers: exam.standAloneExaminationGrade.length,
+    isPublished: exam.isPublished,
+    question: exam.standAloneExaminationQuestion,
+    standAloneExaminationGrade: exam.standAloneExaminationGrade,
   }));
 
+  console.log(examinations);
   return {
     examinations,
-    // showingDocumentsCount: data.rows.length, // No pagination for now
-    // totalDocumentsCount: data.count, // No pagination for now
-    showingDocumentsCount: data.length,
-    totalDocumentsCount: data.length,
   };
 };
 
@@ -97,33 +168,33 @@ export const getStandaloneExaminationDetails = async (id, forAdmin) => {
   let {
     data: { data },
   } = await http.get(path);
+  console.log(data, "data");
+  const questionArray = data.standAloneExaminationQuestion;
 
-  data = data[0];
+  // shuffle questions
+  for (let i = questionArray.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * i);
+    const temp = questionArray[i];
+    questionArray[i] = questionArray[j];
+    questionArray[j] = temp;
+  }
 
   const examination = {
     id: data.id,
-    type: data.type,
-    selectedIDs: [
-      ...(data.departmentIds || [
-        // TODO: remove the `||` and this array
-        data.type === "users"
-          ? "5bae7a67-7cd1-4011-bc56-c39c18a6ad57" // test userId
-          : "a2bd09a4-bd5f-4a90-828c-34d57f775af7", // test departmentId
-      ]),
-    ],
     topic: data.title,
     duration: data.duration,
     questionCount: data.amountOfQuestions,
     startTime: data.startTime,
     endTime: getEndTime(data.startTime, data.duration),
-    minimumPercentageScoreToEarnABadge:
-      data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
-    questions: data.standAloneExaminationQuestion.map((q, index) => ({
+    isPublished: data.isPublished,
+    // minimumPercentageScoreToEarnABadge:
+    //   data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
+    questions: questionArray.map((q, index) => ({
       id: q.id,
       question: q.question,
       file: q.file,
       questionIndex: +q.questionIndex || index,
-      options: q.options.map((opt, optIndex) => ({
+      options: q.standAloneExaminationOption.map((opt, optIndex) => ({
         id: opt.id,
         isAnswer: opt.isAnswer,
         name: opt.answer,
@@ -133,6 +204,20 @@ export const getStandaloneExaminationDetails = async (id, forAdmin) => {
   };
 
   return { examination };
+};
+
+export const deleteStandaloneExamination = async (id) => {
+  console.log(id);
+  const path = `/stand-alone-examination/delete/${id}`;
+
+  const {
+    data: { message },
+  } = await http.delete(path);
+
+  console.log(message);
+  return {
+    message,
+  };
 };
 
 /**
@@ -165,6 +250,44 @@ export const adminGetStandaloneExaminationParticipants = async (id, params) => {
   };
 };
 
+export const getStandaloneExaminationParticipants = async (id, params = {}) => {
+  const path = `/stand-alone-examination/participants/${id}`;
+
+  const {
+    data: { data },
+  } = await http.get(path, { params });
+
+  return {
+    users: data.users,
+    departments: data.departments,
+    pagination: data.pagination, // Include pagination info
+  };
+};
+
+export const deleteStandaloneExaminationParticipants = async (id) => {
+  console.log(id);
+  const path = `/stand-alone-examination/participants/${id}`;
+
+  const {
+    data: { message },
+  } = await http.delete(path);
+
+  console.log(message);
+  return {
+    message,
+  };
+};
+
+export const adminCreateStandaloneExaminationParticipants = async (body) => {
+  const path = `/stand-alone-examination/participants`;
+
+  const {
+    data: { message },
+  } = await http.post(path, body);
+
+  return { message };
+};
+
 // /**
 //  * Endpoint to submit an `examination`
 //  * @param {object} body - answers
@@ -188,6 +311,7 @@ export const adminGetStandaloneExaminationParticipants = async (id, params) => {
  */
 export const adminCreateStandaloneExaminationQuestion = async (body) => {
   const path = "/stand-alone-examination-question/create";
+  console.log(body);
 
   const {
     data: { message },
@@ -213,37 +337,53 @@ export const adminDeleteStandaloneExaminationQuestion = async (questionId) => {
 
   return { message };
 };
-// /**
-//  * Endpoint to for admin to edit a examination
-//  * @param {{ title: ?string, duration: number, amountOfQuestions: number, startTime: ?Date, courseId: string }} body
-//  *
-//  * @returns {Promise<{ message: string, examination: { id: string } }>}
-//  */
-// export const adminEditExamination = async (examinationId, body) => {
-//   const path = `/examination/edit/${examinationId}`;
 
-//   const {
-//     data: { message, data },
-//   } = await http.patch(path, body);
+/**
+ * Endpoint for standalone examination question modification/update
+ * @param {object} body
+ * @returns {Promise<{ message: string }>}
+ */
+export const adminEditStandaloneExaminationQuestion = async (body) => {
+  const path = `/stand-alone-examination-question/edit`;
 
-//   const examination = {
-//     id: data[0].id,
-//   };
+  const {
+    data: { message },
+  } = await http.patch(path, body);
 
-//   return { message, examination };
-// };
+  return { message };
+};
 
-// /**
-//  * Endpoint for examination modification/update
-//  * @param {object} body
-//  * @returns {Promise<{ message: string }>}
-//  */
-// export const adminEditExaminationQuestion = async (body) => {
-//   const path = `/examination/question/edit`;
+/**
+ * Endpoint to for admin to edit a examination
+ * @param {{ title: ?string, duration: number, amountOfQuestions: number, startTime: ?Date, courseId: string }} body
+ *
+ * @returns {Promise<{ message: string, examination: { id: string } }>}
+ */
+export const adminEditExamination = async (examinationId, body) => {
+  const path = `/examination/edit/${examinationId}`;
 
-//   const {
-//     data: { message },
-//   } = await http.patch(path, body);
+  const {
+    data: { message, data },
+  } = await http.patch(path, body);
 
-//   return { message };
-// };
+  const examination = {
+    id: data[0].id,
+  };
+
+  return { message, examination };
+};
+
+/**
+ * Endpoint for examination modification/update
+ * @param {object} body
+ * @returns {Promise<{ message: string }>}
+ */
+export const adminEditExaminationQuestion = async (body) => {
+  const path = `/examination/question/edit`;
+
+  const {
+    data: { message },
+  } = await http.patch(path, body);
+
+  return { message };
+};

@@ -1,0 +1,30 @@
+#downloadWrapper {
+    padding: 20px;
+  }
+   #certificateWrapper {
+    box-shadow: 0 0 5px #000;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+   #certificateWrapper img {
+    display: block;
+  }
+   #certificateWrapper p {
+    margin-top: -34px;
+   
+    font-size: 1.1rem;
+    text-align: center;
+    text-transform:uppercase;
+    font-weight: 600;
+  }
+  .title{
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }

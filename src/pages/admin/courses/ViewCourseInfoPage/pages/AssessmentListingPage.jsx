@@ -12,6 +12,7 @@ import {
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrapper";
 import {
+  adminDeleteAssessment,
   adminDeleteMultipleCourses,
   adminGetAssessmentListing,
 } from "../../../../../services";
@@ -96,8 +97,8 @@ const tableProps = {
     ],
     selection: true,
     multipleDeleteFetcher: async (selectedAssessments) => {
-      console.log(selectedAssessments);
-      await adminDeleteMultipleCourses();
+      console.log(selectedAssessments[0]?.id, "id");
+      await adminDeleteAssessment(selectedAssessments[0]?.id);
     },
     pagination: false,
   },
