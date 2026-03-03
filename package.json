@@ -17,6 +17,7 @@
     "@material-ui/core": "^4.12.3",
     "@material-ui/icons": "^4.11.2",
     "@material-ui/pickers": "^3.3.10",
+    "@react-leaflet/core": "^1.0.2",
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/react": "^11.2.7",
     "@testing-library/user-event": "^13.3.0",
@@ -43,6 +44,7 @@
     "react-elastic-carousel": "^0.11.5",
     "react-hook-form": "^7.15.0",
     "react-icons": "^4.2.0",
+    "react-leaflet": "^3.1.0",
     "react-multi-select-component": "^4.2.1",
     "react-paginate": "^8.2.0",
     "react-player": "^2.9.0",
@@ -57,15 +59,13 @@
     "xlsx": "^0.18.5"
   },
   "scripts": {
-    "dev": "NODE_OPTIONS=--openssl-legacy-provider set PORT=3000 && react-scripts start",
+    "dev": "cross-env PORT=4000 react-scripts start",
     "start": "serve -s build",
     "build": "react-scripts --max_old_space_size=4096 build",
-    "heroku-postbuild": "npm run build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "postbuild": "node webconfig/copyWebConfig.js"
-  },
-  "resolutions": {
+  },  "resolutions": {
     "react-error-overlay": "6.0.9"
   },
   "eslintConfig": {
@@ -90,6 +90,7 @@
     "workerDirectory": "publish"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "react-error-overlay": "^6.0.9",
     "tailwindcss": "^3.2.7"
   }
