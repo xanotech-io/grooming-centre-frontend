@@ -159,7 +159,7 @@ const ExaminationDetailPage = () => {
         <AdminMainAreaWrapper>
             {/* Heading */}
             <Text fontSize="26px" fontWeight="700" color="#1A202C" mb={6}>
-                Data Analysis Exam
+                Data Analysis Exam details
             </Text>
 
             {/* Table card */}

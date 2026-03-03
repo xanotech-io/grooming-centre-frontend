@@ -168,7 +168,7 @@ const SingleExaminationPage = () => {
             >
                 <Box>
                     <Text fontSize="28px" fontWeight="600" color="#1A202C" mb={2}>
-                        Data Analysis Exam
+                        Data Analysis Exam single
                     </Text>
                     <Text fontSize="16px" fontWeight="600" color="#4A5568">
                         Section B | Fall Semester

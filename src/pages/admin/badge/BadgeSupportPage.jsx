@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Route } from 'react-router-dom';
 import {
     Box,
@@ -21,8 +21,19 @@ import {
     MenuList,
     MenuItem,
     Badge,
+    Modal,
+    ModalOverlay,
+    ModalContent,
+    ModalBody,
+    FormControl,
+    FormLabel,
+    Select as ChakraSelect,
+    NumberInput,
+    NumberInputField,
+    Divider,
 } from '@chakra-ui/react';
-import { FaSearch, FaFilter, FaChevronLeft, FaChevronRight, FaRegCalendarAlt } from "react-icons/fa";
+import { FaSearch, FaFilter, FaChevronLeft, FaChevronRight, FaRegCalendarAlt, FaCloudUploadAlt } from "react-icons/fa";
+import { MdClose } from "react-icons/md";
 import { FiMoreVertical } from "react-icons/fi";
 import { Button, Heading, Select } from '../../../components';
 import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
@@ -49,165 +60,360 @@ const getStatusBadge = (status) => {
     }
 };
 
-const BadgeSupportPage = () => {
+const CreateBadgeModal = ({ isOpen, onClose }) => {
+    const fileInputRef = useRef(null);
+    const [fileName, setFileName] = useState('');
+
+    const handleFileChange = (e) => {
+        if (e.target.files[0]) setFileName(e.target.files[0].name);
+    };
+
     return (
-        <AdminMainAreaWrapper>
-            <Box marginX="22px" marginY="30px">
-                {/* Header Section */}
-                <Flex justifyContent="space-between" alignItems="center" marginBottom="30px">
-                    <Heading as="h2" fontSize="24px" fontWeight="600" color="#1A202C">
-                        Badge Support
-                    </Heading>
-                    <Button
-                        style={{ backgroundColor: "#6b006b", color: "white" }}
-                        _hover={{ bg: "#520052" }}
-                        borderRadius="6px"
-                        fontWeight="500"
+        <Modal isOpen={isOpen} onClose={onClose} isCentered size="md">
+            <ModalOverlay bg="blackAlpha.400" />
+            <ModalContent borderRadius="12px" mx={4}>
+                <ModalBody p={0}>
+                    {/* Modal Header */}
+                    <Flex
+                        justifyContent="space-between"
+                        alignItems="center"
                         px={6}
+                        py={4}
+                        borderBottom="1px solid #E2E8F0"
                     >
-                        Create new badge
-                    </Button>
-                </Flex>
+                        <Text fontSize="18px" fontWeight="700" color="#1A202C">
+                            Create New Badge
+                        </Text>
+                        <Box
+                            as="button"
+                            onClick={onClose}
+                            color="#4A5568"
+                            _hover={{ color: '#1A202C' }}
+                        >
+                            <MdClose size={22} />
+                        </Box>
+                    </Flex>
 
-                {/* Stats Cards Section */}
-                <Grid templateColumns="repeat(3, 1fr)" gap="24px" marginBottom="30px">
-                    <Box backgroundColor="white" padding="24px" borderRadius="10px" shadow="sm">
-                        <Text fontSize="14px" fontWeight="600" color="#1A202C" mb="12px">Badge Completion Rate</Text>
-                        <Text fontSize="28px" fontWeight="700" color="#1A202C" mb="12px">80%</Text>
-                        <Text fontSize="14px" fontWeight="500" color="#38A169">+5% vs last period</Text>
-                    </Box>
-                    <Box backgroundColor="white" padding="24px" borderRadius="10px" shadow="sm">
-                        <Text fontSize="14px" fontWeight="600" color="#1A202C" mb="12px">Requirement Clarity</Text>
-                        <Text fontSize="28px" fontWeight="700" color="#1A202C" mb="12px">89%</Text>
-                        <Text fontSize="14px" fontWeight="500" color="#4A5568">Badges with clear milestones</Text>
-                    </Box>
-                    <Box backgroundColor="white" padding="24px" borderRadius="10px" shadow="sm">
-                        <Text fontSize="14px" fontWeight="600" color="#1A202C" mb="12px">Average Earning Time</Text>
-                        <Text fontSize="28px" fontWeight="700" color="#1A202C" mb="12px">10 days</Text>
-                        <Text fontSize="14px" fontWeight="500" color="#38A169">+1 day improvement</Text>
-                    </Box>
-                </Grid>
+                    {/* Modal Form */}
+                    <Box px={6} py={5}>
+                        {/* Badge Title */}
+                        <FormControl mb={4}>
+                            <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={1}>
+                                Badge Title
+                            </FormLabel>
+                            <Input
+                                placeholder="Enter badge title"
+                                fontSize="14px"
+                                borderRadius="6px"
+                                borderColor="#E2E8F0"
+                                _focus={{ borderColor: '#6b006b', boxShadow: 'none' }}
+                            />
+                        </FormControl>
 
-                {/* Table Section */}
-                <Box backgroundColor="white" borderRadius="10px" shadow="sm" border="1px solid #E2E8F0">
-                    <Flex justifyContent="space-between" alignItems="center" padding="16px 24px" borderBottom="1px solid #E2E8F0 flexWrap='wrap' gap={4}">
-                        {/* Left Toolbar */}
-                        <Flex gap="16px" flex="1">
-                            <InputGroup maxWidth="300px">
-                                <InputLeftElement pointerEvents='none'>
-                                    <FaSearch color='#A0AEC0' />
-                                </InputLeftElement>
-                                <Input
-                                    type='text'
-                                    placeholder='Search here...'
+                        {/* Badge Type */}
+                        <FormControl mb={4}>
+                            <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={1}>
+                                Badge Type
+                            </FormLabel>
+                            <ChakraSelect
+                                defaultValue="open"
+                                fontSize="14px"
+                                borderRadius="6px"
+                                borderColor="#E2E8F0"
+                                _focus={{ borderColor: '#6b006b', boxShadow: 'none' }}
+                            >
+                                <option value="open">Open Badge (Mozilla)</option>
+                                <option value="custom">Custom Badge</option>
+                            </ChakraSelect>
+                        </FormControl>
+
+                        {/* Select Courses */}
+                        <FormControl mb={4}>
+                            <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={1}>
+                                Select courses
+                            </FormLabel>
+                            <ChakraSelect
+                                placeholder="Select courses"
+                                fontSize="14px"
+                                borderRadius="6px"
+                                borderColor="#E2E8F0"
+                                _focus={{ borderColor: '#6b006b', boxShadow: 'none' }}
+                            >
+                                <option value="course1">Agriculture Fundamentals</option>
+                                <option value="course2">Safety Compliance</option>
+                                <option value="course3">Digital Literacy</option>
+                            </ChakraSelect>
+                        </FormControl>
+
+                        {/* Required Course Count */}
+                        <FormControl mb={4}>
+                            <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={1}>
+                                Required Course Count
+                            </FormLabel>
+                            <NumberInput min={1}>
+                                <NumberInputField
+                                    placeholder="Enter number of required course count"
                                     fontSize="14px"
                                     borderRadius="6px"
                                     borderColor="#E2E8F0"
-                                    _focus={{ borderColor: "#6b006b", boxShadow: "none" }}
+                                    _focus={{ borderColor: '#6b006b', boxShadow: 'none' }}
                                 />
-                            </InputGroup>
+                            </NumberInput>
+                        </FormControl>
 
-                            <Button
-                                variant="outline"
-                                leftIcon={<FaFilter color="#4A5568" />}
-                                borderColor="#E2E8F0"
-                                color="#4A5568"
-                                fontSize="14px"
-                                fontWeight="500"
-                                bg="white"
+                        {/* Badge File Upload */}
+                        <FormControl mb={6}>
+                            <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={1}>
+                                Badge File
+                            </FormLabel>
+                            <Flex
+                                border="1px solid #E2E8F0"
+                                borderRadius="6px"
+                                alignItems="center"
+                                px={3}
+                                py={2}
+                                gap={3}
                             >
-                                Filter
-                            </Button>
-                        </Flex>
+                                <Flex alignItems="center" gap={2} flex={1}>
+                                    <FaCloudUploadAlt color="#A0AEC0" size={20} />
+                                    <Box>
+                                        <Text fontSize="13px" fontWeight="500" color="#4A5568">
+                                            {fileName || 'Tap to Upload'}
+                                        </Text>
+                                        <Text fontSize="11px" color="#A0AEC0">
+                                            SVG, PNG, JPG, GIF | 10MB max.
+                                        </Text>
+                                    </Box>
+                                </Flex>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
+                                    accept="image/svg+xml,image/png,image/jpeg,image/gif"
+                                    style={{ display: 'none' }}
+                                />
+                                <Box
+                                    as="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    bg="#6b006b"
+                                    color="white"
+                                    fontSize="13px"
+                                    fontWeight="600"
+                                    px={4}
+                                    py={2}
+                                    borderRadius="6px"
+                                    _hover={{ bg: '#520052' }}
+                                    flexShrink={0}
+                                >
+                                    Upload
+                                </Box>
+                            </Flex>
+                        </FormControl>
 
-                        {/* Right Toolbar */}
-                        <Flex>
-                            <Button
-                                variant="outline"
-                                leftIcon={<FaRegCalendarAlt color="#4A5568" />}
-                                borderColor="#E2E8F0"
-                                color="#4A5568"
+                        <Divider mb={4} />
+
+                        {/* Action Buttons */}
+                        <Flex gap={3}>
+                            <Box
+                                as="button"
+                                onClick={onClose}
+                                flex={1}
+                                border="1px solid #E2E8F0"
+                                borderRadius="8px"
+                                py={3}
                                 fontSize="14px"
-                                fontWeight="500"
+                                fontWeight="600"
+                                color="#E53E3E"
                                 bg="white"
+                                _hover={{ bg: '#FFF5F5' }}
                             >
-                                Select dates
-                            </Button>
-                        </Flex>
-                    </Flex>
-
-                    <TableContainer>
-                        <Table variant='simple'>
-                            <Thead bg="#F7FAFC">
-                                <Tr>
-                                    <Th width="40px" pl={6} py={4}>
-                                        <input type="checkbox" style={{ accentColor: "#6B006B" }} />
-                                    </Th>
-                                    <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Badge ID</Th>
-                                    <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Badge Title</Th>
-                                    <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Required Courses Count</Th>
-                                    <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Courses Completed</Th>
-                                    <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Status</Th>
-                                    <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Remark</Th>
-                                    <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" width="80px" textAlign="center" borderBottom="1px solid #E2E8F0">Action</Th>
-                                </Tr>
-                            </Thead>
-                            <Tbody>
-                                {MOCK_BADGES.map((row, idx) => (
-                                    <Tr key={idx} _hover={{ bg: "#F8FAFC" }}>
-                                        <Td pl={6} py={4} borderBottom="1px solid #E2E8F0">
-                                            <input type="checkbox" style={{ accentColor: "#6B006B" }} />
-                                        </Td>
-                                        <Td color="#4A5568" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.id}</Td>
-                                        <Td color="#1A202C" fontSize="14px" fontWeight="500" borderBottom="1px solid #E2E8F0" maxW="200px" whiteSpace="normal">{row.title}</Td>
-                                        <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.reqCourses}</Td>
-                                        <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.courseCount}</Td>
-                                        <Td borderBottom="1px solid #E2E8F0">{getStatusBadge(row.status)}</Td>
-                                        <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0" maxW="200px" whiteSpace="normal">{row.remark}</Td>
-                                        <Td textAlign="center" borderBottom="1px solid #E2E8F0">
-                                            <Menu placement="bottom-end">
-                                                <MenuButton
-                                                    as={IconButton}
-                                                    aria-label="Options"
-                                                    icon={<FiMoreVertical color="#A0AEC0" />}
-                                                    variant="outline"
-                                                    size="sm"
-                                                    borderRadius="6px"
-                                                    borderColor="#E2E8F0"
-                                                />
-                                                <MenuList minWidth="120px">
-                                                    <MenuItem fontSize="14px" color="#1A202C">Edit Badge</MenuItem>
-                                                    <MenuItem fontSize="14px" color="red.500">Delete Badge</MenuItem>
-                                                </MenuList>
-                                            </Menu>
-                                        </Td>
-                                    </Tr>
-                                ))}
-                            </Tbody>
-                        </Table>
-                    </TableContainer>
-
-                    {/* Pagination Section */}
-                    <Flex justifyContent="flex-end" alignItems="center" padding="16px 24px" gap="24px">
-                        <Flex alignItems="center" gap="10px">
-                            <Text fontSize="14px" color="#4A5568" fontWeight="500">Rows per page</Text>
-                            <Box width="70px">
-                                <Select defaultValue="08" id="rows" options={[{ label: "08", value: "08" }]} />
+                                Cancel
+                            </Box>
+                            <Box
+                                as="button"
+                                flex={1}
+                                borderRadius="8px"
+                                py={3}
+                                fontSize="14px"
+                                fontWeight="600"
+                                color="white"
+                                bg="#6b006b"
+                                _hover={{ bg: '#520052' }}
+                            >
+                                Save and publish badge
                             </Box>
                         </Flex>
-                        <Text fontSize="14px" fontWeight="600" color="#1A202C">
-                            Showing 10 out iof 100 items
-                        </Text>
-                        <Flex gap="4px">
-                            <IconButton variant="ghost" size="sm" icon={<FaChevronLeft />} aria-label="Previous page" color="#A0AEC0" />
-                            <Text fontSize="14px" color="#6B006B" fontWeight="600" alignSelf="center" px={2}>1</Text>
-                            <IconButton variant="ghost" size="sm" icon={<FaChevronRight />} aria-label="Next page" color="#1A202C" />
-                        </Flex>
+                    </Box>
+                </ModalBody>
+            </ModalContent>
+        </Modal>
+    );
+};
+
+const BadgeSupportPage = () => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    return (
+        <>
+            <CreateBadgeModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+            <AdminMainAreaWrapper>
+                <Box marginX="22px" marginY="30px">
+                    {/* Header Section */}
+                    <Flex justifyContent="space-between" alignItems="center" marginBottom="30px">
+                        <Heading as="h2" fontSize="24px" fontWeight="600" color="#1A202C">
+                            Badge Support
+                        </Heading>
+                        <Button
+                            style={{ backgroundColor: "#6b006b", color: "white" }}
+                            _hover={{ bg: "#520052" }}
+                            borderRadius="6px"
+                            fontWeight="500"
+                            px={6}
+                            onClick={() => setIsModalOpen(true)}
+                        >
+                            Create new badge
+                        </Button>
                     </Flex>
 
+                    {/* Stats Cards Section */}
+                    <Grid templateColumns="repeat(3, 1fr)" gap="24px" marginBottom="30px">
+                        <Box backgroundColor="white" padding="24px" borderRadius="10px" shadow="sm">
+                            <Text fontSize="14px" fontWeight="600" color="#1A202C" mb="12px">Badge Completion Rate</Text>
+                            <Text fontSize="28px" fontWeight="700" color="#1A202C" mb="12px">80%</Text>
+                            <Text fontSize="14px" fontWeight="500" color="#38A169">+5% vs last period</Text>
+                        </Box>
+                        <Box backgroundColor="white" padding="24px" borderRadius="10px" shadow="sm">
+                            <Text fontSize="14px" fontWeight="600" color="#1A202C" mb="12px">Requirement Clarity</Text>
+                            <Text fontSize="28px" fontWeight="700" color="#1A202C" mb="12px">89%</Text>
+                            <Text fontSize="14px" fontWeight="500" color="#4A5568">Badges with clear milestones</Text>
+                        </Box>
+                        <Box backgroundColor="white" padding="24px" borderRadius="10px" shadow="sm">
+                            <Text fontSize="14px" fontWeight="600" color="#1A202C" mb="12px">Average Earning Time</Text>
+                            <Text fontSize="28px" fontWeight="700" color="#1A202C" mb="12px">10 days</Text>
+                            <Text fontSize="14px" fontWeight="500" color="#38A169">+1 day improvement</Text>
+                        </Box>
+                    </Grid>
+
+                    {/* Table Section */}
+                    <Box backgroundColor="white" borderRadius="10px" shadow="sm" border="1px solid #E2E8F0">
+                        <Flex justifyContent="space-between" alignItems="center" padding="16px 24px" borderBottom="1px solid #E2E8F0 flexWrap='wrap' gap={4}">
+                            {/* Left Toolbar */}
+                            <Flex gap="16px" flex="1">
+                                <InputGroup maxWidth="300px">
+                                    <InputLeftElement pointerEvents='none'>
+                                        <FaSearch color='#A0AEC0' />
+                                    </InputLeftElement>
+                                    <Input
+                                        type='text'
+                                        placeholder='Search here...'
+                                        fontSize="14px"
+                                        borderRadius="6px"
+                                        borderColor="#E2E8F0"
+                                        _focus={{ borderColor: "#6b006b", boxShadow: "none" }}
+                                    />
+                                </InputGroup>
+
+                                <Button
+                                    variant="outline"
+                                    leftIcon={<FaFilter color="#4A5568" />}
+                                    borderColor="#E2E8F0"
+                                    color="#4A5568"
+                                    fontSize="14px"
+                                    fontWeight="500"
+                                    bg="white"
+                                >
+                                    Filter
+                                </Button>
+                            </Flex>
+
+                            {/* Right Toolbar */}
+                            <Flex>
+                                <Button
+                                    variant="outline"
+                                    leftIcon={<FaRegCalendarAlt color="#4A5568" />}
+                                    borderColor="#E2E8F0"
+                                    color="#4A5568"
+                                    fontSize="14px"
+                                    fontWeight="500"
+                                    bg="white"
+                                >
+                                    Select dates
+                                </Button>
+                            </Flex>
+                        </Flex>
+
+                        <TableContainer>
+                            <Table variant='simple'>
+                                <Thead bg="#F7FAFC">
+                                    <Tr>
+                                        <Th width="40px" pl={6} py={4}>
+                                            <input type="checkbox" style={{ accentColor: "#6B006B" }} />
+                                        </Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Badge ID</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Badge Title</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Required Courses Count</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Courses Completed</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Status</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Remark</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" width="80px" textAlign="center" borderBottom="1px solid #E2E8F0">Action</Th>
+                                    </Tr>
+                                </Thead>
+                                <Tbody>
+                                    {MOCK_BADGES.map((row, idx) => (
+                                        <Tr key={idx} _hover={{ bg: "#F8FAFC" }}>
+                                            <Td pl={6} py={4} borderBottom="1px solid #E2E8F0">
+                                                <input type="checkbox" style={{ accentColor: "#6B006B" }} />
+                                            </Td>
+                                            <Td color="#4A5568" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.id}</Td>
+                                            <Td color="#1A202C" fontSize="14px" fontWeight="500" borderBottom="1px solid #E2E8F0" maxW="200px" whiteSpace="normal">{row.title}</Td>
+                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.reqCourses}</Td>
+                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.courseCount}</Td>
+                                            <Td borderBottom="1px solid #E2E8F0">{getStatusBadge(row.status)}</Td>
+                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0" maxW="200px" whiteSpace="normal">{row.remark}</Td>
+                                            <Td textAlign="center" borderBottom="1px solid #E2E8F0">
+                                                <Menu placement="bottom-end">
+                                                    <MenuButton
+                                                        as={IconButton}
+                                                        aria-label="Options"
+                                                        icon={<FiMoreVertical color="#A0AEC0" />}
+                                                        variant="outline"
+                                                        size="sm"
+                                                        borderRadius="6px"
+                                                        borderColor="#E2E8F0"
+                                                    />
+                                                    <MenuList minWidth="120px">
+                                                        <MenuItem fontSize="14px" color="#1A202C">Edit Badge</MenuItem>
+                                                        <MenuItem fontSize="14px" color="red.500">Delete Badge</MenuItem>
+                                                    </MenuList>
+                                                </Menu>
+                                            </Td>
+                                        </Tr>
+                                    ))}
+                                </Tbody>
+                            </Table>
+                        </TableContainer>
+
+                        {/* Pagination Section */}
+                        <Flex justifyContent="flex-end" alignItems="center" padding="16px 24px" gap="24px">
+                            <Flex alignItems="center" gap="10px">
+                                <Text fontSize="14px" color="#4A5568" fontWeight="500">Rows per page</Text>
+                                <Box width="70px">
+                                    <Select defaultValue="08" id="rows" options={[{ label: "08", value: "08" }]} />
+                                </Box>
+                            </Flex>
+                            <Text fontSize="14px" fontWeight="600" color="#1A202C">
+                                Showing 10 out iof 100 items
+                            </Text>
+                            <Flex gap="4px">
+                                <IconButton variant="ghost" size="sm" icon={<FaChevronLeft />} aria-label="Previous page" color="#A0AEC0" />
+                                <Text fontSize="14px" color="#6B006B" fontWeight="600" alignSelf="center" px={2}>1</Text>
+                                <IconButton variant="ghost" size="sm" icon={<FaChevronRight />} aria-label="Next page" color="#1A202C" />
+                            </Flex>
+                        </Flex>
+
+                    </Box>
                 </Box>
-            </Box>
-        </AdminMainAreaWrapper>
+            </AdminMainAreaWrapper>
+        </>
     );
 };
 
