@@ -1,3 +1,4 @@
+/* eslint-disable no-lone-blocks */
 import { useToast } from "@chakra-ui/toast";
 import { Flex, Grid, GridItem } from "@chakra-ui/layout";
 import { Route, useParams, useHistory } from "react-router-dom";
@@ -109,7 +110,7 @@ const CreateLessonPage = () => {
 
     if (lessonType === "PowerPoint") {
       fileManager.handleAcceptChange(
-        ".ppt, .pptx, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        ".ppt, .pptx, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation",
       );
     }
   };
@@ -170,7 +171,7 @@ const CreateLessonPage = () => {
       const content = contentManager.handleGetValueAndValidate("Content");
       const file = fileManager.handleGetFileAndValidate(
         "Lesson File",
-        isEditMode
+        isEditMode,
       );
       const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
@@ -254,8 +255,8 @@ const CreateLessonPage = () => {
           isSubmitting
             ? "Please wait this might take a while"
             : isEditMode
-            ? "Update Lesson"
-            : "Add Lesson"
+              ? "Update Lesson"
+              : "Add Lesson"
         }
         onSubmit={handleSubmit(onSubmit)}
         submitButtonIsDisabled={!metadata}

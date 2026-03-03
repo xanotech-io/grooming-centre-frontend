@@ -1,6 +1,6 @@
 import { Box, Flex, Grid, HStack, Stack, Center } from "@chakra-ui/layout";
 import { Radio, RadioGroup } from "@chakra-ui/radio";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { Route } from "react-router";
 import {
   Button,
@@ -23,12 +23,10 @@ import {
   usersGetStandaloneExaminationListing,
 } from "../../../services";
 import { useQueryParams } from "../../../hooks";
-import { Warning } from "@material-ui/icons";
 import { useHistory } from "react-router-dom";
 const StandaloneExamsStart = () => {
   const {
     assessment,
-    course_id,
     currentQuestion,
     disablePreviousQuestion,
     error,
@@ -50,16 +48,13 @@ const StandaloneExamsStart = () => {
     end,
   } = useStandalone();
   const toast = useToast();
-  const questionArr = Object.values(questionId);
-  const optionArr = Object.values(optionId);
+  const questionArr = useMemo(() => Object.values(questionId), [questionId]);
+  const optionArr = useMemo(() => Object.values(optionId), [optionId]);
 
   const isExamination = useQueryParams().get("exam");
   const [grade, setGrade] = useState("");
   const [loading, setLoading] = useState(false);
   const [myAssessment, setMyAssessment] = useState([]);
-  const [modalContent, setModalContent] = useState();
-  const [modalPrompt, setModalPrompt] = useState(null);
-  const [modalCanClose, setModalCanClose] = useState(true);
   const { push } = useHistory();
   const [modal, setModal] = useState({
     state: false,
@@ -68,7 +63,7 @@ const StandaloneExamsStart = () => {
   });
   const [exitAttempts, setExitAttempts] = useState(0);
   const totalSteps = 3;
-  const handleExamSubmit = async () => {
+  const handleExamSubmit = useCallback(async () => {
     try {
       const body = {
         standAloneExaminationId: isExamination,
@@ -84,7 +79,7 @@ const StandaloneExamsStart = () => {
         position: "top",
         status: "success",
       });
-      setModal({ ...modal, congrats: true });
+      setModal((prevModal) => ({ ...prevModal, congrats: true }));
     } catch (error) {
       toast({
         description: error.message,
@@ -92,17 +87,17 @@ const StandaloneExamsStart = () => {
         status: "error",
       });
     }
-  };
+  }, [isExamination, questionArr, optionArr, exitAttempts, totalSteps, toast]);
 
-  const handleExitAttempt = () => {
+  const handleExitAttempt = useCallback(() => {
     if (exitAttempts < totalSteps) {
-      setExitAttempts(exitAttempts + 1);
+      setExitAttempts((prev) => prev + 1);
     }
     if (exitAttempts === totalSteps) {
       push("/standalone-exams");
       handleExamSubmit();
     }
-  };
+  }, [exitAttempts, totalSteps, push, handleExamSubmit]);
 
   useEffect(() => {
     const handleUnload = (event) => {
@@ -131,7 +126,7 @@ const StandaloneExamsStart = () => {
       window.removeEventListener("beforeunload", handleUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [exitAttempts]);
+  }, [exitAttempts, handleExitAttempt, toast]);
 
   const handleViewResult = useCallback(async () => {
     setModal({ ...modal, score: true });

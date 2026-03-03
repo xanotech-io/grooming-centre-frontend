@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { Route, useParams } from 'react-router-dom';
 import { Box, Flex } from '@chakra-ui/layout';

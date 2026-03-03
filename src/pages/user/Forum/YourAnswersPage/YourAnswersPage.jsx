@@ -1,6 +1,5 @@
 import { Route } from 'react-router-dom';
 import Comments from '../Comments/Comments';
-import CommentList from '../Comments/CommentList';
 import useYourAnswersPage from './hooks/useYourAnswersPage';
 import AnswersList from './hooks/AnswersList';
 

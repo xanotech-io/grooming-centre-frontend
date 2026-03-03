@@ -1,12 +1,9 @@
 import { useRef, useState } from "react";
-import logo from "../../../../../assets/images/newlogo.png";
-import badge from "../../../../../assets/images/badge-level-1.png";
-import tr from "../../../../../assets/images/tr.png";
+
 import "./style.css";
-import { AdminMainAreaWrapper } from "../../../../../layouts";
 import { Button, Text } from "../../../../../components";
 import { Box, Flex } from "@chakra-ui/react";
-import { truncateText } from "../../../../../utils";
+
 import { exportAsImage } from "../../../../../utils/exportToPng";
 import { exportAsPdf } from "../../../../../utils/exportToPdf";
 import template from "../../../../../assets/images/Certificate.png"

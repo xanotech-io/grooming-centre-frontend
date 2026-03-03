@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useCallback, useEffect, useState } from "react";
 import { Box, Flex, Text, Heading } from "@chakra-ui/layout";
 import { NavLink, useHistory, useParams, useLocation } from "react-router-dom";

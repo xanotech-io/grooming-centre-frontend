@@ -1,5 +1,4 @@
 import { Box } from "@chakra-ui/layout";
-import { useContext, useEffect, useState } from "react";
 import { Redirect, Route, Switch } from "react-router-dom";
 import { ForumLayoutRoute, ChatLayoutRoute } from "../../layouts";
 import { NotFoundPageRoute } from "../../pages/admin";

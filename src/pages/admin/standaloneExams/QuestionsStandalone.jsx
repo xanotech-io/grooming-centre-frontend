@@ -1,11 +1,10 @@
+/* eslint-disable no-unused-vars */
 import {
   Box,
-  ButtonGroup,
   Flex,
   Grid,
   GridItem,
   Heading,
-  Stack,
   Text,
   useToast,
   Tabs,
@@ -39,8 +38,6 @@ import {
   capitalizeWords,
 } from "../../../utils";
 import {
-  adminCreateAssessmentQuestion,
-  adminCreateExaminationQuestion,
   adminCreateStandaloneExaminationQuestion,
   adminDeleteAssessmentQuestion,
   adminDeleteExaminationQuestion,

@@ -1,8 +1,6 @@
-import React from "react";
 import { useCallback } from "react";
 import { useEffect } from "react";
 import { useState } from "react";
-import { useParams } from "react-router";
 import { useCache } from "../../../../contexts";
 import { useComponentIsMount, useQueryParams } from "../../../../hooks";
 import { usersGetStandaloneExaminationListing } from "../../../../services";
@@ -13,7 +11,7 @@ const useStandalonePreview = (
   isForAdmin,
   sidebarLinkClickedState
 ) => {
-  const { handleGetOrSetAndGet } = useCache();
+  useCache();
   const componentIsMount = useComponentIsMount();
   const isExamination = useQueryParams().get("exam");
 

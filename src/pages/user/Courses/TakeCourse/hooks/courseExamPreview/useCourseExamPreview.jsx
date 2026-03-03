@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCache } from "../../../../../../contexts";
@@ -15,6 +16,7 @@ const useCourseExamPreview = (
 ) => {
   const { handleGetOrSetAndGet } = useCache();
   const componentIsMount = useComponentIsMount();
+ 
   const { id: courseId, assessment_id } = useParams();
   const queryParams = useQueryParams();
   const isExamination = queryParams.get("examination");
@@ -33,9 +35,9 @@ const useCourseExamPreview = (
 
   const fetcher = useCallback(async () => {
     const data = await (!isExamination
-      ? requestAssessmentDetails(assessment_id, isForAdmin)
-      : requestExaminationDetails(assessmentId, isForAdmin)); // `assessmentId` is `courseId` in this case
-
+      ? requestAssessmentDetails(assessmentId, isForAdmin)
+      : requestExaminationDetails(assessmentId, isForAdmin));
+  
     return isExamination ? data?.examination : data?.assessment;
   }, [assessmentId, isExamination, isForAdmin]);
 

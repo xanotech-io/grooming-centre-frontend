@@ -1,6 +1,6 @@
-import { Box, Flex } from '@chakra-ui/layout';
-import { Route } from 'react-router-dom';
-import { FaSortAmountUpAlt } from 'react-icons/fa';
+import { Box } from "@chakra-ui/layout";
+import { Route } from "react-router-dom";
+import { FaSortAmountUpAlt } from "react-icons/fa";
 import {
   Button,
   Heading,
@@ -8,62 +8,62 @@ import {
   Breadcrumb,
   Link,
   Text,
-} from '../../../components';
-import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
+} from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
   adminDeleteMultipleCourses,
   adminGetStandaloneExaminationParticipants,
-} from '../../../services';
-import { BreadcrumbItem } from '@chakra-ui/react';
-import { useTableRows } from '../../../hooks';
-import { FiEdit } from 'react-icons/fi';
-import { useParams } from 'react-router-dom';
+} from "../../../services";
+import { BreadcrumbItem } from "@chakra-ui/react";
+import { useTableRows } from "../../../hooks";
+import { FiEdit } from "react-icons/fi";
+import { useParams } from "react-router-dom";
 
 const tableProps = {
   filterControls: [
     {
-      triggerText: 'Grade',
-      queryKey: 'grade',
-      width: '125%',
+      triggerText: "Grade",
+      queryKey: "grade",
+      width: "125%",
       body: {
         radios: [
-          { label: 'A', queryValue: 'A' },
-          { label: 'B', queryValue: 'B' },
-          { label: 'C', queryValue: 'C' },
-          { label: 'E', queryValue: 'E' },
-          { label: 'D', queryValue: 'D' },
-          { label: 'F', queryValue: 'F' },
+          { label: "A", queryValue: "A" },
+          { label: "B", queryValue: "B" },
+          { label: "C", queryValue: "C" },
+          { label: "E", queryValue: "E" },
+          { label: "D", queryValue: "D" },
+          { label: "F", queryValue: "F" },
         ],
       },
     },
 
     {
-      triggerText: 'Sort',
-      queryKey: 'sort',
+      triggerText: "Sort",
+      queryKey: "sort",
       triggerIcon: <FaSortAmountUpAlt />,
-      width: '200px',
-      position: 'right-bottom',
+      width: "200px",
+      position: "right-bottom",
       // noFilterTags: true,
       body: {
         radios: [
           {
-            label: 'Alphabetically: ascending',
-            queryValue: 'asc',
+            label: "Alphabetically: ascending",
+            queryValue: "asc",
             additionalParams: { date: false },
           },
           {
-            label: 'Alphabetically: descending',
-            queryValue: 'desc',
+            label: "Alphabetically: descending",
+            queryValue: "desc",
             additionalParams: { date: false },
           },
           {
-            label: 'Date: ascending',
-            queryValue: 'asc',
+            label: "Date: ascending",
+            queryValue: "asc",
             additionalParams: { date: true },
           },
           {
-            label: 'Date: descending',
-            queryValue: 'desc',
+            label: "Date: descending",
+            queryValue: "desc",
             additionalParams: { date: true },
           },
         ],
@@ -73,32 +73,32 @@ const tableProps = {
 
   columns: [
     {
-      id: '1',
-      key: 'fullName',
-      text: 'Full name',
+      id: "1",
+      key: "fullName",
+      text: "Full name",
       renderContent: (data) => (
         <Link href={`/admin/users/details/${data.userId}/profile`}>
           <Text>{data.text}</Text>
         </Link>
       ),
     },
-    { id: '2', key: 'department', text: 'Department' },
+    { id: "2", key: "department", text: "Department" },
     {
-      id: '3',
-      key: 'email',
-      text: 'Email Address',
+      id: "3",
+      key: "email",
+      text: "Email Address",
     },
-    { id: '4', key: 'grade', text: 'Grade' },
+    { id: "4", key: "grade", text: "Grade" },
   ],
 
   options: {
     action: [
       {
-        text: 'View',
+        text: "View",
         link: (user) => `/admin/users/details/${user.id}/profile`,
       },
       {
-        text: 'Edit',
+        text: "Edit",
         link: (user) => `/admin/users/edit/${user.id}`,
       },
       {
@@ -130,7 +130,7 @@ const StandaloneExaminationAllParticipantsPage = () => {
     const { users, showingDocumentsCount, totalDocumentsCount } =
       await adminGetStandaloneExaminationParticipants(
         examinationId,
-        props?.params
+        props?.params,
       );
 
     const rows = users.map(mapUserToRow);
@@ -157,12 +157,12 @@ const StandaloneExaminationAllParticipantsPage = () => {
       <Box
         display="flex"
         justifyContent={{
-          base: 'flex-start',
-          md: 'flex-start',
-          lg: 'space-between',
+          base: "flex-start",
+          md: "flex-start",
+          lg: "space-between",
         }}
-        alignItems={{ base: 'flex-start', md: 'flex-start', lg: 'center' }}
-        flexDirection={{ base: 'column', md: 'column', lg: 'row' }}
+        alignItems={{ base: "flex-start", md: "flex-start", lg: "center" }}
+        flexDirection={{ base: "column", md: "column", lg: "row" }}
         borderBottom="1px"
         borderColor="accent.2"
         paddingBottom={5}

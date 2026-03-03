@@ -1,5 +1,4 @@
 import { Box, Flex } from "@chakra-ui/layout";
-import { Text } from "../../components";
 import { maxWidthStyles_userPages } from "../../theme/breakpoints";
 
 const date = new Date();

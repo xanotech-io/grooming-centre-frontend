@@ -1,4 +1,5 @@
-import React from 'react';
+/* eslint-disable no-unused-vars */
+import React from "react";
 import {
   Box,
   Heading,
@@ -30,7 +31,7 @@ import {
   Alert,
   AlertIcon,
   useToast,
-} from '@chakra-ui/react';
+} from "@chakra-ui/react";
 import {
   FiCheckCircle,
   FiXCircle,
@@ -39,17 +40,18 @@ import {
   FiTrendingUp,
   FiBarChart,
   FiDownload,
-} from 'react-icons/fi';
-import { MdQuiz, MdSchool } from 'react-icons/md';
-import { BiTask } from 'react-icons/bi';
-import { Route, useParams } from 'react-router-dom';
-import { useExaminationRecords } from './hooks/useExaminationRecords';
-import { downloadUserTranscript } from '../../../../../services/http/endpoints/examinationRecords';
+} from "react-icons/fi";
+import { MdQuiz, MdSchool } from "react-icons/md";
+import { BiTask } from "react-icons/bi";
+import { Route, useParams } from "react-router-dom";
+import { useExaminationRecords } from "./hooks/useExaminationRecords";
+import { downloadUserTranscript } from "../../../../../services/http/endpoints/examinationRecords";
 
 const ExaminationRecordsPage = () => {
   const { id: userId } = useParams();
   const toast = useToast();
-  const [isDownloadingTranscript, setIsDownloadingTranscript] = React.useState(false);
+  const [isDownloadingTranscript, setIsDownloadingTranscript] =
+    React.useState(false);
   const {
     examinationRecords,
     stats,
@@ -62,13 +64,13 @@ const ExaminationRecordsPage = () => {
     setFilterType,
   } = useExaminationRecords();
 
-  const cardBg = useColorModeValue('white', 'gray.700');
-  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const cardBg = useColorModeValue("white", "gray.700");
+  const borderColor = useColorModeValue("gray.200", "gray.600");
 
   // Debug logging
   //TODO: Remove or comment out in production
-  console.log('ExaminationRecordsPage Component Rendered!');
-  console.log('ExaminationRecordsPage Debug:', {
+  console.log("ExaminationRecordsPage Component Rendered!");
+  console.log("ExaminationRecordsPage Debug:", {
     userId,
     examinationRecords,
     examinationRecordsType: typeof examinationRecords,
@@ -81,12 +83,18 @@ const ExaminationRecordsPage = () => {
 
   // Log the actual records structure if available
   if (examinationRecords && examinationRecords.length > 0) {
-    console.log('First examination record:', examinationRecords[0]);
+    console.log("First examination record:", examinationRecords[0]);
   }
 
   if (isLoading) {
     return (
-      <Box p={6} display="flex" justifyContent="center" alignItems="center" minH="400px">
+      <Box
+        p={6}
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minH="400px"
+      >
         <VStack spacing={4}>
           <Spinner size="xl" color="primary.base" />
           <Text>Loading examination records... (userId: {userId})</Text>
@@ -107,26 +115,26 @@ const ExaminationRecordsPage = () => {
   }
 
   const getScoreColor = (score) => {
-    if (score >= 80) return 'green';
-    if (score >= 60) return 'orange';
-    return 'red';
+    if (score >= 80) return "green";
+    if (score >= 60) return "orange";
+    return "red";
   };
 
   const getTypeIcon = (type) => {
-    return type === 'regular' ? MdSchool : MdQuiz;
+    return type === "regular" ? MdSchool : MdQuiz;
   };
 
   const getTypeColor = (type) => {
-    return type === 'regular' ? 'blue' : 'purple';
+    return type === "regular" ? "blue" : "purple";
   };
 
   // Parse question JSON to extract text
   const getQuestionText = (questionJson) => {
     try {
-      if (typeof questionJson === 'string') {
+      if (typeof questionJson === "string") {
         const parsed = JSON.parse(questionJson);
         if (parsed.blocks && parsed.blocks.length > 0) {
-          return parsed.blocks.map(block => block.text).join(' ');
+          return parsed.blocks.map((block) => block.text).join(" ");
         }
       }
       return questionJson;
@@ -141,9 +149,9 @@ const ExaminationRecordsPage = () => {
       setIsDownloadingTranscript(true);
 
       toast({
-        title: 'Generating transcript...',
-        description: 'Please wait while we prepare your academic transcript.',
-        status: 'info',
+        title: "Generating transcript...",
+        description: "Please wait while we prepare your academic transcript.",
+        status: "info",
         duration: 2000,
         isClosable: true,
       });
@@ -153,11 +161,11 @@ const ExaminationRecordsPage = () => {
 
       // Create download link
       const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
 
       // Extract filename from blob or use default
-      const fileName = `Academic-Transcript-${userId}-${new Date().toISOString().split('T')[0]}.xlsx`;
+      const fileName = `Academic-Transcript-${userId}-${new Date().toISOString().split("T")[0]}.xlsx`;
       link.download = fileName;
 
       document.body.appendChild(link);
@@ -166,18 +174,22 @@ const ExaminationRecordsPage = () => {
       URL.revokeObjectURL(url);
 
       toast({
-        title: 'Transcript downloaded successfully',
-        description: 'The academic transcript Excel file has been saved to your device.',
-        status: 'success',
+        title: "Transcript downloaded successfully",
+        description:
+          "The academic transcript Excel file has been saved to your device.",
+        status: "success",
         duration: 3000,
         isClosable: true,
       });
     } catch (error) {
-      console.error('Error downloading transcript:', error);
+      console.error("Error downloading transcript:", error);
       toast({
-        title: 'Failed to download transcript',
-        description: error.response?.data?.message || error.message || 'An error occurred while downloading the transcript.',
-        status: 'error',
+        title: "Failed to download transcript",
+        description:
+          error.response?.data?.message ||
+          error.message ||
+          "An error occurred while downloading the transcript.",
+        status: "error",
         duration: 5000,
         isClosable: true,
       });
@@ -217,7 +229,9 @@ const ExaminationRecordsPage = () => {
 
       {/* Overall Statistics Cards */}
       <VStack spacing={6} mb={8} align="stretch">
-        <Heading size="md" color="gray.700">Overall Statistics</Heading>
+        <Heading size="md" color="gray.700">
+          Overall Statistics
+        </Heading>
         <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
           <StatCard
             icon={<Icon as={FiBarChart} />}
@@ -253,7 +267,7 @@ const ExaminationRecordsPage = () => {
         <Accordion allowMultiple defaultIndex={[0, 1]}>
           {/* Regular Examinations Statistics */}
           <AccordionItem borderWidth="1px" borderRadius="md" mb={4}>
-            <AccordionButton py={3} _hover={{ bg: 'gray.50' }}>
+            <AccordionButton py={3} _hover={{ bg: "gray.50" }}>
               <HStack flex="1" textAlign="left">
                 <Icon as={MdSchool} color="blue.500" boxSize={5} />
                 <Heading size="md" color="gray.700">
@@ -315,7 +329,7 @@ const ExaminationRecordsPage = () => {
 
           {/* Standalone Examinations Statistics */}
           <AccordionItem borderWidth="1px" borderRadius="md">
-            <AccordionButton py={3} _hover={{ bg: 'gray.50' }}>
+            <AccordionButton py={3} _hover={{ bg: "gray.50" }}>
               <HStack flex="1" textAlign="left">
                 <Icon as={MdQuiz} color="purple.500" boxSize={5} />
                 <Heading size="md" color="gray.700">
@@ -380,25 +394,25 @@ const ExaminationRecordsPage = () => {
       {/* Filter Buttons */}
       <HStack spacing={4} mb={6}>
         <Button
-          variant={filterType === 'all' ? 'solid' : 'outline'}
+          variant={filterType === "all" ? "solid" : "outline"}
           colorScheme="teal"
-          onClick={() => setFilterType('all')}
+          onClick={() => setFilterType("all")}
         >
           All Examinations
         </Button>
         <Button
-          variant={filterType === 'regular' ? 'solid' : 'outline'}
+          variant={filterType === "regular" ? "solid" : "outline"}
           colorScheme="blue"
           leftIcon={<MdSchool />}
-          onClick={() => setFilterType('regular')}
+          onClick={() => setFilterType("regular")}
         >
           Course Examinations
         </Button>
         <Button
-          variant={filterType === 'standalone' ? 'solid' : 'outline'}
+          variant={filterType === "standalone" ? "solid" : "outline"}
           colorScheme="purple"
           leftIcon={<MdQuiz />}
-          onClick={() => setFilterType('standalone')}
+          onClick={() => setFilterType("standalone")}
         >
           Standalone Examinations
         </Button>
@@ -406,8 +420,14 @@ const ExaminationRecordsPage = () => {
 
       {/* Examination Records List */}
       <VStack spacing={4} align="stretch">
-        {(!examinationRecords || examinationRecords.length === 0) ? (
-          <Box bg={cardBg} borderColor={borderColor} borderWidth="1px" borderRadius="md" p={4}>
+        {!examinationRecords || examinationRecords.length === 0 ? (
+          <Box
+            bg={cardBg}
+            borderColor={borderColor}
+            borderWidth="1px"
+            borderRadius="md"
+            p={4}
+          >
             <VStack spacing={4} py={8}>
               <Icon as={BiTask} size="48px" color="gray.400" />
               <Text fontSize="lg" color="gray.500">
@@ -421,9 +441,7 @@ const ExaminationRecordsPage = () => {
         ) : (
           examinationRecords?.map((record, index) => {
             console.log(`Rendering record ${index}:`, record);
-            return (
-              <ExaminationCard key={record.id || index} record={record} />
-            );
+            return <ExaminationCard key={record.id || index} record={record} />;
           })
         )}
       </VStack>
@@ -442,8 +460,8 @@ const ExaminationRecordsPage = () => {
             <Button
               key={i + 1}
               onClick={() => handlePageChange(i + 1)}
-              variant={currentPage === i + 1 ? 'solid' : 'outline'}
-              colorScheme={currentPage === i + 1 ? 'primary' : 'gray'}
+              variant={currentPage === i + 1 ? "solid" : "outline"}
+              colorScheme={currentPage === i + 1 ? "primary" : "gray"}
             >
               {i + 1}
             </Button>
@@ -461,17 +479,28 @@ const ExaminationRecordsPage = () => {
   );
 };
 
-const StatCard = ({ icon, label, value, helpText, colorScheme, size = 'md' }) => {
-  const cardBg = useColorModeValue('white', 'gray.700');
+const StatCard = ({
+  icon,
+  label,
+  value,
+  helpText,
+  colorScheme,
+  size = "md",
+}) => {
+  const cardBg = useColorModeValue("white", "gray.700");
 
   return (
-    <Box bg={cardBg} borderRadius="md" p={size === 'sm' ? 3 : 4} borderWidth="1px" borderColor="gray.200">
+    <Box
+      bg={cardBg}
+      borderRadius="md"
+      p={size === "sm" ? 3 : 4}
+      borderWidth="1px"
+      borderColor="gray.200"
+    >
       <Stat>
-        {icon && size === 'md' && (
+        {icon && size === "md" && (
           <HStack>
-            <Box color={`${colorScheme}.500`}>
-              {icon}
-            </Box>
+            <Box color={`${colorScheme}.500`}>{icon}</Box>
             <Box>
               <StatLabel fontSize="sm" color="gray.500">
                 {label}
@@ -479,23 +508,22 @@ const StatCard = ({ icon, label, value, helpText, colorScheme, size = 'md' }) =>
               <StatNumber fontSize="2xl" fontWeight="bold">
                 {value}
               </StatNumber>
-              <StatHelpText fontSize="xs">
-                {helpText}
-              </StatHelpText>
+              <StatHelpText fontSize="xs">{helpText}</StatHelpText>
             </Box>
           </HStack>
         )}
-        {(!icon || size === 'sm') && (
+        {(!icon || size === "sm") && (
           <Box>
-            <StatLabel fontSize={size === 'sm' ? 'xs' : 'sm'} color="gray.500">
+            <StatLabel fontSize={size === "sm" ? "xs" : "sm"} color="gray.500">
               {label}
             </StatLabel>
-            <StatNumber fontSize={size === 'sm' ? 'xl' : '2xl'} fontWeight="bold">
+            <StatNumber
+              fontSize={size === "sm" ? "xl" : "2xl"}
+              fontWeight="bold"
+            >
               {value}
             </StatNumber>
-            <StatHelpText fontSize="xs">
-              {helpText}
-            </StatHelpText>
+            <StatHelpText fontSize="xs">{helpText}</StatHelpText>
           </Box>
         )}
       </Stat>
@@ -504,45 +532,56 @@ const StatCard = ({ icon, label, value, helpText, colorScheme, size = 'md' }) =>
 };
 
 const ExaminationCard = ({ record }) => {
-  const cardBg = useColorModeValue('white', 'gray.700');
-  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const cardBg = useColorModeValue("white", "gray.700");
+  const borderColor = useColorModeValue("gray.200", "gray.600");
 
-  console.log('ExaminationCard rendering with record:', record);
+  console.log("ExaminationCard rendering with record:", record);
 
   if (!record) {
     return (
-      <Box bg={cardBg} borderColor={borderColor} borderWidth="1px" borderRadius="md" p={4}>
+      <Box
+        bg={cardBg}
+        borderColor={borderColor}
+        borderWidth="1px"
+        borderRadius="md"
+        p={4}
+      >
         <Text color="red.500">Error: Invalid record data</Text>
       </Box>
     );
   }
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const getScoreColor = (score) => {
-    if (score >= 80) return 'green';
-    if (score >= 60) return 'orange';
-    return 'red';
+    if (score >= 80) return "green";
+    if (score >= 60) return "orange";
+    return "red";
   };
 
   const getTypeColor = (type) => {
-    return type === 'regular' ? 'blue' : 'purple';
+    return type === "regular" ? "blue" : "purple";
   };
 
   const getTypeIcon = (type) => {
-    return type === 'regular' ? MdSchool : MdQuiz;
+    return type === "regular" ? MdSchool : MdQuiz;
   };
 
   return (
-    <Box bg={cardBg} borderColor={borderColor} borderWidth="1px" borderRadius="md">
+    <Box
+      bg={cardBg}
+      borderColor={borderColor}
+      borderWidth="1px"
+      borderRadius="md"
+    >
       <Box pb={3} p={4}>
         <Flex justify="space-between" align="start">
           <VStack align="start" spacing={2}>
@@ -551,9 +590,11 @@ const ExaminationCard = ({ record }) => {
                 as={getTypeIcon(record.type)}
                 color={`${getTypeColor(record.type)}.500`}
               />
-              <Heading size="md">{record.examination?.title || 'Unknown Examination'}</Heading>
+              <Heading size="md">
+                {record.examination?.title || "Unknown Examination"}
+              </Heading>
               <Badge colorScheme={getTypeColor(record.type)}>
-                {record.type === 'regular' ? 'Course Exam' : 'Standalone'}
+                {record.type === "regular" ? "Course Exam" : "Standalone"}
               </Badge>
             </HStack>
             {record.examination?.course && (
@@ -568,7 +609,9 @@ const ExaminationCard = ({ record }) => {
               </HStack>
               <HStack>
                 <Icon as={FiBook} />
-                <Text>{record.examination?.amountOfQuestions || 0} Questions</Text>
+                <Text>
+                  {record.examination?.amountOfQuestions || 0} Questions
+                </Text>
               </HStack>
             </HStack>
           </VStack>
@@ -583,7 +626,8 @@ const ExaminationCard = ({ record }) => {
             </Badge>
             {record.numberOfCorrectAnswers && (
               <Text fontSize="sm" color="gray.600">
-                {record.numberOfCorrectAnswers}/{record.numberOfQuestion} correct
+                {record.numberOfCorrectAnswers}/{record.numberOfQuestion}{" "}
+                correct
               </Text>
             )}
           </VStack>
@@ -593,7 +637,7 @@ const ExaminationCard = ({ record }) => {
       <Box pt={0} px={4} pb={4}>
         <Accordion allowToggle>
           <AccordionItem border="none">
-            <AccordionButton px={0} _hover={{ bg: 'transparent' }}>
+            <AccordionButton px={0} _hover={{ bg: "transparent" }}>
               <Box flex="1" textAlign="left">
                 <Text fontWeight="medium" color="primary.base">
                   View Answer Sheet
@@ -610,9 +654,7 @@ const ExaminationCard = ({ record }) => {
                     question={question}
                     questionNumber={index + 1}
                   />
-                )) || (
-                    <Text color="gray.500">No questions available</Text>
-                  )}
+                )) || <Text color="gray.500">No questions available</Text>}
               </VStack>
             </AccordionPanel>
           </AccordionItem>
@@ -623,20 +665,20 @@ const ExaminationCard = ({ record }) => {
 };
 
 const QuestionCard = ({ question, questionNumber }) => {
-  const cardBg = useColorModeValue('gray.50', 'gray.600');
+  const cardBg = useColorModeValue("gray.50", "gray.600");
 
   // Parse the question JSON to extract text
   const getQuestionText = (questionJson) => {
     try {
-      if (typeof questionJson === 'string') {
+      if (typeof questionJson === "string") {
         const parsed = JSON.parse(questionJson);
         if (parsed.blocks && parsed.blocks.length > 0) {
-          return parsed.blocks.map(block => block.text).join(' ');
+          return parsed.blocks.map((block) => block.text).join(" ");
         }
       }
       return questionJson;
     } catch (error) {
-      console.error('Error parsing question:', error);
+      console.error("Error parsing question:", error);
       return questionJson;
     }
   };
@@ -645,19 +687,27 @@ const QuestionCard = ({ question, questionNumber }) => {
     <Box bg={cardBg} p={4} borderRadius="md">
       <VStack align="start" spacing={3}>
         <HStack align="start">
-          <Badge colorScheme="gray" mt={1}>Q{questionNumber}</Badge>
+          <Badge colorScheme="gray" mt={1}>
+            Q{questionNumber}
+          </Badge>
           <Text fontWeight="medium">{getQuestionText(question.question)}</Text>
         </HStack>
 
         {question.file && (
-          <Box borderWidth="1px" borderColor="gray.300" borderRadius="md" overflow="hidden" maxW="full">
+          <Box
+            borderWidth="1px"
+            borderColor="gray.300"
+            borderRadius="md"
+            overflow="hidden"
+            maxW="full"
+          >
             <img
               src={question.file}
               alt={`Question ${questionNumber} attachment`}
               style={{
-                maxWidth: '100%',
-                height: 'auto',
-                display: 'block'
+                maxWidth: "100%",
+                height: "auto",
+                display: "block",
               }}
             />
           </Box>
@@ -682,8 +732,10 @@ const QuestionCard = ({ question, questionNumber }) => {
               )}
             </HStack>
           )) || (
-              <Text fontSize="sm" color="gray.500">No options available</Text>
-            )}
+            <Text fontSize="sm" color="gray.500">
+              No options available
+            </Text>
+          )}
         </VStack>
       </VStack>
     </Box>
@@ -691,7 +743,12 @@ const QuestionCard = ({ question, questionNumber }) => {
 };
 
 const ExaminationRecordsPageRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <ExaminationRecordsPage {...props} />} />;
+  return (
+    <Route
+      {...rest}
+      render={(props) => <ExaminationRecordsPage {...props} />}
+    />
+  );
 };
 
 export default ExaminationRecordsPage;
