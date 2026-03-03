@@ -17,7 +17,6 @@
     "@material-ui/core": "^4.12.3",
     "@material-ui/icons": "^4.11.2",
     "@material-ui/pickers": "^3.3.10",
-    "@react-leaflet/core": "^1.0.2",
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/react": "^11.2.7",
     "@testing-library/user-event": "^13.3.0",
@@ -31,6 +30,7 @@
     "html2canvas": "^1.4.1",
     "js-file-download": "^0.4.12",
     "jspdf": "^2.5.1",
+    "leaflet": "^1.7.1",
     "msw": "^0.35.0",
     "mui-rte": "^1.29.0",
     "postcss": "^8.4.21",
@@ -44,7 +44,7 @@
     "react-elastic-carousel": "^0.11.5",
     "react-hook-form": "^7.15.0",
     "react-icons": "^4.2.0",
-    "react-leaflet": "^3.1.0",
+    "react-leaflet": "^2.8.0",
     "react-multi-select-component": "^4.2.1",
     "react-paginate": "^8.2.0",
     "react-player": "^2.9.0",
@@ -65,7 +65,8 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "postbuild": "node webconfig/copyWebConfig.js"
-  },  "resolutions": {
+  },
+  "resolutions": {
     "react-error-overlay": "6.0.9"
   },
   "eslintConfig": {
