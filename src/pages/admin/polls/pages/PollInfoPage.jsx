@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useState } from 'react';
 import { Route, useParams } from 'react-router-dom';
 import { Box, Flex } from '@chakra-ui/layout';

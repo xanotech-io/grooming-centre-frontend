@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Flex, Grid } from "@chakra-ui/layout";
 import { Button, Heading, Spinner, Text } from "../../../components";
-import breakpoints from "../../../theme/breakpoints";
 import { EmptyState } from "../../../layouts";
 import dayjs from "dayjs";
 import {
@@ -94,30 +93,30 @@ const Listing = ({ events, headerButton }) => {
 
   return (
     <Box
-      minHeight='50vh'
+      minHeight="50vh"
       // width={breakpoints.tablet}
-      marginX='auto'
-      border='1px'
-      backgroundColor='white'
-      borderColor='accent.1'
-      rounded='md'
+      marginX="auto"
+      border="1px"
+      backgroundColor="white"
+      borderColor="accent.1"
+      rounded="md"
     >
       <Grid
-				columnGap={10}
-				templateColumns='70px 50px 1fr 160px'
-				borderBottom='1px'
-				borderColor='accent.1'
-				px={3}
-				height='65px'
-				alignItems='center'
+        columnGap={10}
+        templateColumns="70px 50px 1fr 160px"
+        borderBottom="1px"
+        borderColor="accent.1"
+        px={3}
+        height="65px"
+        alignItems="center"
       >
-        <Text opacity={0.8} textAlign='center' bold>
+        <Text opacity={0.8} textAlign="center" bold>
           Event ID
         </Text>
-        <Text opacity={0.8} textAlign='center' bold>
+        <Text opacity={0.8} textAlign="center" bold>
           Date
         </Text>
-        <Text opacity={0.8} textAlign='center' bold>
+        <Text opacity={0.8} textAlign="center" bold>
           Event Type
         </Text>
         <Box display="flex" alignItems="center">
@@ -146,40 +145,43 @@ const Listing = ({ events, headerButton }) => {
             <Grid
               key={event.id}
               columnGap={10}
-              templateColumns='70px 50px 1fr 100px'
-              borderBottom='1px'
-              borderColor='accent.1'
+              templateColumns="70px 50px 1fr 100px"
+              borderBottom="1px"
+              borderColor="accent.1"
               py={5}
             >
-              <Box textAlign='center'>
+              <Box textAlign="center">
                 <Text bold>{event.displayId}</Text>
               </Box>
 
-              <Box textAlign='center'>
-                <Text color='primary.hover' as='level5'>
-                  {dayjs(event.startTime).format('dddd')}
+              <Box textAlign="center">
+                <Text color="primary.hover" as="level5">
+                  {dayjs(event.startTime).format("dddd")}
                 </Text>
-                <Text fontSize='heading.h3' bold color='primary.base'>
-                  {dayjs(event.startTime).format('D')}
+                <Text fontSize="heading.h3" bold color="primary.base">
+                  {dayjs(event.startTime).format("D")}
                 </Text>
-                <Text bold>{dayjs(event.startTime).format('MMM')}</Text>
+                <Text bold>{dayjs(event.startTime).format("MMM")}</Text>
               </Box>
 
               <Box>
-                <Text color='primary.hover' as='level5'>
-                  {dayjs(event.startTime).format('h:mm A')} to{' '}
-                  {dayjs(event.endTime).format('h:mm A')}
+                <Text color="primary.hover" as="level5">
+                  {dayjs(event.startTime).format("h:mm A")} to{" "}
+                  {dayjs(event.endTime).format("h:mm A")}
                   <Tag
-                    size='sm'
-                    variant='solid'
+                    size="sm"
+                    variant="solid"
                     marginLeft={6}
                     colorScheme={
-                      isOngoing(event.startTime, event.endTime) ? 'green' : 'gray'
+                      isOngoing(event.startTime, event.endTime)
+                        ? "green"
+                        : "gray"
                     }
                   >
-                    {isOngoing(event.startTime, event.endTime) && 'Ongoing Event'}
-                    {hasEnded(event.endTime) && 'Event Has Ended'}
-                    {isUpcoming(event.startTime) && 'Event Is Upcoming'}
+                    {isOngoing(event.startTime, event.endTime) &&
+                      "Ongoing Event"}
+                    {hasEnded(event.endTime) && "Event Has Ended"}
+                    {isUpcoming(event.startTime) && "Event Is Upcoming"}
                   </Tag>
                 </Text>
 

@@ -28,7 +28,7 @@ import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight } fro
 import { useHistory } from 'react-router-dom';
 import { Bar } from 'react-chartjs-2';
 import { motion } from 'framer-motion';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker,  } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // --- Mock Data ---

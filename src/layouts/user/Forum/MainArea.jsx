@@ -9,7 +9,6 @@ import {
   YourAnswersPageRoute,
   YourQuestionsPageRoute,
 } from "../../../pages/user";
-import { BiMenu } from "react-icons/bi";
 
 const MainArea = ({ ...rest }) => {
   return (

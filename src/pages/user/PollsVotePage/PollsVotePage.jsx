@@ -4,8 +4,6 @@ import {
   Button,
   Heading,
   Image,
-  Link,
-  RichTextToView,
   Text,
 } from "../../../components";
 import coverImagePlaceholder from "../../../assets/images/events-banner.svg";
@@ -13,7 +11,6 @@ import breakpoints, {
   pageWrapperSpacing_userPages,
 } from "../../../theme/breakpoints";
 import {
-  adminGetPollListing,
   adminGetSinglePoll,
 } from "../../../services/http/endpoints/poll";
 import { useEffect } from "react";
@@ -27,6 +24,7 @@ const PollsVotePage = () => {
   const { id: pollId } = useParams();
   const [singlePoll, setSinglePoll] = useState([]);
   const [answer, setAnswer] = useState();
+  // eslint-disable-next-line no-unused-vars
   const [loading, setLoading] = useState(false);
   const history = useHistory();
 

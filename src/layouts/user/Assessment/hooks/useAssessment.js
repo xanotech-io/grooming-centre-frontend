@@ -5,8 +5,7 @@ import { useParams } from "react-router";
 import { useCache } from "../../../../contexts";
 import { Text } from "../../../../components";
 import useQueryParams from "../../../../hooks/useQueryParams";
-import useAssessmentPreview from "../../../../pages/user/Courses/TakeCourse/hooks/useAssessmentPreview";
-import { createCertificate, submitAssessment } from "../../../../services";
+import {  submitAssessment } from "../../../../services";
 import { submitExamination } from "../../../../services/http/endpoints/examination";
 import { hasEnded, isUpcoming, sortByIndexField } from "../../../../utils";
 import { CongratsModalContent } from "../Modal";
@@ -15,22 +14,22 @@ import { Box } from "@chakra-ui/layout";
 import useCourseExamPreview from "../../../../pages/user/Courses/TakeCourse/hooks/courseExamPreview/useCourseExamPreview";
 import {
   useHistory,
-  useLocation,
+
 } from "react-router-dom/cjs/react-router-dom.min";
-import { Warning } from "@material-ui/icons";
+
 
 const useAssessment = () => {
   const { assessment, isLoading, error, setError } = useCourseExamPreview();
   const { course_id } = useParams();
   const isExamination = useQueryParams().get("examination");
   const [score, setScore] = useState("");
+   // eslint-disable-next-line no-unused-vars
   const [end, setEnd] = useState(true);
-  const [count, increaseCount] = useState(0);
+
   const { push } = useHistory();
   const totalSteps = 3;
   const [nav, setNav] = useState(false);
   const [exitAttempts, setExitAttempts] = useState(0);
-  const [onblur, setIsOnblur] = useState(false);
   assessment.questions = sortByIndexField(
     assessment.questions,
     "questionIndex"
@@ -176,6 +175,7 @@ const useAssessment = () => {
       const body = {
         courseId: assessment.courseId,
       };
+      console.log(body)
     } catch (error) {
       toast({
         description: error.message,
@@ -287,6 +287,8 @@ const useAssessment = () => {
       window.removeEventListener("beforeunload", handleUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exitAttempts]);
 
   const handleQuestionChange = (question) => setCurrentQuestion(question);

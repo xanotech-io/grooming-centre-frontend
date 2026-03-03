@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useToast } from '@chakra-ui/toast';
 import { Box, Stack } from '@chakra-ui/layout';
 import { useEffect, useState } from 'react';

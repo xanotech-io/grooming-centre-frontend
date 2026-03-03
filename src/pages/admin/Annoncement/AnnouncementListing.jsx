@@ -1,10 +1,8 @@
 import { Route } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
 
-import { BreadcrumbItem, Tag } from "@chakra-ui/react";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { FaSortAmountUpAlt } from "react-icons/fa";
-
-import { getDuration } from "../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../hooks";
 import {
@@ -17,9 +15,7 @@ import {
 } from "../../../components";
 import {
   adminDeleteAnnouncement,
-  adminDeleteStandaloneExaminationQuestion,
   adminGetAnnouncementListing,
-  adminGetStandaloneExaminationListing,
 } from "../../../services";
 import { AdminMainAreaWrapper } from "../../../layouts";
 

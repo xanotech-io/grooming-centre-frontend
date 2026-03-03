@@ -15,7 +15,6 @@ import {
   Checkbox,
   Select,
   IconButton,
-  Badge,
   Table,
   Thead,
   Tbody,
@@ -23,10 +22,8 @@ import {
   Th,
   Td,
   Spacer,
-  Divider,
   useDisclosure,
 } from '@chakra-ui/react';
-import { motion } from 'framer-motion';
 import { 
   FiChevronDown, 
   FiPlus, 
@@ -277,6 +274,8 @@ const CustomAdHocReportPage = () => {
           </Box>
         </GridItem>
       </Grid>
+
+      {setStatus("")}
 
       {/* Results Table - Only shown in Finalized state */}
       {status === 'Finalized' && (

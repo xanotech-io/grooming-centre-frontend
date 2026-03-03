@@ -35,11 +35,9 @@ import {
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { Route, useHistory } from 'react-router-dom';
-import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight, FiPlusCircle, FiBell, FiSettings, FiChevronDown } from 'react-icons/fi';
-import { AiOutlineArrowUp, AiOutlineArrowDown } from 'react-icons/ai';
+import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight, FiChevronDown } from 'react-icons/fi';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 import { AdminMainAreaWrapper } from '../../../layouts';
-import colors from '../../../theme/colors';
 import QuestionBankUsageReport from './QuestionBankUsageReport';
 import RandomizationIntegrityReport from './RandomizationIntegrityReport';
 import ProctoringAuditReport from './ProctoringAuditReport';

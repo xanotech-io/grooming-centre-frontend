@@ -1,6 +1,5 @@
 import { Route } from "react-router-dom";
-import { Flex, Box } from "@chakra-ui/layout";
-import { Text } from "../../../components";
+import { Flex } from "@chakra-ui/layout";
 import { Certificate } from "../../admin/users/UserInfoPage/pages/certTemp";
 import useCertificateDetails from "./hooks/useCertificateDetais";
 import { PageLoaderLayout } from "../../../layouts";

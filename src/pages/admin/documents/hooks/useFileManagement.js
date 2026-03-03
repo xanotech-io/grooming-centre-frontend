@@ -1,7 +1,8 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useCallback } from 'react';
 import axios from 'axios';
 
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://privateapi.groomingcentre.net/api/v1';
+const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://52.228.43.176:8089';
 
 export const useFileManagement = () => {
     const [files, setFiles] = useState([]);
