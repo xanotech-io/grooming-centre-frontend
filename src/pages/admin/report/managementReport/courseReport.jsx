@@ -7,7 +7,6 @@ import {
   Text,
   Spinner,
   DashboardMetricCard,
-  Avatar,
 } from "../../../../components";
 import { EmptyState } from "../../../../layouts";
 import dayjs from "dayjs";
