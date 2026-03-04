@@ -5,7 +5,6 @@ import { Flex, Box } from "@chakra-ui/layout";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { DashboardMetricCard } from "../../../../components";
 import dayjs from "dayjs";
-import { Avatar } from "@chakra-ui/avatar";
 import { Tag } from "@chakra-ui/tag";
 import { useTableRows } from "../../../../hooks";
 import { mockStudentReportsResponse } from "../../../../mocks/server/controllers/student-report/reponses";
@@ -249,6 +248,7 @@ const ProgressReport = () => {
             handleFetch={fetchRowItems}
             isLoading={loading}
             placeholder="Search by student, course, or status"
+            totalCount={totalCount}
           />
         )}
       </AdminMainAreaWrapper>

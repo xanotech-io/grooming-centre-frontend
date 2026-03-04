@@ -2,14 +2,13 @@ import React, { useState, useRef, useEffect } from "react";
 import { Route } from "react-router-dom";
 import { Box, Flex, Text } from "@chakra-ui/layout";
 import { Checkbox, Tag, IconButton, Input as ChakraInput } from "@chakra-ui/react";
-import { useHistory, useParams } from "react-router-dom";
+import { useHistory } from "react-router-dom";
 import {
     FaSearch,
     FaSlidersH,
     FaChevronLeft,
     FaChevronRight,
     FaEllipsisV,
-    FaArrowLeft,
 } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 

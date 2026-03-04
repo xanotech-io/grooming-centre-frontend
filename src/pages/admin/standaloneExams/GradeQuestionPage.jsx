@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Route } from "react-router-dom";
-import { Box, Flex, Text, Grid, GridItem } from "@chakra-ui/layout";
+import { Box, Flex, Text, Grid } from "@chakra-ui/layout";
 import { Textarea } from "@chakra-ui/react";
 import { useHistory, useParams } from "react-router-dom";
 import { FaArrowLeft, FaClipboardList } from "react-icons/fa";

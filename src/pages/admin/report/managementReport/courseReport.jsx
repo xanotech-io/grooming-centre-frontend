@@ -229,6 +229,7 @@ const CourseRoasterReport = () => {
           handleFetch={fetchRowItems}
           isLoading={loading}
           placeholder="Search here..."
+          totalCount={totalCount}
         />
       )}
     </AdminMainAreaWrapper>

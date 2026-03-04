@@ -224,6 +224,7 @@ const AssessmentReport = () => {
             handleFetch={fetchRowItems}
             isLoading={loading}
             placeholder="Search by student, course, or status"
+            totalCount={totalCount}
           />
         )}
       </AdminMainAreaWrapper>
