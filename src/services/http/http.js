@@ -8,8 +8,8 @@ axios.interceptors.response.use(null, (err) => {
   return Promise.reject(error);
 });
 
-export const baseURL = 'http://localhost:4000/api/v1';
-// 'https://privateapi.groomingcentre.net/api/v1';
+export const baseURL = 'https://privateapi.groomingcentre.net/api/v1';
+// 'http://localhost:4000/api/v1';
 const token = localStorage.getItem('token');
 
 const defaultOptions = (explicitToken = token) => ({
