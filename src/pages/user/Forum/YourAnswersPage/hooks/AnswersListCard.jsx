@@ -1,14 +1,9 @@
-import { Flex, HStack, Stack, Text } from '@chakra-ui/layout';
-import React, { useState } from 'react';
-import {
-  AiFillDislike,
-  AiFillLike,
-  AiOutlineDislike,
-  AiOutlineLike,
-} from 'react-icons/ai';
-import { FiChevronsDown, FiCornerDownRight, FiMenu } from 'react-icons/fi';
-import { PlainButtonWithIcon } from '../../../../../components';
-import CommentForm from '../../Comments/CommentForm';
+import { Flex, HStack, Stack, Text } from "@chakra-ui/layout";
+import React, { useState } from "react";
+import { AiOutlineDislike, AiOutlineLike } from "react-icons/ai";
+import { FiMenu } from "react-icons/fi";
+import { PlainButtonWithIcon } from "../../../../../components";
+import CommentForm from "../../Comments/CommentForm";
 
 const useCommentListCard = () => {
   const [displayEditForm, setDisplayEditForm] = useState(false);
@@ -33,31 +28,26 @@ const useCommentListCard = () => {
 const AnswersListCard = ({
   id,
   questionId,
-  createdAt,
+
   body,
-  replyCount,
+
   likes,
   dislikes,
-  user,
+
   onReplySuccess,
-  onCommentEditSuccess,
-  onCommentDelete,
-  deleteStatusIsLoading,
-  expStatusIsLoading,
-  onCommentExpression,
-  onReplyToggle,
-  displayReplies,
-  noBorder,
+  // onCommentEditSuccess,
+  // onCommentDelete,
+  // deleteStatusIsLoading,
+  // expStatusIsLoading,
+  // onCommentExpression,
+  // onReplyToggle,
+  // displayReplies,
+  // noBorder,
   active,
-  mentionedUser,
-  deactivateAddComment,
+  
 }) => {
   const {
     displayReplyForm,
-    displayEditForm,
-    handleDisplayReplyForm,
-    handleDisplayEditForm,
-    handleHideEditForm,
     handleHideReplyForm,
   } = useCommentListCard();
 
@@ -84,7 +74,7 @@ const AnswersListCard = ({
           <HStack spacing={3}>
             <PlainButtonWithIcon
               _active={{
-                transform: 'scale(1.03)',
+                transform: "scale(1.03)",
               }}
               text={likes}
               icon={<AiOutlineLike />}
@@ -92,7 +82,7 @@ const AnswersListCard = ({
 
             <PlainButtonWithIcon
               _active={{
-                transform: 'scale(1.03)',
+                transform: "scale(1.03)",
               }}
               text={dislikes}
               icon={<AiOutlineDislike />}
@@ -112,7 +102,7 @@ const AnswersListCard = ({
           {questionId && (
             <PlainButtonWithIcon
               color="accent.6"
-              text={'View question'}
+              text={"View question"}
               icon={<FiMenu />}
               link={`/forum/questions/details/${questionId}`}
             />

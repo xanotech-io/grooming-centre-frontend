@@ -1,8 +1,9 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { Box, Flex, Grid, GridItem } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useParams, useHistory } from "react-router-dom";
+import {  useHistory } from "react-router-dom";
 import {
   Button,
   DateTimePicker,
@@ -11,7 +12,7 @@ import {
   Select,
   Spinner,
 } from "../../../components";
-import { useApp, useCache } from "../../../contexts";
+import { useCache } from "../../../contexts";
 import { useDateTimePicker, useGoBack, useQueryParams } from "../../../hooks";
 import {
   adminCreateStandaloneExamination,
@@ -26,7 +27,7 @@ const OverViewStandalone = () => {
   const { isLoading, error, assessment } = useAssessmentPreview(
     null,
     examinationId ? examinationId : "isStandaloneExamination && isNotEdit",
-    true
+    true,
   );
   const isEditmode = !examinationId === false;
 
@@ -63,7 +64,8 @@ const EditStandalonePage = ({ assessment }) => {
   }, [assessment?.topic, setValue]);
 
   useEffect(() => {
-    if (assessment?.startTime) startTimeManager.handleChange(assessment?.startTime);
+    if (assessment?.startTime)
+      startTimeManager.handleChange(assessment?.startTime);
   }, [assessment?.startTime]);
 
   useEffect(() => {
@@ -71,11 +73,13 @@ const EditStandalonePage = ({ assessment }) => {
   }, [assessment?.duration, setValue]);
 
   useEffect(() => {
-    if (assessment?.questionCount) setValue("amountOfQuestions", assessment?.questionCount);
+    if (assessment?.questionCount)
+      setValue("amountOfQuestions", assessment?.questionCount);
   }, [assessment?.questionCount, setValue]);
 
   useEffect(() => {
-    if (assessment?.isPublished) setValue("isPublished", assessment?.isPublished);
+    if (assessment?.isPublished)
+      setValue("isPublished", assessment?.isPublished);
   }, [assessment?.isPublished, setValue]);
 
   const { push } = useHistory();
@@ -86,13 +90,17 @@ const EditStandalonePage = ({ assessment }) => {
 
   const onSubmit = async (data) => {
     try {
-      const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
+      const startTime =
+        startTimeManager.handleGetValueAndValidate("Start Time");
       const body = {
         ...data,
         startTime: formatDateToISO(startTime),
       };
 
-      const { message } = await adminEditStandaloneExamination(examinationId, body);
+      const { message } = await adminEditStandaloneExamination(
+        examinationId,
+        body,
+      );
 
       toast({
         description: capitalizeFirstLetter(message),
@@ -112,8 +120,18 @@ const EditStandalonePage = ({ assessment }) => {
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit(onSubmit)} marginY="20px" marginX="22px">
-      <Box backgroundColor="white" padding="40px" borderRadius="8px" shadow="sm">
+    <Box
+      as="form"
+      onSubmit={handleSubmit(onSubmit)}
+      marginY="20px"
+      marginX="22px"
+    >
+      <Box
+        backgroundColor="white"
+        padding="40px"
+        borderRadius="8px"
+        shadow="sm"
+      >
         <Heading as="h3" size="md" marginBottom="20px" color="#1A202C">
           Examination Details
         </Heading>
@@ -154,7 +172,9 @@ const EditStandalonePage = ({ assessment }) => {
               id="amountOfQuestions"
               placeholder="Enter the number of questions"
               error={errors.amountOfQuestions?.message}
-              {...register("amountOfQuestions", { required: "Please enter number of questions" })}
+              {...register("amountOfQuestions", {
+                required: "Please enter number of questions",
+              })}
             />
           </GridItem>
 
@@ -238,12 +258,14 @@ const CreateStandalonePage = () => {
 
   const onSubmit = async (data) => {
     try {
-      const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
+      const startTime =
+        startTimeManager.handleGetValueAndValidate("Start Time");
       const body = {
         ...data,
         startTime: formatDateToISO(startTime),
       };
-      const { message, examination } = await adminCreateStandaloneExamination(body);
+      const { message, examination } =
+        await adminCreateStandaloneExamination(body);
 
       toast({
         description: capitalizeFirstLetter(message),
@@ -261,8 +283,18 @@ const CreateStandalonePage = () => {
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit(onSubmit)} marginY="20px" marginX="22px">
-      <Box backgroundColor="white" padding="40px" borderRadius="8px" shadow="sm">
+    <Box
+      as="form"
+      onSubmit={handleSubmit(onSubmit)}
+      marginY="20px"
+      marginX="22px"
+    >
+      <Box
+        backgroundColor="white"
+        padding="40px"
+        borderRadius="8px"
+        shadow="sm"
+      >
         <Heading as="h3" size="md" marginBottom="20px" color="#1A202C">
           Examination Details
         </Heading>
@@ -303,7 +335,9 @@ const CreateStandalonePage = () => {
               id="amountOfQuestions"
               placeholder="Enter the number of questions"
               error={errors.amountOfQuestions?.message}
-              {...register("amountOfQuestions", { required: "Please enter number of questions" })}
+              {...register("amountOfQuestions", {
+                required: "Please enter number of questions",
+              })}
             />
           </GridItem>
 

@@ -8,24 +8,17 @@ import { Text } from "../../../../components";
 import { useQueryParams } from "../../../../hooks";
 import useStandalonePreview from "./useStandalonePreview";
 import {
-  createCertificate,
   submitAssessment,
   submitExamination,
 } from "../../../../services";
 import { hasEnded, isUpcoming, sortByIndexField } from "../../../../utils";
 import { CongratsModalContent } from "../../../../layouts/user/Assessment/Modal";
 import useTimerCountdown from "../../../../layouts/user/Assessment/hooks/useTimerCountdown";
-import { useHistory } from "react-router-dom";
-import { Warning } from "@material-ui/icons";
-import { useLocation } from "react-router-dom/cjs/react-router-dom";
 const useStandalone = () => {
   const { assessment, isLoading, error, setError } = useStandalonePreview();
-  const { course_id, userId } = useParams();
+  const { course_id } = useParams();
   const isExamination = useQueryParams().get("exam");
-  const [locate, setLocate] = useState("");
-  const [end, setEnd] = useState(true);
-  const [count, increaseCount] = useState(0);
-  const [onblur, setIsOnblur] = useState(false);
+  const [end] = useState(true);
   const pageLength = assessment?.question?.length - 1;
   const [index, setindex] = useState(0);
   let handleExam;
@@ -82,7 +75,6 @@ const useStandalone = () => {
   });
   const [questionId, setQuestionId] = useState([]);
   const [optionId, setOptionId] = useState([]);
-  const [id, setId] = useState(0);
   const toast = useToast();
   // const {
   //   state: { user },
@@ -169,6 +161,7 @@ const useStandalone = () => {
     if (submitStatus.success) {
       handleAfterSubmit();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitStatus.success]);
 
   const handleSubmitConfirmation = (e) => {

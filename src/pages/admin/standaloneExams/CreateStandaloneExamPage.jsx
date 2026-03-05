@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+
 import { Route, Switch } from 'react-router-dom';
 
 import { useQueryParams } from '../../../hooks';

@@ -13,7 +13,6 @@ import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminDeleteExamination,
-  adminDeleteMultipleCourses,
   adminGetExaminationListing,
 } from "../../../../../services";
 import { getDuration } from "../../../../../utils";

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { Grid, Stack } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
 import { Route, useParams, useHistory } from "react-router-dom";
