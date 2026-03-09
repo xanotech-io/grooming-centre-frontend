@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Route } from 'react-router-dom';
 import {
     Box,
@@ -37,15 +37,9 @@ import { MdClose } from "react-icons/md";
 import { FiMoreVertical } from "react-icons/fi";
 import { Button, Heading, Select } from '../../../components';
 import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
+import { adminGetBadges, adminCreateBadge, adminDeleteBadge } from '../../../services';
 
-const MOCK_BADGES = [
-    { id: 'BGD-001', title: 'Agriculture Fundamentals Badge', reqCourses: '5', courseCount: '3', status: 'In-progress', remark: 'User has 2 courses left' },
-    { id: 'BGD-001', title: 'Safety Compliance Badge', reqCourses: '3', courseCount: '3', status: 'Earned', remark: 'All required courses completed' },
-    { id: 'BGD-001', title: 'Engineering Skill Level 1', reqCourses: '5', courseCount: '2', status: 'In-progress', remark: 'GC can see remaining 3 courses' },
-    { id: 'BGD-001', title: 'Digital Literacy Starter Badge', reqCourses: '1', courseCount: '0', status: 'Not Started', remark: 'Requirement clearly displayed' },
-    { id: 'BGD-001', title: 'Agriculture Fundamentals Badge', reqCourses: '7', courseCount: '5', status: 'In-progress', remark: 'User has 2 courses left' },
-    { id: 'BGD-001', title: 'Safety Compliance Badge', reqCourses: '4', courseCount: '4', status: 'Earned', remark: 'All required courses completed' },
-];
+const MOCK_BADGES = [];
 
 const getStatusBadge = (status) => {
     switch (status) {
@@ -60,12 +54,46 @@ const getStatusBadge = (status) => {
     }
 };
 
-const CreateBadgeModal = ({ isOpen, onClose }) => {
+const CreateBadgeModal = ({ isOpen, onClose, onCreated }) => {
     const fileInputRef = useRef(null);
     const [fileName, setFileName] = useState('');
+    const [title, setTitle] = useState('');
+    const [requiredCourseCount, setRequiredCourseCount] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleFileChange = (e) => {
         if (e.target.files[0]) setFileName(e.target.files[0].name);
+    };
+
+    const handleSubmit = async () => {
+        try {
+            setIsSubmitting(true);
+            // Simple mapping to backend shape; adjust when real data model is final
+            await adminCreateBadge({
+                name: title,
+                description: '',
+                imageUrl: '',
+                category: 'course_completion',
+                criteria: {
+                    requiredCourses: Number(requiredCourseCount) || 0,
+                },
+                points: 0,
+                expiryDays: 0,
+            });
+            setTitle('');
+            setRequiredCourseCount('');
+            setFileName('');
+            onClose();
+            onCreated?.();
+        } catch (error) {
+            // TODO: surface error to user when design is ready
+            console.error('Failed to create badge', error);
+        } finally {
+            setIsSubmitting(false);
+        }
+
+
+        
     };
 
     return (
@@ -107,6 +135,8 @@ const CreateBadgeModal = ({ isOpen, onClose }) => {
                                 borderRadius="6px"
                                 borderColor="#E2E8F0"
                                 _focus={{ borderColor: '#6b006b', boxShadow: 'none' }}
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
                             />
                         </FormControl>
 
@@ -150,7 +180,7 @@ const CreateBadgeModal = ({ isOpen, onClose }) => {
                             <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={1}>
                                 Required Course Count
                             </FormLabel>
-                            <NumberInput min={1}>
+                            <NumberInput min={1} value={requiredCourseCount} onChange={(value) => setRequiredCourseCount(value)}>
                                 <NumberInputField
                                     placeholder="Enter number of required course count"
                                     fontSize="14px"
@@ -239,8 +269,10 @@ const CreateBadgeModal = ({ isOpen, onClose }) => {
                                 color="white"
                                 bg="#6b006b"
                                 _hover={{ bg: '#520052' }}
+                                onClick={handleSubmit}
+                                disabled={isSubmitting || !title}
                             >
-                                Save and publish badge
+                                {isSubmitting ? 'Saving...' : 'Save and publish badge'}
                             </Box>
                         </Flex>
                     </Box>
@@ -252,9 +284,37 @@ const CreateBadgeModal = ({ isOpen, onClose }) => {
 
 const BadgeSupportPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [badges, setBadges] = useState(MOCK_BADGES);
+
+    const loadBadges = async () => {
+        try {
+            const { badges: fetched } = await adminGetBadges();
+            setBadges(fetched || []);
+        } catch (error) {
+            console.error('Failed to load badges', error);
+        }
+    };
+
+    useEffect(() => {
+        loadBadges();
+    }, []);
+    
+    const handleDelete = async (badgeId) => {
+        try {
+            await adminDeleteBadge(badgeId);
+            await loadBadges();
+        } catch (error) {
+            console.error('Failed to delete badge', error);
+        }
+    };
+
     return (
         <>
-            <CreateBadgeModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+            <CreateBadgeModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onCreated={loadBadges}
+            />
             <AdminMainAreaWrapper>
                 <Box marginX="22px" marginY="30px">
                     {/* Header Section */}
@@ -358,17 +418,25 @@ const BadgeSupportPage = () => {
                                     </Tr>
                                 </Thead>
                                 <Tbody>
-                                    {MOCK_BADGES.map((row, idx) => (
+                                    {badges.map((row, idx) => (
                                         <Tr key={idx} _hover={{ bg: "#F8FAFC" }}>
                                             <Td pl={6} py={4} borderBottom="1px solid #E2E8F0">
                                                 <input type="checkbox" style={{ accentColor: "#6B006B" }} />
                                             </Td>
                                             <Td color="#4A5568" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.id}</Td>
-                                            <Td color="#1A202C" fontSize="14px" fontWeight="500" borderBottom="1px solid #E2E8F0" maxW="200px" whiteSpace="normal">{row.title}</Td>
-                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.reqCourses}</Td>
-                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.courseCount}</Td>
-                                            <Td borderBottom="1px solid #E2E8F0">{getStatusBadge(row.status)}</Td>
-                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0" maxW="200px" whiteSpace="normal">{row.remark}</Td>
+                                            <Td color="#1A202C" fontSize="14px" fontWeight="500" borderBottom="1px solid #E2E8F0" maxW="200px" whiteSpace="normal">{row.name}</Td>
+                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0">
+                                                {row.criteria?.requiredCourses ?? '-'}
+                                            </Td>
+                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0">
+                                                {row.criteria?.coursesCompleted ?? '-'}
+                                            </Td>
+                                            <Td borderBottom="1px solid #E2E8F0">
+                                                {getStatusBadge(row.status || 'In-progress')}
+                                            </Td>
+                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0" maxW="200px" whiteSpace="normal">
+                                                {row.description || '-'}
+                                            </Td>
                                             <Td textAlign="center" borderBottom="1px solid #E2E8F0">
                                                 <Menu placement="bottom-end">
                                                     <MenuButton
@@ -382,7 +450,13 @@ const BadgeSupportPage = () => {
                                                     />
                                                     <MenuList minWidth="120px">
                                                         <MenuItem fontSize="14px" color="#1A202C">Edit Badge</MenuItem>
-                                                        <MenuItem fontSize="14px" color="red.500">Delete Badge</MenuItem>
+                                                        <MenuItem
+                                                            fontSize="14px"
+                                                            color="red.500"
+                                                            onClick={() => handleDelete(row.id)}
+                                                        >
+                                                            Delete Badge
+                                                        </MenuItem>
                                                     </MenuList>
                                                 </Menu>
                                             </Td>

@@ -318,17 +318,44 @@ const tableProps = {
   filterControls: [],
 
   columns: [
+
+    {
+      id: '1',
+      key: 'roleId',
+      text: 'Role ID',
+      fraction: '1fr',
+    },
     {
       id: '2',
       key: 'name',
       text: 'Title',
       fraction: '1fr',
     },
+
     {
-      id: '4',
+      id: '3',
       key: 'noOfUsers',
       text: 'No users',
       fraction: '150px',
+    },
+
+    {
+      id: '4',
+      key: 'date',
+      text: 'Date',
+      fraction: '1fr',
+    },
+    {
+      id: '5',
+      key: 'accessLevel',
+      text: 'Access Level',
+      fraction: '1fr',
+    },
+    {
+      id: '6',
+      key: 'action',
+      text: 'Action',
+      fraction: '1fr',
     },
   ],
 
@@ -344,6 +371,9 @@ const RolesPage = () => {
     id: role.id,
     name: role.name,
     noOfUsers: role.noOfUsers,
+    date: role.date,
+    accessLevel: role.accessLevel,
+    action: role.action,
   });
 
   const fetcher = () => async () => {

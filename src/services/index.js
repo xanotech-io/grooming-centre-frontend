@@ -3,6 +3,7 @@ export * from './http/endpoints/auth';
 export * from './http/endpoints/chat';
 export * from './http/endpoints/assessment';
 export * from './http/endpoints/index';
+export * from './http/endpoints/badge';
 export * from './http/endpoints/examination';
 export * from './http/endpoints/standaloneExamination';
 export * from './http/endpoints/forum/comment';

@@ -12,11 +12,14 @@ export const adminGetRoleListing = async () => {
     data: { data },
   } = await http.get(path);
 
-   const roles = data.userRoles.map((role) => ({
-     id: role.id,
-     name: role.name,
-     noOfUsers: role.noOfUsers,
-   }));
+  const roles = data.userRoles.map((role) => ({
+    id: role.id,
+    name: role.name,
+    noOfUsers: role.noOfUsers,
+    date: role.date,
+    accessLevel: role.accessLevel,
+    action: role.action,
+  }));
 
-   return { roles };
+  return { roles };
 };
