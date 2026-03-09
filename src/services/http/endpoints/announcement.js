@@ -4,7 +4,7 @@ import { http } from "../http";
  * Endpoint to get, create and edit `announcements`
  */
 export const adminCreateAnnouncement = async (body) => {
-  const path = "/announcement/create";
+  const path = "/v1/announcement/create";
 
   const {
     data: { message, data },
@@ -14,7 +14,7 @@ export const adminCreateAnnouncement = async (body) => {
 };
 
 export const adminGetAnnouncementListing = async (params) => {
-  const path = `/announcement/admin`;
+  const path = `/v1/announcement/admin`;
 
   const {
     data: { data },
@@ -43,7 +43,7 @@ export const adminGetAnnouncementListing = async (params) => {
 };
 
 export const adminGetAnnouncement = async (id) => {
-  const path = `/announcement/admin/${id}`;
+  const path = `/v1/announcement/admin/${id}`;
 
   console.log(id);
 
@@ -65,7 +65,7 @@ export const adminGetAnnouncement = async (id) => {
 };
 
 export const adminEditAnnouncement = async (id, body) => {
-  const path = `/announcement/edit/${id}`;
+  const path = `/v1/announcement/edit/${id}`;
 
   const {
     data: { message },
@@ -74,7 +74,7 @@ export const adminEditAnnouncement = async (id, body) => {
   return { message };
 };
 export const adminDeleteAnnouncement = async (id) => {
-  const path = `/announcement/delete/${id}`;
+  const path = `/v1/announcement/delete/${id}`;
 
   const {
     data: { message },
@@ -84,7 +84,7 @@ export const adminDeleteAnnouncement = async (id) => {
 };
 
 export const userGetAnnouncement = async () => {
-  const path = "/announcement/user";
+  const path = "/v1/announcement/user";
 
   const {
     data: { data, message },

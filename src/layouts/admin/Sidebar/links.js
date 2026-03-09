@@ -93,12 +93,16 @@ export const links = [
     href: "/admin/report/studentReport",
     links: [
       {
-        href: "/admin/report/studentReport",
-        text: "Student Report",
+        href: '/admin/report/studentReport',
+        text: 'Student Report',
       },
       {
-        href: "/admin/report/managementReport",
-        text: "Management Report",
+        href: '/admin/report/managementReport',
+        text: 'Management Report',
+      },
+      {
+        href: '/admin/report/archived',
+        text: 'Archived Reports',
       },
     ],
   },

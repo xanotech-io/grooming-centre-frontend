@@ -7,7 +7,7 @@ import { http } from "../http";
  * @returns {Promise<{ assessments: Array<{ id: string, name: string, createdAt: Date, noOfUsers: number }> }>}
  */
 export const adminGetDepartmentListing = async (params) => {
-  const path = `/department/all`;
+  const path = `/v1/department/all`;
 
   const {
     data: { data },
@@ -28,7 +28,7 @@ export const adminGetDepartmentListing = async (params) => {
   };
 };
 export const adminDeleteDepartment = async (ids) => {
-  const path = `/department/delete`;
+  const path = `/v1/department/delete`;
   let formattedIds = [];
   for (let i = 0; i < ids.length; i++) {
     formattedIds.push(ids[i].id);
@@ -47,7 +47,7 @@ export const adminDeleteDepartment = async (ids) => {
 
 // admincreatedepartment 1
 export const adminCreateDepartment = async (body) => {
-  const path = "/department/create";
+  const path = "/v1/department/create";
 
   const {
     data: { message, data },
@@ -66,7 +66,7 @@ export const adminCreateDepartment = async (body) => {
  * @returns {Promise<{ message: string, data: object }>}
  */
 export const adminAddSelectedUsersToDepartment = async (departmentId, userIds) => {
-  const path = `/department/${departmentId}/add-selected-users`;
+  const path = `/v1/department/${departmentId}/add-selected-users`;
 
   const {
     data: { message, data },
@@ -82,7 +82,7 @@ export const adminAddSelectedUsersToDepartment = async (departmentId, userIds) =
  * @returns {Promise<{ message: string, data: object }>}
  */
 export const adminBulkAddUsersToDepartment = async (departmentId, users) => {
-  const path = `/department/${departmentId}/bulk-add-users`;
+  const path = `/v1/department/${departmentId}/bulk-add-users`;
 
   const {
     data: { message, data },
@@ -100,7 +100,7 @@ export const adminBulkAddUsersToDepartment = async (departmentId, users) => {
  * @returns {Promise<{ message: string, departments: Array<{ id: string, firstName: string, lastName: string, email: string, userRoleId: string,departmentId: string }>}>}
  */
 export const adminGetDepartmentUsersListing = async (departmentId, params) => {
-  const path = `/department/users/${departmentId}`;
+  const path = `/v1/department/users/${departmentId}`;
 
   const {
     data: { message, data },
