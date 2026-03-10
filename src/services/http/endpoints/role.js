@@ -6,7 +6,7 @@ import { http } from "../..";
  * @returns {Promise<{ data: roleListArray }>}
  */
 export const adminGetRoleListing = async () => {
-  const path = `/admin/roles`;
+  const path = `/v1/admin/roles`;
 
   const {
     data: { data },

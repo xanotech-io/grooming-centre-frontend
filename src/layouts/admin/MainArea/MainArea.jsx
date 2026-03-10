@@ -43,6 +43,7 @@ import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPa
 import { ManagementReportRoute } from "../../../pages/admin/report/managementReport/managementReport";
 
 import { StudentReportRoute } from "../../../pages/admin/report/studentReport/StudentReport";
+import { ArchivedReportsPageRoute } from "../../../pages/admin/report/ArchivedReportsPage";
 import PollsListingPageRoute from "../../../pages/admin/polls/PollsPage";
 import { CreatePollsPageRoute } from "../../../pages/admin/polls/CreatePollsPage";
 import { ViewPollsInfoPageRoute } from "../../../pages/admin/polls/layout/ViewPollsInfoPage";
@@ -154,6 +155,7 @@ const MainArea = () => {
         <ViewAuditRoute exact path="/admin/audit" />
         <ManagementReportRoute exact path="/admin/report/managementReport" />
         <StudentReportRoute exact path="/admin/report/studentReport" />
+        <ArchivedReportsPageRoute exact path="/admin/report/archived" />
 
 
 

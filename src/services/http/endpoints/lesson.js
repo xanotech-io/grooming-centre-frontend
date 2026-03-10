@@ -7,7 +7,7 @@ import { http } from "../http";
  * @returns {Promise<{ lesson: Lesson }>}
  */
 export const requestLessonDetails = async (id) => {
-  const path = `/lesson/${id}`;
+  const path = `/v1/lesson/${id}`;
 
   const {
     data: { data },
@@ -29,7 +29,7 @@ export const requestLessonDetails = async (id) => {
  * @returns {Promise<{ message: string }>}
  */
 export const requestEndLesson = async (id) => {
-  const path = `/lesson/end-lesson/${id}`; // TODO: change path
+  const path = `/v1/lesson/end-lesson/${id}`; // TODO: change path
 
   const {
     data: { message },
@@ -45,7 +45,7 @@ export const requestEndLesson = async (id) => {
  * @returns {Promise<{ message: string, lesson: { id: string } }>}
  */
 export const adminCreateLesson = async (body, onProgressCallback) => {
-  const path = `/lesson/create`;
+  const path = `/v1/lesson/create`;
   let uploadProgress = 0;
   const config = {
     onUploadProgress: (progressEvent) => {
@@ -76,7 +76,7 @@ export const adminCreateLesson = async (body, onProgressCallback) => {
  * @returns {Promise<{ message: string, lesson: { id: string } }>}
  */
 export const adminEditLesson = async (lessonId, body) => {
-  const path = `/lesson/edit/${lessonId}`;
+  const path = `/v1/lesson/edit/${lessonId}`;
 
   const {
     data: { message, data },
@@ -98,7 +98,7 @@ export const adminEditLesson = async (lessonId, body) => {
  * @returns {Promise<{ message: string, lessons: Array<{ id: string, title: string, startTime: Date, active: boolean, courseId: string }>}>}
  */
 export const adminGetLessonListing = async (courseId, params, body) => {
-  const path = `/lesson/admin/${courseId}?sort=asc`;
+  const path = `/v1/lesson/admin/${courseId}?sort=asc`;
   const {
     data: { message, data },
   } = await http.get(path, { params }, body);
@@ -116,7 +116,7 @@ export const adminGetLessonListing = async (courseId, params, body) => {
   };
 };
 export const adminDeleteLesson = async (ids) => {
-  const path = `/lesson/delete`;
+  const path = `/v1/lesson/delete`;
   let formattedIds = [];
   for (let i = 0; i < ids.length; i++) {
     formattedIds.push(ids[i].id);

@@ -7,12 +7,12 @@ import { http } from "../..";
  * @returns {Promise<void>}
  */
 export const adminDeleteUser = async (id) => {
-  const path = `/user/delete/${id}`;
+  const path = `/v1/user/delete/${id}`;
 
   await http.delete(path);
 };
 export const adminDeleteMultipleUsers = async (ids) => {
-  const path = `/admin/delete/user/multiple`;
+  const path = `/v1/admin/delete/user/multiple`;
   let formattedIds = [];
   for (let i = 0; i < ids.length; i++) {
     formattedIds.push(ids[i].id);
@@ -28,7 +28,7 @@ export const adminDeleteMultipleUsers = async (ids) => {
  * @returns {Promise<{ data: UserListArray }>}
  */
 export const adminGetUserListing = async (params) => {
-  const path = `/admin/users`;
+  const path = `/v1/admin/users`;
 
   const {
     data: { data },
@@ -64,7 +64,7 @@ export const adminGetUserListing = async (params) => {
  * @returns {Promise<{ user: User }>}
  */
 export const adminGetUserDetails = async (id) => {
-  const path = `/admin/users/${id}`;
+  const path = `/v1/admin/users/${id}`;
 
   const {
     data: { data },
@@ -109,7 +109,7 @@ export const adminGetUserDetails = async (id) => {
  * @returns {Promise<{ message: string, user: { id: string }}>}
  */
 export const adminEditUser = async (userId, body) => {
-  const path = `/admin/edit/user/${userId}`;
+  const path = `/v1/admin/edit/user/${userId}`;
 
   const {
     data: { message, data },

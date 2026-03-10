@@ -7,7 +7,7 @@ import { http } from "../http";
  * @returns {Promise<{ certificate: certificate }>}
  */
 export const requestCertificateDetails = async (courseId, userId, isAdmin) => {
-  const path = `/certificate/${courseId}/${isAdmin ? userId : ""}`;
+  const path = `/v1/certificate/${courseId}/${isAdmin ? userId : ""}`;
 
   const {
     data: { data },
@@ -16,7 +16,7 @@ export const requestCertificateDetails = async (courseId, userId, isAdmin) => {
   return { certificate: data };
 };
 export const createCertificate = async (body) => {
-  const path = `/certificate/create`;
+  const path = `/v1/certificate/create`;
   const {
     data: { message, data },
   } = await http.post(path, body);
@@ -26,7 +26,7 @@ export const createCertificate = async (body) => {
   };
 };
 export const CertificateList = async (params) => {
-  const path = `/cate/list`;
+  const path = `/v1/cate/list`;
 
   const {
     data: { data },

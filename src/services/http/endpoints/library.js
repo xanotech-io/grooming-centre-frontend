@@ -6,7 +6,7 @@ import { http } from "../http";
  * @returns {Promise<{ books: BookListArray }>}
  */
 export const userGetBookListing = async () => {
-  const path = `/library/pdf`;
+  const path = `/v1/library/pdf`;
 
   const {
     data: { data },
@@ -36,7 +36,7 @@ export const userGetBookListing = async () => {
  * @returns {Promise<{ audio: AudioListArray }>}
  */
 export const userGetAudioListing = async () => {
-  const path = `/library/audio`;
+  const path = `/v1/library/audio`;
 
   const {
     data: { data },
@@ -66,7 +66,7 @@ export const userGetAudioListing = async () => {
  * @returns {Promise<{ videos: VideoListArray }>}
  */
 export const userGetVideoListing = async () => {
-  const path = `/library/video`;
+  const path = `/v1/library/video`;
 
   const {
     data: { data },
@@ -98,7 +98,7 @@ export const userGetVideoListing = async () => {
  * @returns {Promise<{ data: LibraryListArray }>}
  */
 export const adminLibraryListing = async (params) => {
-  const path = `/library/admin`;
+  const path = `/v1/library/admin`;
 
   const {
     data: { data },
@@ -141,7 +141,7 @@ export const adminLibraryListing = async (params) => {
  * @returns {Promise<{ library: Library }>}
  */
 export const requestLibraryFileDetails = async (id) => {
-  const path = `/library/details/${id}`;
+  const path = `/v1/library/details/${id}`;
 
   const {
     data: { data },
@@ -161,7 +161,7 @@ export const requestLibraryFileDetails = async (id) => {
  * @returns {Promise<{ message: string, library: { id: string } }>}
  */
 export const adminUploadLibraryFile = async (body) => {
-  const path = `/library/create`;
+  const path = `/v1/library/create`;
 
   const {
     data: { message, data },
@@ -181,7 +181,7 @@ export const adminUploadLibraryFile = async (body) => {
  * @returns {Promise<{ message: string, library: { id: string } }>}
  */
 export const adminEditLibraryFile = async (id, body) => {
-  const path = `/library/edit/${id}`;
+  const path = `/v1/library/edit/${id}`;
 
   const {
     data: { message, data },
@@ -201,7 +201,7 @@ export const adminEditLibraryFile = async (id, body) => {
  * @returns {Promise<{ message: string }>}
  */
 export const adminDeleteLibraryFile = async (id) => {
-  const path = `/library/${id}`;
+  const path = `/v1/library/${id}`;
 
   const {
     data: { message },

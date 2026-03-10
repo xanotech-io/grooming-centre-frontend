@@ -21,3 +21,4 @@ export * from './http/endpoints/users';
 export * from './http/endpoints/library';
 export * from './http/endpoints/appointment';
 export * from './http/endpoints/announcement';
+export * from './http/endpoints/examinationReports';

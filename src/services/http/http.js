@@ -8,7 +8,7 @@ axios.interceptors.response.use(null, (err) => {
   return Promise.reject(error);
 });
 
-export const baseURL = 'https://gclms.xanotech.org/api/v1';
+export const baseURL = 'https://gclms.xanotech.org/api';
 // 'https://privateapi.groomingcentre.net/api/v1';
 const token = localStorage.getItem('token');
 

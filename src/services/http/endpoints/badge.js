@@ -25,7 +25,7 @@ import { http } from "../http";
  * }>}
  */
 export const adminGetBadges = async (params) => {
-  const path = `/badges`;
+  const path = `/v2/badges`;
 
   const {
     data: { data },
@@ -55,7 +55,7 @@ export const adminGetBadges = async (params) => {
  * @returns {Promise<{ message: string, badge: object }>}
  */
 export const adminCreateBadge = async (body) => {
-  const path = `/badges`;
+  const path = `/v2/badges`;
 
   const { data } = await http.post(path, body);
 
@@ -70,7 +70,7 @@ export const adminCreateBadge = async (body) => {
  * @returns {Promise<void>}
  */
 export const adminDeleteBadge = async (id) => {
-  const path = `/badges/${id}`;
+  const path = `/v2/badges/${id}`;
 
   await http.delete(path);
 };

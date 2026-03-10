@@ -8,7 +8,7 @@ import { http } from "../http";
  * @returns {Promise<{ assessment: Assessment }>}
  */
 export const requestAssessmentDetails = async (id, forAdmin) => {
-  const path = `/assessment${forAdmin ? "/admin" : ""}/${id}`;
+  const path = `/v1/assessment${forAdmin ? "/admin" : ""}/${id}`;
 
   const {
     data: { data },
@@ -27,17 +27,17 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
       data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
     questions: data?.assessmentQuestions
       ? data?.assessmentQuestions?.map((q, index) => ({
-          id: q.id,
-          question: q?.question,
-          file: q?.file,
-          questionIndex: index,
-          options: q?.options.map((opt) => ({
-            id: opt?.id,
-            isAnswer: opt?.isAnswer,
-            name: opt?.name,
-            optionIndex: +opt?.optionIndex,
-          })),
-        }))
+        id: q.id,
+        question: q?.question,
+        file: q?.file,
+        questionIndex: index,
+        options: q?.options.map((opt) => ({
+          id: opt?.id,
+          isAnswer: opt?.isAnswer,
+          name: opt?.name,
+          optionIndex: +opt?.optionIndex,
+        })),
+      }))
       : "not set",
   };
 
@@ -45,7 +45,7 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
 };
 
 export const adminDeleteAssessmentQuestionFile = async (questionId) => {
-  const path = `/assessment/question/delete-image/${questionId}`;
+  const path = `/v1/assessment/question/delete-image/${questionId}`;
 
   await http.delete(path);
 };
@@ -57,7 +57,7 @@ export const adminDeleteAssessmentQuestionFile = async (questionId) => {
  * @returns {Promise<{ message: string }>}
  */
 export const submitAssessment = async (body) => {
-  const path = `/assessment/scoresheet/create`;
+  const path = `/v1/assessment/scoresheet/create`;
 
   const {
     data: { message, data },
@@ -72,7 +72,7 @@ export const submitAssessment = async (body) => {
  * @returns {Promise<{ message: string, assessment: { id: string } }>}
  */
 export const adminCreateAssessment = async (body) => {
-  const path = `/assessment/create`;
+  const path = `/v1/assessment/create`;
 
   const {
     data: { message, data },
@@ -91,7 +91,7 @@ export const adminCreateAssessment = async (body) => {
  * @returns {Promise<{ message: string }>}
  */
 export const adminCreateAssessmentQuestion = async (body) => {
-  const path = "/assessment/question/create";
+  const path = "/v1/assessment/question/create";
 
   const {
     data: { message },
@@ -106,7 +106,7 @@ export const adminCreateAssessmentQuestion = async (body) => {
  * @returns {Promise<{ message: string }>}
  */
 export const adminEditAssessmentQuestion = async (body) => {
-  const path = `/assessment/question/edit`;
+  const path = `/v1/assessment/question/edit`;
 
   const {
     data: { message },
@@ -116,7 +116,7 @@ export const adminEditAssessmentQuestion = async (body) => {
 };
 
 export const adminDeleteAssessment = async (assessmentId) => {
-  const path = `/assessment/delete/${assessmentId}`;
+  const path = `/v1/assessment/delete/${assessmentId}`;
 
   const {
     data: { message },
@@ -125,7 +125,7 @@ export const adminDeleteAssessment = async (assessmentId) => {
   return { message };
 };
 export const adminDeleteAssessmentQuestion = async (questionId) => {
-  const path = `/assessment/question/delete/${questionId}`;
+  const path = `/v1/assessment/question/delete/${questionId}`;
 
   const {
     data: { message },
@@ -141,7 +141,7 @@ export const adminDeleteAssessmentQuestion = async (questionId) => {
  * @returns {Promise<{ assessments: Array<{ id: string, courseId: string, title: string,  startTime: Date, duration: number }> }>}
  */
 export const adminGetAssessmentListing = async (courseId) => {
-  const path = `/assessment/course/${courseId}`;
+  const path = `/v1/assessment/course/${courseId}`;
 
   const {
     data: { data },
@@ -165,7 +165,7 @@ export const adminGetAssessmentListing = async (courseId) => {
  * @returns {Promise<{ message: string, assessment: { id: string } }>}
  */
 export const adminEditAssessment = async (assessmentId, body) => {
-  const path = `/assessment/edit/${assessmentId}`;
+  const path = `/v1/assessment/edit/${assessmentId}`;
 
   const {
     data: { message, data },
