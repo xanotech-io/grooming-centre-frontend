@@ -30,12 +30,11 @@ import {
   HStack,
   Spacer,
   VStack,
-  Icon,
   useDisclosure,
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { Route, useHistory } from 'react-router-dom';
-import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight, FiChevronDown } from 'react-icons/fi';
+import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 import { AdminMainAreaWrapper } from '../../../layouts';
 import QuestionBankUsageReport from './QuestionBankUsageReport';
