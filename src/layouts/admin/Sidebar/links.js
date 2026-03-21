@@ -102,7 +102,12 @@ export const links = [
       },
       {
         href: '/admin/report/archived',
-        text: 'Archived Reports',
+        text: 'Archived Reports',   
+      },
+      {
+        href: '/admin/report/compliance',
+        text: 'Compliance & Security',
+
       },
     ],
   },

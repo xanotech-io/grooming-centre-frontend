@@ -44,6 +44,8 @@ import { ManagementReportRoute } from "../../../pages/admin/report/managementRep
 
 import { StudentReportRoute } from "../../../pages/admin/report/studentReport/StudentReport";
 import { ArchivedReportsPageRoute } from "../../../pages/admin/report/ArchivedReportsPage";
+import { ComplianceSecurityReportPageRoute } from "../../../pages/admin/report/ComplianceSecurityReportPage";
+
 import PollsListingPageRoute from "../../../pages/admin/polls/PollsPage";
 import { CreatePollsPageRoute } from "../../../pages/admin/polls/CreatePollsPage";
 import { ViewPollsInfoPageRoute } from "../../../pages/admin/polls/layout/ViewPollsInfoPage";
@@ -156,6 +158,8 @@ const MainArea = () => {
         <ManagementReportRoute exact path="/admin/report/managementReport" />
         <StudentReportRoute exact path="/admin/report/studentReport" />
         <ArchivedReportsPageRoute exact path="/admin/report/archived" />
+        <ComplianceSecurityReportPageRoute exact path="/admin/report/compliance" />
+
 
 
 
