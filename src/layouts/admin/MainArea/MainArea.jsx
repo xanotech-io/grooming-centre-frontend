@@ -27,17 +27,38 @@ import {
   LibraryListingPageRoute,
   CreateLibraryFilePageRoute,
   ViewFileDetailsPageRoute,
-
   StandaloneExaminationListingPageRoute,
   ViewAuditRoute,
-
   DocumentsPageRoute,
   ExaminationPageRoute,
   ExaminationDetailPageRoute,
   SingleExaminationPageRoute,
-
   AutomatedApprovalWorkflowRoute,
   ReviewSubmissionPageRoute,
+  ExaminationMarkingPageRoute,
+  CreateMarkingJobPageRoute,
+  MarkingJobDetailsPageRoute,
+  MarkPaperPageRoute,
+  ExamTemplatesPageRoute,
+  CreateExamTemplatePageRoute,
+  ExamTemplateDetailsPageRoute,
+  CreateQuestionBankPageRoute,
+  FeedbackMarkupPageRoute,
+  SubmissionReviewPageRoute,
+  GradeBookListingPageRoute,
+  CreateGradeBookPageRoute,
+  GradeBookDetailsPageRoute,
+  BulkCourseListingPageRoute,
+  CreateBulkCourseBatchPageRoute,
+  BatchDetailsPageRoute,
+  UserDocumentsPageRoute,
+  UserDocumentDetailsPageRoute,
+  ReportExportPageRoute,
+  QuestionImportPageRoute,
+  UploadDetailsPageRoute,
+  QuestionBankTemplatesPageRoute,
+  QuestionBankTemplateDetailsPageRoute,
+  CourseContentEditorPageRoute,
 } from "../../../pages/admin";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
 import { ManagementReportRoute } from "../../../pages/admin/report/managementReport/managementReport";
@@ -76,6 +97,10 @@ const MainArea = () => {
           exact
           path="/admin/courses/:courseId/lesson/:lessonId/view"
         />
+        <CourseContentEditorPageRoute
+          exact
+          path="/admin/courses/:courseId/content/:contentId"
+        />
         <UserListingPageRoute exact path="/admin/users" />
         <CreateUserPageRoute exact path="/admin/users/edit/:id" />
         <UserInfoPageRoute path="/admin/users/details" />
@@ -105,14 +130,8 @@ const MainArea = () => {
           exact
           path="/admin/standalone-exams/temporary-library"
         />
-        <ExaminationPageRoute
-          exact
-          path="/admin/examination"
-        />
-        <ExaminationDetailPageRoute
-          exact
-          path="/admin/examination/:id"
-        />
+        <ExaminationPageRoute exact path="/admin/examination" />
+        <ExaminationDetailPageRoute exact path="/admin/examination/:id" />
         <SingleExaminationPageRoute
           exact
           path="/admin/examination/:examId/:studentId"
@@ -146,6 +165,38 @@ const MainArea = () => {
         <DocumentsPageRoute exact path="/admin/documents" />
         <AutomatedApprovalWorkflowRoute exact path="/admin/workflow" />
         <ReviewSubmissionPageRoute exact path="/admin/workflow/review/:id" />
+        <ExaminationMarkingPageRoute exact path="/admin/examination-marking" />
+        <CreateMarkingJobPageRoute
+          exact
+          path="/admin/examination-marking/create"
+        />
+        <MarkPaperPageRoute
+          exact
+          path="/admin/examination-marking/jobs/:jobId/papers/:paperId/mark"
+        />
+        <MarkingJobDetailsPageRoute
+          exact
+          path="/admin/examination-marking/jobs/:jobId"
+        />
+        <ExamTemplatesPageRoute exact path="/admin/exam-templates" />
+        <CreateExamTemplatePageRoute exact path="/admin/exam-templates/create" />
+        <CreateQuestionBankPageRoute exact path="/admin/exam-templates/question-banks/create" />
+        <ExamTemplateDetailsPageRoute exact path="/admin/exam-templates/:templateId" />
+        <FeedbackMarkupPageRoute exact path="/admin/feedback-markup" />
+        <SubmissionReviewPageRoute exact path="/admin/feedback-markup/review/:documentId" />
+        <GradeBookListingPageRoute exact path="/admin/grade-book" />
+        <CreateGradeBookPageRoute exact path="/admin/grade-book/create" />
+        <GradeBookDetailsPageRoute exact path="/admin/grade-book/:gradeBookId" />
+        <BulkCourseListingPageRoute exact path="/admin/bulk-courses" />
+        <CreateBulkCourseBatchPageRoute exact path="/admin/bulk-courses/create" />
+        <BatchDetailsPageRoute exact path="/admin/bulk-courses/:batchId" />
+        <UserDocumentsPageRoute exact path="/admin/user-documents" />
+        <UserDocumentDetailsPageRoute exact path="/admin/user-documents/:userId/:uploadId" />
+        <ReportExportPageRoute exact path="/admin/report-export" />
+        <QuestionImportPageRoute exact path="/admin/question-import" />
+        <UploadDetailsPageRoute exact path="/admin/question-import/:uploadId" />
+        <QuestionBankTemplatesPageRoute exact path="/admin/question-bank-templates" />
+        <QuestionBankTemplateDetailsPageRoute exact path="/admin/question-bank-templates/:templateId" />
         <BadgeSupportPageRoute exact path="/admin/badge-support" />
 
         <SecurityPageRoute path="/admin/settings/security" />
@@ -157,9 +208,10 @@ const MainArea = () => {
         <ManagementReportRoute exact path="/admin/report/managementReport" />
         <StudentReportRoute exact path="/admin/report/studentReport" />
         <ArchivedReportsPageRoute exact path="/admin/report/archived" />
-        <ComplianceSecurityReportPageRoute exact path="/admin/report/compliance" />
-
-
+        <ComplianceSecurityReportPageRoute
+          exact
+          path="/admin/report/compliance"
+        />
 
         <NotFoundPageRoute />
       </Switch>
