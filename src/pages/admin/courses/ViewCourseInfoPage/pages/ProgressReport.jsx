@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Route, useParams } from 'react-router-dom';
 import { Box, Flex } from '@chakra-ui/layout';
-import { BreadcrumbItem } from '@chakra-ui/react';
+import { BreadcrumbItem, Checkbox, Select as ChakraSelect } from '@chakra-ui/react';
 import {
   Button,
   Heading,
@@ -15,40 +15,106 @@ import { AdminMainAreaWrapper } from '../../../../../layouts/admin/MainArea/Wrap
 import { useToast } from '@chakra-ui/toast';
 import { EmptyState } from '../../../../../layouts';
 import { capitalizeFirstLetter } from '../../../../../utils';
-import { Input } from '@chakra-ui/input';
 import { FormControl, FormLabel } from '@chakra-ui/form-control';
 import { Table, Thead, Tbody, Tr, Th, Td, TableContainer } from '@chakra-ui/table';
 import { IconButton } from '@chakra-ui/button';
 import { FiDownload, FiExternalLink, FiTrash2 } from 'react-icons/fi';
 import dayjs from 'dayjs';
+import {
+  adminGetCourseRoster,
+  adminExportCourseRoster,
+  adminGetCourseRosterExportStatus,
+  adminDownloadCourseRosterExport,
+} from '../../../../../services';
+
+const DEFAULT_EXPORT_FIELDS = [
+  'studentId',
+  'firstName',
+  'lastName',
+  'email',
+  'enrollmentStatus',
+  'progressPercentage',
+  'enrollmentDate',
+];
+
+const buildCsvFromRoster = (students = [], options = {}) => {
+  const { includeGrades, includeContactInfo, includeEmergencyContact } = options;
+
+  const headers = [
+    'studentId',
+    'firstName',
+    'lastName',
+    ...(includeContactInfo ? ['email', 'phoneNumber'] : []),
+    'enrollmentStatus',
+    'progressPercentage',
+    'enrollmentDate',
+    ...(includeGrades ? ['grade', 'passed'] : []),
+    ...(includeEmergencyContact ? ['emergencyContact'] : []),
+  ];
+
+  const rows = students.map((student) => [
+    student.studentId,
+    student.firstName,
+    student.lastName,
+    ...(includeContactInfo ? [student.email || '', student.phoneNumber || ''] : []),
+    student.enrollmentStatus,
+    student.progressPercentage,
+    student.enrollmentDate || '',
+    ...(includeGrades ? [student.grade || '', student.passed ? 'true' : 'false'] : []),
+    ...(includeEmergencyContact ? ['N/A'] : []),
+  ]);
+
+  const csvLines = [headers, ...rows]
+    .map((line) => line.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+
+  return csvLines;
+};
 
 const ProgressReport = () => {
   const { id: courseId } = useParams();
   const toast = useToast();
-  
+
+  const [isFetchingRoster, setIsFetchingRoster] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [startDate, setStartDate] = useState(dayjs().subtract(30, 'days').format('YYYY-MM-DD'));
-  const [endDate, setEndDate] = useState(dayjs().format('YYYY-MM-DD'));
+  const [exportFormat, setExportFormat] = useState('EXCEL');
+  const [includeGrades, setIncludeGrades] = useState(true);
+  const [includeContactInfo, setIncludeContactInfo] = useState(true);
+  const [includeEmergencyContact, setIncludeEmergencyContact] = useState(false);
   const [error, setError] = useState(null);
+  const [roster, setRoster] = useState(null);
   const [generatedReports, setGeneratedReports] = useState([]);
   const [currentPreview, setCurrentPreview] = useState(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
-  const handleGenerateReport = async (previewMode = false) => {
-    if (!startDate || !endDate) {
-      toast({
-        description: 'Please select both start and end dates',
-        position: 'top',
-        status: 'error',
-      });
-      return;
-    }
+  const loadRoster = async () => {
+    setIsFetchingRoster(true);
+    setError(null);
 
-    if (dayjs(startDate).isAfter(dayjs(endDate))) {
+    try {
+      const { roster: rosterData } = await adminGetCourseRoster(courseId, {
+        page: 1,
+        limit: 100,
+      });
+
+      setRoster(rosterData);
+    } catch (requestError) {
+      setError(requestError.message || 'Failed to load course roster');
+    } finally {
+      setIsFetchingRoster(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRoster();
+  }, [courseId]);
+
+  const handleGenerateReport = async (previewMode = false) => {
+    if (!roster) {
       toast({
-        description: 'Start date cannot be after end date',
+        description: 'Course roster is not ready yet',
         position: 'top',
-        status: 'error',
+        status: 'warning',
       });
       return;
     }
@@ -61,79 +127,77 @@ const ProgressReport = () => {
     setError(null);
 
     try {
-      const params = new URLSearchParams({
-        startDate,
-        endDate,
-        courseId,
-      });
+      const exportPayload = {
+        format: exportFormat,
+        fields: DEFAULT_EXPORT_FIELDS,
+        includeGrades,
+        includeContactInfo,
+        includeEmergencyContact,
+      };
 
-      const response = await fetch(`https://privateapi.groomingcentre.net/api/v1/admin/export-course-progress-sheet?${params}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      const { exportRecord } = await adminExportCourseRoster(courseId, exportPayload);
+      const exportStatus = await adminGetCourseRosterExportStatus(exportRecord.exportId);
 
-      if (!response.ok) {
-        console.error('Error generating progress report:', response);
-        throw new Error('Failed to generate progress report');
+      if (exportStatus.status !== 'SUCCESS') {
+        throw new Error(exportStatus.message || 'Roster export failed');
       }
 
-      // Create blob from response
-      const blob = await response.blob();
-      
-      // Create download link
+      const downloadData = await adminDownloadCourseRosterExport(exportRecord.exportId);
+
+      const csvContent = buildCsvFromRoster(roster.students, {
+        includeGrades,
+        includeContactInfo,
+        includeEmergencyContact,
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
-      const fileName = `course-progress-report-${startDate}-to-${endDate}.xlsx`;
-      
+      const fileName = downloadData.fileName;
+
       if (previewMode) {
-        // Set current preview
         setCurrentPreview({
-          id: Date.now(),
+          id: exportRecord.exportId,
           fileName,
           url,
-          startDate,
-          endDate,
+          format: downloadData.format,
           generatedAt: dayjs().format('DD/MM/YYYY h:mm a'),
         });
-        
+
         toast({
-          description: 'Progress report preview generated successfully',
+          description: 'Course roster preview generated successfully',
           position: 'top',
           status: 'success',
         });
       } else {
-        // Download the file
         const link = document.createElement('a');
         link.href = url;
         link.download = fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
-        // Store the generated report for viewing
+
         const newReport = {
-          id: Date.now(),
+          id: exportRecord.exportId,
           fileName,
           url,
-          startDate,
-          endDate,
+          format: downloadData.format,
           generatedAt: dayjs().format('DD/MM/YYYY h:mm a'),
         };
-        
-        setGeneratedReports(prev => [newReport, ...prev.slice(0, 4)]); // Keep only last 5 reports
-        
+
+        setGeneratedReports((prev) => [newReport, ...prev.slice(0, 4)]);
+
         toast({
-          description: 'Progress report downloaded successfully',
+          description: 'Course roster downloaded successfully',
           position: 'top',
           status: 'success',
         });
       }
-    } catch (error) {
-      console.error('Error generating progress report:', error);
-      setError(error.message);
+    } catch (requestError) {
+      setError(requestError.message);
       toast({
-        description: capitalizeFirstLetter(error.message || 'Failed to generate progress report'),
+        description: capitalizeFirstLetter(
+          requestError.message || 'Failed to export course roster',
+        ),
         position: 'top',
         status: 'error',
       });
@@ -147,7 +211,6 @@ const ProgressReport = () => {
   };
 
   const handleViewReport = (report) => {
-    // Open the Excel file in a new tab
     const newWindow = window.open(report.url, '_blank');
     if (!newWindow) {
       toast({
@@ -168,10 +231,9 @@ const ProgressReport = () => {
   };
 
   const handleDeleteReport = (reportId) => {
-    setGeneratedReports(prev => {
-      const updatedReports = prev.filter(report => report.id !== reportId);
-      // Find and revoke the URL of the deleted report
-      const deletedReport = prev.find(report => report.id === reportId);
+    setGeneratedReports((prev) => {
+      const updatedReports = prev.filter((report) => report.id !== reportId);
+      const deletedReport = prev.find((report) => report.id === reportId);
       if (deletedReport) {
         window.URL.revokeObjectURL(deletedReport.url);
       }
@@ -203,10 +265,9 @@ const ProgressReport = () => {
     }
   };
 
-  // Cleanup URLs on component unmount
   useEffect(() => {
     return () => {
-      generatedReports.forEach(report => {
+      generatedReports.forEach((report) => {
         window.URL.revokeObjectURL(report.url);
       });
       if (currentPreview) {
@@ -239,11 +300,11 @@ const ProgressReport = () => {
         marginBottom={5}
       >
         <Heading as="h1" fontSize="heading.h3">
-          Course Progress Report
+          Course Roster Export
         </Heading>
       </Flex>
 
-      {isGenerating || isGeneratingPreview ? (
+      {isFetchingRoster || isGenerating || isGeneratingPreview ? (
         <Flex
           height="calc(100vh - 300px)"
           justifyContent="center"
@@ -252,7 +313,7 @@ const ProgressReport = () => {
         >
           <Spinner size="xl" color="primary.base" />
           <Text marginTop={4} textAlign="center" color="gray.600">
-            Please wait, this might take some time as it's pulling documents from the server
+            Please wait, this might take some time.
           </Text>
         </Flex>
       ) : error ? (
@@ -270,69 +331,123 @@ const ProgressReport = () => {
       ) : (
         <Box backgroundColor="white" padding={8} shadow="md" borderRadius="md">
           <Heading fontSize="heading.h4" marginBottom={6}>
-            Generate Progress Report
+            Export Course Roster
           </Heading>
-          
+
           <Text color="gray.600" marginBottom={6}>
-            Select a date range to generate a comprehensive progress report for this course. 
-            The report will be downloaded as an Excel spreadsheet containing detailed student progress data.
+            Generate complete course roster containing enrolled students, statuses,
+            course details, and optional grade/contact fields.
           </Text>
 
-          <Flex gap={6} marginBottom={8} flexDirection={{ base: 'column', md: 'row' }}>
+          <Flex gap={6} marginBottom={6} flexDirection={{ base: 'column', md: 'row' }}>
             <FormControl flex="1">
-              <FormLabel>Start Date</FormLabel>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                max={endDate}
-              />
+              <FormLabel>Export Format</FormLabel>
+              <ChakraSelect
+                value={exportFormat}
+                onChange={(event) => setExportFormat(event.target.value)}
+              >
+                <option value="EXCEL">EXCEL</option>
+                <option value="CSV">CSV</option>
+                <option value="PDF">PDF</option>
+              </ChakraSelect>
             </FormControl>
+          </Flex>
 
-            <FormControl flex="1">
-              <FormLabel>End Date</FormLabel>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                min={startDate}
-                max={dayjs().format('YYYY-MM-DD')}
-              />
-            </FormControl>
+          <Flex gap={5} mb={6} direction={{ base: 'column', md: 'row' }}>
+            <Checkbox
+              isChecked={includeGrades}
+              onChange={(event) => setIncludeGrades(event.target.checked)}
+            >
+              Include grades
+            </Checkbox>
+            <Checkbox
+              isChecked={includeContactInfo}
+              onChange={(event) => setIncludeContactInfo(event.target.checked)}
+            >
+              Include contact info
+            </Checkbox>
+            <Checkbox
+              isChecked={includeEmergencyContact}
+              onChange={(event) => setIncludeEmergencyContact(event.target.checked)}
+            >
+              Include emergency contact
+            </Checkbox>
           </Flex>
 
           <Box marginTop={6}>
             <Flex gap={4} flexDirection={{ base: 'column', md: 'row' }}>
               <Button
                 onClick={() => handleGenerateReport(false)}
-                disabled={!startDate || !endDate || isGenerating || isGeneratingPreview}
+                disabled={isGenerating || isGeneratingPreview}
                 isLoading={isGenerating}
                 loadingText="Generating Report..."
                 size="lg"
                 flex={{ base: 'none', md: '1' }}
               >
-                Generate & Download Report
+                Generate & Download Roster
               </Button>
-              
+
               <Button
                 onClick={() => handleGenerateReport(true)}
-                disabled={!startDate || !endDate || isGenerating || isGeneratingPreview}
+                disabled={isGenerating || isGeneratingPreview}
                 isLoading={isGeneratingPreview}
                 loadingText="Generating Preview..."
                 size="lg"
                 variant="outline"
                 flex={{ base: 'none', md: '1' }}
               >
-                Generate & Preview
+                Generate & Preview Roster
               </Button>
             </Flex>
           </Box>
 
           <Box marginTop={6} padding={4} backgroundColor="gray.50" borderRadius="md">
             <Text fontSize="sm" color="gray.600">
-              <strong>Note:</strong> The progress report includes student enrollment data, 
-              lesson completion rates, assessment scores, and overall course progress for the selected date range.
+              <strong>Note:</strong> TC27 export includes student roster details and supports
+              CSV, EXCEL, and PDF request formats.
             </Text>
+          </Box>
+
+          <Box marginTop={8} border="1px" borderColor="gray.100" borderRadius="md" padding={4}>
+            <Heading fontSize="md" mb={3}>
+              Roster Summary
+            </Heading>
+            <Flex gap={6} flexWrap="wrap">
+              <Text>Course: {roster?.courseName || '-'}</Text>
+              <Text>Total Students: {roster?.summary?.totalStudents || 0}</Text>
+              <Text>Enrolled: {roster?.summary?.enrolled || 0}</Text>
+              <Text>Pending: {roster?.summary?.pending || 0}</Text>
+            </Flex>
+          </Box>
+
+          <Box marginTop={6}>
+            <Heading fontSize="md" mb={3}>
+              Course Roster
+            </Heading>
+            <TableContainer>
+              <Table size="sm" variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>Student ID</Th>
+                    <Th>Name</Th>
+                    <Th>Email</Th>
+                    <Th>Status</Th>
+                    <Th isNumeric>Progress (%)</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {(roster?.students || []).map((student) => (
+                    <Tr key={student.studentId}>
+                      <Td>{student.studentId}</Td>
+                      <Td>{`${student.firstName} ${student.lastName}`}</Td>
+                      <Td>{student.email || '-'}</Td>
+                      <Td>{student.enrollmentStatus}</Td>
+                      <Td isNumeric>{student.progressPercentage}</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </TableContainer>
           </Box>
 
           {currentPreview && (
@@ -374,11 +489,11 @@ const ProgressReport = () => {
               <Box height="600px" backgroundColor="white" display="flex" alignItems="center" justifyContent="center" flexDirection="column">
                 <Box textAlign="center" padding={8}>
                   <Heading fontSize="lg" marginBottom={4} color="gray.600">
-                    📊 Excel Preview Ready
+                    📊 Roster Preview Ready
                   </Heading>
                   <Text marginBottom={6} color="gray.500">
-                    Excel files cannot be directly previewed in the browser. 
-                    Use the options below to view or download the report.
+                    This preview contains a generated roster export file. Use the options below
+                    to open or download.
                   </Text>
                   <Flex gap={4} justifyContent="center" flexDirection={{ base: 'column', md: 'row' }}>
                     <Button
@@ -399,13 +514,8 @@ const ProgressReport = () => {
                   </Flex>
                   <Box marginTop={6} padding={4} backgroundColor="blue.50" borderRadius="md" textAlign="left">
                     <Text fontSize="sm" color="blue.800">
-                      <strong>💡 Tip:</strong> After clicking "Open in New Tab", your browser will either:
+                      <strong>💡 Tip:</strong> Export includes roster fields selected above.
                     </Text>
-                    <Box as="ul" marginTop={2} marginLeft={4} fontSize="sm" color="blue.700">
-                      <Box as="li">• Open Excel Online (if you have Microsoft 365)</Box>
-                      <Box as="li">• Download the file automatically</Box>
-                      <Box as="li">• Show a preview if you have Excel installed</Box>
-                    </Box>
                   </Box>
                 </Box>
               </Box>
@@ -422,7 +532,7 @@ const ProgressReport = () => {
                   <Thead>
                     <Tr>
                       <Th>File Name</Th>
-                      <Th>Date Range</Th>
+                      <Th>Format</Th>
                       <Th>Generated At</Th>
                       <Th width="120px">Actions</Th>
                     </Tr>
@@ -437,7 +547,7 @@ const ProgressReport = () => {
                         </Td>
                         <Td>
                           <Text fontSize="sm">
-                            {dayjs(report.startDate).format('DD/MM/YY')} - {dayjs(report.endDate).format('DD/MM/YY')}
+                            {report.format}
                           </Text>
                         </Td>
                         <Td>
@@ -478,7 +588,7 @@ const ProgressReport = () => {
                 </Table>
               </TableContainer>
               <Text fontSize="xs" color="gray.500" marginTop={2}>
-                Reports are stored temporarily in your browser session. Only the last 5 reports are kept.
+                Reports are stored temporarily in your browser session. Only the last 5 exports are kept.
               </Text>
             </Box>
           )}

@@ -40,6 +40,7 @@ import {
   FaFilePdf,
   FaFileExcel,
   FaFileCsv,
+  FaFileAlt,
 } from "react-icons/fa";
 import { Button, Heading } from "../../../components";
 import { useFetch } from "../../../hooks";
@@ -47,6 +48,7 @@ import {
   adminGetAllExports,
   adminGetMyExports,
   adminCreateReportExport,
+  adminImportReportTransfer,
   adminDeleteExport,
   adminDownloadExport,
 } from "../../../services";
@@ -85,6 +87,8 @@ const getFormatIcon = (format) => {
       return <FaFileExcel color="#38A169" />;
     case "CSV":
       return <FaFileCsv color="#D69E2E" />;
+    case "JSON":
+      return <FaFileAlt color="#805AD5" />;
     default:
       return null;
   }
@@ -105,9 +109,11 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
+    operationType: "EXPORT",
     reportId: "",
     reportName: "",
-    exportFormat: "EXCEL",
+    fileFormat: "EXCEL",
+    sourceOrDestination: "dashboard",
     departmentId: "",
     courseId: "",
     dateFrom: "",
@@ -118,9 +124,11 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
 
   const reset = () =>
     setForm({
+      operationType: "EXPORT",
       reportId: "",
       reportName: "",
-      exportFormat: "EXCEL",
+      fileFormat: "EXCEL",
+      sourceOrDestination: "dashboard",
       departmentId: "",
       courseId: "",
       dateFrom: "",
@@ -138,7 +146,21 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
       return;
     }
 
-    const reportId = form.reportId.trim() || `report-${Date.now()}`;
+    const sourceOrDestination = form.sourceOrDestination.trim();
+    if (!sourceOrDestination) {
+      toast({
+        title:
+          form.operationType === "EXPORT"
+            ? "Source is required"
+            : "Source URL is required",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    const reportId = form.reportId.trim() || `REX-${Date.now()}`;
     const filters = {};
     if (form.departmentId.trim())
       filters.departmentId = form.departmentId.trim();
@@ -148,13 +170,28 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
 
     setLoading(true);
     try {
-      const { message } = await adminCreateReportExport(reportId, {
+      const payload = {
         reportName: form.reportName.trim(),
-        exportFormat: form.exportFormat,
-        filters: Object.keys(filters).length > 0 ? filters : undefined,
-      });
+        fileFormat: form.fileFormat,
+        sourceOrDestination,
+      };
+
+      let message = "Transfer initiated";
+      if (form.operationType === "EXPORT") {
+        const response = await adminCreateReportExport(reportId, {
+          reportName: payload.reportName,
+          exportFormat: payload.fileFormat,
+          sourceOrDestination: payload.sourceOrDestination,
+          filters: Object.keys(filters).length > 0 ? filters : undefined,
+        });
+        message = response.message;
+      } else {
+        const response = await adminImportReportTransfer(payload);
+        message = response.message;
+      }
+
       toast({
-        title: message || "Export initiated",
+        title: message || "Transfer initiated",
         status: "success",
         duration: 3000,
         isClosable: true,
@@ -164,7 +201,7 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
       onClose();
     } catch {
       toast({
-        title: "Failed to create export",
+        title: "Failed to create transfer",
         status: "error",
         duration: 3000,
         isClosable: true,
@@ -186,10 +223,43 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
     >
       <ModalOverlay />
       <ModalContent>
-        <ModalHeader fontSize="16px">Create Report Export</ModalHeader>
+        <ModalHeader fontSize="16px">Create Report Transfer</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <Flex direction="column" gap="14px">
+            <Flex gap="12px">
+              <FormControl flex="1">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Operation
+                </FormLabel>
+                <ChakraSelect
+                  size="sm"
+                  borderRadius="6px"
+                  value={form.operationType}
+                  onChange={(e) => update("operationType", e.target.value)}
+                >
+                  <option value="EXPORT">Export</option>
+                  <option value="IMPORT">Import</option>
+                </ChakraSelect>
+              </FormControl>
+              <FormControl flex="1">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  File Format
+                </FormLabel>
+                <ChakraSelect
+                  size="sm"
+                  borderRadius="6px"
+                  value={form.fileFormat}
+                  onChange={(e) => update("fileFormat", e.target.value)}
+                >
+                  <option value="EXCEL">Excel (.xlsx)</option>
+                  <option value="PDF">PDF</option>
+                  <option value="CSV">CSV</option>
+                  <option value="JSON">JSON</option>
+                </ChakraSelect>
+              </FormControl>
+            </Flex>
+
             <FormControl isRequired>
               <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
                 Report Name
@@ -204,99 +274,106 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
             </FormControl>
 
             <Flex gap="12px">
-              <FormControl flex="1">
+              {form.operationType === "EXPORT" && (
+                <FormControl flex="1">
+                  <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                    Report ID (optional)
+                  </FormLabel>
+                  <Input
+                    size="sm"
+                    borderRadius="6px"
+                    placeholder="REX-001"
+                    value={form.reportId}
+                    onChange={(e) => update("reportId", e.target.value)}
+                  />
+                </FormControl>
+              )}
+              <FormControl flex="1" isRequired>
                 <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                  Report ID (optional)
+                  {form.operationType === "EXPORT" ? "Source" : "Source URL"}
                 </FormLabel>
                 <Input
                   size="sm"
                   borderRadius="6px"
-                  placeholder="report-uuid"
-                  value={form.reportId}
-                  onChange={(e) => update("reportId", e.target.value)}
+                  placeholder={
+                    form.operationType === "EXPORT"
+                      ? "dashboard or results"
+                      : "https://storage.example.com/imports/q4_data.csv"
+                  }
+                  value={form.sourceOrDestination}
+                  onChange={(e) => update("sourceOrDestination", e.target.value)}
                 />
               </FormControl>
-              <FormControl flex="1">
-                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                  Export Format
-                </FormLabel>
-                <ChakraSelect
-                  size="sm"
-                  borderRadius="6px"
-                  value={form.exportFormat}
-                  onChange={(e) => update("exportFormat", e.target.value)}
+            </Flex>
+
+            {form.operationType === "EXPORT" && (
+              <>
+                <Divider />
+                <Text
+                  fontSize="12px"
+                  fontWeight="600"
+                  color="gray.500"
+                  textTransform="uppercase"
+                  letterSpacing="0.5px"
                 >
-                  <option value="EXCEL">Excel (.xlsx)</option>
-                  <option value="PDF">PDF</option>
-                  <option value="CSV">CSV</option>
-                </ChakraSelect>
-              </FormControl>
-            </Flex>
+                  Filters (optional)
+                </Text>
 
-            <Divider />
-            <Text
-              fontSize="12px"
-              fontWeight="600"
-              color="gray.500"
-              textTransform="uppercase"
-              letterSpacing="0.5px"
-            >
-              Filters (optional)
-            </Text>
+                <Flex gap="12px">
+                  <FormControl flex="1">
+                    <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                      Department ID
+                    </FormLabel>
+                    <Input
+                      size="sm"
+                      borderRadius="6px"
+                      placeholder="dept-uuid"
+                      value={form.departmentId}
+                      onChange={(e) => update("departmentId", e.target.value)}
+                    />
+                  </FormControl>
+                  <FormControl flex="1">
+                    <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                      Course ID
+                    </FormLabel>
+                    <Input
+                      size="sm"
+                      borderRadius="6px"
+                      placeholder="course-uuid"
+                      value={form.courseId}
+                      onChange={(e) => update("courseId", e.target.value)}
+                    />
+                  </FormControl>
+                </Flex>
 
-            <Flex gap="12px">
-              <FormControl flex="1">
-                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                  Department ID
-                </FormLabel>
-                <Input
-                  size="sm"
-                  borderRadius="6px"
-                  placeholder="dept-uuid"
-                  value={form.departmentId}
-                  onChange={(e) => update("departmentId", e.target.value)}
-                />
-              </FormControl>
-              <FormControl flex="1">
-                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                  Course ID
-                </FormLabel>
-                <Input
-                  size="sm"
-                  borderRadius="6px"
-                  placeholder="course-uuid"
-                  value={form.courseId}
-                  onChange={(e) => update("courseId", e.target.value)}
-                />
-              </FormControl>
-            </Flex>
-
-            <Flex gap="12px">
-              <FormControl flex="1">
-                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                  Date From
-                </FormLabel>
-                <Input
-                  type="date"
-                  size="sm"
-                  borderRadius="6px"
-                  value={form.dateFrom}
-                  onChange={(e) => update("dateFrom", e.target.value)}
-                />
-              </FormControl>
-              <FormControl flex="1">
-                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                  Date To
-                </FormLabel>
-                <Input
-                  type="date"
-                  size="sm"
-                  borderRadius="6px"
-                  value={form.dateTo}
-                  onChange={(e) => update("dateTo", e.target.value)}
-                />
-              </FormControl>
-            </Flex>
+                <Flex gap="12px">
+                  <FormControl flex="1">
+                    <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                      Date From
+                    </FormLabel>
+                    <Input
+                      type="date"
+                      size="sm"
+                      borderRadius="6px"
+                      value={form.dateFrom}
+                      onChange={(e) => update("dateFrom", e.target.value)}
+                    />
+                  </FormControl>
+                  <FormControl flex="1">
+                    <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                      Date To
+                    </FormLabel>
+                    <Input
+                      type="date"
+                      size="sm"
+                      borderRadius="6px"
+                      value={form.dateTo}
+                      onChange={(e) => update("dateTo", e.target.value)}
+                    />
+                  </FormControl>
+                </Flex>
+              </>
+            )}
           </Flex>
         </ModalBody>
         <ModalFooter gap="10px">
@@ -315,7 +392,7 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
             isLoading={loading}
             loadingText="Creating…"
           >
-            Create Export
+            Create Transfer
           </Button>
         </ModalFooter>
       </ModalContent>
@@ -359,7 +436,7 @@ const DeleteModal = ({ isOpen, onClose, exportItem, onSuccess }) => {
     <Modal isOpen={isOpen} onClose={onClose} isCentered size="sm">
       <ModalOverlay />
       <ModalContent>
-        <ModalHeader fontSize="16px">Delete Export</ModalHeader>
+        <ModalHeader fontSize="16px">Delete Transfer</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <Text fontSize="14px" color="gray.600">
@@ -400,6 +477,15 @@ const ExportsTable = ({ exports, showDownloadUrl, onDelete, onDownload }) => (
             textTransform="none"
           >
             Report Name
+          </Th>
+          <Th
+            py="14px"
+            color="gray.500"
+            fontSize="12px"
+            fontWeight="600"
+            textTransform="none"
+          >
+            Operation
           </Th>
           <Th
             py="14px"
@@ -467,6 +553,9 @@ const ExportsTable = ({ exports, showDownloadUrl, onDelete, onDownload }) => (
               <Text fontSize="11px" color="gray.400">
                 {exp.exportId}
               </Text>
+            </Td>
+            <Td py="14px" fontSize="13px" color="gray.600">
+              {exp.operationType || "Export"}
             </Td>
             <Td py="14px">
               <Flex alignItems="center" gap="6px">
@@ -630,8 +719,8 @@ const ReportExportPage = () => {
 
   const stats = {
     total: allExports.length,
-    processing: allExports.filter((e) => e.status === "PROCESSING").length,
-    success: allExports.filter((e) => e.status === "SUCCESS").length,
+    exports: allExports.filter((e) => e.operationType === "Export").length,
+    imports: allExports.filter((e) => e.operationType === "Import").length,
     failed: allExports.filter((e) => e.status === "FAILED").length,
   };
 
@@ -651,10 +740,10 @@ const ReportExportPage = () => {
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" mb="24px">
         <Heading fontSize="22px" fontWeight="600">
-          Report Exports
+          Report Transfers
         </Heading>
         <Button leftIcon={<FaPlus />} onClick={createModal.onOpen}>
-          Create Export
+          Create Transfer
         </Button>
       </Flex>
 
@@ -666,22 +755,22 @@ const ReportExportPage = () => {
       >
         {[
           {
-            label: "Total Exports",
+            label: "Total Transfers",
             value: stats.total,
             color: "#3182CE",
             bg: "#EBF4FF",
           },
           {
-            label: "Processing",
-            value: stats.processing,
-            color: "#3182CE",
+            label: "Exports",
+            value: stats.exports,
+            color: "#1C6AA8",
             bg: "#EBF8FF",
           },
           {
-            label: "Successful",
-            value: stats.success,
-            color: "#38A169",
-            bg: "#E6F4EA",
+            label: "Imports",
+            value: stats.imports,
+            color: "#805AD5",
+            bg: "#F5EEFF",
           },
           {
             label: "Failed",
@@ -723,10 +812,10 @@ const ReportExportPage = () => {
         >
           <Flex>
             <Box {...tabStyle("all")} onClick={() => setActiveTab("all")}>
-              All Exports
+              All Transfers
             </Box>
             <Box {...tabStyle("my")} onClick={() => setActiveTab("my")}>
-              My Exports
+              My Transfers
             </Box>
           </Flex>
           {activeTab === "all" && (
@@ -758,14 +847,14 @@ const ReportExportPage = () => {
             )}
             {allResource.err && (
               <Flex justifyContent="center" py="40px">
-                <Text color="red.500">Failed to load exports.</Text>
+                <Text color="red.500">Failed to load transfers.</Text>
               </Flex>
             )}
             {!allResource.loading &&
               !allResource.err &&
               allExports.length === 0 && (
                 <Flex justifyContent="center" py="40px">
-                  <Text color="gray.400">No exports found.</Text>
+                  <Text color="gray.400">No transfers found.</Text>
                 </Flex>
               )}
             {!allResource.loading &&
@@ -820,14 +909,14 @@ const ReportExportPage = () => {
             )}
             {myResource.err && (
               <Flex justifyContent="center" py="40px">
-                <Text color="red.500">Failed to load your exports.</Text>
+                <Text color="red.500">Failed to load your transfers.</Text>
               </Flex>
             )}
             {!myResource.loading &&
               !myResource.err &&
               myExports.length === 0 && (
                 <Flex justifyContent="center" py="40px">
-                  <Text color="gray.400">You have no exports yet.</Text>
+                  <Text color="gray.400">You have no transfers yet.</Text>
                 </Flex>
               )}
             {!myResource.loading && !myResource.err && myExports.length > 0 && (

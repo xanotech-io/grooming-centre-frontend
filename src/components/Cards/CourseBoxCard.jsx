@@ -21,9 +21,67 @@ import { MdAudiotrack, MdFileDownload } from 'react-icons/md';
 import { IoPlay } from 'react-icons/io5';
 import { useDownload } from '../../hooks';
 import { Avatar } from '@chakra-ui/avatar';
+import { useToast } from '@chakra-ui/toast';
+import { userDownloadCourseMaterial } from '../../services';
 
-export const DownloadButton = ({ file, title, fileExtension, asIcon }) => {
+export const DownloadButton = ({
+  file,
+  title,
+  fileExtension,
+  asIcon,
+  downloadPermission,
+  restrictionReason,
+  courseId,
+  materialId,
+}) => {
   const { isLoading, handleDownload } = useDownload();
+  const toast = useToast();
+
+  const handleClick = async () => {
+    if (downloadPermission === false) {
+      toast({
+        title: 'Download restricted',
+        description: restrictionReason || 'This file cannot be downloaded',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    const filename = `${title}.${fileExtension}`;
+
+    if (courseId && materialId) {
+      try {
+        const response = await userDownloadCourseMaterial(courseId, materialId);
+
+        if (!response?.success || !response?.downloadUrl) {
+          toast({
+            title: 'Download unavailable',
+            description: response?.message || 'Unable to download this material',
+            status: 'warning',
+            duration: 3000,
+            isClosable: true,
+          });
+          return;
+        }
+
+        handleDownload(response.downloadUrl, filename)();
+        return;
+      } catch {
+        toast({
+          title: 'Download failed',
+          description: 'Unable to fetch download link for this material',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+        return;
+      }
+    }
+
+    handleDownload(file, filename)();
+  };
 
   return (
     <>
@@ -33,7 +91,7 @@ export const DownloadButton = ({ file, title, fileExtension, asIcon }) => {
           disabled={isLoading}
           asIcon
           backgroundColor="primary.base"
-          onClick={handleDownload(file, title + '.' + fileExtension)}
+          onClick={handleClick}
           _hover={{ backgroundColor: 'primary.hover' }}
           color="white"
         >
@@ -45,7 +103,7 @@ export const DownloadButton = ({ file, title, fileExtension, asIcon }) => {
           disabled={isLoading}
           leftIcon={<MdFileDownload />}
           mr={3}
-          onClick={handleDownload(file, title + '.' + fileExtension)}
+          onClick={handleClick}
         >
           Download
         </Button>
@@ -59,6 +117,8 @@ export const CourseBoxCard = ({
   disabled,
   duration,
   id,
+  courseId,
+  materialId,
   preRequisite,
   instructor,
   isLoading,
@@ -67,6 +127,8 @@ export const CourseBoxCard = ({
   title,
   file,
   fileExtension,
+  downloadPermission,
+  restrictionReason,
 }) => {
   duration = getDuration(duration);
 
@@ -168,6 +230,10 @@ export const CourseBoxCard = ({
                     title={title}
                     file={file}
                     fileExtension={fileExtension}
+                    courseId={courseId}
+                    materialId={materialId}
+                    downloadPermission={downloadPermission}
+                    restrictionReason={restrictionReason}
                   />
                 }
               />
@@ -250,6 +316,10 @@ export const CourseBoxCard = ({
                             title={title}
                             file={file}
                             fileExtension={fileExtension}
+                            courseId={courseId}
+                            materialId={materialId}
+                            downloadPermission={downloadPermission}
+                            restrictionReason={restrictionReason}
                           />
                         }
                       />
@@ -279,6 +349,10 @@ export const CourseBoxCard = ({
                             title={title}
                             file={file}
                             fileExtension={fileExtension}
+                            courseId={courseId}
+                            materialId={materialId}
+                            downloadPermission={downloadPermission}
+                            restrictionReason={restrictionReason}
                           />
                         }
                       />
@@ -289,6 +363,10 @@ export const CourseBoxCard = ({
                     file={file}
                     title={title}
                     fileExtension={fileExtension}
+                    courseId={courseId}
+                    materialId={materialId}
+                    downloadPermission={downloadPermission}
+                    restrictionReason={restrictionReason}
                   />
                 </Flex>
               )}
@@ -542,9 +620,13 @@ CourseBoxCard.propTypes = {
   disabled: PropTypes.bool,
   duration: PropTypes.number,
   id: PropTypes.string,
+  courseId: PropTypes.string,
+  materialId: PropTypes.string,
   isLoading: PropTypes.bool,
   lessonCount: PropTypes.number,
   title: PropTypes.string,
+  downloadPermission: PropTypes.bool,
+  restrictionReason: PropTypes.string,
   instructor: PropTypes.shape({
     profilePics: PropTypes.string,
     firstName: PropTypes.string,

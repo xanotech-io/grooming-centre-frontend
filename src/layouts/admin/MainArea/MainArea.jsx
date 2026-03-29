@@ -63,8 +63,14 @@ import {
 } from "../../../pages/admin";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
 import { ManagementReportRoute } from "../../../pages/admin/report/managementReport/managementReport";
-
+import { InstructorReportRoute } from "../../../pages/admin/report/instructorReport/instructorReport";
 import { StudentReportRoute } from "../../../pages/admin/report/studentReport/StudentReport";
+import { StudentReportDetailsRoute } from "../../../pages/admin/report/studentReport/StudentReportDetails";
+import { ProgressReportRoute } from "../../../pages/admin/report/studentReport/ProgressReport";
+import { TranscriptReportRoute } from "../../../pages/admin/report/studentReport/TranscriptReport";
+import { AttendanceReportRoute } from "../../../pages/admin/report/studentReport/AttendanceReport";
+import { AssessmentReportRoute } from "../../../pages/admin/report/studentReport/AssessmentReport";
+import { ComplianceReportRoute } from "../../../pages/admin/report/studentReport/ComplianceReport";
 import { ArchivedReportsPageRoute } from "../../../pages/admin/report/ArchivedReportsPage";
 import { ComplianceSecurityReportPageRoute } from "../../../pages/admin/report/ComplianceSecurityReportPage";
 import PollsListingPageRoute from "../../../pages/admin/polls/PollsPage";
@@ -209,6 +215,13 @@ const MainArea = () => {
         <ViewAuditRoute exact path="/admin/audit" />
         <ManagementReportRoute exact path="/admin/report/managementReport" />
         <StudentReportRoute exact path="/admin/report/studentReport" />
+        <InstructorReportRoute exact path="/admin/report/instructorReport" />
+        <StudentReportDetailsRoute exact path="/admin/report/studentReport/:studentId/details" />
+        <ProgressReportRoute exact path="/admin/report/studentReport/:studentId/progress" />
+        <TranscriptReportRoute exact path="/admin/report/studentReport/:studentId/transcript" />
+        <AttendanceReportRoute exact path="/admin/report/studentReport/:studentId/attendance" />
+        <AssessmentReportRoute exact path="/admin/report/studentReport/:studentId/assessment" />
+        <ComplianceReportRoute exact path="/admin/report/studentReport/:studentId/compliance" />
         <ArchivedReportsPageRoute exact path="/admin/report/archived" />
         <ComplianceSecurityReportPageRoute
           exact

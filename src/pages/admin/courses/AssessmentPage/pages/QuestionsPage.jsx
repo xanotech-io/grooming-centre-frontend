@@ -35,10 +35,10 @@ import {
   adminCreateStandaloneExaminationQuestion,
   adminEditAssessmentQuestion,
   adminEditExaminationQuestion,
-  adminEditStandaloneExaminationQuestion,
   adminDeleteAssessmentQuestion,
   adminDeleteExaminationQuestion,
-  adminDeleteStandaloneExaminationQuestion,
+  adminDeleteUploadedQuestion,
+  adminUpdateUploadedQuestion,
 } from "../../../../../services";
 import useAssessmentPreview from "../../../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import { PageLoaderLayout } from "../../../../../layouts";
@@ -340,11 +340,25 @@ const CreateQuestionPage = (assessmentManager) => {
 
         if (!ok) return;
 
-        const { message } = isStandaloneExamination
-          ? await adminDeleteStandaloneExaminationQuestion(question.id)
-          : isExamination
-            ? await adminDeleteExaminationQuestion(question.id)
-            : await adminDeleteAssessmentQuestion(question.id);
+        let message = "Question Deleted Successfully";
+
+        if (isStandaloneExamination) {
+          const response = await adminDeleteUploadedQuestion(question.id);
+          if (response?.data?.deletePermission === "Not Allowed") {
+            throw new Error(
+              response?.data?.remarks ||
+                response?.message ||
+                "Deletion not permitted for standalone examination",
+            );
+          }
+          message = response?.message || message;
+        } else if (isExamination) {
+          const response = await adminDeleteExaminationQuestion(question.id);
+          message = response?.message || message;
+        } else {
+          const response = await adminDeleteAssessmentQuestion(question.id);
+          message = response?.message || message;
+        }
 
         toast({
           description: capitalizeFirstLetter(message),
@@ -456,9 +470,13 @@ const CreateQuestionPage = (assessmentManager) => {
 
       const body = appendFormData(data);
 
-      const { message } = isEditMode
+      const response = isEditMode
         ? isStandaloneExamination
-          ? await adminEditStandaloneExaminationQuestion(body)
+          ? await adminUpdateUploadedQuestion(questionId, {
+              content: questionText,
+              difficultyLevel: "MEDIUM",
+              marks: Number(question?.marks || 1),
+            })
           : isExamination
             ? await adminEditExaminationQuestion(body)
             : await adminEditAssessmentQuestion(body)
@@ -467,6 +485,20 @@ const CreateQuestionPage = (assessmentManager) => {
           : isExamination
             ? await adminCreateExaminationQuestion(body)
             : await adminCreateAssessmentQuestion(body);
+
+      if (
+        isEditMode &&
+        isStandaloneExamination &&
+        response?.question?.updateStatus === "Not Updated"
+      ) {
+        throw new Error(
+          response?.question?.remarks ||
+            response?.message ||
+            "Modification cannot be saved for standalone examination",
+        );
+      }
+
+      const message = response?.message || "Question saved successfully";
 
       toast({
         description: capitalizeFirstLetter(message),
@@ -811,9 +843,16 @@ const QuestionCard = ({ questionNumber, question, image, id, ...rest }) => {
 
     handleFetchResource({
       fetcher: async () => {
-        if (isStandaloneExamination)
-          await adminDeleteStandaloneExaminationQuestion(id);
-        else if (isExamination) await adminDeleteExaminationQuestion(id);
+        if (isStandaloneExamination) {
+          const response = await adminDeleteUploadedQuestion(id);
+          if (response?.data?.deletePermission === "Not Allowed") {
+            throw new Error(
+              response?.data?.remarks ||
+                response?.message ||
+                "Deletion not permitted for standalone examination",
+            );
+          }
+        } else if (isExamination) await adminDeleteExaminationQuestion(id);
         else await adminDeleteAssessmentQuestion(id);
 
         return "Question Deleted Successfully";

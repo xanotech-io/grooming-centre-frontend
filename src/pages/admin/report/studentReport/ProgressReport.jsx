@@ -1,5 +1,13 @@
-import { useState } from "react";
-import { Button, Table, Text, Spinner } from "../../../../components";
+import { useEffect, useState } from "react";
+import { Route, useHistory, useParams } from "react-router-dom";
+import {
+  Button,
+  Table,
+  Text,
+  Spinner,
+  Breadcrumb,
+  Link,
+} from "../../../../components";
 import { EmptyState } from "../../../../layouts";
 import { Flex, Box } from "@chakra-ui/layout";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
@@ -7,37 +15,73 @@ import { DashboardMetricCard } from "../../../../components";
 import dayjs from "dayjs";
 import { Tag } from "@chakra-ui/tag";
 import { useTableRows } from "../../../../hooks";
-import { mockStudentReportsResponse } from "../../../../mocks/server/controllers/student-report/reponses";
+import { BreadcrumbItem } from "@chakra-ui/react";
+import {
+  adminGetStudentProgress,
+  adminGetStudentProgressSummary,
+} from "../../../../services";
 
 const ProgressReport = () => {
+  const { studentId } = useParams();
+  const history = useHistory();
+  const safeStudentId =
+    !studentId || studentId === "undefined" ? "mock_student_1" : studentId;
+
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
+  const [summary, setSummary] = useState(null);
 
-  const fetchReports = async (params = {}) => {
+  useEffect(() => {
+    if (!studentId || studentId === "undefined") {
+      history.replace(`/admin/report/studentReport/${safeStudentId}/progress`);
+    }
+  }, [history, studentId, safeStudentId]);
+
+  const mapReportToRow = (report) => ({
+    id: report?.reportId,
+    studentId: report?.studentId,
+    studentName: report?.studentName,
+    courseId: report?.courseId,
+    courseTitle: report?.courseTitle,
+    enrollmentDate: report?.enrollmentDate,
+    modulesCompleted: `${report?.modulesCompleted || 0}/${report?.totalModules || 0}`,
+    completionPercentage:
+      report?.completionPercentage != null ? `${report.completionPercentage}%` : "—",
+    score:
+      report?.cumulativeAverageScore != null
+        ? `${Number(report.cumulativeAverageScore).toFixed(1)}%`
+        : "—",
+    status: report?.completionStatus,
+    certificate: Boolean(report?.certificatesEarned?.length),
+    lastAccess: report?.lastAccessDate,
+  });
+
+  const fetchReports = async (studentIdValue, params = {}) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Mocking the full API response:
-      const response = mockStudentReportsResponse;
+      const [progressResponse, summaryResponse] = await Promise.all([
+        adminGetStudentProgress(studentIdValue, params),
+        adminGetStudentProgressSummary(studentIdValue),
+      ]);
 
       const rows =
-        response.data.rows?.map((report) => mapReportToRow(report)) || [];
+        progressResponse.rows?.map((report) => mapReportToRow(report)) || [];
 
-      setTotalCount(response.data.totalDocumentsCount);
+      setSummary(summaryResponse);
+      setTotalCount(progressResponse.count || rows.length);
 
       return {
         rows,
-        showingDocumentsCount:
-          response.data.showingDocumentsCount || rows.length,
-        totalDocumentsCount: response.data.totalDocumentsCount || 0,
-        currentPage: response.data.currentPage || 1,
-        totalPages: response.data.totalPages || 1,
+        showingDocumentsCount: progressResponse.count || rows.length,
+        totalDocumentsCount: progressResponse.count || rows.length,
+        currentPage: progressResponse.page || 1,
+        totalPages: progressResponse.totalPages || 1,
       };
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Unable to fetch student reports");
+    } catch (requestError) {
+      setError(requestError.message || "Unable to fetch student progress");
       return {
         rows: [],
         showingDocumentsCount: 0,
@@ -50,18 +94,6 @@ const ProgressReport = () => {
     }
   };
 
-  const mapReportToRow = (report) => ({
-    id: report?.id,
-    studentId: report?.studentId,
-    studentName: report?.studentName,
-    courseTitle: report?.courseTitle,
-    enrollmentDate: report?.enrollmentDate,
-    modulesCompleted: report?.modulesCompleted,
-    score: report?.score,
-    status: report?.status,
-    certificate: report?.certificate,
-    lastAccess: report?.lastAccess,
-  });
   // Setup Table
   const tableProps = {
     searchKey: "search",
@@ -72,9 +104,9 @@ const ProgressReport = () => {
         width: "180px",
         body: {
           checks: [
-            { label: "Completed", queryValue: "Completed" },
-            { label: "In Progress", queryValue: "In Progress" },
-            { label: "Not Started", queryValue: "Not Started" },
+            { label: "Completed", queryValue: "COMPLETED" },
+            { label: "In Progress", queryValue: "IN_PROGRESS" },
+            { label: "Not Started", queryValue: "NOT_STARTED" },
           ],
         },
       },
@@ -113,8 +145,15 @@ const ProgressReport = () => {
       {
         id: "modulesCompleted",
         key: "modulesCompleted",
-        text: "Module Completed",
+        text: "Modules Completed",
         fraction: "150px",
+      },
+
+      {
+        id: "completionPercentage",
+        key: "completionPercentage",
+        text: "Completion",
+        fraction: "120px",
       },
 
       {
@@ -173,15 +212,16 @@ const ProgressReport = () => {
       action: [
         {
           text: "Archive Report",
-          link: (row) => `/archiiveReport/${row.id}/archive`,
+          link: (row) => `/archiveReport/${row.id}/archive`,
         },
       ],
       selection: true,
       pagination: true,
     },
   };
+
   const fetcher = (props) => async () => {
-    return await fetchReports(props?.params);
+    return await fetchReports(safeStudentId, props?.params);
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
@@ -189,36 +229,60 @@ const ProgressReport = () => {
   return (
     <>
       <AdminMainAreaWrapper>
+        <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
+          <Breadcrumb
+            item2={
+              <BreadcrumbItem>
+                <Link href="/admin/report/studentReport">Learners</Link>
+              </BreadcrumbItem>
+            }
+            item3={
+              <BreadcrumbItem>
+                <Link href={`/admin/report/studentReport/${safeStudentId}/details`}>
+                  Report Details
+                </Link>
+              </BreadcrumbItem>
+            }
+            item4={
+              <BreadcrumbItem isCurrentPage>
+                <Link href="#">Progress Report</Link>
+              </BreadcrumbItem>
+            }
+          />
+          <Button secondary onClick={fetchRowItems}>
+            Refresh
+          </Button>
+        </Box>
+
         <Box
           display={"flex"}
-          // width={'100%'}
           justifyContent="space-between"
           gridGap={4}
           mb={10}
         >
           <DashboardMetricCard
-            title="Completion Percentage"
-            value="82%"
-            change="+5% vs last month"
+            title="Overall Completion"
+            value={`${summary?.overallCompletionRate ?? 0}%`}
+            change={`${summary?.completedCourses ?? 0} completed courses`}
             changeColor="#1A8F3A"
           />
 
           <DashboardMetricCard
             title="Average Assessment Score"
-            value="82%"
-            change="+5% vs last month"
+            value={`${summary?.averageScore ?? 0}%`}
+            change={`${summary?.totalCourses ?? 0} tracked courses`}
             changeColor="#1A8F3A"
           />
           <DashboardMetricCard
             title="Average Time Spent"
-            value="5h 32mins"
+            value={`${summary?.totalTimeSpentHours ?? 0} hrs`}
             change="per learner"
             changeColor="#1A8F3A"
           />
 
           <DashboardMetricCard
-            title="Weakly Activity Rate"
-            value="4.2"
+            title="Weekly Activity Rate"
+            value={`${summary?.averageWeeklyLogins ?? 0}`}
             change="logins/week"
             changeColor="#1A8F3A"
           />
@@ -232,13 +296,13 @@ const ProgressReport = () => {
             flexDirection="column"
           >
             <Spinner size="xl" />
-            <Text mt={4}>Loading student reports...</Text>
+            <Text mt={4}>Loading student progress...</Text>
           </Flex>
         ) : error ? (
           <EmptyState
-            heading="Failed to load student reports"
+            heading="Failed to load student progress"
             description={error}
-            cta={<Button onClick={fetchRowItems}>Try Again SCKKK</Button>}
+            cta={<Button onClick={fetchRowItems}>Try Again</Button>}
           />
         ) : (
           <Table
@@ -254,6 +318,10 @@ const ProgressReport = () => {
       </AdminMainAreaWrapper>
     </>
   );
+};
+
+export const ProgressReportRoute = ({ ...rest }) => {
+  return <Route {...rest} render={(props) => <ProgressReport {...props} />} />;
 };
 
 export default ProgressReport;

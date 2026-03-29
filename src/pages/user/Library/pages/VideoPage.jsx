@@ -4,14 +4,16 @@ import { useCallback } from "react";
 import { Route } from "react-router-dom";
 import { useFetchAndCache } from "../../../../hooks";
 import { CardGridLayout } from "../../../../layouts";
-import { userGetVideoListing } from "../../../../services";
+import { userGetCourseMaterials } from "../../../../services";
 
 const useVideo = () => {
   const { resource: videos, handleFetchResource } = useFetchAndCache();
 
   const fetcher = useCallback(async () => {
-    const { videos } = await userGetVideoListing();
-    return videos;
+    const { materials } = await userGetCourseMaterials("AGR101", {
+      format: "MP4",
+    });
+    return materials;
   }, []);
 
   useEffect(() => {
