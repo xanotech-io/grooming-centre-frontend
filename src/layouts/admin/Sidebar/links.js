@@ -7,7 +7,7 @@ import { AiOutlineUsergroupDelete, AiOutlineAudit } from "react-icons/ai";
 import { VscLibrary } from "react-icons/vsc";
 import { TiPen } from "react-icons/ti";
 import { MdOutlineAnnouncement } from "react-icons/md";
-import { FaFolderOpen, FaSitemap, FaClone, FaDownload } from "react-icons/fa";
+import { FaFolderOpen, FaSitemap, FaClone, FaDownload, FaDatabase } from "react-icons/fa";
 import { FiAward } from "react-icons/fi";
 
 export const links = [
@@ -159,6 +159,11 @@ export const links = [
     href: "/admin/question-bank-templates",
     text: "Question Bank Templates",
     icon: <TiPen />,
+  },
+  {
+    href: "/admin/data-operations",
+    text: "Data Operations",
+    icon: <FaDatabase />,
   },
   {
     href: "/admin/badge-support",

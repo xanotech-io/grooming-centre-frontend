@@ -67,3 +67,4 @@ export * from "./questionImport/UploadDetailsPage";
 export * from "./questionBankTemplate/QuestionBankTemplatesPage";
 export * from "./questionBankTemplate/QuestionBankTemplateDetailsPage";
 export * from "./courseContent/CourseContentEditorPage";
+export * from "./dataOperations/DataOperationsPage";

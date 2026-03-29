@@ -32,3 +32,4 @@ export * from "./http/endpoints/reportExport";
 export * from "./http/endpoints/questionImport";
 export * from "./http/endpoints/questionBankTemplate";
 export * from "./http/endpoints/courseContent";
+export * from "./http/endpoints/dataOperations";

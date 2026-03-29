@@ -59,6 +59,7 @@ import {
   QuestionBankTemplatesPageRoute,
   QuestionBankTemplateDetailsPageRoute,
   CourseContentEditorPageRoute,
+  DataOperationsPageRoute,
 } from "../../../pages/admin";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
 import { ManagementReportRoute } from "../../../pages/admin/report/managementReport/managementReport";
@@ -197,6 +198,7 @@ const MainArea = () => {
         <UploadDetailsPageRoute exact path="/admin/question-import/:uploadId" />
         <QuestionBankTemplatesPageRoute exact path="/admin/question-bank-templates" />
         <QuestionBankTemplateDetailsPageRoute exact path="/admin/question-bank-templates/:templateId" />
+        <DataOperationsPageRoute exact path="/admin/data-operations" />
         <BadgeSupportPageRoute exact path="/admin/badge-support" />
 
         <SecurityPageRoute path="/admin/settings/security" />
