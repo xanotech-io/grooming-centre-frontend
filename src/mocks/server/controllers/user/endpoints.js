@@ -14,7 +14,7 @@ import {
 } from "./responses";
 
 const adminGetUserListing = rest.get(
-  getUrl("/admin/users"),
+  getUrl("/v1/admin/users"),
   handleSuccessResponse(adminGetUserListingRes)
 );
 

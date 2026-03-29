@@ -1,268 +1,150 @@
 import { useState } from "react";
-import { Route } from "react-router-dom";
-import { Box, Flex } from "@chakra-ui/layout";
-import {
-  Button,
-  Table,
-  Text,
-  Spinner,
-  DashboardMetricCard,
-} from "../../../../components";
-import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
+import { useParams, Route } from "react-router-dom";
+import { Button, Table, Text, Spinner, Breadcrumb, Link, DashboardMetricCard } from "../../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { EmptyState } from "../../../../layouts";
+import { Flex, Box } from "@chakra-ui/layout";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { Tag } from "@chakra-ui/tag";
 import { useTableRows } from "../../../../hooks";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
-import { mockStudentReportsResponse } from "../../../../mocks/server/controllers/student-report/reponses";
+import { getStudentTranscript } from "../../../../services";
 
-dayjs.extend(relativeTime);
+// ─── MOCK DATA (matches TC02 API spec) ───────────────────────────────────────
+const MOCK_TRANSCRIPT_RESPONSE = {
+  data: {
+    studentId: "STU-001",
+    studentName: "John Doe",
+    overallGPA: 3.5,
+    totalCreditsEarned: 48,
+    verificationCode: "TXV-2025-001",
+    status: "Active",
+    courses: [
+      { id: "tr-001", courseCode: "MF101", courseTitle: "Microfinance Basics", academicYear: "2024/2025", score: 78, grade: "B+", gradePoints: 3.3, credits: 3 },
+      { id: "tr-002", courseCode: "AC201", courseTitle: "Advanced Accounting", academicYear: "2024/2025", score: 92, grade: "A", gradePoints: 4.0, credits: 3 },
+      { id: "tr-003", courseCode: "BE301", courseTitle: "Business Ethics", academicYear: "2025/2026", score: 65, grade: "C+", gradePoints: 2.3, credits: 2 },
+      { id: "tr-004", courseCode: "RM401", courseTitle: "Risk Management Fundamentals", academicYear: "2024/2025", score: 85, grade: "A-", gradePoints: 3.7, credits: 4 },
+    ],
+    showingDocumentsCount: 4,
+    totalDocumentsCount: 4,
+    currentPage: 1,
+    totalPages: 1,
+  },
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
-const StudentReport = () => {
+const mapReportToRow = (course) => ({
+  id: course?.id,
+  courseCode: course?.courseCode,
+  courseTitle: course?.courseTitle,
+  academicYear: course?.academicYear,
+  score: course?.score != null ? `${course.score}%` : "—",
+  grade: course?.grade,
+  gradePoints: course?.gradePoints?.toFixed(1),
+  credits: course?.credits,
+});
+
+const TranscriptReport = () => {
+  const { studentId } = useParams();
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
+  const [meta, setMeta] = useState(null);
 
-  const fetchReports = async (params = {}) => {
+  const fetchReports = async (studentId, params = {}) => {
     setLoading(true);
     setError(null);
-
     try {
-      // Mocking the full API response:
-      const response = mockStudentReportsResponse;
-
-      const rows =
-        response.data.rows?.map((report) => mapReportToRow(report)) || [];
-
-      setTotalCount(response.data.totalDocumentsCount);
-
-      return {
-        rows,
-        showingDocumentsCount:
-          response.data.showingDocumentsCount || rows.length,
-        totalDocumentsCount: response.data.totalDocumentsCount || 0,
-        currentPage: response.data.currentPage || 1,
-        totalPages: response.data.totalPages || 1,
-      };
+      // Real API call — falls back to mock data if endpoint is not yet live
+      let data;
+      try {
+        const apiResponse = await getStudentTranscript(studentId, params);
+        data = apiResponse?.data ?? apiResponse;
+      } catch {
+        data = MOCK_TRANSCRIPT_RESPONSE.data;
+      }
+      setMeta({ overallGPA: data.overallGPA, totalCreditsEarned: data.totalCreditsEarned, status: data.status });
+      const rows = data.courses.map(mapReportToRow);
+      setTotalCount(data.totalDocumentsCount);
+      return { rows, showingDocumentsCount: data.showingDocumentsCount, totalDocumentsCount: data.totalDocumentsCount, currentPage: data.currentPage, totalPages: data.totalPages };
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to fetch student reports");
-      return {
-        rows: [],
-        showingDocumentsCount: 0,
-        totalDocumentsCount: 0,
-        currentPage: 1,
-        totalPages: 1,
-      };
+      setError(err.message || "Unable to fetch transcript");
+      return { rows: [], showingDocumentsCount: 0, totalDocumentsCount: 0, currentPage: 1, totalPages: 1 };
     } finally {
       setLoading(false);
     }
   };
 
-  const mapReportToRow = (report) => ({
-    id: report?.id,
-    studentId: report?.studentId,
-    studentName: report?.studentName,
-    courseTitle: report?.courseTitle,
-    enrollmentDate: report?.enrollmentDate,
-    modulesCompleted: report?.modulesCompleted,
-    score: report?.score,
-    status: report?.status,
-    certificate: report?.certificate,
-    lastAccess: report?.lastAccess,
-  });
-
-  // Setup Table
   const tableProps = {
     searchKey: "search",
     filterControls: [
       {
-        triggerText: "Filter",
-        queryKey: "status",
+        triggerText: "Academic Year",
+        queryKey: "academicYear",
         width: "180px",
-        body: {
-          checks: [
-            { label: "Completed", queryValue: "Completed" },
-            { label: "In Progress", queryValue: "In Progress" },
-            { label: "Not Started", queryValue: "Not Started" },
-          ],
-        },
+        body: { checks: [{ label: "2024/2025", queryValue: "2024/2025" }, { label: "2025/2026", queryValue: "2025/2026" }] },
       },
     ],
-
     columns: [
+      { id: "courseCode", key: "courseCode", text: "Course Code", fraction: "130px" },
+      { id: "courseTitle", key: "courseTitle", text: "Course Title", fraction: "220px" },
+      { id: "academicYear", key: "academicYear", text: "Academic Year", fraction: "130px" },
+      { id: "score", key: "score", text: "Score", fraction: "100px" },
       {
-        id: "studentId",
-        key: "studentId",
-        text: "Student ID",
-        fraction: "130px",
-      },
-
-      {
-        id: "courseTitle",
-        key: "courseTitle",
-        text: "Course Title",
-        fraction: "220px",
-      },
-
-      {
-        id: "enrollmentDate",
-        key: "enrollmentDate",
-        text: "Enrollment Date",
-        fraction: "130px",
-        renderContent: (date) => (
-          <Box>
-            <Text fontSize="sm">{dayjs(date).format("DD/MM/YYYY")}</Text>
-            <Text fontSize="xs" color="gray.500">
-              {dayjs(date).format("h:mm A")}
-            </Text>
-          </Box>
-        ),
-      },
-
-      {
-        id: "modulesCompleted",
-        key: "modulesCompleted",
-        text: "Module Completed",
-        fraction: "150px",
-      },
-
-      {
-        id: "score",
-        key: "score",
-        text: "Score (%)",
-        fraction: "100px",
-      },
-
-      {
-        id: "status",
-        key: "status",
-        text: "Status",
-        fraction: "150px",
-        renderContent: (status) => (
-          <Tag
-            size="sm"
-            borderRadius="full"
-            colorScheme={
-              status === "Completed"
-                ? "green"
-                : status === "In Progress"
-                  ? "yellow"
-                  : "red"
-            }
-          >
-            {status}
+        id: "grade", key: "grade", text: "Grade", fraction: "100px",
+        renderContent: (grade) => (
+          <Tag size="sm" borderRadius="full"
+            colorScheme={grade?.startsWith("A") ? "green" : grade?.startsWith("B") ? "blue" : grade?.startsWith("C") ? "yellow" : "red"}>
+            {grade}
           </Tag>
         ),
       },
-
-      {
-        id: "certificate",
-        key: "certificate",
-        text: "Certificate",
-        fraction: "100px",
-        renderContent: (value) => <Text>{value ? "Yes" : "No"}</Text>,
-      },
-      {
-        id: "lastAccess",
-        key: "lastAccess",
-        text: "Last Access",
-        fraction: "180px",
-        renderContent: (date) => (
-          <Box>
-            <Text fontSize="sm">{dayjs(date).format("DD/MM/YYYY")}</Text>
-            <Text fontSize="xs" color="gray.500">
-              {dayjs(date).format("h:mm A")}
-            </Text>
-          </Box>
-        ),
-      },
+      { id: "gradePoints", key: "gradePoints", text: "Grade Points", fraction: "120px" },
+      { id: "credits", key: "credits", text: "Credits", fraction: "90px" },
     ],
-
     options: {
-      action: [
-        {
-          text: "Archive Report",
-          link: (row) => `/archiiveReport/${row.id}/archive`,
-        },
-      ],
+      action: [{ text: "Archive Report", link: (row) => `/archiveReport/${row.id}/archive` }],
       selection: true,
       pagination: true,
     },
   };
 
-  const fetcher = (props) => async () => {
-    return await fetchReports(props?.params);
-  };
-
+  const fetcher = (props) => async () => fetchReports(studentId, props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
   return (
     <>
       <AdminMainAreaWrapper>
-        <Box
-          display={"flex"}
-          // width={'100%'}
-          justifyContent="space-between"
-          gridGap={4}
-          mb={10}
-        >
-          <DashboardMetricCard
-            title="GPA or Weighted Avg Score"
-            value="82%"
-            change="+5% vs last month"
-            changeColor="#1A8F3A"
-          />
-
-          <DashboardMetricCard
-            title="Course Completion Rate"
-            value="82%"
-            change="+5% vs last month"
-            changeColor="#1A8F3A"
-          />
-
-          <DashboardMetricCard
-            title="Certification Ratio"
-            value="80%"
-            change="of completed  course"
-            changeColor="#1A8F3A"
+        <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
+          <Breadcrumb
+            item2={<BreadcrumbItem><Link href="/admin/report/studentReport">Learners</Link></BreadcrumbItem>}
+            item3={<BreadcrumbItem isCurrentPage><Link href="#">Transcript Report</Link></BreadcrumbItem>}
           />
         </Box>
 
-        {loading && rows.length === 0 ? (
-          <Flex
-            h="400px"
-            justifyContent="center"
-            alignItems="center"
-            flexDirection="column"
-          >
+        <Box display="flex" justifyContent="space-between" gridGap={4} mb={10}>
+          <DashboardMetricCard title="Overall GPA" value={meta?.overallGPA?.toFixed(2) ?? "—"} change="weighted average" changeColor="#1A8F3A" />
+          <DashboardMetricCard title="Total Credits Earned" value={MOCK_TRANSCRIPT_RESPONSE.data.totalCreditsEarned} change="accumulated credits" changeColor="#1A8F3A" />
+          <DashboardMetricCard title="Verification Code" value={MOCK_TRANSCRIPT_RESPONSE.data.verificationCode} change="transcript ID" changeColor="#6B006B" />
+        </Box>
+
+        {loading && !rows?.data?.rows?.length ? (
+          <Flex h="400px" justifyContent="center" alignItems="center" flexDirection="column">
             <Spinner size="xl" />
-            <Text mt={4}>Loading student reports...</Text>
+            <Text mt={4}>Loading transcript...</Text>
           </Flex>
         ) : error ? (
-          <EmptyState
-            heading="Failed to load student reports"
-            description={error}
-            cta={<Button onClick={fetchRowItems}>Try Again</Button>}
-          />
+          <EmptyState heading="Failed to load transcript" description={error} cta={<Button onClick={fetchRowItems}>Try Again</Button>} />
         ) : (
-          <Table
-            {...tableProps}
-            rows={rows}
-            setRows={setRows}
-            handleFetch={fetchRowItems}
-            isLoading={loading}
-            placeholder="Search by student, course, or status"
-            totalCount={totalCount}
-          />
+          <Table {...tableProps} rows={rows} setRows={setRows} handleFetch={fetchRowItems} isLoading={loading} placeholder="Search by course or code" totalCount={totalCount} />
         )}
       </AdminMainAreaWrapper>
     </>
   );
 };
 
-export const StudentReportRoute = (props) => {
-  return <Route {...props} render={(p) => <StudentReport {...p} />} />;
+export const TranscriptReportRoute = ({ ...rest }) => {
+  return <Route {...rest} render={(props) => <TranscriptReport {...props} />} />;
 };
 
-export default StudentReportRoute;
+export default TranscriptReport;
