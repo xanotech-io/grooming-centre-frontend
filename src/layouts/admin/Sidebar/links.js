@@ -108,6 +108,10 @@ export const links = [
         href: "/admin/report/compliance",
         text: "Compliance & Security",
       },
+      {
+        href: "/admin/report/instructorReport",
+        text: "Instructor Report",
+      },
     ],
   },
   {

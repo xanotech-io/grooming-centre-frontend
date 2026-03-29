@@ -1,0 +1,153 @@
+import { useEffect, useState } from "react";
+import { Route, useParams, useHistory } from "react-router-dom";
+import { Box, Flex, VStack } from "@chakra-ui/layout";
+import { Select } from "@chakra-ui/react";
+import { Button, Heading, Breadcrumb, Link, Text } from "../../../../components";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
+import { BreadcrumbItem } from "@chakra-ui/react";
+import { adminGetStudentProgress } from "../../../../services";
+
+const StudentReportDetails = () => {
+  const { studentId } = useParams();
+  const history = useHistory();
+  const [selectedReportType, setSelectedReportType] = useState("progress");
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [courseOptions, setCourseOptions] = useState([]);
+
+  const safeStudentId =
+    !studentId || studentId === "undefined" ? "mock_student_1" : studentId;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchCourseOptions = async () => {
+      try {
+        const response = await adminGetStudentProgress(safeStudentId, {
+          page: 1,
+          limit: 100,
+        });
+
+        const uniqueCourses = [];
+        const seen = new Set();
+
+        (response?.rows || []).forEach((item) => {
+          if (!item?.courseId || seen.has(item.courseId)) return;
+          seen.add(item.courseId);
+          uniqueCourses.push({
+            id: item.courseId,
+            title: item.courseTitle || item.courseId,
+          });
+        });
+
+        if (mounted) {
+          setCourseOptions(uniqueCourses);
+        }
+      } catch {
+        if (mounted) {
+          setCourseOptions([]);
+        }
+      }
+    };
+
+    fetchCourseOptions();
+
+    return () => {
+      mounted = false;
+    };
+  }, [safeStudentId]);
+
+  const handleGenerateReport = () => {
+    if (!selectedReportType) return;
+
+    const queryParams = new URLSearchParams();
+    if (selectedReportType === "progress" && selectedCourse) {
+      queryParams.append("courseId", selectedCourse);
+    }
+
+    const queryString = queryParams.toString();
+    history.push(
+      `/admin/report/studentReport/${safeStudentId}/${selectedReportType}${
+        queryString ? `?${queryString}` : ""
+      }`,
+    );
+  };
+
+  return (
+    <AdminMainAreaWrapper>
+      <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/report/studentReport">Learners</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Student Report Details</Link>
+            </BreadcrumbItem>
+          }
+        />
+        <Box display="flex" gap="8px">
+          <Button secondary>Schedule report</Button>
+          <Button>Export Dashboard</Button>
+        </Box>
+      </Box>
+
+      <Box bg="white" p={6} borderRadius="lg" boxShadow="sm" mt={4}>
+        <Heading as="h2" size="md" mb={6}>
+          Report Details
+        </Heading>
+
+        <VStack spacing={6} align="stretch" maxW="3xl">
+          <Box>
+            <Text mb={2} fontWeight="500" fontSize="sm">
+              Report Type
+            </Text>
+            <Select
+              bg="gray.50"
+              value={selectedReportType}
+              onChange={(event) => setSelectedReportType(event.target.value)}
+            >
+              <option value="progress">Progress report</option>
+              <option value="transcript">Transcript report</option>
+              <option value="attendance">Attendance report</option>
+              <option value="assessment">Assessment & Quizzes</option>
+              <option value="compliance">Compliance & Training</option>
+            </Select>
+          </Box>
+
+          {selectedReportType === "progress" && (
+            <Box>
+              <Text mb={2} fontWeight="500" fontSize="sm">
+                Course
+              </Text>
+              <Select
+                bg="gray.50"
+                placeholder="Select course"
+                value={selectedCourse}
+                onChange={(event) => setSelectedCourse(event.target.value)}
+              >
+                <option value="">All Courses</option>
+                {courseOptions.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.title}
+                  </option>
+                ))}
+              </Select>
+            </Box>
+          )}
+        </VStack>
+
+        <Flex justify="flex-end" mt={10}>
+          <Button onClick={handleGenerateReport}>Generate report</Button>
+        </Flex>
+      </Box>
+    </AdminMainAreaWrapper>
+  );
+};
+
+export const StudentReportDetailsRoute = ({ ...rest }) => {
+  return <Route {...rest} render={(props) => <StudentReportDetails {...props} />} />;
+};
+
+export default StudentReportDetails;
