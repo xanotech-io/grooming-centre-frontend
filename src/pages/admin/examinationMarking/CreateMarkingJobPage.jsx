@@ -45,7 +45,6 @@ export const CreateMarkingJobPage = () => {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    watch,
   } = useForm();
   const [criteria, setCriteria] = useState([{ ...DEFAULT_CRITERION }]);
 
