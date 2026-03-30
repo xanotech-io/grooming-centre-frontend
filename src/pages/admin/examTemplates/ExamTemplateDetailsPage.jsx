@@ -26,7 +26,7 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaFileAlt, FaChartBar, FaRandom } from "react-icons/fa";
-import { Button, Heading, Input, Select } from "../../../components";
+import { Button, Heading, Input } from "../../../components";
 import { useFetch } from "../../../hooks";
 import {
   adminGetExamTemplateById,

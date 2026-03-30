@@ -6,7 +6,6 @@ import {
   Grid,
   Text,
   Textarea,
-  Divider,
   IconButton,
   useToast,
   NumberInput,
@@ -14,7 +13,6 @@ import {
   NumberInputStepper,
   NumberIncrementStepper,
   NumberDecrementStepper,
-  Switch,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
 import { Button, Heading, Input, Select } from "../../../components";

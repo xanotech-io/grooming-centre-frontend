@@ -22,7 +22,6 @@ import {
   NumberInputStepper,
   NumberIncrementStepper,
   NumberDecrementStepper,
-  IconButton,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus, FaCheck, FaChartBar } from "react-icons/fa";
 import { Button, Heading, Input, Select } from "../../../components";

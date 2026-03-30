@@ -20,15 +20,11 @@ import {
   Badge,
   Spinner,
   Progress,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
   useToast,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { FiMoreVertical } from "react-icons/fi";
-import { Button, Heading, Select } from "../../../components";
+import { Button, Heading } from "../../../components";
 import { useFetch } from "../../../hooks";
 import {
   adminGetMarkingJobDetails,

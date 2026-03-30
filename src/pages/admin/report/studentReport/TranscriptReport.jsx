@@ -24,7 +24,6 @@ import {
   FormControl,
   FormLabel,
   Select as ChakraSelect,
-  Divider,
 } from "@chakra-ui/react";
 import { EmptyState } from "../../../../layouts";
 import { Flex, Box } from "@chakra-ui/layout";

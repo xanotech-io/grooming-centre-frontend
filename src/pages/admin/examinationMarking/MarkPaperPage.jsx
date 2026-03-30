@@ -16,7 +16,7 @@ import {
   NumberDecrementStepper,
 } from "@chakra-ui/react";
 import { FaArrowLeft } from "react-icons/fa";
-import { Button, Heading, Input } from "../../../components";
+import { Button, Heading } from "../../../components";
 import { useFetch } from "../../../hooks";
 import { adminGetPaperForMarking, adminMarkPaper } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";

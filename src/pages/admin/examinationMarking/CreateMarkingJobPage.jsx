@@ -6,7 +6,6 @@ import {
   Grid,
   Text,
   Textarea,
-  Spinner,
   Divider,
   useToast,
   IconButton,
@@ -49,8 +48,6 @@ export const CreateMarkingJobPage = () => {
     watch,
   } = useForm();
   const [criteria, setCriteria] = useState([{ ...DEFAULT_CRITERION }]);
-
-  const markingType = watch("markingType");
 
   const handleAddCriterion = () => {
     setCriteria((prev) => [...prev, { ...DEFAULT_CRITERION }]);

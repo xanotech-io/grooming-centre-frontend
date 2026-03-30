@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Route } from "react-router-dom";
 import {
   Box,
@@ -759,7 +759,7 @@ const DataOperationsPage = () => {
     handleFetchResource({ fetcher });
   }, [handleFetchResource, fetcher]);
 
-  const allOps = resource.data?.operations ?? [];
+  const allOps = useMemo(() => resource.data?.operations ?? [], [resource.data?.operations]);
 
   // Poll every 5s while any jobs are still in-progress
   useEffect(() => {

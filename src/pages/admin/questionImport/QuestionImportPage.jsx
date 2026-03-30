@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
@@ -17,7 +17,6 @@ import {
   Progress,
   IconButton,
   Input,
-  Textarea,
   FormControl,
   FormLabel,
   NumberInput,
@@ -33,7 +32,6 @@ import {
   useDisclosure,
   useToast,
   Select as ChakraSelect,
-  Divider,
 } from "@chakra-ui/react";
 import {
   FaChevronLeft,
@@ -299,7 +297,7 @@ const QuestionImportPage = () => {
   }, []);
 
   // Poll every 5s when PROCESSING uploads exist
-  const uploads = resource.data?.uploads ?? [];
+  const uploads = useMemo(() => resource.data?.uploads ?? [], [resource.data?.uploads]);
   useEffect(() => {
     const hasProcessing = uploads.some((u) => u.status === "PROCESSING");
     if (hasProcessing) {

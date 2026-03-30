@@ -108,7 +108,6 @@ const StatItem = ({ label, value, color }) => (
 
 const CancelModal = ({ isOpen, onClose, uploadId, onSuccess }) => {
   const toast = useToast();
-  const history = useHistory();
   const [loading, setLoading] = useState(false);
 
   const handleCancel = async () => {
