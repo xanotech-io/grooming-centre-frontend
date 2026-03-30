@@ -39,3 +39,4 @@ export * from "./http/endpoints/ojt";
 export * from "./http/endpoints/courseMaterials";
 export * from "./http/endpoints/studentProgress";
 export * from "./http/endpoints/badges";
+export * from "./http/endpoints/instructorReports";

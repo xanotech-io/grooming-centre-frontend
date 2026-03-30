@@ -14,92 +14,37 @@ import { BreadcrumbItem } from "@chakra-ui/react";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
-
-const mockInstructorPerformanceResponse = {
-  data: {
-    rows: [
-      {
-        id: "ip-1",
-        instructor: "J. Smith",
-        department: "Computer Science",
-        coursesDelivered: 5,
-        completionRate: "66%",
-        averageScore: "65%",
-        feedbackRating: "4.7/5",
-        gradingTimelinessDays: 3,
-      },
-      {
-        id: "ip-2",
-        instructor: "K. Abens",
-        department: "Computer Science",
-        coursesDelivered: 5,
-        completionRate: "93%",
-        averageScore: "95%",
-        feedbackRating: "4.3/5",
-        gradingTimelinessDays: 1,
-      },
-      {
-        id: "ip-3",
-        instructor: "M. Smith",
-        department: "Math",
-        coursesDelivered: 5,
-        completionRate: "61%",
-        averageScore: "61%",
-        feedbackRating: "4.1/5",
-        gradingTimelinessDays: 2,
-      },
-      {
-        id: "ip-4",
-        instructor: "K. Adeyemi",
-        department: "Computer Science",
-        coursesDelivered: 5,
-        completionRate: "52%",
-        averageScore: "52%",
-        feedbackRating: "4.7/5",
-        gradingTimelinessDays: 4,
-      },
-      {
-        id: "ip-5",
-        instructor: "I. Smith",
-        department: "Science",
-        coursesDelivered: 5,
-        completionRate: "78%",
-        averageScore: "75%",
-        feedbackRating: "4.0/5",
-        gradingTimelinessDays: 5,
-      },
-    ],
-    showingDocumentsCount: 5,
-    totalDocumentsCount: 100,
-    currentPage: 1,
-    totalPages: 13,
-  },
-};
+import { adminGetInstructorPerformanceReport } from "../../../../services";
 
 const InstructorPerformance = () => {
   const { instructorId } = useParams();
+  const safeInstructorId =
+    !instructorId || instructorId === "undefined" ? "inst_1" : instructorId;
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
+  const [summary, setSummary] = useState(null);
 
-  const fetchInstructorPerformanceReports = async () => {
+  const fetchInstructorPerformanceReports = async (params = {}) => {
     setLoading(true);
     setError(null);
 
     try {
-      // UI built with mock for now. Plug in real endpoint later.
-      const response = mockInstructorPerformanceResponse;
+      const response = await adminGetInstructorPerformanceReport(
+        safeInstructorId,
+        params,
+      );
 
-      const rows = response.data.rows;
-      setTotalCount(response.data.totalDocumentsCount);
+      const rows = response.rows || [];
+      setSummary(response.aggregateMetrics || null);
+      setTotalCount(response.totalDocumentsCount || rows.length);
 
       return {
         rows,
-        showingDocumentsCount:
-          response.data.showingDocumentsCount || rows.length,
-        totalDocumentsCount: response.data.totalDocumentsCount || rows.length,
-        currentPage: response.data.currentPage || 1,
-        totalPages: response.data.totalPages || 1,
+        showingDocumentsCount: response.showingDocumentsCount || rows.length,
+        totalDocumentsCount: response.totalDocumentsCount || rows.length,
+        currentPage: response.currentPage || 1,
+        totalPages: response.totalPages || 1,
       };
     } catch (err) {
       console.error(err);
@@ -218,29 +163,29 @@ const InstructorPerformance = () => {
       >
         <DashboardMetricCard
           title="Learner Satisfaction Rating"
-          value="82%"
-          change="+5% vs last quarter"
+          value={`${summary?.averageStudentSatisfaction ?? 0}/5`}
+          change={`${summary?.totalStudents ?? 0} learners`}
           changeColor="#1A8F3A"
         />
 
         <DashboardMetricCard
           title="Completion Rate"
-          value="79%"
-          change="+5% vs last quarter"
+          value={`${summary?.overallCompletionRate ?? 0}%`}
+          change={`${summary?.totalCourses ?? 0} courses`}
           changeColor="#1A8F3A"
         />
 
         <DashboardMetricCard
           title="Average Student Performance"
-          value="82%"
-          change="+5% vs last quarter"
+          value={`${summary?.overallPassRate ?? 0}%`}
+          change="overall pass rate"
           changeColor="#1A8F3A"
         />
 
         <DashboardMetricCard
-          title="Feedback Score Trend"
-          value="4.8/5"
-          change="quarterly"
+          title="Teaching Hours"
+          value={`${summary?.totalTeachingHours ?? 0}`}
+          change="evaluation period"
           changeColor="#6B006B"
         />
       </Box>

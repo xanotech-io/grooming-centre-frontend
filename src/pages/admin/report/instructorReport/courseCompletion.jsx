@@ -14,98 +14,7 @@ import { BreadcrumbItem } from "@chakra-ui/react";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
-
-
-const mockInstructorCourseCompletionResponse = {
-  data: {
-    rows: [
-      {
-        id: "cc-1",
-        course: "Microfinance Basics",
-        instructor: "J. Smith",
-        totalEnrolled: 63,
-        completed: 46,
-        passed: 45,
-        failed: 2,
-        averageScore: 53,
-      },
-      {
-        id: "cc-2",
-        course: "Microfinance Basics",
-        instructor: "J. Smith",
-        totalEnrolled: 68,
-        completed: 52,
-        passed: 45,
-        failed: 23,
-        averageScore: 53,
-      },
-      {
-        id: "cc-3",
-        course: "Microfinance Basics",
-        instructor: "J. Smith",
-        totalEnrolled: 61,
-        completed: 37,
-        passed: 30,
-        failed: 16,
-        averageScore: 53,
-      },
-      {
-        id: "cc-4",
-        course: "Microfinance Basics",
-        instructor: "J. Smith",
-        totalEnrolled: 55,
-        completed: 41,
-        passed: 35,
-        failed: 6,
-        averageScore: 53,
-      },
-      {
-        id: "cc-5",
-        course: "Microfinance Basics",
-        instructor: "J. Smith",
-        totalEnrolled: 72,
-        completed: 63,
-        passed: 61,
-        failed: 15,
-        averageScore: 53,
-      },
-      {
-        id: "cc-6",
-        course: "Microfinance Basics",
-        instructor: "J. Smith",
-        totalEnrolled: 64,
-        completed: 48,
-        passed: 45,
-        failed: 10,
-        averageScore: 53,
-      },
-      {
-        id: "cc-7",
-        course: "Microfinance Basics",
-        instructor: "J. Smith",
-        totalEnrolled: 58,
-        completed: 42,
-        passed: 40,
-        failed: 8,
-        averageScore: 53,
-      },
-      {
-        id: "cc-8",
-        course: "Microfinance Basics",
-        instructor: "J. Smith",
-        totalEnrolled: 79,
-        completed: 60,
-        passed: 59,
-        failed: 12,
-        averageScore: 53,
-      },
-    ],
-    showingDocumentsCount: 8,
-    totalDocumentsCount: 100,
-    currentPage: 1,
-    totalPages: 13,
-  },
-};
+import { adminGetInstructorCourseCompletionReport } from "../../../../services";
 
 const getPassPercentage = (passed, failed) => {
   const total = (passed || 0) + (failed || 0);
@@ -116,27 +25,33 @@ const getPassPercentage = (passed, failed) => {
 
 const CourseCompletion = () => {
   const { instructorId } = useParams();
+  const safeInstructorId =
+    !instructorId || instructorId === "undefined" ? "inst_1" : instructorId;
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
+  const [summary, setSummary] = useState(null);
 
   const fetchCourseCompletionReports = async (params = {}) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Replace with API call later (keeping params so pagination/search can be wired)
-      const response = mockInstructorCourseCompletionResponse;
+      const response = await adminGetInstructorCourseCompletionReport(
+        safeInstructorId,
+        params,
+      );
 
-      const rows = response.data.rows.map((report) => mapReportToRow(report));
-      setTotalCount(response.data.totalDocumentsCount);
+      const rows = (response.rows || []).map((report) => mapReportToRow(report));
+      setSummary(response.aggregateStats || null);
+      setTotalCount(response.totalDocumentsCount || rows.length);
 
       return {
         rows,
-        showingDocumentsCount: response.data.showingDocumentsCount || rows.length,
-        totalDocumentsCount: response.data.totalDocumentsCount || rows.length,
-        currentPage: response.data.currentPage || 1,
-        totalPages: response.data.totalPages || 1,
+        showingDocumentsCount: response.showingDocumentsCount || rows.length,
+        totalDocumentsCount: response.totalDocumentsCount || rows.length,
+        currentPage: response.currentPage || 1,
+        totalPages: response.totalPages || 1,
         // `params` is intentionally unused for now
       };
     } catch (err) {
@@ -266,29 +181,29 @@ const CourseCompletion = () => {
       >
         <DashboardMetricCard
           title="Completion Rate"
-          value="82%"
-          change="+5% vs last month"
+          value={`${summary?.overallCompletionRate ?? 0}%`}
+          change={`${summary?.totalStudents ?? 0} learners`}
           changeColor="#1A8F3A"
         />
 
         <DashboardMetricCard
           title="Pass Rate"
-          value="82%"
-          change="+5% vs last month"
+          value={`${summary?.overallPassRate ?? 0}%`}
+          change={`${summary?.totalCourses ?? 0} courses`}
           changeColor="#1A8F3A"
         />
 
         <DashboardMetricCard
           title="Average Course Score"
-          value="45"
+          value={`${summary?.averageScore ?? 0}%`}
           change="per learner"
           changeColor="#1A8F3A"
         />
 
         <DashboardMetricCard
-          title="Dropout Rate"
-          value="4.2"
-          change="logins/week"
+          title="Total Courses"
+          value={`${summary?.totalCourses ?? 0}`}
+          change="tracked"
           changeColor="#1A8F3A"
         />
       </Box>

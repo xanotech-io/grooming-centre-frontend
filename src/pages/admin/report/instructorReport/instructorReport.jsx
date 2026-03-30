@@ -6,6 +6,7 @@ import { BreadcrumbItem } from "@chakra-ui/react";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
 import { FaSortAmountUpAlt } from "react-icons/fa";
+import { adminGetInstructorReportDirectory } from "../../../../services";
 
 const mapInstructorToRow = (instructor) => ({
   id: instructor.id,
@@ -25,6 +26,8 @@ const mapInstructorToRow = (instructor) => ({
 
 const InstructorReport = () => {
   const history = useHistory();
+  const [loading, setLoading] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
 
   const tableProps = {
     filterControls: [
@@ -88,16 +91,22 @@ const InstructorReport = () => {
     ],
   };
 
-  const mockInstructors = [
-    { id: "inst_1", displayId: "INS-001", firstName: "James", lastName: "Smith", email: "j.smith@example.com", active: true },
-    { id: "inst_2", displayId: "INS-002", firstName: "Kemi", lastName: "Abens", email: "k.abens@example.com", active: true },
-    { id: "inst_3", displayId: "INS-003", firstName: "Mike", lastName: "Johnson", email: "m.johnson@example.com", active: false },
-    { id: "inst_4", displayId: "INS-004", firstName: "Kolade", lastName: "Adeyemi", email: "k.adeyemi@example.com", active: true },
-  ];
-
-  const fetcher = () => async () => {
-    const rows = mockInstructors.map(mapInstructorToRow);
-    return { rows, showingDocumentsCount: rows.length, totalDocumentsCount: rows.length };
+  const fetcher = (props) => async () => {
+    setLoading(true);
+    try {
+      const response = await adminGetInstructorReportDirectory(props?.params || {});
+      const rows = (response.rows || []).map(mapInstructorToRow);
+      setTotalCount(response.totalDocumentsCount || rows.length);
+      return {
+        rows,
+        showingDocumentsCount: response.showingDocumentsCount || rows.length,
+        totalDocumentsCount: response.totalDocumentsCount || rows.length,
+        currentPage: response.currentPage || 1,
+        totalPages: response.totalPages || 1,
+      };
+    } finally {
+      setLoading(false);
+    }
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
@@ -124,6 +133,8 @@ const InstructorReport = () => {
         setRows={setRows}
         handleFetch={fetchRowItems}
         placeholder="Search instructors..."
+        totalCount={totalCount}
+        isLoading={loading}
       />
     </AdminMainAreaWrapper>
   );

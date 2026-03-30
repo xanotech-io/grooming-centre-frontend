@@ -27,6 +27,41 @@ const DEFAULT_INSTRUCTOR_ID = "inst_1";
 const getInstructorKey = (instructorId) =>
   INSTRUCTOR_NAMES[instructorId] ? instructorId : DEFAULT_INSTRUCTOR_ID;
 
+const MOCK_INSTRUCTOR_DIRECTORY = [
+  {
+    id: "inst_1",
+    displayId: "INS-001",
+    firstName: "James",
+    lastName: "Smith",
+    email: "j.smith@example.com",
+    active: true,
+  },
+  {
+    id: "inst_2",
+    displayId: "INS-002",
+    firstName: "Kemi",
+    lastName: "Abens",
+    email: "k.abens@example.com",
+    active: true,
+  },
+  {
+    id: "inst_3",
+    displayId: "INS-003",
+    firstName: "Mike",
+    lastName: "Johnson",
+    email: "m.johnson@example.com",
+    active: false,
+  },
+  {
+    id: "inst_4",
+    displayId: "INS-004",
+    firstName: "Kolade",
+    lastName: "Adeyemi",
+    email: "k.adeyemi@example.com",
+    active: true,
+  },
+];
+
 const MOCK_COURSE_COMPLETION_BY_INSTRUCTOR = {
   inst_1: [
     { id: "cc-1", course: "Data Analytics 101", instructor: "James Smith", totalEnrolled: 150, completed: 120, passed: 110, failed: 10, averageScore: 78.5 },
@@ -121,6 +156,38 @@ const MOCK_ITEM_ANALYSIS_BY_INSTRUCTOR = {
     { id: "Q025", questionId: "Q025", courseTitle: "Team Leadership", questionType: "Open-ended", difficulty: "Medium", attempts: 124, correctPercentage: 56, averageTimeSeconds: 118, flaggedForReview: true, reviewReason: "Needs clearer rubric expectation" },
     { id: "Q031", questionId: "Q031", courseTitle: "Operations Planning", questionType: "True/False", difficulty: "Hard", attempts: 124, correctPercentage: 45, averageTimeSeconds: 84, flaggedForReview: true, reviewReason: "Concept overlap with another question" },
   ],
+};
+
+export const adminGetInstructorReportDirectory = async (params = {}) => {
+  // const { data: { data } } = await http.get(`/v2/instructors`, { params });
+  // return data;
+  const search = (params.search || "").toString().trim().toLowerCase();
+  const sort = (params.sort || "nameAsc").toString();
+
+  let rows = [...MOCK_INSTRUCTOR_DIRECTORY];
+
+  if (search) {
+    rows = rows.filter((item) => {
+      const name = `${item.firstName} ${item.lastName}`.toLowerCase();
+      return (
+        name.includes(search) ||
+        item.email.toLowerCase().includes(search) ||
+        item.displayId.toLowerCase().includes(search)
+      );
+    });
+  }
+
+  if (sort === "nameDesc") {
+    rows.sort((a, b) =>
+      `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`),
+    );
+  } else {
+    rows.sort((a, b) =>
+      `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`),
+    );
+  }
+
+  return paginate(rows, params);
 };
 
 export const adminGetInstructorCourseCompletionReport = async (
@@ -317,3 +384,4 @@ export const getAssessmentAnalytics = adminGetAssessmentItemAnalysisReport;
 export const flagAssessmentQuestion = adminFlagAssessmentQuestionForReview;
 export const bulkFlagAssessmentQuestions =
   adminBulkFlagAssessmentQuestionsForReview;
+export const getInstructorReportDirectory = adminGetInstructorReportDirectory;
