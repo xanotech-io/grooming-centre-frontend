@@ -50,10 +50,10 @@ const InstructorReportDetails = () => {
                             value={selectedReportType}
                             onChange={(e) => setSelectedReportType(e.target.value)}
                         >
-                            <option value="courseCompletion">Course Completion</option>
+                            <option value="courseCompletion">Course Completion and Pass Rate</option>
                             <option value="instructorPerformance">Instructor Performance</option>
-                            <option value="assignmentGrading">Assignment Grading</option>
-                            <option value="assignmentAnalysis">Assignment Analysis</option>
+                            <option value="assignmentGrading">Assignment Grading Summary</option>
+                            <option value="assignmentAnalysis">Assessment Item Analysis</option>
                         </Select>
                     </Box>
                 </VStack>

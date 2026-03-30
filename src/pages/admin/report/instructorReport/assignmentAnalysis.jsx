@@ -14,71 +14,12 @@ import { BreadcrumbItem } from "@chakra-ui/react";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
-
-const mockInstructorAssignmentAnalysisResponse = {
-  data: {
-    rows: [
-      {
-        id: "Q001",
-        courseTitle: "Microfinance Basics",
-        questionType: "Multiple Choice",
-        difficulty: "Medium",
-        attempts: 25,
-        correctPercentage: 65,
-        averageTimeSeconds: 54,
-      },
-      {
-        id: "Q002",
-        courseTitle: "Microfinance Basics",
-        questionType: "True/False",
-        difficulty: "Easy",
-        attempts: 55,
-        correctPercentage: 93,
-        averageTimeSeconds: 29,
-      },
-      {
-        id: "Q003",
-        courseTitle: "Microfinance Basics",
-        questionType: "Open-Friend",
-        difficulty: "Hard",
-        attempts: 33,
-        correctPercentage: 41,
-        averageTimeSeconds: 60,
-      },
-      {
-        id: "Q004",
-        courseTitle: "Microfinance Basics",
-        questionType: "Multiple Choice",
-        difficulty: "Hard",
-        attempts: 25,
-        correctPercentage: 85,
-        averageTimeSeconds: 85,
-      },
-      {
-        id: "Q005",
-        courseTitle: "Microfinance Basics",
-        questionType: "True/False",
-        difficulty: "Easy",
-        attempts: 41,
-        correctPercentage: 52,
-        averageTimeSeconds: 52,
-      },
-      {
-        id: "Q006",
-        courseTitle: "Microfinance Basics",
-        questionType: "Open-ended",
-        difficulty: "Medium",
-        attempts: 19,
-        correctPercentage: 75,
-        averageTimeSeconds: 79,
-      },
-    ],
-    showingDocumentsCount: 6,
-    totalDocumentsCount: 100,
-    currentPage: 1,
-    totalPages: 13,
-  },
-};
+import { useToast } from "@chakra-ui/react";
+import {
+  adminGetAssessmentItemAnalysisReport,
+  adminFlagAssessmentQuestionForReview,
+  adminBulkFlagAssessmentQuestionsForReview,
+} from "../../../../services";
 
 const formatSeconds = (seconds) => {
   const s = Number(seconds) || 0;
@@ -90,27 +31,35 @@ const formatSeconds = (seconds) => {
 
 const AssignmentAnalysis = () => {
   const { instructorId } = useParams();
+  const safeInstructorId =
+    !instructorId || instructorId === "undefined" ? "inst_1" : instructorId;
+  const assessmentId = `assessment_${safeInstructorId}`;
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
+  const [summary, setSummary] = useState(null);
 
-  const fetchReports = async () => {
+  const fetchReports = async (params = {}) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = mockInstructorAssignmentAnalysisResponse;
+      const response = await adminGetAssessmentItemAnalysisReport(assessmentId, {
+        ...params,
+        instructorId: safeInstructorId,
+      });
 
-      const rows = response.data.rows.map((report) => mapReportToRow(report));
-      setTotalCount(response.data.totalDocumentsCount);
+      const rows = (response.rows || []).map((report) => mapReportToRow(report));
+      setSummary(response.overallStatistics || null);
+      setTotalCount(response.totalDocumentsCount || rows.length);
 
       return {
         rows,
-        showingDocumentsCount:
-          response.data.showingDocumentsCount || rows.length,
-        totalDocumentsCount: response.data.totalDocumentsCount || rows.length,
-        currentPage: response.data.currentPage || 1,
-        totalPages: response.data.totalPages || 1,
+        showingDocumentsCount: response.showingDocumentsCount || rows.length,
+        totalDocumentsCount: response.totalDocumentsCount || rows.length,
+        currentPage: response.currentPage || 1,
+        totalPages: response.totalPages || 1,
       };
     } catch (err) {
       console.error(err);
@@ -162,8 +111,21 @@ const AssignmentAnalysis = () => {
       dateFilter: true,
       action: [
         {
-          text: "Archive report",
-          link: (row) => `/archiiveReport/${row.id}/archive`,
+          text: "Flag for Review",
+          onClick: async (row) => {
+            await adminFlagAssessmentQuestionForReview(assessmentId, {
+              questionId: row.questionId,
+              reason: "Flagged from item analysis dashboard",
+              suggestedAction: "REVIEW",
+            });
+            toast({
+              title: "Question flagged",
+              description: `${row.questionId} submitted for review`,
+              status: "success",
+              duration: 2500,
+              isClosable: true,
+            });
+          },
         },
       ],
       selection: true,
@@ -215,8 +177,43 @@ const AssignmentAnalysis = () => {
     ],
   };
 
-  const fetcher = () => async () => fetchReports();
+  const fetcher = (props) => async () => fetchReports(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
+  const handleBulkFlagQuestions = async () => {
+    const difficultRows = (rows || []).filter((item) => {
+      const lowAccuracy = Number(item.correctPercentage || 0) < 55;
+      const hardDifficulty = (item.difficulty || "").toString().toLowerCase() === "hard";
+      return lowAccuracy || hardDifficulty;
+    });
+
+    if (!difficultRows.length) {
+      toast({
+        title: "No candidates to bulk flag",
+        description: "No hard or low-accuracy questions were found on this page.",
+        status: "info",
+        duration: 2500,
+        isClosable: true,
+      });
+      return;
+    }
+
+    await adminBulkFlagAssessmentQuestionsForReview(assessmentId, {
+      questions: difficultRows.map((item) => ({
+        questionId: item.questionId,
+        reason: "Auto-flagged: hard difficulty or low accuracy",
+        suggestedAction: "REVIEW",
+      })),
+    });
+
+    toast({
+      title: "Bulk flag complete",
+      description: `${difficultRows.length} questions flagged for review`,
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+  };
 
   return (
     <AdminMainAreaWrapper>
@@ -225,6 +222,7 @@ const AssignmentAnalysis = () => {
           item2={<BreadcrumbItem><Link href="/admin/report/instructorReport">Instructors</Link></BreadcrumbItem>}
           item3={<BreadcrumbItem isCurrentPage><Link href="#">Assignment Analysis</Link></BreadcrumbItem>}
         />
+        <Button secondary onClick={handleBulkFlagQuestions}>Bulk Flag Questions</Button>
       </Box>
       <Box
         display={"flex"}
@@ -234,26 +232,26 @@ const AssignmentAnalysis = () => {
       >
         <DashboardMetricCard
           title="Avg. Question Success"
-          value="82%"
-          change="+5% vs last quarter"
+          value={`${summary?.averageScore ?? 0}%`}
+          change="assessment average score"
           changeColor="#1A8F3A"
         />
         <DashboardMetricCard
           title="Question Reliability"
-          value="1.5"
-          change="+5% vs last period"
+          value={`${summary?.reliabilityCoefficient ?? 0}`}
+          change="reliability coefficient"
           changeColor="#1A8F3A"
         />
         <DashboardMetricCard
           title="Average Completion Time"
-          value="82%"
-          change="+5% vs last quarter"
+          value={`${summary?.meanDifficultyIndex ?? 0}`}
+          change="mean difficulty index"
           changeColor="#1A8F3A"
         />
         <DashboardMetricCard
           title="Assessment Validity"
-          value="High"
-          change="Stable"
+          value={`${summary?.meanDiscriminationIndex ?? 0}`}
+          change="mean discrimination index"
           changeColor="#1A8F3A"
         />
       </Box>

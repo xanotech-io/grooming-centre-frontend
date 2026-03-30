@@ -64,6 +64,11 @@ import {
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
 import { ManagementReportRoute } from "../../../pages/admin/report/managementReport/managementReport";
 import { InstructorReportRoute } from "../../../pages/admin/report/instructorReport/instructorReport";
+import { InstructorReportDetailsRoute } from "../../../pages/admin/report/instructorReport/InstructorReportDetails";
+import { CourseCompletionRoute } from "../../../pages/admin/report/instructorReport/courseCompletion";
+import { InstructorPerformanceRoute } from "../../../pages/admin/report/instructorReport/instructorPerformance";
+import { AssignmentGradingRoute } from "../../../pages/admin/report/instructorReport/assignmentGrading";
+import { AssignmentAnalysisRoute } from "../../../pages/admin/report/instructorReport/assignmentAnalysis";
 import { StudentReportRoute } from "../../../pages/admin/report/studentReport/StudentReport";
 import { StudentReportDetailsRoute } from "../../../pages/admin/report/studentReport/StudentReportDetails";
 import { ProgressReportRoute } from "../../../pages/admin/report/studentReport/ProgressReport";
@@ -218,6 +223,11 @@ const MainArea = () => {
         <ManagementReportRoute exact path="/admin/report/managementReport" />
         <StudentReportRoute exact path="/admin/report/studentReport" />
         <InstructorReportRoute exact path="/admin/report/instructorReport" />
+        <InstructorReportDetailsRoute exact path="/admin/report/instructorReport/:instructorId/details" />
+        <CourseCompletionRoute exact path="/admin/report/instructorReport/:instructorId/courseCompletion" />
+        <InstructorPerformanceRoute exact path="/admin/report/instructorReport/:instructorId/instructorPerformance" />
+        <AssignmentGradingRoute exact path="/admin/report/instructorReport/:instructorId/assignmentGrading" />
+        <AssignmentAnalysisRoute exact path="/admin/report/instructorReport/:instructorId/assignmentAnalysis" />
         <StudentReportDetailsRoute exact path="/admin/report/studentReport/:studentId/details" />
         <ProgressReportRoute exact path="/admin/report/studentReport/:studentId/progress" />
         <TranscriptReportRoute exact path="/admin/report/studentReport/:studentId/transcript" />

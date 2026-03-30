@@ -14,104 +14,42 @@ import { BreadcrumbItem } from "@chakra-ui/react";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
+import { adminGetInstructorGradingSummaryReport } from "../../../../services";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 
 dayjs.extend(relativeTime);
 
-const mockAssignmentGradingResponse = {
-  data: {
-    rows: [
-      {
-        id: "ag-1",
-        assignment: "Case Study 1",
-        course: "Privacy",
-        totalSubmissions: 65,
-        graded: 25,
-        pending: 3,
-        averageGrade: 65,
-        feedbackProvidedPercent: 65,
-        submissionDeadline: "2025-11-26T10:00:00.000Z",
-      },
-      {
-        id: "ag-2",
-        assignment: "Case Study 1",
-        course: "Privacy",
-        totalSubmissions: 95,
-        graded: 55,
-        pending: 5,
-        averageGrade: 95,
-        feedbackProvidedPercent: 95,
-        submissionDeadline: "2025-11-26T10:00:00.000Z",
-      },
-      {
-        id: "ag-3",
-        assignment: "Case Study 2",
-        course: "Data Privacy",
-        totalSubmissions: 65,
-        graded: 32,
-        pending: 4,
-        averageGrade: 85,
-        feedbackProvidedPercent: 55,
-        submissionDeadline: "2025-11-26T10:00:00.000Z",
-      },
-      {
-        id: "ag-4",
-        assignment: "Case Study 3",
-        course: "Data Privacy",
-        totalSubmissions: 75,
-        graded: 19,
-        pending: 5,
-        averageGrade: 75,
-        feedbackProvidedPercent: 75,
-        submissionDeadline: "2025-11-26T10:00:00.000Z",
-      },
-      {
-        id: "ag-5",
-        assignment: "Case Study 4",
-        course: "Data Privacy",
-        totalSubmissions: 52,
-        graded: 42,
-        pending: 5,
-        averageGrade: 52,
-        feedbackProvidedPercent: 52,
-        submissionDeadline: "2025-11-26T10:00:00.000Z",
-      },
-    ],
-    showingDocumentsCount: 5,
-    totalDocumentsCount: 100,
-    currentPage: 1,
-    totalPages: 10,
-  },
-};
-
 const AssignmentGrading = () => {
   const { instructorId } = useParams();
+  const safeInstructorId =
+    !instructorId || instructorId === "undefined" ? "inst_1" : instructorId;
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
+  const [summary, setSummary] = useState(null);
 
-  const fetchReports = async () => {
+  const fetchReports = async (params = {}) => {
     setLoading(true);
     setError(null);
 
     try {
-      const rows = mockAssignmentGradingResponse.data.rows.map((r) =>
-        mapReportToRow(r),
+      const response = await adminGetInstructorGradingSummaryReport(
+        safeInstructorId,
+        params,
       );
+      const rows = (response.rows || []).map((r) => mapReportToRow(r));
 
-      setTotalCount(mockAssignmentGradingResponse.data.totalDocumentsCount);
+      setSummary(response.overallMetrics || null);
+
+      setTotalCount(response.totalDocumentsCount || rows.length);
 
       return {
         rows,
-        showingDocumentsCount:
-          mockAssignmentGradingResponse.data.showingDocumentsCount ||
-          rows.length,
-        totalDocumentsCount:
-          mockAssignmentGradingResponse.data.totalDocumentsCount ||
-          rows.length,
-        currentPage: mockAssignmentGradingResponse.data.currentPage || 1,
-        totalPages: mockAssignmentGradingResponse.data.totalPages || 1,
+        showingDocumentsCount: response.showingDocumentsCount || rows.length,
+        totalDocumentsCount: response.totalDocumentsCount || rows.length,
+        currentPage: response.currentPage || 1,
+        totalPages: response.totalPages || 1,
       };
     } catch (err) {
       console.error(err);
@@ -226,7 +164,7 @@ const AssignmentGrading = () => {
     ],
   };
 
-  const fetcher = () => async () => fetchReports();
+  const fetcher = (props) => async () => fetchReports(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
   return (
@@ -240,20 +178,20 @@ const AssignmentGrading = () => {
       <Box display={"flex"} justifyContent="space-between" mb={10} gap={4}>
         <DashboardMetricCard
           title="Grading Completion Percentage (%)"
-          value="79%"
-          change="+5% vs last period"
+          value={`${summary?.totalSubmissions ? Number(((summary?.totalGraded || 0) / summary.totalSubmissions) * 100).toFixed(1) : 0}%`}
+          change={`${summary?.totalGraded ?? 0} graded`}
           changeColor="#1A8F3A"
         />
         <DashboardMetricCard
           title="Average Assignment Score (%)"
-          value="82%"
-          change="-5% vs last quarter"
+          value={`${summary?.overallAverageGrade ? Number(summary.overallAverageGrade).toFixed(1) : 0}%`}
+          change={`${summary?.totalAssignments ?? 0} assignments`}
           changeColor="#6B006B"
         />
         <DashboardMetricCard
           title="Feedback Coverage (%)"
-          value="80%"
-          change="+5% vs last period"
+          value={`${summary?.feedbackCompletionRate ?? 0}%`}
+          change={`${summary?.totalPending ?? 0} pending`}
           changeColor="#1A8F3A"
         />
       </Box>
