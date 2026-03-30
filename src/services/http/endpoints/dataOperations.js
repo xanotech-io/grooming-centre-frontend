@@ -41,7 +41,11 @@ const MOCK_IMPORT_JOBS = [
     processedRecords: 0,
     failedRecords: 75,
     errors: [
-      { row: 1, field: "courseId", message: "Invalid CSV format on header row" },
+      {
+        row: 1,
+        field: "courseId",
+        message: "Invalid CSV format on header row",
+      },
     ],
     createdAt: "2025-10-28T14:00:00Z",
     completedAt: "2025-10-28T14:00:45Z",
@@ -55,7 +59,8 @@ const MOCK_EXPORT_JOBS = [
     operationType: "export",
     status: "completed",
     format: "xlsx",
-    downloadUrl: "https://storage.groomingcentre.com/exports/users_20251101.xlsx",
+    downloadUrl:
+      "https://storage.groomingcentre.com/exports/users_20251101.xlsx",
     expiresAt: "2025-11-08T14:30:00Z",
     createdAt: "2025-11-01T14:30:00Z",
     completedAt: "2025-11-01T14:35:22Z",
@@ -92,7 +97,8 @@ const MOCK_MY_OPERATIONS = [
     status: "completed",
     format: "xlsx",
     fileName: null,
-    downloadUrl: "https://storage.groomingcentre.com/exports/users_20251101.xlsx",
+    downloadUrl:
+      "https://storage.groomingcentre.com/exports/users_20251101.xlsx",
     createdAt: "2025-11-01T14:30:00Z",
     completedAt: "2025-11-01T14:35:22Z",
   },
@@ -205,7 +211,8 @@ export const adminGetOperationStatus = async (operationId) => {
   if (exportJob) return { operation: exportJob };
 
   const importJob = MOCK_IMPORT_JOBS.find((j) => j.id === operationId);
-  if (importJob) return { operation: { ...importJob, operationType: "import" } };
+  if (importJob)
+    return { operation: { ...importJob, operationType: "import" } };
 
   return {
     operation: {
@@ -214,7 +221,8 @@ export const adminGetOperationStatus = async (operationId) => {
       type: "users",
       status: "completed",
       format: "xlsx",
-      downloadUrl: "https://storage.groomingcentre.com/exports/users_20251101.xlsx",
+      downloadUrl:
+        "https://storage.groomingcentre.com/exports/users_20251101.xlsx",
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       createdAt: new Date().toISOString(),
       completedAt: new Date().toISOString(),

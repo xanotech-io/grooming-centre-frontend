@@ -34,12 +34,13 @@ import {
   adminResolveFeedbackMarkup,
   adminAddRubricAssessment,
 } from "../../../services";
+import { useApp } from "../../../contexts";
 import { capitalizeFirstLetter } from "../../../utils";
 
 const MARKUP_TYPE_OPTIONS = [
-  { label: "Highlight", value: "HIGHLIGHT" },
-  { label: "Text Comment", value: "TEXT_COMMENT" },
-  { label: "Annotation", value: "ANNOTATION" },
+  { label: "Highlight", value: "Highlight" },
+  { label: "Text Comment", value: "TextComment" },
+  { label: "Annotation", value: "Annotation" },
 ];
 
 const DOCUMENT_TYPE_OPTIONS = [
@@ -93,6 +94,7 @@ export const SubmissionReviewPage = () => {
   const history = useHistory();
   const { documentId } = useParams();
   const toast = useToast();
+  const { state: { user } } = useApp();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const { resource: markupsResource, handleFetchResource: fetchMarkups } =
@@ -166,6 +168,7 @@ export const SubmissionReviewPage = () => {
         submissionId: documentId,
         assessmentId,
         markupType,
+        reviewerId: user?.id,
         studentId,
         documentType,
         comment,

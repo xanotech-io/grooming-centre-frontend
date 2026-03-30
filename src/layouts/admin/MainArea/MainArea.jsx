@@ -81,6 +81,7 @@ import { CreateStandalonePageRoute } from "../../../pages/admin/standaloneExams/
 import { TemplateLibraryPageRoute } from "../../../pages/admin/standaloneExams/TemplateLibraryPage";
 import { AnnouncementListingRoute } from "../../../pages/admin/Annoncement/AnnouncementListing";
 import { CreateAnnouncementRoute } from "../../../pages/admin/Annoncement/CreateAnnouncement";
+import { AcademicMetricsDashboardRoute } from "../../../pages/admin/dashboard/AcademicMetricsDashboard";
 
 const MainArea = () => {
   return (
@@ -206,6 +207,7 @@ const MainArea = () => {
         <QuestionBankTemplateDetailsPageRoute exact path="/admin/question-bank-templates/:templateId" />
         <DataOperationsPageRoute exact path="/admin/data-operations" />
         <BadgeSupportPageRoute exact path="/admin/badge-support" />
+        <AcademicMetricsDashboardRoute exact path="/admin/dashboard/academic" />
 
         <SecurityPageRoute path="/admin/settings/security" />
         <GradeCriteriaPageRoute path="/admin/settings/grade-criteria" />

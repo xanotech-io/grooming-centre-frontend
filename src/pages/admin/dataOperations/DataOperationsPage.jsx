@@ -64,12 +64,11 @@ const getStatusBadge = (status) => {
     completed: { bg: "#E6F4EA", color: "#38A169", label: "Completed" },
     failed: { bg: "#FED7D7", color: "#E53E3E", label: "Failed" },
   };
-  const s =
-    map[status?.toLowerCase()] || {
-      bg: "gray.100",
-      color: "gray.600",
-      label: status,
-    };
+  const s = map[status?.toLowerCase()] || {
+    bg: "gray.100",
+    color: "gray.600",
+    label: status,
+  };
   return (
     <Badge
       bg={s.bg}
@@ -229,9 +228,7 @@ const ImportModal = ({ isOpen, onClose, onSuccess }) => {
                 <Flex alignItems="center" h="32px" gap="10px">
                   <Switch
                     isChecked={form.skipDuplicates}
-                    onChange={(e) =>
-                      update("skipDuplicates", e.target.checked)
-                    }
+                    onChange={(e) => update("skipDuplicates", e.target.checked)}
                     colorScheme="blue"
                   />
                   <Text fontSize="13px" color="gray.600">
@@ -247,9 +244,7 @@ const ImportModal = ({ isOpen, onClose, onSuccess }) => {
                 <Flex alignItems="center" h="32px" gap="10px">
                   <Switch
                     isChecked={form.updateExisting}
-                    onChange={(e) =>
-                      update("updateExisting", e.target.checked)
-                    }
+                    onChange={(e) => update("updateExisting", e.target.checked)}
                     colorScheme="blue"
                   />
                   <Text fontSize="13px" color="gray.600">
@@ -560,11 +555,7 @@ const CancelModal = ({ isOpen, onClose, operation, onSuccess }) => {
           <Button variant="outline" onClick={onClose} isDisabled={loading}>
             Dismiss
           </Button>
-          <Button
-            colorScheme="red"
-            onClick={handleCancel}
-            isLoading={loading}
-          >
+          <Button colorScheme="red" onClick={handleCancel} isLoading={loading}>
             Cancel Job
           </Button>
         </ModalFooter>
@@ -651,11 +642,7 @@ const OperationsTable = ({ operations, onCancel, onDownload }) => (
         {operations.map((op) => (
           <Tr key={op.id} _hover={{ bg: "#F7FAFC" }}>
             <Td py="14px">
-              <Text
-                fontSize="13px"
-                fontWeight="500"
-                textTransform="capitalize"
-              >
+              <Text fontSize="13px" fontWeight="500" textTransform="capitalize">
                 {op.type}
               </Text>
               <Text fontSize="11px" color="gray.400">
@@ -664,12 +651,8 @@ const OperationsTable = ({ operations, onCancel, onDownload }) => (
             </Td>
             <Td py="14px">
               <Badge
-                bg={
-                  op.operationType === "import" ? "#FAF5FF" : "#EBF4FF"
-                }
-                color={
-                  op.operationType === "import" ? "#6B46C1" : "#2B6CB0"
-                }
+                bg={op.operationType === "import" ? "#FAF5FF" : "#EBF4FF"}
+                color={op.operationType === "import" ? "#6B46C1" : "#2B6CB0"}
                 px="10px"
                 py="3px"
                 borderRadius="10px"
@@ -684,9 +667,7 @@ const OperationsTable = ({ operations, onCancel, onDownload }) => (
               {op.operationType === "export" ? (
                 <Flex alignItems="center" gap="6px">
                   {getFormatIcon(op.format)}
-                  <Text fontSize="13px">
-                    {(op.format || "").toUpperCase()}
-                  </Text>
+                  <Text fontSize="13px">{(op.format || "").toUpperCase()}</Text>
                 </Flex>
               ) : (
                 <Text fontSize="13px" color="gray.600">
@@ -711,14 +692,10 @@ const OperationsTable = ({ operations, onCancel, onDownload }) => (
               )}
             </Td>
             <Td py="14px" fontSize="13px" color="gray.500">
-              {op.createdAt
-                ? new Date(op.createdAt).toLocaleString()
-                : "—"}
+              {op.createdAt ? new Date(op.createdAt).toLocaleString() : "—"}
             </Td>
             <Td py="14px" fontSize="13px" color="gray.500">
-              {op.completedAt
-                ? new Date(op.completedAt).toLocaleString()
-                : "—"}
+              {op.completedAt ? new Date(op.completedAt).toLocaleString() : "—"}
             </Td>
             <Td py="14px">
               <Flex gap="4px">
@@ -787,7 +764,7 @@ const DataOperationsPage = () => {
   // Poll every 5s while any jobs are still in-progress
   useEffect(() => {
     const hasActive = allOps.some(
-      (op) => op.status === "pending" || op.status === "processing"
+      (op) => op.status === "pending" || op.status === "processing",
     );
     if (hasActive) {
       pollingRef.current = setInterval(() => {
@@ -805,8 +782,8 @@ const DataOperationsPage = () => {
     activeTab === "imports"
       ? allOps.filter((op) => op.operationType === "import")
       : activeTab === "exports"
-      ? allOps.filter((op) => op.operationType === "export")
-      : allOps;
+        ? allOps.filter((op) => op.operationType === "export")
+        : allOps;
 
   const stats = {
     total: allOps.length,
