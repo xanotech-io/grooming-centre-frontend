@@ -30,12 +30,11 @@ import {
   HStack,
   Spacer,
   VStack,
-  Icon,
   useDisclosure,
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { Route, useHistory } from 'react-router-dom';
-import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight, FiChevronDown } from 'react-icons/fi';
+import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 import { AdminMainAreaWrapper } from '../../../layouts';
 import QuestionBankUsageReport from './QuestionBankUsageReport';
@@ -43,6 +42,7 @@ import RandomizationIntegrityReport from './RandomizationIntegrityReport';
 import ProctoringAuditReport from './ProctoringAuditReport';
 import ExaminationPaperMarking from './ExaminationPaperMarking';
 import ScheduleReportModal from './components/ScheduleReportModal';
+import ReportTypeDropdown from './components/ReportTypeDropdown';
 
 // Sample Data
 const summaryStats = [
@@ -147,21 +147,18 @@ const ReportListingPage = () => {
 
   return (
     <AdminMainAreaWrapper>
-    
+
       <Flex justifyContent="space-between" alignItems="center" mb={6} mt={6}>
-        <HStack>
-          <Text fontSize="28px" color="#101928" fontWeight="700">Examination Reports (OES)</Text>
-          <Icon as={FiChevronDown} />
-        </HStack>
+        <ReportTypeDropdown currentKey="examination" />
         <HStack spacing={4}>
-          <Button 
-            variant="outline" 
-            colorScheme="#660066" 
-            borderColor="#660066" 
-            borderRadius="md" 
-            size="md" 
-            fontSize="16px" 
-            fontWeight="600" 
+          <Button
+            variant="outline"
+            colorScheme="#660066"
+            borderColor="#660066"
+            borderRadius="md"
+            size="md"
+            fontSize="16px"
+            fontWeight="600"
             color="#660066"
             onClick={onScheduleOpen}
           >
@@ -184,7 +181,7 @@ const ReportListingPage = () => {
         </TabList>
 
         <TabPanels>
-            <TabPanel px={0} pt={6} as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          <TabPanel px={0} pt={6} as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             {/* Stats Cards */}
             <Grid templateColumns="repeat(5, 1fr)" gap={3} mb={8}>
               {summaryStats.map((stat, index) => (
@@ -236,9 +233,9 @@ const ReportListingPage = () => {
                     <Box bg="white" p={6} borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.100">
                       <Text fontWeight="700" mb={4}>Sectional Performance</Text>
                       <Box height="200px">
-                        <Line data={lineChartData} options={{ 
-                          responsive: true, 
-                          maintainAspectRatio: false, 
+                        <Line data={lineChartData} options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
                           plugins: { legend: { display: false } },
                           scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
                         }} />
@@ -319,9 +316,9 @@ const ReportListingPage = () => {
                       <Td>{result.incorrect}</Td>
                       <Td>{result.rank}</Td>
                       <Td>
-                        <Badge 
+                        <Badge
                           px={2} py={1} borderRadius="full" textTransform="capitalize"
-                          bg={result.status === 'Pass' ? "green.50" : "red.50"} 
+                          bg={result.status === 'Pass' ? "green.50" : "red.50"}
                           color={result.status === 'Pass' ? "green.600" : "red.600"}
                         >
                           {result.status}
@@ -331,7 +328,7 @@ const ReportListingPage = () => {
                         <Menu>
                           <MenuButton as={IconButton} icon={<FiMoreVertical />}
                             borderColor="#E4E7EC" border="1px"
-                           variant="ghost" size="xs" />
+                            variant="ghost" size="xs" />
                           <MenuList>
                             <MenuItem onClick={() => history.push('/admin/report/custom')}>Archive report</MenuItem>
                           </MenuList>
@@ -351,7 +348,7 @@ const ReportListingPage = () => {
                     <option>20</option>
                   </Select>
                 </HStack>
-                
+
                 <HStack spacing={4}>
                   <Text fontSize="sm" color="gray.500">Showing 10 out of 100 items</Text>
                   <HStack spacing={1}>
@@ -367,13 +364,13 @@ const ReportListingPage = () => {
             <QuestionBankUsageReport />
           </TabPanel>
           <TabPanel px={0} pt={6} as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-             <RandomizationIntegrityReport />
+            <RandomizationIntegrityReport />
           </TabPanel>
           <TabPanel px={0} pt={6}>
-             <ProctoringAuditReport />
+            <ProctoringAuditReport />
           </TabPanel>
           <TabPanel px={0} pt={6}>
-             <ExaminationPaperMarking />
+            <ExaminationPaperMarking />
           </TabPanel>
         </TabPanels>
       </Tabs>

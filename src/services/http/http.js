@@ -8,8 +8,14 @@ axios.interceptors.response.use(null, (err) => {
   return Promise.reject(error);
 });
 
+<<<<<<< HEAD
 export const baseURL = "http://52.228.43.176:8089/api/v1";
 const token = localStorage.getItem("token");
+=======
+export const baseURL = 'https://gclms.xanotech.org/api';
+// 'https://privateapi.groomingcentre.net/api/v1';
+const token = localStorage.getItem('token');
+>>>>>>> 498972ff338290deaae5508f4ee21fba6ced3278
 
 const defaultOptions = (explicitToken = token) => ({
   // timeout's the request in 10 minute by default

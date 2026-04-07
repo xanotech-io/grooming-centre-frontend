@@ -1,6 +1,6 @@
 
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Box, Flex, Grid, VStack, HStack, Accordion, AccordionItem, AccordionButton, AccordionPanel, AccordionIcon } from "@chakra-ui/react";
+import { Box, Flex, Grid, VStack, Accordion, AccordionItem, AccordionButton, AccordionPanel, AccordionIcon } from "@chakra-ui/react";
 import { useState } from "react";
 import {
   Button,
@@ -292,6 +292,7 @@ const MultiSearchReport = () => {
           handleFetch={fetchRowItems}
           isLoading={loading}
           placeholder="Search here..."
+          totalCount={totalCount}
         />
       )}
     </AdminMainAreaWrapper>

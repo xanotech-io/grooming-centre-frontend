@@ -16,12 +16,12 @@ const getStatusText = (appointment) => {
 
 const appointmentsMapper =
   (context = "EVENT") =>
-  (appointment) => ({
-    id: appointment.id,
-    startDate: appointment.startTime,
-    endDate: appointment.endTime,
-    title: `${context}: ${appointment.title} ${getStatusText(appointment)}`,
-  });
+    (appointment) => ({
+      id: appointment.id,
+      startDate: appointment.startTime,
+      endDate: appointment.endTime,
+      title: `${context}: ${appointment.title} ${getStatusText(appointment)}`,
+    });
 
 /**
  * Endpoint to get all appointments for a day
@@ -30,7 +30,7 @@ const appointmentsMapper =
  * @returns {Promise<{ appointments: Array<{ id: string, title: string, startDate: Date, endDate: Date }>>}
  */
 export const userGetDayAppointments = async (date) => {
-  const path = `/schedule`;
+  const path = `/v1/schedule`;
 
   const {
     data: { data },

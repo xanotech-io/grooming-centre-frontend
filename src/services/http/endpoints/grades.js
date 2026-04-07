@@ -6,7 +6,7 @@ import { http } from "../http";
  * @returns {Promise<{ coursesOverview: coursesOverview }>}
  */
 export const userGetGrades = async () => {
-  const path = `/grade/user`;
+  const path = `/v1/grade/user`;
 
   const {
     data: { data },
@@ -65,7 +65,7 @@ export const userGetGrades = async () => {
  * @returns {Promise<{ grades }>}
  */
 export const adminGetUserGrades = async (userId) => {
-  const path = `/admin/grades/${userId}`;
+  const path = `/v1/admin/grades/${userId}`;
 
   const {
     data: { data },
@@ -120,7 +120,7 @@ export const adminGetUserGrades = async (userId) => {
  * @returns {Promise<{ gradaeCriteria: gradeCriteria }>}
  */
 export const adminGetGradeCriteria = async () => {
-  const path = `/marking-guide`; //TODO: might change `
+  const path = `/v1/marking-guide`; //TODO: might change `
 
   const {
     data: { data },
@@ -136,7 +136,7 @@ export const adminGetGradeCriteria = async () => {
  * @returns {Promise<{ message: string }>}
  */
 export const adminEditGradeCriteria = async (body) => {
-  const path = `/marking-guide/edit`; //TODO: might change `
+  const path = `/v1/marking-guide/edit`; //TODO: might change `
 
   const {
     data: { message },

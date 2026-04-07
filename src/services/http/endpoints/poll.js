@@ -7,17 +7,17 @@ import { http } from "../http";
  * @returns {Promise<{ polls: PollListArray }>}
  */
 export const adminDeletePolls = async (ids) => {
-  const path = `/polls/delete`;
+  const path = `/v1/polls/delete`;
   let formattedIds = [];
   for (let i = 0; i < ids.length; i++) {
     formattedIds.push(ids[i].id);
   }
   const body = { pollIds: formattedIds };
-  await http.delete(path, {data:body});
+  await http.delete(path, { data: body });
 };
 
 export const adminGetPollListing = async () => {
-  const path = `/polls`;
+  const path = `/v1/polls`;
 
   const {
     data: { data },
@@ -40,7 +40,7 @@ export const adminGetPollListing = async () => {
  * @returns {Promise<{ polls: PollListArray }>}
  */
 export const adminGetSinglePoll = async (pollId) => {
-  const path = `/polls/${pollId}`;
+  const path = `/v1/polls/${pollId}`;
 
   const {
     data: { data },
@@ -60,7 +60,7 @@ export const adminGetSinglePoll = async (pollId) => {
  * @returns {Promise<{ polls: PollListArray }>}
  */
 export const adminGetPollOptions = async (pollId) => {
-  const path = `/polls/${pollId}`;
+  const path = `/v1/polls/${pollId}`;
 
   const {
     data: { data },

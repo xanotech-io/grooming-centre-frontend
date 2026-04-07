@@ -41,8 +41,8 @@ import {
   adminCreateStandaloneExaminationQuestion,
   adminDeleteAssessmentQuestion,
   adminDeleteExaminationQuestion,
-  adminDeleteStandaloneExaminationQuestion,
-  adminEditStandaloneExaminationQuestion,
+  adminDeleteUploadedQuestion,
+  adminUpdateUploadedQuestion,
 } from "../../../services";
 import { PageLoaderLayout } from "../../../layouts";
 import { FiMoreHorizontal } from "react-icons/fi";
@@ -329,9 +329,16 @@ const CreateQuestionPage = (assessmentManager) => {
 
         if (!ok) return;
 
-        const { message } = await adminDeleteStandaloneExaminationQuestion(
-          question.id
-        );
+        const deleteResponse = await adminDeleteUploadedQuestion(question.id);
+        if (deleteResponse?.data?.deletePermission === "Not Allowed") {
+          throw new Error(
+            deleteResponse?.data?.remarks ||
+              deleteResponse?.message ||
+              "Deletion not permitted for standalone examination"
+          );
+        }
+
+        const message = deleteResponse?.message || "Question deleted successfully";
 
         toast({
           description: capitalizeFirstLetter(message),
@@ -403,9 +410,23 @@ const CreateQuestionPage = (assessmentManager) => {
       console.log(JSON.parse(requestData.options));
       const body = appendFormData(requestData);
 
-      const { message } = await (isEditMode
-        ? adminEditStandaloneExaminationQuestion(body)
+      const response = await (isEditMode
+        ? adminUpdateUploadedQuestion(questionId, {
+          content: questionText,
+          difficultyLevel: "MEDIUM",
+          marks: Number(question?.marks || 1),
+        })
         : adminCreateStandaloneExaminationQuestion(body));
+
+      if (isEditMode && response?.question?.updateStatus === "Not Updated") {
+        throw new Error(
+          response?.question?.remarks ||
+            response?.message ||
+            "Modification cannot be saved for standalone examination"
+        );
+      }
+
+      const message = response?.message || "Question saved successfully";
 
       toast({
         description: capitalizeFirstLetter(message),
@@ -726,9 +747,16 @@ const QuestionCard = ({ questionNumber, question, image, id, ...rest }) => {
 
     handleFetchResource({
       fetcher: async () => {
-        if (isStandaloneExamination)
-          await adminDeleteStandaloneExaminationQuestion(id);
-        else if (isExamination) await adminDeleteExaminationQuestion(id);
+        if (isStandaloneExamination) {
+          const response = await adminDeleteUploadedQuestion(id);
+          if (response?.data?.deletePermission === "Not Allowed") {
+            throw new Error(
+              response?.data?.remarks ||
+                response?.message ||
+                "Deletion not permitted for standalone examination"
+            );
+          }
+        } else if (isExamination) await adminDeleteExaminationQuestion(id);
         else await adminDeleteAssessmentQuestion(id);
 
         return "Question Deleted Successfully";

@@ -1,4 +1,4 @@
-import  { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Box,
   Flex,
@@ -40,6 +40,7 @@ import {
   FiChevronRight,
 } from 'react-icons/fi';
 import {  Route } from 'react-router-dom';
+import { adminGenerateMISReport } from '../../../services';
 import { AdminMainAreaWrapper } from '../../../layouts';
 import { motion } from 'framer-motion';
 import ScheduleReportModal from './components/ScheduleReportModal';
@@ -57,6 +58,51 @@ const MISReportsPage = () => {
   const [activeTab, setActiveTab] = useState(0);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
+  // Overview tab data state
+  const [reports, setReports] = useState([]);
+  const [summary, setSummary] = useState({ totalReports: '—', automatedReports: '—', averageCreationTime: '—', reportAccuracy: '—' });
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [overviewSearch, setOverviewSearch] = useState('');
+  const [overviewCategory, setOverviewCategory] = useState('');
+
+  const fetchReports = useCallback(async (filters = {}) => {
+    setReportsLoading(true);
+    try {
+      const result = await adminGenerateMISReport({
+        reportType: 'overview',
+        filters: {
+          search: filters.search ?? overviewSearch,
+          category: filters.category ?? overviewCategory,
+        },
+        page: 1,
+        limit: 10,
+      });
+      setReports(result.reports);
+      setSummary(result.summary);
+      setPagination(result.pagination);
+    } finally {
+      setReportsLoading(false);
+    }
+  }, [overviewSearch, overviewCategory]);
+
+  useEffect(() => {
+    fetchReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setOverviewSearch(val);
+    fetchReports({ search: val, category: overviewCategory });
+  };
+
+  const handleCategoryChange = (e) => {
+    const val = e.target.value;
+    setOverviewCategory(val);
+    fetchReports({ search: overviewSearch, category: val });
+  };
+
   const tabs = [
     "Overview",
     "Academic",
@@ -64,15 +110,6 @@ const MISReportsPage = () => {
     "Compliance",
     "Attendance",
     "Performance"
-  ];
-
-  const overviewData = [
-    { id: 'MIS-2025-001', category: 'Academic', name: 'Course Completion Summary', generatedBy: 'Admin', dateTime: '26/11/2025 11:30am', format: 'PDF', frequency: 'Monthly', status: 'Archived', remark: 'Automated generation completed' },
-    { id: 'MIS-2025-001', category: 'Administrative', name: 'Course Completion Summary', generatedBy: 'Registrar', dateTime: '26/11/2025 11:30am', format: 'Excel', frequency: 'On demand', status: 'Approved', remark: 'Automated generation completed' },
-    { id: 'MIS-2025-001', category: 'Compliance', name: 'Data Access Log Report', generatedBy: 'IT Security', dateTime: '26/11/2025 11:30am', format: 'CSV', frequency: 'Quarterly', status: 'Approved', remark: 'For internal audit' },
-    { id: 'MIS-2025-001', category: 'Administrative', name: 'Course Subscription Revenue Summary', generatedBy: 'Registrar', dateTime: '26/11/2025 11:30am', format: 'PDF', frequency: 'Daily', status: 'Archived', remark: 'Automated generation completed' },
-    { id: 'MIS-2025-001', category: 'Compliance', name: 'Enrollment Statistics', generatedBy: 'IT Security', dateTime: '26/11/2025 11:30am', format: 'Excel', frequency: 'On demand', status: 'Approved', remark: 'Automated generation completed' },
-    { id: 'MIS-2025-001', category: 'Academic', name: 'Data Access Log Report', generatedBy: 'Admin', dateTime: '26/11/2025 11:30am', format: 'CSV', frequency: 'Monthly', status: 'Draft', remark: '-' },
   ];
 
   const academicData = [
@@ -127,10 +164,10 @@ const MISReportsPage = () => {
   const renderOverview = () => (
     <>
       <SimpleGrid columns={4} spacing={6} mb={8}>
-        <SummaryCard title="Total Report" value="100" subtext="+5% vs last month" />
-        <SummaryCard title="Automated Report" value="70" subtext="+5% vs last month" />
-        <SummaryCard title="Average Creation Time" value="12secs" />
-        <SummaryCard title="Report Accuracy" value="80%" subtext="+5% vs last month" />
+        <SummaryCard title="Total Report" value={String(summary.totalReports)} subtext="+5% vs last month" />
+        <SummaryCard title="Automated Report" value={String(summary.automatedReports)} subtext="+5% vs last month" />
+        <SummaryCard title="Average Creation Time" value={String(summary.averageCreationTime)} />
+        <SummaryCard title="Report Accuracy" value={String(summary.reportAccuracy)} subtext="+5% vs last month" />
       </SimpleGrid>
 
       <Box bg="white" borderRadius="xl" border="1px solid #E4E7EC" overflow="hidden" boxShadow="xs">
@@ -139,14 +176,28 @@ const MISReportsPage = () => {
             <HStack spacing={3}>
               <InputGroup w="350px">
                 <InputLeftElement pointerEvents="none"><FiSearch color="#667085" /></InputLeftElement>
-                <Input placeholder="Search here..." fontSize="14px" borderRadius="md" />
+                <Input
+                  placeholder="Search here..."
+                  fontSize="14px"
+                  borderRadius="md"
+                  value={overviewSearch}
+                  onChange={handleSearchChange}
+                />
               </InputGroup>
               <Button leftIcon={<FiFilter />} variant="outline" size="sm" fontSize="14px" fontWeight="500" color="#344054" borderRadius="md">Filter</Button>
             </HStack>
             <HStack spacing={3}>
-              <Select w="140px" size="sm" borderRadius="md" placeholder="Department">
-                <option>Academic</option>
-                <option>Administrative</option>
+              <Select
+                w="140px"
+                size="sm"
+                borderRadius="md"
+                placeholder="Department"
+                value={overviewCategory}
+                onChange={handleCategoryChange}
+              >
+                <option value="Academic">Academic</option>
+                <option value="Administrative">Administrative</option>
+                <option value="Compliance">Compliance</option>
               </Select>
               <Select w="120px" size="sm" borderRadius="md" placeholder="Region">
                  <option>Lagos</option>
@@ -157,7 +208,7 @@ const MISReportsPage = () => {
             </HStack>
           </Flex>
         </Box>
-        
+
         <Box overflowX="auto">
           <Table variant="simple" size="sm">
             <Thead bg="#F9FAFB">
@@ -176,30 +227,36 @@ const MISReportsPage = () => {
               </Tr>
             </Thead>
             <Tbody>
-              {overviewData.map((item, idx) => (
-                <Tr key={idx}>
-                  <Td px={6} py={6}><Checkbox colorScheme="purple" /></Td>
-                  <Td fontSize="12px" color="#667085">{item.id}</Td>
-                  <Td fontSize="12px" color="#101928" fontWeight="500">{item.category}</Td>
-                  <Td fontSize="12px" color="#101928" fontWeight="500" maxW="200px">{item.name}</Td>
-                  <Td fontSize="12px" color="#667085">{item.generatedBy}</Td>
-                  <Td fontSize="12px" color="#667085">{item.dateTime}</Td>
-                  <Td fontSize="12px" color="#667085">{item.format}</Td>
-                  <Td fontSize="12px" color="#667085">{item.frequency}</Td>
-                  <Td><Badge bg={getStatusColor(item.status).bg} color={getStatusColor(item.status).color} borderRadius="full" px={3} py={1} fontSize="11px" fontWeight="500">{item.status}</Badge></Td>
-                  <Td fontSize="12px" color="#667085" maxW="150px">{item.remark}</Td>
-                  <Td>
-                    <Menu>
-                      <MenuButton as={IconButton} icon={<FiMoreVertical />} variant="ghost" size="sm" color="#98A2B3" border="1px solid #E4E7EC" borderRadius="md" />
-                      <MenuList><MenuItem fontSize="13px">Archive report</MenuItem></MenuList>
-                    </Menu>
-                  </Td>
-                </Tr>
-              ))}
+              {reportsLoading ? (
+                <Tr><Td colSpan={11} textAlign="center" py={10} fontSize="13px" color="#667085">Loading reports...</Td></Tr>
+              ) : reports.length === 0 ? (
+                <Tr><Td colSpan={11} textAlign="center" py={10} fontSize="13px" color="#667085">No reports found.</Td></Tr>
+              ) : (
+                reports.map((item, idx) => (
+                  <Tr key={idx}>
+                    <Td px={6} py={6}><Checkbox colorScheme="purple" /></Td>
+                    <Td fontSize="12px" color="#667085">{item.id}</Td>
+                    <Td fontSize="12px" color="#101928" fontWeight="500">{item.category}</Td>
+                    <Td fontSize="12px" color="#101928" fontWeight="500" maxW="200px">{item.name}</Td>
+                    <Td fontSize="12px" color="#667085">{item.generatedBy}</Td>
+                    <Td fontSize="12px" color="#667085">{item.dateTime}</Td>
+                    <Td fontSize="12px" color="#667085">{item.format}</Td>
+                    <Td fontSize="12px" color="#667085">{item.frequency}</Td>
+                    <Td><Badge bg={getStatusColor(item.status).bg} color={getStatusColor(item.status).color} borderRadius="full" px={3} py={1} fontSize="11px" fontWeight="500">{item.status}</Badge></Td>
+                    <Td fontSize="12px" color="#667085" maxW="150px">{item.remark}</Td>
+                    <Td>
+                      <Menu>
+                        <MenuButton as={IconButton} icon={<FiMoreVertical />} variant="ghost" size="sm" color="#98A2B3" border="1px solid #E4E7EC" borderRadius="md" />
+                        <MenuList><MenuItem fontSize="13px">Archive report</MenuItem></MenuList>
+                      </Menu>
+                    </Td>
+                  </Tr>
+                ))
+              )}
             </Tbody>
           </Table>
         </Box>
-        
+
         <Flex justify="space-between" align="center" p={4} borderTop="1px solid #F2F4F7">
           <HStack spacing={2}>
             <Text fontSize="13px" color="#344054">Rows per page</Text>
@@ -208,10 +265,12 @@ const MISReportsPage = () => {
             </Select>
           </HStack>
           <HStack spacing={4}>
-            <Text fontSize="13px" color="#344054">Showing 10 out of 100 items</Text>
+            <Text fontSize="13px" color="#344054">
+              {`Showing ${reports.length} out of ${pagination.totalItems} items`}
+            </Text>
             <HStack spacing={1}>
               <IconButton icon={<FiChevronLeft />} size="sm" variant="ghost" isDisabled aria-label="Previous page" />
-              <Text fontSize="13px" fontWeight="600">1</Text>
+              <Text fontSize="13px" fontWeight="600">{pagination.currentPage}</Text>
               <IconButton icon={<FiChevronRight />} size="sm" variant="ghost" aria-label="Next page" />
             </HStack>
           </HStack>
@@ -632,7 +691,18 @@ const MISReportsPage = () => {
           <Text fontSize="24px" fontWeight="700" color="#101928">Management Information System Reports</Text>
           <HStack spacing={3}>
             <Button variant="outline" borderColor="#660066" color="#660066" h="40px" fontSize="14px" fontWeight="500" onClick={onOpen}>Schedule report</Button>
-            <Button bg="#660066" color="white" _hover={{ bg: "#550055" }} h="40px" fontSize="14px" fontWeight="500">Export Report</Button>
+            <Button
+              bg="#660066"
+              color="white"
+              _hover={{ bg: "#550055" }}
+              h="40px"
+              fontSize="14px"
+              fontWeight="500"
+              isLoading={reportsLoading}
+              onClick={() => adminGenerateMISReport({ reportType: 'overview', format: 'PDF', filters: { search: overviewSearch, category: overviewCategory } })}
+            >
+              Export Report
+            </Button>
           </HStack>
         </Flex>
 

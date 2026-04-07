@@ -5,7 +5,7 @@ const relativeTime = require("dayjs/plugin/relativeTime");
 dayjs.extend(relativeTime);
 
 export const userGetMessagingRooms = async () => {
-  const path = `/chat/rooms`;
+  const path = `/v1/chat/rooms`;
 
   const {
     data: { data },
@@ -22,11 +22,10 @@ export const userGetMessagingRooms = async () => {
       date: dayjs().to(dayjs(room.message.createdAt)),
       file: room.message.file
         ? {
-            type: room.message.file.type,
-            name: `${truncateText(room.message.file.name, 25)}.${
-              room.message.file.extension
+          type: room.message.file.type,
+          name: `${truncateText(room.message.file.name, 25)}.${room.message.file.extension
             }`,
-          }
+        }
         : null,
     },
   }));
@@ -35,7 +34,7 @@ export const userGetMessagingRooms = async () => {
 };
 
 export const userGetOneRoom = async (id) => {
-  const path = `/chat/rooms/${id}`;
+  const path = `/v1/chat/rooms/${id}`;
 
   const {
     data: { data },
@@ -58,12 +57,12 @@ export const userGetOneRoom = async (id) => {
       userId: message.userId,
       file: message.file
         ? {
-            url: message.file.url,
-            extension: message.file.extension,
-            type: message.file.type,
-            name: message.file.name,
-            size: message.file.size,
-          }
+          url: message.file.url,
+          extension: message.file.extension,
+          type: message.file.type,
+          name: message.file.name,
+          size: message.file.size,
+        }
         : null,
     })),
   };

@@ -7,7 +7,8 @@ import { AiOutlineUsergroupDelete, AiOutlineAudit } from "react-icons/ai";
 import { VscLibrary } from "react-icons/vsc";
 import { TiPen } from "react-icons/ti";
 import { MdOutlineAnnouncement } from "react-icons/md";
-import { FaFolderOpen } from "react-icons/fa";
+import { FaFolderOpen, FaSitemap, FaClone, FaDownload, FaDatabase } from "react-icons/fa";
+import { FiAward } from "react-icons/fi";
 
 export const links = [
   {
@@ -34,6 +35,11 @@ export const links = [
   {
     href: "/admin/standalone-exams",
     text: "Standalone Exams",
+    icon: <TiPen />,
+  },
+  {
+    href: "/admin/examination",
+    text: "Examination",
     icon: <TiPen />,
   },
   {
@@ -76,10 +82,97 @@ export const links = [
     text: "user audit",
     icon: <AiOutlineAudit />,
   },
+  //  {
+  //   href: "/admin/report",
+  //   text: "Report",
+  //   icon: <AiOutlineAudit />,
+  // },
   {
-    href: "/admin/report",
-    text: "report",
+    text: "Report",
+    icon: <AiOutlineAudit />,
+    href: "/admin/report/studentReport",
+    links: [
+      {
+        href: "/admin/report/studentReport",
+        text: "Student Report",
+      },
+      {
+        href: "/admin/report/managementReport",
+        text: "Management Report",
+      },
+      {
+        href: "/admin/report/archived",
+        text: "Archived Reports",
+      },
+      {
+        href: "/admin/report/compliance",
+        text: "Compliance & Security",
+      },
+      {
+        href: "/admin/report/instructorReport",
+        text: "Instructor Report",
+      },
+    ],
+  },
+  {
+    href: "/admin/workflow",
+    text: "Approval Workflow",
+    icon: <FaSitemap />,
+  },
+  {
+    href: "/admin/examination-marking",
+    text: "Exam Marking",
+    icon: <TiPen />,
+  },
+  {
+    href: "/admin/exam-templates",
+    text: "Exam Templates",
+    icon: <TiPen />,
+  },
+  {
+    href: "/admin/feedback-markup",
+    text: "Feedback Markup",
+    icon: <TiPen />,
+  },
+  {
+    href: "/admin/grade-book",
+    text: "Grade Book",
+    icon: <TiPen />,
+  },
+  {
+    href: "/admin/bulk-courses",
+    text: "Bulk Course Creation",
+    icon: <FaClone />,
+  },
+  {
+    href: "/admin/user-documents",
+    text: "Document Verification",
     icon: <FaFolderOpen />,
+  },
+  {
+    href: "/admin/report-export",
+    text: "Report Exports",
+    icon: <FaDownload />,
+  },
+  {
+    href: "/admin/question-import",
+    text: "Question Upload",
+    icon: <TiPen />,
+  },
+  {
+    href: "/admin/question-bank-templates",
+    text: "Question Bank Templates",
+    icon: <TiPen />,
+  },
+  {
+    href: "/admin/data-operations",
+    text: "Data Operations",
+    icon: <FaDatabase />,
+  },
+  {
+    href: "/admin/badge-support",
+    text: "Badge Support",
+    icon: <FiAward />,
   },
 ];
 

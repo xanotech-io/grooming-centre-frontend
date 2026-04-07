@@ -4,14 +4,16 @@ import { useEffect } from "react";
 import { Route } from "react-router-dom";
 import { useFetchAndCache } from "../../../../hooks";
 import { CardGridLayout } from "../../../../layouts";
-import { userGetBookListing } from "../../../../services";
+import { userGetCourseMaterials } from "../../../../services";
 
 const useBooks = () => {
   const { resource: books, handleFetchResource } = useFetchAndCache();
 
   const fetcher = useCallback(async () => {
-    const { books } = await userGetBookListing();
-    return books;
+    const { materials } = await userGetCourseMaterials("AGR101", {
+      format: "PDF,PPT,DOCX",
+    });
+    return materials;
   }, []);
 
   useEffect(() => {

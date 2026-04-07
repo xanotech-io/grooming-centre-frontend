@@ -167,13 +167,6 @@ const StandaloneExaminationListingPage = () => {
             <Link href="/admin/standalone-exams"> Standalone Examination</Link>
           </BreadcrumbItem>
         }
-      // item3={
-      //   <BreadcrumbItem isCurrentPage>
-      //     <Link href="/admin/standalone-exams/:examinationId/:examinationName">
-      //       Examination
-      //     </Link>
-      //   </BreadcrumbItem>
-      // }
       />
 
       <Box

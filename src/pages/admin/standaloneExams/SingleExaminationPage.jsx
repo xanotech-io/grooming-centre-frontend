@@ -1,7 +1,7 @@
 
 import { Route } from "react-router-dom";
-import { Box, Flex, Text, Divider } from "@chakra-ui/layout";
-import { Tag, IconButton } from "@chakra-ui/react";
+import { Box, Flex, Text } from "@chakra-ui/layout";
+import { Tag } from "@chakra-ui/react";
 import { useHistory } from "react-router-dom";
 import { FaArrowLeft } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
@@ -52,11 +52,11 @@ const MOCK_QUESTIONS = [
 ];
 
 // ─── Badge configs ─────────────────────────────────────────────────────────────
-const TYPE_BADGE = { bg: "#F0E6FF", color: "#6b006b" };
-const GRADE_STATUS = {
-    "Auto-graded": { bg: "#F0FFF4", color: "#38A169" },
-    "Needs grading": { bg: "#FFFAF0", color: "#DD6B20" },
-};
+// const TYPE_BADGE = { bg: "#F0E6FF", color: "#6b006b" };
+// const GRADE_STATUS = {
+//     "Auto-graded": { bg: "#F0FFF4", color: "#38A169" },
+//     "Needs grading": { bg: "#FFFAF0", color: "#DD6B20" },
+// };
 
 // ─── Small pill badge ─────────────────────────────────────────────────────────
 const Pill = ({ label, bg, color }) => (
@@ -168,7 +168,7 @@ const SingleExaminationPage = () => {
             >
                 <Box>
                     <Text fontSize="28px" fontWeight="600" color="#1A202C" mb={2}>
-                        Data Analysis Exam
+                        Data Analysis Exam single
                     </Text>
                     <Text fontSize="16px" fontWeight="600" color="#4A5568">
                         Section B | Fall Semester

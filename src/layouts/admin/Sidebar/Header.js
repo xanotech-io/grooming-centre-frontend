@@ -2,7 +2,7 @@ import React from "react";
 import { ButtonGroup, IconButton } from "@chakra-ui/button";
 import { Center } from "@chakra-ui/layout";
 import { HStack } from "@chakra-ui/layout";
-import { useDisclosure } from "@chakra-ui/react";
+import { useDisclosure, Avatar, Text, VStack, Box } from "@chakra-ui/react";
 import {
   Menu,
   MenuButton,
@@ -16,6 +16,7 @@ import { MdNotificationsActive } from "react-icons/md";
 import { Link } from "react-router-dom";
 import { Button } from "../../../components";
 import { SlideShow } from "../../../components/SlideShow/SlideShow";
+import { useApp } from "../../../contexts";
 
 export const Header = () => {
   const { isOpen, onClose, onOpen } = useDisclosure();
@@ -40,6 +41,10 @@ export const Header = () => {
           >
             <FiSettings />
           </Button>
+
+          <Box display="flex" alignItems="center" ml={2}>
+            <UserProfileMenu />
+          </Box>
         </ButtonGroup>
       </HStack>
       <SlideShow isOpen={isOpen} onClose={onClose} onOpen={onOpen} />
@@ -61,6 +66,7 @@ const QuickAccess = () => {
         </Center>
       </MenuButton>
 
+
       <MenuList position="relative" zIndex={2}>
         <MenuGroup>
           <MenuItem as={Link} to="/admin/departments/create">
@@ -77,6 +83,58 @@ const QuickAccess = () => {
             Add Event
           </MenuItem>
         </MenuGroup>
+      </MenuList>
+    </Menu>
+  );
+};
+
+const UserProfileMenu = () => {
+  const { state, getOneMetadata } = useApp();
+
+  if (!state?.user) return null;
+
+  const role = getOneMetadata("userRoles", state.user.userRoleId);
+
+  return (
+    <Menu w="100%">
+      <MenuButton
+        as={IconButton}
+        isRound
+        variant="ghost"
+        _hover={{ bg: "transparent" }}
+        _active={{ bg: "transparent" }}
+      >
+        <Avatar
+          size="sm"
+          name={`${state.user.firstName || ""} ${state.user.lastName || ""}`}
+          src={state.user.profilePics}
+        />
+      </MenuButton>
+
+      <MenuList position="relative" zIndex={2} minW="250px" p={4} boxShadow="lg" borderRadius="lg">
+        <VStack spacing={4}>
+          <Avatar
+            size="2xl"
+            name={`${state.user.firstName || ""} ${state.user.lastName || ""}`}
+            src={state.user.profilePics}
+          />
+          <Box textAlign="center">
+            <Text
+              as={Link}
+              to={`/admin/users/details/${state.user.id}/profile`}
+              fontSize="2xl"
+              fontWeight="medium"
+              lineHeight="1.2"
+              _hover={{ color: "primary.base", textDecoration: "underline" }}
+              display="block"
+            >
+              {state.user.firstName || ""} {state.user.lastName || ""}
+            </Text>
+            <Text mt={2} fontSize="lg" color="gray.500" textTransform="capitalize">
+              {role?.name || "User"}
+            </Text>
+          </Box>
+        </VStack>
       </MenuList>
     </Menu>
   );

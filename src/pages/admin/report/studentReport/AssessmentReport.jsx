@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Route } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 import {
   Button,
@@ -224,11 +225,16 @@ const AssessmentReport = () => {
             handleFetch={fetchRowItems}
             isLoading={loading}
             placeholder="Search by student, course, or status"
+            totalCount={totalCount}
           />
         )}
       </AdminMainAreaWrapper>
     </>
   );
+};
+
+export const AssessmentReportRoute = ({ ...rest }) => {
+  return <Route {...rest} render={(props) => <AssessmentReport {...props} />} />;
 };
 
 export default AssessmentReport;

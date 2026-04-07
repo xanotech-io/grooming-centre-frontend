@@ -35,13 +35,7 @@ const BulkDataReport = () => {
         const start = dayjs(params.startDate);
         const end = dayjs(params.endDate);
 
-        const filteredRows = response.data.rows.filter(row => {
-          // Assuming row.dateTime format needs parsing or is compatible
-          // For mock data which is "26/11/2025 11:30am", we might need custom parsing
-          // But for demonstration, we'll just log it. 
-          // In a real app, this filtering would happen on the backend.
-          return true;
-        });
+
 
         console.log("Filtering by date:", start.format(), end.format());
       }
@@ -257,6 +251,7 @@ const BulkDataReport = () => {
           handleFetch={fetchRowItems}
           isLoading={loading}
           placeholder="Search here..."
+          totalCount={totalCount}
         />
       )}
     </AdminMainAreaWrapper>

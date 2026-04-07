@@ -2,121 +2,36 @@ import { getEndTime } from "../../../utils";
 import { http } from "../http";
 
 /**
- * Endpoint to get `examination-details`
- * @param {string} id - courseId
- *
- * @returns {Promise<{ examination: Examination }>}
- */
-export const requestExaminationDetails = async (id, forAdmin) => {
-  const path = `/examination${forAdmin ? "/admin" : ""}/${id}`;
-
-  const {
-    data: { data },
-  } = await http.get(path);
-
-  const examination = {
-    id: data.id,
-    courseId: data.courseId,
-    topic: data.title,
-    duration: data.duration,
-    questionCount: data.amountOfQuestions,
-    startTime: data.startTime,
-    endTime: getEndTime(data.startTime, data.duration),
-    hasCompleted: data.examinationScoreSheets?.[0] ? true : false,
-    minimumPercentageScoreToEarnABadge:
-      data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
-    questions: data.examinationQuestions.map((q, index) => ({
-      id: q.id,
-      question: q.question,
-      questionIndex: +q.questionIndex || index,
-      options: q.options.map((opt) => ({
-        id: opt.id,
-        isAnswer: opt.isAnswer,
-        name: opt.name,
-        optionIndex: +opt.optionIndex,
-      })),
-    })),
-  };
-
-  return { examination };
-};
-
-/**
-//  * Endpoint for examination creation
-//  * @param {{ title: string, courseId: string, duration: number, amountOfQuestions: string, startTime: string }} body
-//  * @returns {Promise<{ message: string, examination: { id: string } }>}
-//  */
-// export const adminCreateExamination = async (body) => {
-//   const path = `/examination/create`;
-
-//   const {
-//     data: { message, data },
-//   } = await http.post(path, body);
-
-//   const examination = {
-//     id: data.id,
-//   };
-
-//   return { message, examination };
-// };
-
-/**
- * Creates a new examination.
- * @param {{
- *   title: string,
- *   courseId: string,
- *   duration: number,
- *   amountOfQuestions: number,
- *   startTime: string
- * }} body - The request body containing the examination details.
- * @returns {Promise<{ message: string, examination: { id: string } }>}
- */
-export const adminCreateExamination = async (body) => {
-  const path = "/examination/create";
-
-  const {
-    data: { message, data },
-  } = await http.post(path, body);
-
-  const examination = {
-    id: data.id,
-  };
-
-  return { message, examination };
-};
-/**
  * Endpoint for examination listing
  * @param {string} courseId
  *
  * @returns {Promise<{ examinations: Array<{ id: string, examinationId: string, title: string,  startTime: Date, duration: number }> }>}
  */
 export const adminGetStandaloneExaminationListing = async (params) => {
-  const path = `/stand-alone-examination/admin/all`;
+  const path = `/v1/stand-alone-examination/admin/all`;
 
   const {
     data: { data },
   } = await http.get(path, { params });
 
-  const examinations = data?.data?.rows.map((exam) => ({
+  const examinations = data?.rows?.map((exam) => ({
     id: exam.id,
     title: exam.title,
     duration: exam.duration,
     startTime: exam.startTime,
-    noOfUsers: exam.standAloneExaminationGrade.length,
+    noOfUsers: exam.standAloneExaminationGrade?.length ?? 0,
     isPublished: exam.isPublished,
   }));
 
   return {
     examinations,
-    showingDocumentsCount: data?.data?.rows.length, // No pagination for now
-    totalDocumentsCount: data.countData, // No pagination for now
-    // showingDocumentsCount: data.length,
-    // totalDocumentsCount: data.length,
+    showingDocumentsCount: data?.rows?.length,
+    totalDocumentsCount: data?.count,
   };
 };
 
 export const userCreateStandaloneExaminationGrade = async (body) => {
-  const path = `/stand-alone-examination-grade/create`;
+  const path = `/v1/stand-alone-examination-grade/create`;
 
   const {
     data: { message },
@@ -126,7 +41,7 @@ export const userCreateStandaloneExaminationGrade = async (body) => {
 };
 
 export const adminGetAllStandaloneExaminationDetails = async (id) => {
-  const path = `/stand-alone-examination-grade/${id}`;
+  const path = `/v1/stand-alone-examination-grade/${id}`;
 
   const {
     data: { data },
@@ -138,7 +53,7 @@ export const adminGetAllStandaloneExaminationDetails = async (id) => {
 };
 
 export const usersGetStandaloneExaminationListing = async () => {
-  const path = `/stand-alone-examination/all?pagination=false`;
+  const path = `/v1/stand-alone-examination/all?pagination=false`;
 
   const {
     data: { data },
@@ -163,7 +78,7 @@ export const usersGetStandaloneExaminationListing = async () => {
 };
 
 export const getStandaloneExaminationDetails = async (id, forAdmin) => {
-  const path = `/stand-alone-examination${forAdmin ? "/admin" : ""}/${id}`;
+  const path = `/v1/stand-alone-examination${forAdmin ? "/admin" : ""}/${id}`;
 
   let {
     data: { data },
@@ -208,7 +123,7 @@ export const getStandaloneExaminationDetails = async (id, forAdmin) => {
 
 export const deleteStandaloneExamination = async (id) => {
   console.log(id);
-  const path = `/stand-alone-examination/delete/${id}`;
+  const path = `/v1/stand-alone-examination/delete/${id}`;
 
   const {
     data: { message },
@@ -227,7 +142,7 @@ export const deleteStandaloneExamination = async (id) => {
  *
  */
 export const adminGetStandaloneExaminationParticipants = async (id, params) => {
-  const path = `/stand-alone-examination/participants/${id}`;
+  const path = `/v1/stand-alone-examination/participants/${id}`;
 
   const {
     data: { data },
@@ -251,7 +166,7 @@ export const adminGetStandaloneExaminationParticipants = async (id, params) => {
 };
 
 export const getStandaloneExaminationParticipants = async (id, params = {}) => {
-  const path = `/stand-alone-examination/participants/${id}`;
+  const path = `/v1/stand-alone-examination/participants/${id}`;
 
   const {
     data: { data },
@@ -266,7 +181,7 @@ export const getStandaloneExaminationParticipants = async (id, params = {}) => {
 
 export const deleteStandaloneExaminationParticipants = async (id) => {
   console.log(id);
-  const path = `/stand-alone-examination/participants/${id}`;
+  const path = `/v1/stand-alone-examination/participants/${id}`;
 
   const {
     data: { message },
@@ -279,7 +194,7 @@ export const deleteStandaloneExaminationParticipants = async (id) => {
 };
 
 export const adminCreateStandaloneExaminationParticipants = async (body) => {
-  const path = `/stand-alone-examination/participants`;
+  const path = `/v1/stand-alone-examination/participants`;
 
   const {
     data: { message },
@@ -310,7 +225,7 @@ export const adminCreateStandaloneExaminationParticipants = async (body) => {
  * @returns {Promise<{ message: string }>}
  */
 export const adminCreateStandaloneExaminationQuestion = async (body) => {
-  const path = "/stand-alone-examination-question/create";
+  const path = "/v1/stand-alone-examination-question/create";
   console.log(body);
 
   const {
@@ -323,13 +238,13 @@ export const adminCreateStandaloneExaminationQuestion = async (body) => {
 export const adminDeleteStandaloneExaminationQuestionFile = async (
   questionId
 ) => {
-  const path = `/stand-alone-examination-question/delete/image/${questionId}`;
+  const path = `/v1/stand-alone-examination-question/delete/image/${questionId}`;
 
   await http.delete(path);
 };
 
 export const adminDeleteStandaloneExaminationQuestion = async (questionId) => {
-  const path = `/stand-alone-examination-question/delete/${questionId}`;
+  const path = `/v1/stand-alone-examination-question/delete/${questionId}`;
 
   const {
     data: { message },
@@ -344,7 +259,7 @@ export const adminDeleteStandaloneExaminationQuestion = async (questionId) => {
  * @returns {Promise<{ message: string }>}
  */
 export const adminEditStandaloneExaminationQuestion = async (body) => {
-  const path = `/stand-alone-examination-question/edit`;
+  const path = `/v1/stand-alone-examination-question/edit`;
 
   const {
     data: { message },
@@ -353,37 +268,3 @@ export const adminEditStandaloneExaminationQuestion = async (body) => {
   return { message };
 };
 
-/**
- * Endpoint to for admin to edit a examination
- * @param {{ title: ?string, duration: number, amountOfQuestions: number, startTime: ?Date, courseId: string }} body
- *
- * @returns {Promise<{ message: string, examination: { id: string } }>}
- */
-export const adminEditExamination = async (examinationId, body) => {
-  const path = `/examination/edit/${examinationId}`;
-
-  const {
-    data: { message, data },
-  } = await http.patch(path, body);
-
-  const examination = {
-    id: data[0].id,
-  };
-
-  return { message, examination };
-};
-
-/**
- * Endpoint for examination modification/update
- * @param {object} body
- * @returns {Promise<{ message: string }>}
- */
-export const adminEditExaminationQuestion = async (body) => {
-  const path = `/examination/question/edit`;
-
-  const {
-    data: { message },
-  } = await http.patch(path, body);
-
-  return { message };
-};

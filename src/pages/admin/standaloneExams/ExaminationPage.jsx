@@ -1,22 +1,16 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Route, useHistory } from "react-router-dom";
-import { Box, Flex, Text, Grid } from "@chakra-ui/layout";
+import { Box, Flex, Text, Grid, Spinner } from "@chakra-ui/react";
 import { Checkbox, Tag, IconButton, Input as ChakraInput } from "@chakra-ui/react";
 import { FaSearch, FaSlidersH, FaChevronLeft, FaChevronRight, FaEllipsisV } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
-const MOCK_EXAMS = [
-    { id: "EX-1045", title: "Data Analytics Exam", markingMode: "Automatic", evaluatedBy: "System", avgScore: 78.4, highestScore: 90, lowestScore: 50, status: "Completed" },
-    { id: "EX-1045", title: "Data Analytics Exam", markingMode: "Hybrid", evaluatedBy: "System & Instructor", avgScore: 78.4, highestScore: 90, lowestScore: 50, status: "In-progress" },
-    { id: "EX-1045", title: "Data Analytics Exam", markingMode: "Manual", evaluatedBy: "Dr. Tunde Bello", avgScore: 78.4, highestScore: 90, lowestScore: 50, status: "Pending review" },
-    { id: "EX-1045", title: "Data Analytics Exam", markingMode: "Hybrid", evaluatedBy: "System & Instructor", avgScore: 78.4, highestScore: 90, lowestScore: 50, status: "Completed" },
-    { id: "EX-1045", title: "Data Analytics Exam", markingMode: "Automatic", evaluatedBy: "System", avgScore: 78.4, highestScore: 90, lowestScore: 50, status: "Completed" },
-    { id: "EX-1045", title: "Data Analytics Exam", markingMode: "Manual", evaluatedBy: "Dr. Tunde Bello", avgScore: 78.4, highestScore: 90, lowestScore: 50, status: "In-progress" },
-];
+import { getExaminationReportAnalysis, getExaminationReportStatistics } from "../../../services/http/endpoints/examinationReports";
 
 // ─── Status helpers ────────────────────────────────────────────────────────────
+// Maps both API values (PASS / FAIL) and display labels
 const STATUS_CONFIG = {
+    "PASS": { bg: "#F0FFF4", color: "#38A169", actionLabel: null },
+    "FAIL": { bg: "#FFF5F5", color: "#E53E3E", actionLabel: null },
     "Completed": { bg: "#F0FFF4", color: "#38A169", actionLabel: null },
     "In-progress": { bg: "#FFFAF0", color: "#DD6B20", actionLabel: "Start grading" },
     "Pending review": { bg: "#FFF5E0", color: "#D69E2E", actionLabel: "Review Submission" },
@@ -93,17 +87,6 @@ const ActionMenu = ({ rowIndex, status, openMenu, setOpenMenu }) => {
     );
 };
 
-// ─── Action Hint (shown inline below row) ─────────────────────────────────────
-const ActionHint = ({ status }) => {
-    const cfg = STATUS_CONFIG[status];
-    if (!cfg?.actionLabel) return null;
-    return (
-        <Text fontSize="12px" color="#6b006b" mt="2px" textAlign="right" pr="40px" fontWeight="500">
-            {cfg.actionLabel}
-        </Text>
-    );
-};
-
 // ─── Stat Card ─────────────────────────────────────────────────────────────────
 const StatCard = ({ label, value, sub, subColor }) => (
     <Box bg="white" borderRadius="8px" p="20px" shadow="sm">
@@ -123,30 +106,76 @@ const ExaminationPage = () => {
     const [openMenu, setOpenMenu] = useState(null);
     const [rowsPerPage, setRowsPerPage] = useState(8);
     const [currentPage, setCurrentPage] = useState(1);
-    const TOTAL_ITEMS = 100;
 
-    const filtered = MOCK_EXAMS.filter(
-        (e) =>
-            e.id.toLowerCase().includes(search.toLowerCase()) ||
-            e.title.toLowerCase().includes(search.toLowerCase())
-    );
+    // ── Analysis API state ──
+    const [rows, setRows] = useState([]);
+    const [totalItems, setTotalItems] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-    const allSelected = filtered.length > 0 && filtered.every((_, i) => selectedRows.includes(i));
+    // ── Statistics API state ──
+    const [stats, setStats] = useState(null);
+    const [statsLoading, setStatsLoading] = useState(false);
 
+    useEffect(() => {
+        const fetchStats = async () => {
+            setStatsLoading(true);
+            try {
+                const response = await getExaminationReportStatistics();
+                setStats(response?.data ?? null);
+            } catch {
+                // silently fail — stat cards will fall back to "—"
+            } finally {
+                setStatsLoading(false);
+            }
+        };
+        fetchStats();
+    }, []);
+
+    const fetchAnalysis = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await getExaminationReportAnalysis({
+                page: currentPage,
+                limit: rowsPerPage,
+                ...(search ? { search } : {}),
+            });
+            const { rows: apiRows = [], count = 0, totalPages: tp = 1 } = response?.data ?? {};
+            setRows(apiRows);
+            setTotalItems(count);
+            setTotalPages(tp);
+        } catch (err) {
+            setError("Failed to load examination data. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    }, [currentPage, rowsPerPage, search]);
+
+    useEffect(() => {
+        fetchAnalysis();
+    }, [fetchAnalysis]);
+
+    // Reset to page 1 when search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [search]);
+
+    const allSelected = rows.length > 0 && rows.every((_, i) => selectedRows.includes(i));
     const toggleAll = () =>
-        allSelected ? setSelectedRows([]) : setSelectedRows(filtered.map((_, i) => i));
-
+        allSelected ? setSelectedRows([]) : setSelectedRows(rows.map((_, i) => i));
     const toggleRow = (i) =>
         setSelectedRows((prev) => prev.includes(i) ? prev.filter((r) => r !== i) : [...prev, i]);
 
     const COLUMNS = [
-        { label: "Exam ID", flex: "1" },
+        { label: "Student Name", flex: "1.5" },
         { label: "Exam Title", flex: "1.5" },
-        { label: "Marking Mode", flex: "1.2" },
-        { label: "Evaluated By", flex: "1.5" },
-        { label: "Average Score", flex: "1" },
-        { label: "Highest Score", flex: "1" },
-        { label: "Lowest Score", flex: "1" },
+        { label: "Total Score", flex: "1" },
+        { label: "Correct / Wrong", flex: "1.2" },
+        { label: "Time Taken", flex: "1" },
+        { label: "Rank", flex: "0.8" },
+        { label: "Percentile", flex: "0.8" },
         { label: "Status", flex: "1.2" },
         { label: "Action", flex: "0.5", align: "center" },
     ];
@@ -154,16 +183,36 @@ const ExaminationPage = () => {
     return (
         <AdminMainAreaWrapper>
             {/* Page heading */}
-            <Text fontSize="26px" fontWeight="700" color="#1A202C" mb={6}>
+            <Text fontSize="26px" fontWeight="700" color="#1A202C" my={6}>
                 Examination
             </Text>
 
             {/* Stats row */}
             <Grid templateColumns="repeat(4, 1fr)" gap={6} mb={6}>
-                <StatCard label="Avg. Evaluation Time" value="10min" sub="Per exam" subColor="#1A202C" />
-                <StatCard label="Marking Accuracy" value="70%" sub="+5% vs last month" subColor="#38A169" />
-                <StatCard label="No of Automated Evaluations" value="15" />
-                <StatCard label="Remark Request" value="80%" sub="-5% vs last month" subColor="#38A169" />
+                <StatCard
+                    label="Avg. Time Per Exam"
+                    value={statsLoading ? "…" : stats?.averageTimeMinutes != null ? `${Math.round(stats.averageTimeMinutes)}min` : "—"}
+                    sub="Per exam"
+                    subColor="#1A202C"
+                />
+                <StatCard
+                    label="Pass Rate"
+                    value={statsLoading ? "…" : stats?.passRate != null ? `${stats.passRate}%` : "—"}
+                    sub={stats ? `${stats.passCount} passed / ${stats.failCount} failed` : undefined}
+                    subColor="#38A169"
+                />
+                <StatCard
+                    label="Average Score"
+                    value={statsLoading ? "…" : stats?.averageScore != null ? stats.averageScore : "—"}
+                    sub={stats?.highestScore != null ? `Highest: ${stats.highestScore}` : undefined}
+                    subColor="#1A202C"
+                />
+                <StatCard
+                    label="Total Attempts"
+                    value={statsLoading ? "…" : stats?.totalAttempts != null ? stats.totalAttempts : "—"}
+                    sub={stats?.lowestScore != null ? `Lowest score: ${stats.lowestScore}` : undefined}
+                    subColor="#E53E3E"
+                />
             </Grid>
 
             {/* Table card */}
@@ -201,59 +250,107 @@ const ExaminationPage = () => {
                     </Flex>
                 </Flex>
 
+                {/* Loading state */}
+                {loading && (
+                    <Flex justify="center" align="center" py={12}>
+                        <Spinner size="lg" color="#6b006b" thickness="3px" />
+                    </Flex>
+                )}
+
+                {/* Error state */}
+                {!loading && error && (
+                    <Flex justify="center" align="center" py={12}>
+                        <Text color="#E53E3E" fontSize="14px">{error}</Text>
+                    </Flex>
+                )}
+
+                {/* Empty state */}
+                {!loading && !error && rows.length === 0 && (
+                    <Flex justify="center" align="center" py={12}>
+                        <Text color="#718096" fontSize="14px">No examination results found.</Text>
+                    </Flex>
+                )}
+
                 {/* Table */}
-                <Box overflowX="auto">
-                    <Box minW="900px">
-                        {/* Header row */}
-                        <Flex px={4} py={3} borderBottom="1px solid #E2E8F0" alignItems="center">
-                            <Box width="40px">
-                                <Checkbox
-                                    isChecked={allSelected}
-                                    isIndeterminate={selectedRows.length > 0 && !allSelected}
-                                    onChange={toggleAll}
-                                    colorScheme="purple"
-                                    borderColor="#CBD5E0"
-                                />
-                            </Box>
-                            {COLUMNS.map((col) => (
-                                <Box key={col.label} flex={col.flex} textAlign={col.align || "left"}>
-                                    <Text fontSize="13px" fontWeight="600" color="#718096">{col.label}</Text>
+                {!loading && !error && rows.length > 0 && (
+                    <Box overflowX="auto">
+                        <Box minW="900px">
+                            {/* Header row */}
+                            <Flex px={4} py={3} borderBottom="1px solid #E2E8F0" alignItems="center">
+                                <Box width="40px">
+                                    <Checkbox
+                                        isChecked={allSelected}
+                                        isIndeterminate={selectedRows.length > 0 && !allSelected}
+                                        onChange={toggleAll}
+                                        colorScheme="purple"
+                                        borderColor="#CBD5E0"
+                                    />
+                                </Box>
+                                {COLUMNS.map((col) => (
+                                    <Box key={col.label} flex={col.flex} textAlign={col.align || "left"}>
+                                        <Text fontSize="13px" fontWeight="600" color="#718096">{col.label}</Text>
+                                    </Box>
+                                ))}
+                            </Flex>
+
+                            {/* Data rows */}
+                            {rows.map((row, i) => (
+                                <Box key={row.analysisId ?? i} borderBottom={i < rows.length - 1 ? "1px solid #EDF2F7" : "none"} _hover={{ bg: "#FAFAFA" }} transition="background 0.15s">
+                                    <Flex px={4} py={4} alignItems="center">
+                                        <Box width="40px">
+                                            <Checkbox isChecked={selectedRows.includes(i)} onChange={() => toggleRow(i)} colorScheme="purple" borderColor="#CBD5E0" />
+                                        </Box>
+                                        {/* Student Name */}
+                                        <Box flex="1.5">
+                                            <Text fontSize="14px" color="#1A202C">{row.studentName ?? "—"}</Text>
+                                        </Box>
+                                        {/* Exam Title */}
+                                        <Box
+                                            flex="1.5"
+                                            cursor="pointer"
+                                            onClick={() => push(`/admin/examination/${row.examId}`)}
+                                            _hover={{ textDecoration: "underline", color: "#6b006b" }}
+                                        >
+                                            <Text fontSize="14px" color="#1A202C" whiteSpace="pre-wrap">{row.examTitle ?? "—"}</Text>
+                                        </Box>
+                                        {/* Total Score */}
+                                        <Box flex="1">
+                                            <Text fontSize="14px" color="#1A202C">{row.totalScore ?? "—"}</Text>
+                                        </Box>
+                                        {/* Correct / Wrong */}
+                                        <Box flex="1.2">
+                                            <Text fontSize="14px" color="#1A202C">
+                                                <Text as="span" color="#38A169" fontWeight="600">{row.correctAnswers ?? 0}</Text>
+                                                {" / "}
+                                                <Text as="span" color="#E53E3E" fontWeight="600">{row.wrongAnswers ?? 0}</Text>
+                                            </Text>
+                                        </Box>
+                                        {/* Time Taken */}
+                                        <Box flex="1">
+                                            <Text fontSize="14px" color="#1A202C">{row.timeTakenMinutes != null ? `${row.timeTakenMinutes}m` : "—"}</Text>
+                                        </Box>
+                                        {/* Rank */}
+                                        <Box flex="0.8">
+                                            <Text fontSize="14px" color="#1A202C">{row.rank ?? "—"}</Text>
+                                        </Box>
+                                        {/* Percentile */}
+                                        <Box flex="0.8">
+                                            <Text fontSize="14px" color="#1A202C">{row.percentile != null ? `${row.percentile}%` : "—"}</Text>
+                                        </Box>
+                                        {/* Status */}
+                                        <Box flex="1.2">
+                                            <StatusBadge status={row.status} />
+                                        </Box>
+                                        {/* Action */}
+                                        <Box flex="0.5" display="flex" justifyContent="center">
+                                            <ActionMenu rowIndex={i} status={row.status} openMenu={openMenu} setOpenMenu={setOpenMenu} />
+                                        </Box>
+                                    </Flex>
                                 </Box>
                             ))}
-                        </Flex>
-
-                        {/* Data rows */}
-                        {filtered.map((row, i) => (
-                            <Box key={i} borderBottom={i < filtered.length - 1 ? "1px solid #EDF2F7" : "none"} _hover={{ bg: "#FAFAFA" }} transition="background 0.15s">
-                                <Flex px={4} py={4} alignItems="center">
-                                    <Box width="40px">
-                                        <Checkbox isChecked={selectedRows.includes(i)} onChange={() => toggleRow(i)} colorScheme="purple" borderColor="#CBD5E0" />
-                                    </Box>
-                                    <Box flex="1">    <Text fontSize="14px" color="#1A202C">{row.id}</Text></Box>
-                                    <Box
-                                        flex="1.5"
-                                        cursor="pointer"
-                                        onClick={() => push(`/admin/examination/${row.id}`)}
-                                        _hover={{ textDecoration: "underline", color: "#6b006b" }}
-                                    >
-                                        <Text fontSize="14px" color="#1A202C" whiteSpace="pre-wrap">{row.title}</Text>
-                                    </Box>
-                                    <Box flex="1.2">  <Text fontSize="14px" color="#1A202C">{row.markingMode}</Text></Box>
-                                    <Box flex="1.5">  <Text fontSize="14px" color="#1A202C" whiteSpace="pre-wrap">{row.evaluatedBy}</Text></Box>
-                                    <Box flex="1">    <Text fontSize="14px" color="#1A202C">{row.avgScore}</Text></Box>
-                                    <Box flex="1">    <Text fontSize="14px" color="#1A202C">{row.highestScore}</Text></Box>
-                                    <Box flex="1">    <Text fontSize="14px" color="#1A202C">{row.lowestScore}</Text></Box>
-                                    <Box flex="1.2">  <StatusBadge status={row.status} /></Box>
-                                    <Box flex="0.5" display="flex" justifyContent="center">
-                                        <ActionMenu rowIndex={i} status={row.status} openMenu={openMenu} setOpenMenu={setOpenMenu} />
-                                    </Box>
-                                </Flex>
-                                {/* Inline action hint (matches screenshot showing "Start grading" / "Review Submission" inline) */}
-                                <ActionHint status={row.status} />
-                            </Box>
-                        ))}
+                        </Box>
                     </Box>
-                </Box>
+                )}
 
                 {/* Pagination */}
                 <Flex px={4} py={4} justifyContent="flex-end" alignItems="center" gap={4} borderTop="1px solid #E2E8F0">
@@ -268,7 +365,7 @@ const ExaminationPage = () => {
                             fontSize="13px"
                             color="#1A202C"
                             value={rowsPerPage}
-                            onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                            onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                             cursor="pointer"
                             _focus={{ outline: "none", borderColor: "#6b006b" }}
                         >
@@ -278,7 +375,7 @@ const ExaminationPage = () => {
                         </Box>
                     </Flex>
                     <Text fontSize="13px" color="#1A202C" fontWeight="600">
-                        Showing {rowsPerPage} out of {TOTAL_ITEMS} items
+                        Showing {Math.min(rowsPerPage, totalItems)} out of {totalItems} items
                     </Text>
                     <Flex alignItems="center" gap={2}>
                         <IconButton
@@ -309,8 +406,8 @@ const ExaminationPage = () => {
                             size="sm"
                             variant="ghost"
                             aria-label="Next page"
-                            isDisabled={currentPage >= Math.ceil(TOTAL_ITEMS / rowsPerPage)}
-                            onClick={() => setCurrentPage((p) => Math.min(Math.ceil(TOTAL_ITEMS / rowsPerPage), p + 1))}
+                            isDisabled={currentPage >= totalPages}
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                             color="#4A5568"
                         />
                     </Flex>
