@@ -2,11 +2,7 @@
 import { useState, useCallback } from 'react';
 import axios from 'axios';
 
-<<<<<<< HEAD
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://52.228.43.176:8089/api/v1';
-=======
 const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://gclms.xanotech.org/api';
->>>>>>> 498972ff338290deaae5508f4ee21fba6ced3278
 
 export const useFileManagement = () => {
     const [files, setFiles] = useState([]);

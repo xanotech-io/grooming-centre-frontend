@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
@@ -18,10 +18,12 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  MenuDivider,
   Spinner,
   InputGroup,
   InputLeftElement,
   Input,
+  useToast,
 } from "@chakra-ui/react";
 import {
   FaSearch,
@@ -32,14 +34,17 @@ import {
 import { FiMoreVertical } from "react-icons/fi";
 import { Button, Heading, Select } from "../../../components";
 import { useFetch } from "../../../hooks";
-import { adminGetExamTemplates } from "../../../services";
+import {
+  adminGetExamTemplates,
+  adminArchiveExamTemplate,
+  adminPermanentDeleteExamTemplate,
+} from "../../../services";
 
 const getStatusBadge = (status) => {
   const map = {
-    ACTIVE: { bg: "#E6F4EA", color: "#38A169", label: "Active" },
     DRAFT: { bg: "#F7FAFC", color: "#718096", label: "Draft" },
+    PUBLISHED: { bg: "#E6F4EA", color: "#38A169", label: "Published" },
     ARCHIVED: { bg: "#FED7D7", color: "#E53E3E", label: "Archived" },
-    PUBLISHED: { bg: "#EBF4FF", color: "#3182CE", label: "Published" },
   };
   const s = map[status] || map.DRAFT;
   return (
@@ -59,7 +64,9 @@ const getStatusBadge = (status) => {
 
 export const ExamTemplatesPage = () => {
   const history = useHistory();
+  const toast = useToast();
   const { resource, handleFetchResource } = useFetch();
+  const [actionLoading, setActionLoading] = useState(null);
 
   const fetcher = useCallback(async () => {
     const { templates, totalDocumentsCount } = await adminGetExamTemplates();
@@ -71,9 +78,35 @@ export const ExamTemplatesPage = () => {
   }, [handleFetchResource, fetcher]);
 
   const templates = resource.data?.templates ?? [];
-  const activeCount = templates.filter((t) => t.status === "ACTIVE").length;
+  const publishedCount = templates.filter((t) => t.status === "PUBLISHED").length;
   const draftCount = templates.filter((t) => t.status === "DRAFT").length;
   const totalUsage = templates.reduce((sum, t) => sum + (t.usageCount || 0), 0);
+
+  const handleArchive = async (templateId) => {
+    setActionLoading(templateId + "_archive");
+    try {
+      const { message } = await adminArchiveExamTemplate(templateId);
+      toast({ description: message, position: "top", status: "success" });
+      handleFetchResource({ fetcher });
+    } catch (err) {
+      toast({ description: err.message, position: "top", status: "error" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handlePermanentDelete = async (templateId) => {
+    setActionLoading(templateId + "_delete");
+    try {
+      const { message } = await adminPermanentDeleteExamTemplate(templateId);
+      toast({ description: message, position: "top", status: "success" });
+      handleFetchResource({ fetcher });
+    } catch (err) {
+      toast({ description: err.message, position: "top", status: "error" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   return (
     <Box marginX="22px" marginY="20px">
@@ -125,10 +158,10 @@ export const ExamTemplatesPage = () => {
         </Box>
         <Box bg="white" p="24px" borderRadius="8px" shadow="sm">
           <Text fontSize="13px" color="#718096" mb="8px">
-            Active Templates
+            Published Templates
           </Text>
           <Text fontSize="32px" fontWeight="700" color="#1A202C">
-            {resource.loading ? <Spinner size="sm" /> : activeCount}
+            {resource.loading ? <Spinner size="sm" /> : publishedCount}
           </Text>
           <Text fontSize="13px" color="#718096" mt="8px">
             In use
@@ -176,8 +209,8 @@ export const ExamTemplatesPage = () => {
             id="statusFilter"
             placeholder="All statuses"
             options={[
-              { label: "Active", value: "ACTIVE" },
               { label: "Draft", value: "DRAFT" },
+              { label: "Published", value: "PUBLISHED" },
               { label: "Archived", value: "ARCHIVED" },
             ]}
           />
@@ -310,7 +343,7 @@ export const ExamTemplatesPage = () => {
                           size="sm"
                           borderRadius="4px"
                         />
-                        <MenuList minWidth="140px">
+                        <MenuList minWidth="160px">
                           <MenuItem
                             onClick={() =>
                               history.push(
@@ -320,15 +353,41 @@ export const ExamTemplatesPage = () => {
                           >
                             View Details
                           </MenuItem>
-                          <MenuItem
-                            onClick={() =>
-                              history.push(
-                                `/admin/exam-templates/${t.templateId}/generate`,
-                              )
-                            }
-                          >
-                            Generate Paper
-                          </MenuItem>
+                          {t.status === "PUBLISHED" && (
+                            <MenuItem
+                              onClick={() =>
+                                history.push(
+                                  `/admin/exam-templates/${t.templateId}`,
+                                )
+                              }
+                            >
+                              Generate Paper
+                            </MenuItem>
+                          )}
+                          {(t.status === "DRAFT" || t.status === "PUBLISHED") && (
+                            <>
+                              <MenuDivider />
+                              <MenuItem
+                                color="#E53E3E"
+                                isDisabled={actionLoading === t.templateId + "_archive"}
+                                onClick={() => handleArchive(t.templateId)}
+                              >
+                                Archive
+                              </MenuItem>
+                            </>
+                          )}
+                          {t.status === "ARCHIVED" && (
+                            <>
+                              <MenuDivider />
+                              <MenuItem
+                                color="#E53E3E"
+                                isDisabled={actionLoading === t.templateId + "_delete"}
+                                onClick={() => handlePermanentDelete(t.templateId)}
+                              >
+                                Permanent Delete
+                              </MenuItem>
+                            </>
+                          )}
                         </MenuList>
                       </Menu>
                     </Td>

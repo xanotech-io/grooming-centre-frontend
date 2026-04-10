@@ -32,6 +32,9 @@ import {
   adminGetExamTemplateById,
   adminGetTemplateStatistics,
   adminGenerateExamPaper,
+  adminUpdateExamTemplate,
+  adminArchiveExamTemplate,
+  adminPermanentDeleteExamTemplate,
 } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
 
@@ -57,6 +60,47 @@ export const ExamTemplateDetailsPage = () => {
   const [studentId, setStudentId] = useState("");
   const [examId, setExamId] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [lifecycleLoading, setLifecycleLoading] = useState(false);
+
+  const handlePublish = async () => {
+    setLifecycleLoading(true);
+    try {
+      const { message } = await adminUpdateExamTemplate(templateId, {
+        status: "PUBLISHED",
+      });
+      toast({ description: message, position: "top", status: "success" });
+      fetchTemplate({ fetcher: templateFetcher });
+    } catch (err) {
+      toast({ description: err.message, position: "top", status: "error" });
+    } finally {
+      setLifecycleLoading(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    setLifecycleLoading(true);
+    try {
+      const { message } = await adminArchiveExamTemplate(templateId);
+      toast({ description: message, position: "top", status: "success" });
+      fetchTemplate({ fetcher: templateFetcher });
+    } catch (err) {
+      toast({ description: err.message, position: "top", status: "error" });
+    } finally {
+      setLifecycleLoading(false);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    setLifecycleLoading(true);
+    try {
+      const { message } = await adminPermanentDeleteExamTemplate(templateId);
+      toast({ description: message, position: "top", status: "success" });
+      history.push("/admin/exam-templates");
+    } catch (err) {
+      toast({ description: err.message, position: "top", status: "error" });
+      setLifecycleLoading(false);
+    }
+  };
 
   const templateFetcher = useCallback(async () => {
     const { template } = await adminGetExamTemplateById(templateId);
@@ -161,15 +205,31 @@ export const ExamTemplateDetailsPage = () => {
                   {template.templateName}
                 </Heading>
                 <Badge
-                  bg={template.status === "ACTIVE" ? "#E6F4EA" : "#F7FAFC"}
-                  color={template.status === "ACTIVE" ? "#38A169" : "#718096"}
+                  bg={
+                    template.status === "PUBLISHED"
+                      ? "#E6F4EA"
+                      : template.status === "ARCHIVED"
+                      ? "#FED7D7"
+                      : "#F7FAFC"
+                  }
+                  color={
+                    template.status === "PUBLISHED"
+                      ? "#38A169"
+                      : template.status === "ARCHIVED"
+                      ? "#E53E3E"
+                      : "#718096"
+                  }
                   px="12px"
                   py="4px"
                   borderRadius="12px"
                   textTransform="none"
                   fontWeight="500"
                 >
-                  {template.status}
+                  {template.status === "PUBLISHED"
+                    ? "Published"
+                    : template.status === "ARCHIVED"
+                    ? "Archived"
+                    : "Draft"}
                 </Badge>
               </Flex>
               <Flex gap="24px" flexWrap="wrap">
@@ -188,7 +248,9 @@ export const ExamTemplateDetailsPage = () => {
                 <Text color="#718096" fontSize="14px">
                   Created by:{" "}
                   <Text as="span" color="#1A202C" fontWeight="600">
-                    {template.createdBy}
+                    {template.creator
+                      ? `${template.creator.firstName} ${template.creator.lastName}`
+                      : template.createdBy}
                   </Text>
                 </Text>
                 <Text color="#718096" fontSize="14px">
@@ -199,14 +261,49 @@ export const ExamTemplateDetailsPage = () => {
                 </Text>
               </Flex>
             </Box>
-            <Button
-              onClick={onOpen}
-              style={{ backgroundColor: "#6b006b", color: "white" }}
-            >
-              <Flex alignItems="center" gap="8px">
-                <FaFileAlt size="14px" /> Generate Paper
-              </Flex>
-            </Button>
+            <Flex gap="12px" flexWrap="wrap">
+              {template.status === "DRAFT" && (
+                <Button
+                  onClick={handlePublish}
+                  isLoading={lifecycleLoading}
+                  style={{ backgroundColor: "#38A169", color: "white" }}
+                >
+                  Publish
+                </Button>
+              )}
+              {template.status === "PUBLISHED" && (
+                <Button
+                  onClick={onOpen}
+                  style={{ backgroundColor: "#6b006b", color: "white" }}
+                >
+                  <Flex alignItems="center" gap="8px">
+                    <FaFileAlt size="14px" /> Generate Paper
+                  </Flex>
+                </Button>
+              )}
+              {(template.status === "DRAFT" || template.status === "PUBLISHED") && (
+                <Button
+                  onClick={handleArchive}
+                  isLoading={lifecycleLoading}
+                  style={{
+                    backgroundColor: "white",
+                    color: "#E53E3E",
+                    border: "1px solid #E53E3E",
+                  }}
+                >
+                  Archive
+                </Button>
+              )}
+              {template.status === "ARCHIVED" && (
+                <Button
+                  onClick={handlePermanentDelete}
+                  isLoading={lifecycleLoading}
+                  style={{ backgroundColor: "#E53E3E", color: "white" }}
+                >
+                  Permanent Delete
+                </Button>
+              )}
+            </Flex>
           </Flex>
 
           <Grid
