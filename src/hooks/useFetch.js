@@ -25,10 +25,10 @@ export const useFetchAndCache = () => {
       try {
         const resource = await handleGetOrSetAndGet(cacheKey, fetcher, bypass);
 
-        if (componentIsMount) setResource({ data: resource });
+        if (componentIsMount.current) setResource({ data: resource });
       } catch (err) {
         console.error(err);
-        if (componentIsMount) setResource({ err: err.message });
+        if (componentIsMount.current) setResource({ err: err.message });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -63,11 +63,11 @@ export const useFetch = () => {
         const resource = await fetcher();
         onSuccess?.(resource);
 
-        if (componentIsMount) setResource({ data: resource });
+        if (componentIsMount.current) setResource({ data: resource });
       } catch (err) {
         console.error(err);
         onError?.(err);
-        if (componentIsMount) setResource({ err: err.message });
+        if (componentIsMount.current) setResource({ err: err.message });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

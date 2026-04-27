@@ -8,8 +8,8 @@ const links = [
     text: 'Info',
   },
   {
-    href: (courseId) => `/admin/courses/details/${courseId}/lessons`,
-    text: 'Lessons',
+    href: (courseId) => `/admin/courses/details/${courseId}/modules`,
+    text: 'Modules',
   },
   {
     href: (courseId) => `/admin/courses/details/${courseId}/assessment`,

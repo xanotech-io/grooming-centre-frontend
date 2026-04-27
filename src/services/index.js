@@ -32,6 +32,7 @@ export * from "./http/endpoints/reportExport";
 export * from "./http/endpoints/questionImport";
 export * from "./http/endpoints/questionBankTemplate";
 export * from "./http/endpoints/courseContent";
+export * from "./http/endpoints/modules";
 export * from "./http/endpoints/transcript";
 export * from "./http/endpoints/questionManagement";
 export * from "./http/endpoints/courseRoster";

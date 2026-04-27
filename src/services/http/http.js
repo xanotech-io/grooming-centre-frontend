@@ -35,6 +35,8 @@ export const http = {
     axios.get(options?.url || buildURL(path), buildOptions(options)),
   post: (path, data, options) =>
     axios.post(options?.url || buildURL(path), data, buildOptions(options)),
+  put: (path, data, options) =>
+    axios.put(options?.url || buildURL(path), data, buildOptions(options)),
   patch: (path, data, options) =>
     axios.patch(options?.url || buildURL(path), data, buildOptions(options)),
   delete: (path, options) =>

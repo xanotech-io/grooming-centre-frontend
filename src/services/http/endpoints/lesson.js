@@ -115,6 +115,30 @@ export const adminGetLessonListing = async (courseId, params, body) => {
     totalDocumentsCount: data.rows.length,
   };
 };
+
+/**
+ * List all lessons in a module
+ * @param {string} moduleId
+ * @returns {Promise<{ lessons: Array }>}
+ */
+export const adminGetModuleLessons = async (moduleId) => {
+  const path = `/v1/lesson/module/${moduleId}`;
+
+  const {
+    data: { data },
+  } = await http.get(path);
+
+  return {
+    lessons: data.map((lesson) => ({
+      id: lesson.id,
+      title: lesson.title,
+      moduleId: lesson.moduleId,
+      courseId: lesson.courseId,
+      active: lesson.active,
+    })),
+  };
+};
+
 export const adminDeleteLesson = async (ids) => {
   const path = `/v1/lesson/delete`;
   let formattedIds = [];

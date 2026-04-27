@@ -5,12 +5,14 @@ import LessonPageRoute from '../pages/LessonPage';
 import AssessmentListingPageRoute from '../pages/AssessmentListingPage';
 import ExamListingPageRoute from '../pages/ExamListingPage';
 import ProgressReportRoute from '../pages/ProgressReport';
+import ModulesListingPageRoute from '../pages/ModulesListingPage';
 
 const MainArea = () => {
   return (
     <Box flex={1} overflowY="scroll">
       <Switch>
         <InfoPageRoute path="/admin/courses/details/:id/info" />
+        <ModulesListingPageRoute path="/admin/courses/details/:id/modules" />
         <LessonPageRoute path="/admin/courses/details/:id/lessons" />
         <AssessmentListingPageRoute path="/admin/courses/details/:id/assessment" />
         <ExamListingPageRoute path="/admin/courses/details/:id/exam" />

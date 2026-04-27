@@ -152,10 +152,10 @@ const useLessonDetails = (sidebarLinks, setCourseState) => {
 
     try {
       const lessonDetails = await handleGetOrSetAndGet(lessonId, fetcher);
-      if (componentIsMount) setLessonDetails({ data: lessonDetails });
+      if (componentIsMount.current) setLessonDetails({ data: lessonDetails });
     } catch (err) {
       console.error(err);
-      if (componentIsMount) setLessonDetails({ err: err.message });
+      if (componentIsMount.current) setLessonDetails({ err: err.message });
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps

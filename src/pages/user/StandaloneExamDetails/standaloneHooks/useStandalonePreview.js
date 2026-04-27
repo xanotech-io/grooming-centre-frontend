@@ -49,7 +49,7 @@ const useStandalonePreview = (
         setAssessmentDetails({ data: examDetails });
       } catch (err) {
         console.error(err);
-        if (componentIsMount) setAssessmentDetails({ err: err.message });
+        if (componentIsMount.current) setAssessmentDetails({ err: err.message });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

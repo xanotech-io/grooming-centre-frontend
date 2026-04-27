@@ -30,9 +30,10 @@ import { adminCreateLesson, adminEditLesson } from "../../../services";
 import useViewLessonInfo from "./hooks/useViewLessonInfo";
 
 const CreateLessonPage = () => {
-  const { courseId, lessonId } = useParams();
+  const { courseId, moduleId, lessonId } = useParams();
   const isEditMode = lessonId && lessonId !== "new";
   const courseIsUnknown = courseId === "unknown";
+  const isModuleScoped = !!moduleId;
   const [loader, setUploadProgress] = useState(0);
   const { push } = useHistory();
   const toast = useToast();
@@ -178,6 +179,7 @@ const CreateLessonPage = () => {
       data = {
         ...data,
         courseId,
+        ...(isModuleScoped && { moduleId }),
         file,
         content,
         startTime: formatDateToISO(startTime),
@@ -202,7 +204,11 @@ const CreateLessonPage = () => {
         status: "success",
       });
 
-      push(`/admin/courses/${courseId}/lesson/${lesson?.id}/view`);
+      if (isModuleScoped) {
+        push(`/admin/courses/${courseId}/module/${moduleId}/lessons`);
+      } else {
+        push(`/admin/courses/${courseId}/lesson/${lesson?.id}/view`);
+      }
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -235,11 +241,19 @@ const CreateLessonPage = () => {
             </BreadcrumbItem>
           }
           item3={
-            <BreadcrumbItem>
-              <Link href={`/admin/courses/details/${courseId}/lessons`}>
-                Lessons
-              </Link>
-            </BreadcrumbItem>
+            isModuleScoped ? (
+              <BreadcrumbItem>
+                <Link href={`/admin/courses/${courseId}/module/${moduleId}/lessons`}>
+                  Lessons
+                </Link>
+              </BreadcrumbItem>
+            ) : (
+              <BreadcrumbItem>
+                <Link href={`/admin/courses/details/${courseId}/lessons`}>
+                  Lessons
+                </Link>
+              </BreadcrumbItem>
+            )
           }
           item4={
             <BreadcrumbItem isCurrentPage>

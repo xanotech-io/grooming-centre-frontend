@@ -24,10 +24,10 @@ const useGradeDetails = () => {
     try {
       const gradeDetails = await handleGetOrSetAndGet("gradeDetails", fetcher);
       // console.log(gradeDetails);
-      if (componentIsMount) setGradeDetails({ data: gradeDetails });
+      if (componentIsMount.current) setGradeDetails({ data: gradeDetails });
     } catch (err) {
       console.log(err.message);
-      if (componentIsMount) setGradeDetails({ err: err.message });
+      if (componentIsMount.current) setGradeDetails({ err: err.message });
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
