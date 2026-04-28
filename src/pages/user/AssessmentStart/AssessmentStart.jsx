@@ -1,16 +1,14 @@
-import { Box } from "@chakra-ui/react";
+import { Box, useDisclosure } from "@chakra-ui/react";
+import { Warning } from "@material-ui/icons";
 import { useEffect, useState } from "react";
-import { Route } from "react-router-dom";
-import { RiRadioButtonFill } from "react-icons/ri";
 import { MdRadioButtonUnchecked } from "react-icons/md";
+import { RiRadioButtonFill } from "react-icons/ri";
+import { Route } from "react-router-dom";
+import congratsIcon from "../../../assets/images/congratsIcon.png";
 import { Button } from "../../../components";
 import useTakeStandalone from "../../../contexts/TakeStandaloneExam/useTakeStandalone";
 import { useQueryParams } from "../../../hooks";
-import congratsIcon from "../../../assets/images/congratsIcon.png";
-import { useDisclosure } from "@chakra-ui/react";
-import { Warning } from "@material-ui/icons";
-import { useHistory } from "react-router-dom/cjs/react-router-dom.min";
-import { useLocation } from "react-router-dom/cjs/react-router-dom";
+
 const AssessmentStart = () => {
   const [modal, setModal] = useState({
     state: false,
