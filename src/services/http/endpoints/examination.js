@@ -204,6 +204,33 @@ export const adminEditExamination = async (examinationId, body) => {
 };
 
 /**
+ * List all examinations in a module
+ * @param {string} moduleId
+ * @returns {Promise<{ examinations: Array }>}
+ */
+export const adminListModuleExaminations = async (moduleId) => {
+  const path = `/v1/examination/module/${moduleId}`;
+
+  const {
+    data: { data },
+  } = await http.get(path);
+
+  return {
+    examinations: data.map((examination) => ({
+      id: examination.id,
+      title: examination.title,
+      courseId: examination.courseId,
+      moduleId: examination.moduleId,
+      duration: examination.duration,
+      amountOfQuestions: examination.amountOfQuestions,
+      active: examination.active,
+      startTime: examination.startTime,
+      createdAt: examination.createdAt,
+    })),
+  };
+};
+
+/**
  * Endpoint for examination modification/update
  * @param {object} body
  * @returns {Promise<{ message: string }>}

@@ -159,6 +159,32 @@ export const adminGetAssessmentListing = async (courseId) => {
 };
 
 /**
+ * List all assessments in a module
+ * @param {string} moduleId
+ * @returns {Promise<{ assessments: Array }>}
+ */
+export const adminListModuleAssessments = async (moduleId) => {
+  const path = `/v1/assessment/module/${moduleId}`;
+
+  const {
+    data: { data },
+  } = await http.get(path);
+
+  return {
+    assessments: data.map((assessment) => ({
+      id: assessment.id,
+      title: assessment.title,
+      courseId: assessment.courseId,
+      moduleId: assessment.moduleId,
+      duration: assessment.duration,
+      amountOfQuestions: assessment.amountOfQuestions,
+      active: assessment.active,
+      startTime: assessment.startTime,
+    })),
+  };
+};
+
+/**
  * Endpoint to for admin to edit a assessment
  * @param {{ title: ?string, duration: number, amountOfQuestions: number, startTime: ?Date, courseId: string }} body
  *

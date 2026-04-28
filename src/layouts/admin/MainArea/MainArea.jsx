@@ -61,6 +61,11 @@ import {
   CourseContentEditorPageRoute,
   DataOperationsPageRoute,
   CreateModulePageRoute,
+  ModuleAssessmentsPageRoute,
+  CreateModuleAssessmentPageRoute,
+  ModuleExaminationsPageRoute,
+  CreateModuleExaminationPageRoute,
+  ViewModuleExaminationPageRoute,
 } from "../../../pages/admin";
 import { ModuleLessonsPageRoute } from "../../../pages/admin/courses/ViewCourseInfoPage/pages/ModuleLessonsPage";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
@@ -112,6 +117,26 @@ const MainArea = () => {
         <ModuleLessonsPageRoute
           exact
           path="/admin/courses/:courseId/module/:moduleId/lessons"
+        />
+        <ModuleAssessmentsPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/assessments"
+        />
+        <CreateModuleAssessmentPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/assessments/edit/:assessmentId"
+        />
+        <ModuleExaminationsPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/examinations"
+        />
+        <CreateModuleExaminationPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/examinations/edit/:examinationId"
+        />
+        <ViewModuleExaminationPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/examinations/view/:examinationId"
         />
         <CreateLessonPageRoute
           exact
