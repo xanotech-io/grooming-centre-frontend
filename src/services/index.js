@@ -44,3 +44,4 @@ export * from "./http/endpoints/instructorReports";
 export * from "./http/endpoints/dataOperations";
 export * from "./http/endpoints/dashboard";
 export * from "./http/endpoints/mis";
+export * from "./http/endpoints/projects";

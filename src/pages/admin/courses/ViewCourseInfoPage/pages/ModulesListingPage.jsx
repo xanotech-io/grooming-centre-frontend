@@ -119,6 +119,11 @@ const ModulesListingPage = () => {
             `/admin/courses/${courseId}/module/${module.id}/examinations`,
         },
         {
+          text: "Projects",
+          link: (module) =>
+            `/admin/courses/${courseId}/module/${module.id}/projects`,
+        },
+        {
           text: "Edit",
           link: (module) =>
             `/admin/courses/${courseId}/modules/${module.id}/edit`,
