@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import {
   Box,
@@ -7,8 +7,6 @@ import {
   Text,
   Badge,
   Spinner,
-  Divider,
-  useToast,
   Table,
   Thead,
   Tbody,
@@ -16,151 +14,57 @@ import {
   Th,
   Td,
   TableContainer,
-  Switch,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  useDisclosure,
+  Wrap,
+  WrapItem,
+  Tag,
 } from "@chakra-ui/react";
-import { FaArrowLeft, FaFileAlt, FaChartBar, FaRandom } from "react-icons/fa";
-import { Button, Heading, Input } from "../../../components";
+import { FaArrowLeft } from "react-icons/fa";
+import { Heading } from "../../../components";
 import { useFetch } from "../../../hooks";
-import {
-  adminGetExamTemplateById,
-  adminGetTemplateStatistics,
-  adminGenerateExamPaper,
-  adminUpdateExamTemplate,
-  adminArchiveExamTemplate,
-  adminPermanentDeleteExamTemplate,
-} from "../../../services";
-import { capitalizeFirstLetter } from "../../../utils";
+import { adminGetMarkingTemplateById } from "../../../services";
 
-const QUESTION_TYPE_COLOR = {
+const SCOPE_BADGE = {
+  "Assessment": { bg: "#EBF4FF", color: "#3182CE" },
+  "Normal Exam": { bg: "#E6F4EA", color: "#38A169" },
+  "Standalone Exam": { bg: "#FAF5FF", color: "#805AD5" },
+};
+
+const POLICY_LABEL = {
+  highest: "Highest Score",
+  latest: "Latest Attempt",
+  average: "Average Score",
+};
+
+const TYPE_COLOR = {
   MCQ: { bg: "#EBF4FF", color: "#3182CE" },
-  TRUE_FALSE: { bg: "#F0FFF4", color: "#38A169" },
-  ESSAY: { bg: "#FFFAF0", color: "#DD6B20" },
-  FILL_IN_BLANK: { bg: "#FAF5FF", color: "#805AD5" },
-  MATCHING: { bg: "#FFF5F5", color: "#E53E3E" },
+  TrueFalse: { bg: "#F0FFF4", color: "#38A169" },
+  FillBlank: { bg: "#FAF5FF", color: "#805AD5" },
+  Matching: { bg: "#FFF5F5", color: "#E53E3E" },
+  ShortAnswer: { bg: "#FFFAF0", color: "#DD6B20" },
+  Essay: { bg: "#F7FAFC", color: "#4A5568" },
 };
 
 export const ExamTemplateDetailsPage = () => {
   const history = useHistory();
   const { templateId } = useParams();
-  const toast = useToast();
-  const { isOpen, onOpen, onClose } = useDisclosure();
 
-  const { resource: templateResource, handleFetchResource: fetchTemplate } =
-    useFetch();
-  const { resource: statsResource, handleFetchResource: fetchStats } =
-    useFetch();
+  const { resource, handleFetchResource } = useFetch();
 
-  const [studentId, setStudentId] = useState("");
-  const [examId, setExamId] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [lifecycleLoading, setLifecycleLoading] = useState(false);
-
-  const handlePublish = async () => {
-    setLifecycleLoading(true);
-    try {
-      const { message } = await adminUpdateExamTemplate(templateId, {
-        status: "PUBLISHED",
-      });
-      toast({ description: message, position: "top", status: "success" });
-      fetchTemplate({ fetcher: templateFetcher });
-    } catch (err) {
-      toast({ description: err.message, position: "top", status: "error" });
-    } finally {
-      setLifecycleLoading(false);
-    }
-  };
-
-  const handleArchive = async () => {
-    setLifecycleLoading(true);
-    try {
-      const { message } = await adminArchiveExamTemplate(templateId);
-      toast({ description: message, position: "top", status: "success" });
-      fetchTemplate({ fetcher: templateFetcher });
-    } catch (err) {
-      toast({ description: err.message, position: "top", status: "error" });
-    } finally {
-      setLifecycleLoading(false);
-    }
-  };
-
-  const handlePermanentDelete = async () => {
-    setLifecycleLoading(true);
-    try {
-      const { message } = await adminPermanentDeleteExamTemplate(templateId);
-      toast({ description: message, position: "top", status: "success" });
-      history.push("/admin/exam-templates");
-    } catch (err) {
-      toast({ description: err.message, position: "top", status: "error" });
-      setLifecycleLoading(false);
-    }
-  };
-
-  const templateFetcher = useCallback(async () => {
-    const { template } = await adminGetExamTemplateById(templateId);
+  const fetcher = useCallback(async () => {
+    const { template } = await adminGetMarkingTemplateById(templateId);
     return template;
   }, [templateId]);
 
-  const statsFetcher = useCallback(async () => {
-    const { statistics } = await adminGetTemplateStatistics(templateId);
-    return statistics;
-  }, [templateId]);
-
   useEffect(() => {
-    fetchTemplate({ fetcher: templateFetcher });
-    fetchStats({ fetcher: statsFetcher });
-  }, [fetchTemplate, templateFetcher, fetchStats, statsFetcher]);
+    handleFetchResource({ fetcher });
+  }, [handleFetchResource, fetcher]);
 
-  const template = templateResource.data;
-  const stats = statsResource.data;
+  const template = resource.data;
 
-  const handleGenerate = async () => {
-    if (!studentId.trim() || !examId.trim()) {
-      toast({
-        description: "Student ID and Exam ID are required.",
-        position: "top",
-        status: "warning",
-      });
-      return;
-    }
-    setIsGenerating(true);
-    try {
-      const { message } = await adminGenerateExamPaper(templateId, {
-        studentId,
-        examId,
-      });
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
-      onClose();
-      setStudentId("");
-      setExamId("");
-    } catch (err) {
-      toast({
-        description: capitalizeFirstLetter(err.message),
-        position: "top",
-        status: "error",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+  const scopeStyle = SCOPE_BADGE[template?.usageScope] || { bg: "#F7FAFC", color: "#718096" };
 
   return (
-    <Box
-      paddingX={{ base: "20px", lg: "40px" }}
-      paddingY="30px"
-      bg="#FAFAFA"
-      minHeight="100vh"
-    >
+    <Box paddingX={{ base: "20px", lg: "40px" }} paddingY="30px" bg="#FAFAFA" minHeight="100vh">
       {/* Go Back */}
       <Flex
         alignItems="center"
@@ -169,27 +73,25 @@ export const ExamTemplateDetailsPage = () => {
         mb="24px"
         width="max-content"
       >
-        <Box
-          border="1px solid #E2E8F0"
-          borderRadius="4px"
-          p="6px"
-          mr="12px"
-          bg="white"
-        >
+        <Box border="1px solid #E2E8F0" borderRadius="4px" p="6px" mr="12px" bg="white">
           <FaArrowLeft color="#1A202C" />
         </Box>
-        <Text fontWeight="500" color="#1A202C">
-          Go Back
-        </Text>
+        <Text fontWeight="500" color="#1A202C">Go Back</Text>
       </Flex>
 
-      {templateResource.loading && (
+      {resource.loading && (
         <Flex justifyContent="center" alignItems="center" minHeight="60vh">
           <Spinner size="xl" color="#6b006b" />
         </Flex>
       )}
 
-      {!templateResource.loading && template && (
+      {resource.err && (
+        <Flex justifyContent="center" alignItems="center" minHeight="60vh">
+          <Text color="red.500">{resource.err}</Text>
+        </Flex>
+      )}
+
+      {!resource.loading && template && (
         <>
           {/* Header */}
           <Flex
@@ -200,148 +102,68 @@ export const ExamTemplateDetailsPage = () => {
             gap="16px"
           >
             <Box>
-              <Flex alignItems="center" gap="12px" mb="8px">
+              <Flex alignItems="center" gap="12px" mb="10px">
                 <Heading as="h1" size="lg" color="#1A202C" m={0}>
-                  {template.templateName}
+                  {template.markingTemplateName}
                 </Heading>
                 <Badge
-                  bg={
-                    template.status === "PUBLISHED"
-                      ? "#E6F4EA"
-                      : template.status === "ARCHIVED"
-                      ? "#FED7D7"
-                      : "#F7FAFC"
-                  }
-                  color={
-                    template.status === "PUBLISHED"
-                      ? "#38A169"
-                      : template.status === "ARCHIVED"
-                      ? "#E53E3E"
-                      : "#718096"
-                  }
+                  bg={scopeStyle.bg}
+                  color={scopeStyle.color}
                   px="12px"
                   py="4px"
                   borderRadius="12px"
                   textTransform="none"
                   fontWeight="500"
                 >
-                  {template.status === "PUBLISHED"
-                    ? "Published"
-                    : template.status === "ARCHIVED"
-                    ? "Archived"
-                    : "Draft"}
+                  {template.usageScope}
                 </Badge>
               </Flex>
               <Flex gap="24px" flexWrap="wrap">
                 <Text color="#718096" fontSize="14px">
                   ID:{" "}
-                  <Text as="span" color="#1A202C" fontWeight="600">
-                    {template.templateId}
+                  <Text as="span" color="#1A202C" fontWeight="600" fontSize="13px">
+                    {template.id}
                   </Text>
                 </Text>
-                <Text color="#718096" fontSize="14px">
-                  Course:{" "}
-                  <Text as="span" color="#1A202C" fontWeight="600">
-                    {template.courseName}
+                {template.creator && (
+                  <Text color="#718096" fontSize="14px">
+                    Created by:{" "}
+                    <Text as="span" color="#1A202C" fontWeight="600">
+                      {template.creator.firstName} {template.creator.lastName}
+                    </Text>
                   </Text>
-                </Text>
+                )}
                 <Text color="#718096" fontSize="14px">
-                  Created by:{" "}
+                  Created:{" "}
                   <Text as="span" color="#1A202C" fontWeight="600">
-                    {template.creator
-                      ? `${template.creator.firstName} ${template.creator.lastName}`
-                      : template.createdBy}
-                  </Text>
-                </Text>
-                <Text color="#718096" fontSize="14px">
-                  Used:{" "}
-                  <Text as="span" color="#1A202C" fontWeight="600">
-                    {template.usageCount}x
+                    {template.createdAt
+                      ? new Date(template.createdAt).toLocaleDateString()
+                      : "—"}
                   </Text>
                 </Text>
               </Flex>
             </Box>
-            <Flex gap="12px" flexWrap="wrap">
-              {template.status === "DRAFT" && (
-                <Button
-                  onClick={handlePublish}
-                  isLoading={lifecycleLoading}
-                  style={{ backgroundColor: "#38A169", color: "white" }}
-                >
-                  Publish
-                </Button>
-              )}
-              {template.status === "PUBLISHED" && (
-                <Button
-                  onClick={onOpen}
-                  style={{ backgroundColor: "#6b006b", color: "white" }}
-                >
-                  <Flex alignItems="center" gap="8px">
-                    <FaFileAlt size="14px" /> Generate Paper
-                  </Flex>
-                </Button>
-              )}
-              {(template.status === "DRAFT" || template.status === "PUBLISHED") && (
-                <Button
-                  onClick={handleArchive}
-                  isLoading={lifecycleLoading}
-                  style={{
-                    backgroundColor: "white",
-                    color: "#E53E3E",
-                    border: "1px solid #E53E3E",
-                  }}
-                >
-                  Archive
-                </Button>
-              )}
-              {template.status === "ARCHIVED" && (
-                <Button
-                  onClick={handlePermanentDelete}
-                  isLoading={lifecycleLoading}
-                  style={{ backgroundColor: "#E53E3E", color: "white" }}
-                >
-                  Permanent Delete
-                </Button>
-              )}
-            </Flex>
           </Flex>
 
-          <Grid
-            templateColumns={{ base: "1fr", lg: "2fr 1fr" }}
-            gap="28px"
-            alignItems="start"
-          >
-            {/* Left: Template Details */}
-            <Box>
-              {/* Quick Stats */}
-              <Grid templateColumns="repeat(3, 1fr)" gap="16px" mb="24px">
-                {[
-                  { label: "Total Questions", value: template.questionsCount },
-                  { label: "Total Marks", value: template.totalMarks },
-                  {
-                    label: "Duration",
-                    value: `${template.durationMinutes} min`,
-                  },
-                ].map(({ label, value }) => (
-                  <Box
-                    key={label}
-                    bg="white"
-                    p="20px"
-                    borderRadius="8px"
-                    shadow="sm"
-                    textAlign="center"
-                  >
-                    <Text fontSize="12px" color="#718096" mb="6px">
-                      {label}
-                    </Text>
-                    <Text fontSize="24px" fontWeight="700" color="#6b006b">
-                      {value}
-                    </Text>
-                  </Box>
-                ))}
-              </Grid>
+          {/* Quick Stats */}
+          <Grid templateColumns="repeat(4, 1fr)" gap="16px" mb="28px">
+            {[
+              { label: "Total Marks", value: template.totalMarks },
+              { label: "Question Types", value: (template.questionTypes ?? []).length },
+              { label: "Retry Count", value: template.retryCount },
+              { label: "Retry Policy", value: POLICY_LABEL[template.retryPolicy] || template.retryPolicy || "—" },
+            ].map(({ label, value }) => (
+              <Box key={label} bg="white" p="20px" borderRadius="8px" shadow="sm" textAlign="center">
+                <Text fontSize="12px" color="#718096" mb="6px">{label}</Text>
+                <Text fontSize="20px" fontWeight="700" color="#6b006b">{value}</Text>
+              </Box>
+            ))}
+          </Grid>
 
-              {/* Sections Table */}
+          <Grid templateColumns={{ base: "1fr", lg: "2fr 1fr" }} gap="28px" alignItems="start">
+            {/* Left */}
+            <Box>
+              {/* Question Configuration Table */}
               <Box bg="white" borderRadius="8px" shadow="sm" mb="24px">
                 <Text
                   fontSize="15px"
@@ -350,64 +172,44 @@ export const ExamTemplateDetailsPage = () => {
                   p="20px"
                   borderBottom="1px solid #E2E8F0"
                 >
-                  Sections ({template.sections?.length ?? 0})
+                  Question Configuration
                 </Text>
                 <TableContainer>
                   <Table variant="simple" size="sm">
                     <Thead>
                       <Tr>
-                        <Th textTransform="none" color="#4A5568">
-                          Section Name
-                        </Th>
-                        <Th textTransform="none" color="#4A5568">
-                          Type
-                        </Th>
-                        <Th textTransform="none" color="#4A5568">
-                          Questions
-                        </Th>
-                        <Th textTransform="none" color="#4A5568">
-                          Marks Each
-                        </Th>
-                        <Th textTransform="none" color="#4A5568">
-                          Total Marks
-                        </Th>
+                        <Th textTransform="none" color="#4A5568">Type</Th>
+                        <Th textTransform="none" color="#4A5568">Quantity</Th>
+                        <Th textTransform="none" color="#4A5568">Marks (Total)</Th>
+                        <Th textTransform="none" color="#4A5568">Difficulty</Th>
                       </Tr>
                     </Thead>
                     <Tbody>
-                      {template.sections?.map((sec) => {
-                        const typeStyle = QUESTION_TYPE_COLOR[
-                          sec.questionType
-                        ] || { bg: "#F7FAFC", color: "#718096" };
+                      {(template.questionTypes ?? []).map((type) => {
+                        const style = TYPE_COLOR[type] || { bg: "#F7FAFC", color: "#718096" };
                         return (
-                          <Tr key={sec.sectionId}>
-                            <Td fontSize="13px" color="#1A202C">
-                              {sec.sectionName}
-                            </Td>
+                          <Tr key={type}>
                             <Td>
                               <Badge
-                                bg={typeStyle.bg}
-                                color={typeStyle.color}
+                                bg={style.bg}
+                                color={style.color}
                                 px="8px"
                                 py="2px"
                                 borderRadius="8px"
                                 textTransform="none"
                                 fontSize="12px"
                               >
-                                {sec.questionType}
+                                {type}
                               </Badge>
                             </Td>
                             <Td fontSize="13px" color="#1A202C">
-                              {sec.questionCount}
+                              {template.questionQuantity?.[type] ?? "—"}
                             </Td>
-                            <Td fontSize="13px" color="#1A202C">
-                              {sec.marksPerQuestion}
+                            <Td fontSize="13px" fontWeight="600" color="#6b006b">
+                              {template.markDistribution?.[type] ?? "—"}
                             </Td>
-                            <Td
-                              fontSize="13px"
-                              fontWeight="600"
-                              color="#6b006b"
-                            >
-                              {sec.questionCount * sec.marksPerQuestion}
+                            <Td fontSize="13px" color="#4A5568">
+                              {template.difficultyLevel?.[type] ?? "—"}
                             </Td>
                           </Tr>
                         );
@@ -417,224 +219,63 @@ export const ExamTemplateDetailsPage = () => {
                 </TableContainer>
               </Box>
 
-              {/* Randomization & Display Config */}
-              <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap="20px">
-                <Box bg="white" borderRadius="8px" p="20px" shadow="sm">
-                  <Flex alignItems="center" gap="8px" mb="16px">
-                    <FaRandom color="#6b006b" />
-                    <Text fontSize="14px" fontWeight="600" color="#1A202C">
-                      Randomization
-                    </Text>
-                  </Flex>
-                  {[
-                    {
-                      label: "Shuffle Questions",
-                      value: template.randomizationConfig?.shuffleQuestions,
-                    },
-                    {
-                      label: "Shuffle Options",
-                      value: template.randomizationConfig?.shuffleOptions,
-                    },
-                    {
-                      label: "Randomize Section Order",
-                      value:
-                        template.randomizationConfig?.randomizeSectionOrder,
-                    },
-                  ].map(({ label, value }) => (
-                    <Flex
-                      key={label}
-                      justifyContent="space-between"
-                      alignItems="center"
-                      mb="10px"
-                    >
-                      <Text fontSize="13px" color="#4A5568">
-                        {label}
-                      </Text>
-                      <Switch
-                        isChecked={!!value}
-                        isReadOnly
-                        colorScheme="purple"
-                        size="sm"
-                      />
-                    </Flex>
-                  ))}
-                </Box>
-                <Box bg="white" borderRadius="8px" p="20px" shadow="sm">
-                  <Text
-                    fontSize="14px"
-                    fontWeight="600"
-                    color="#1A202C"
-                    mb="16px"
-                  >
-                    Display Config
+              {/* Knowledge Points */}
+              {(template.knowledgePoints ?? []).length > 0 && (
+                <Box bg="white" borderRadius="8px" p="24px" shadow="sm">
+                  <Text fontSize="15px" fontWeight="600" color="#1A202C" mb="16px">
+                    Knowledge Points
                   </Text>
-                  {[
-                    {
-                      label: "Qs Per Page",
-                      value: template.displayConfig?.questionsPerPage,
-                    },
-                    {
-                      label: "Back Navigation",
-                      value: template.displayConfig?.allowBackNavigation,
-                    },
-                    {
-                      label: "Question Skipping",
-                      value: template.displayConfig?.allowQuestionSkipping,
-                    },
-                    {
-                      label: "Show Timer",
-                      value: template.displayConfig?.showTimer,
-                    },
-                    {
-                      label: "Allow Calculator",
-                      value: template.displayConfig?.allowCalculator,
-                    },
-                  ].map(({ label, value }) => (
-                    <Flex
-                      key={label}
-                      justifyContent="space-between"
-                      alignItems="center"
-                      mb="10px"
-                    >
-                      <Text fontSize="13px" color="#4A5568">
-                        {label}
-                      </Text>
-                      {typeof value === "boolean" ? (
-                        <Switch
-                          isChecked={value}
-                          isReadOnly
-                          colorScheme="purple"
-                          size="sm"
-                        />
-                      ) : (
-                        <Text fontSize="13px" fontWeight="600" color="#1A202C">
-                          {value}
-                        </Text>
-                      )}
-                    </Flex>
-                  ))}
+                  <Wrap spacing="8px">
+                    {template.knowledgePoints.map((point) => (
+                      <WrapItem key={point}>
+                        <Tag size="md" borderRadius="full" variant="solid" bg="#6b006b" color="white">
+                          {point}
+                        </Tag>
+                      </WrapItem>
+                    ))}
+                  </Wrap>
                 </Box>
-              </Grid>
+              )}
             </Box>
 
-            {/* Right: Statistics */}
+            {/* Right — Retry Config */}
             <Box>
               <Box bg="white" borderRadius="8px" p="24px" shadow="sm">
-                <Flex alignItems="center" gap="8px" mb="20px">
-                  <FaChartBar color="#6b006b" />
-                  <Text fontSize="15px" fontWeight="600" color="#1A202C">
-                    Usage Statistics
+                <Text fontSize="15px" fontWeight="600" color="#1A202C" mb="16px">
+                  Retry Configuration
+                </Text>
+                <Flex justifyContent="space-between" mb="12px">
+                  <Text fontSize="13px" color="#718096">Retry Count</Text>
+                  <Text fontSize="14px" fontWeight="700" color="#1A202C">
+                    {template.retryCount === 0 ? "No retries" : template.retryCount}
                   </Text>
                 </Flex>
-
-                {statsResource.loading ? (
-                  <Flex justifyContent="center" p="20px">
-                    <Spinner size="md" color="#6b006b" />
-                  </Flex>
-                ) : stats ? (
-                  <>
-                    {[
-                      {
-                        label: "Created This Month",
-                        value: stats.templatesCreatedThisMonth,
-                      },
-                      {
-                        label: "Created Last Month",
-                        value: stats.templatesCreatedLastMonth,
-                      },
-                      {
-                        label: "Growth",
-                        value: `+${stats.creationGrowthPercent}%`,
-                        color: "#38A169",
-                      },
-                      {
-                        label: "Usage Frequency",
-                        value: stats.usageFrequency,
-                        color: "#6b006b",
-                      },
-                      {
-                        label: "Avg Usage Count",
-                        value: stats.averageUsageCount,
-                      },
-                      {
-                        label: "Update Compliance",
-                        value: `${stats.updateComplianceRate}%`,
-                      },
-                    ].map(({ label, value, color }) => (
-                      <Flex
-                        key={label}
-                        justifyContent="space-between"
-                        alignItems="center"
-                        mb="12px"
-                      >
-                        <Text fontSize="13px" color="#718096">
-                          {label}
-                        </Text>
-                        <Text
-                          fontSize="14px"
-                          fontWeight="600"
-                          color={color || "#1A202C"}
-                        >
-                          {value}
-                        </Text>
-                      </Flex>
-                    ))}
-                  </>
-                ) : null}
+                <Flex justifyContent="space-between" mb="12px">
+                  <Text fontSize="13px" color="#718096">Retry Policy</Text>
+                  <Text fontSize="14px" fontWeight="600" color="#6b006b" textTransform="capitalize">
+                    {POLICY_LABEL[template.retryPolicy] || template.retryPolicy || "—"}
+                  </Text>
+                </Flex>
+                <Flex justifyContent="space-between">
+                  <Text fontSize="13px" color="#718096">Usage Scope</Text>
+                  <Badge
+                    bg={scopeStyle.bg}
+                    color={scopeStyle.color}
+                    px="10px"
+                    py="3px"
+                    borderRadius="10px"
+                    textTransform="none"
+                    fontWeight="500"
+                    fontSize="12px"
+                  >
+                    {template.usageScope}
+                  </Badge>
+                </Flex>
               </Box>
             </Box>
           </Grid>
         </>
       )}
-
-      {/* Generate Paper Modal */}
-      <Modal isOpen={isOpen} onClose={onClose} isCentered>
-        <ModalOverlay />
-        <ModalContent borderRadius="12px">
-          <ModalHeader fontSize="16px" color="#1A202C">
-            Generate Examination Paper
-          </ModalHeader>
-          <Divider />
-          <ModalBody py="24px">
-            <Text fontSize="13px" color="#718096" mb="20px">
-              A randomized paper will be generated from{" "}
-              <Text as="span" fontWeight="600" color="#6b006b">
-                {template?.templateName}
-              </Text>
-              .
-            </Text>
-            <Box mb="16px">
-              <Input
-                label="Student ID"
-                id="studentId"
-                placeholder="e.g. student-uuid-123"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-              />
-            </Box>
-            <Input
-              label="Exam ID"
-              id="examId"
-              placeholder="e.g. exam-uuid-456"
-              value={examId}
-              onChange={(e) => setExamId(e.target.value)}
-            />
-          </ModalBody>
-          <Divider />
-          <ModalFooter gap="12px">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              style={{ backgroundColor: "#6b006b", color: "white" }}
-              isLoading={isGenerating}
-              onClick={handleGenerate}
-            >
-              Generate
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
     </Box>
   );
 };

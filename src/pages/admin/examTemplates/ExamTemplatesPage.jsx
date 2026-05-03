@@ -18,35 +18,26 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
-  MenuDivider,
   Spinner,
   InputGroup,
   InputLeftElement,
   Input,
   useToast,
 } from "@chakra-ui/react";
-import {
-  FaSearch,
-  FaPlus,
-  FaChevronLeft,
-  FaChevronRight,
-} from "react-icons/fa";
+import { FaSearch, FaPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { FiMoreVertical } from "react-icons/fi";
 import { Button, Heading, Select } from "../../../components";
 import { useFetch } from "../../../hooks";
-import {
-  adminGetExamTemplates,
-  adminArchiveExamTemplate,
-  adminPermanentDeleteExamTemplate,
-} from "../../../services";
+import { adminGetMarkingTemplates } from "../../../services";
 
-const getStatusBadge = (status) => {
-  const map = {
-    DRAFT: { bg: "#F7FAFC", color: "#718096", label: "Draft" },
-    PUBLISHED: { bg: "#E6F4EA", color: "#38A169", label: "Published" },
-    ARCHIVED: { bg: "#FED7D7", color: "#E53E3E", label: "Archived" },
-  };
-  const s = map[status] || map.DRAFT;
+const SCOPE_BADGE = {
+  "Assessment": { bg: "#EBF4FF", color: "#3182CE" },
+  "Normal Exam": { bg: "#E6F4EA", color: "#38A169" },
+  "Standalone Exam": { bg: "#FAF5FF", color: "#805AD5" },
+};
+
+const getScopeBadge = (scope) => {
+  const s = SCOPE_BADGE[scope] || { bg: "#F7FAFC", color: "#718096" };
   return (
     <Badge
       bg={s.bg}
@@ -57,7 +48,7 @@ const getStatusBadge = (status) => {
       textTransform="none"
       fontWeight="500"
     >
-      {s.label}
+      {scope}
     </Badge>
   );
 };
@@ -66,77 +57,38 @@ export const ExamTemplatesPage = () => {
   const history = useHistory();
   const toast = useToast();
   const { resource, handleFetchResource } = useFetch();
-  const [actionLoading, setActionLoading] = useState(null);
+  const [scopeFilter, setScopeFilter] = useState("");
 
   const fetcher = useCallback(async () => {
-    const { templates, totalDocumentsCount } = await adminGetExamTemplates();
-    return { templates, totalDocumentsCount };
-  }, []);
+    const params = scopeFilter ? { usageScope: scopeFilter } : {};
+    const { templates } = await adminGetMarkingTemplates(params);
+    return { templates };
+  }, [scopeFilter]);
 
   useEffect(() => {
     handleFetchResource({ fetcher });
   }, [handleFetchResource, fetcher]);
 
   const templates = resource.data?.templates ?? [];
-  const publishedCount = templates.filter((t) => t.status === "PUBLISHED").length;
-  const draftCount = templates.filter((t) => t.status === "DRAFT").length;
-  const totalUsage = templates.reduce((sum, t) => sum + (t.usageCount || 0), 0);
-
-  const handleArchive = async (templateId) => {
-    setActionLoading(templateId + "_archive");
-    try {
-      const { message } = await adminArchiveExamTemplate(templateId);
-      toast({ description: message, position: "top", status: "success" });
-      handleFetchResource({ fetcher });
-    } catch (err) {
-      toast({ description: err.message, position: "top", status: "error" });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handlePermanentDelete = async (templateId) => {
-    setActionLoading(templateId + "_delete");
-    try {
-      const { message } = await adminPermanentDeleteExamTemplate(templateId);
-      toast({ description: message, position: "top", status: "success" });
-      handleFetchResource({ fetcher });
-    } catch (err) {
-      toast({ description: err.message, position: "top", status: "error" });
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  const assessmentCount = templates.filter((t) => t.usageScope === "Assessment").length;
+  const normalExamCount = templates.filter((t) => t.usageScope === "Normal Exam").length;
+  const standaloneCount = templates.filter((t) => t.usageScope === "Standalone Exam").length;
 
   return (
     <Box marginX="22px" marginY="20px">
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" mb="30px">
         <Heading as="h2" size="lg" color="#1A202C">
-          Exam Templates
+          Marking Templates
         </Heading>
-        <Flex gap="12px">
-          <Button
-            onClick={() =>
-              history.push("/admin/exam-templates/question-banks/create")
-            }
-            style={{
-              backgroundColor: "white",
-              color: "#6b006b",
-              border: "1px solid #6b006b",
-            }}
-          >
-            Create Question Bank
-          </Button>
-          <Button
-            onClick={() => history.push("/admin/exam-templates/create")}
-            style={{ backgroundColor: "#6b006b", color: "white" }}
-          >
-            <Flex alignItems="center" gap="8px">
-              <FaPlus size="12px" /> Create Template
-            </Flex>
-          </Button>
-        </Flex>
+        <Button
+          onClick={() => history.push("/admin/marking-templates/create")}
+          style={{ backgroundColor: "#6b006b", color: "white" }}
+        >
+          <Flex alignItems="center" gap="8px">
+            <FaPlus size="12px" /> Create Template
+          </Flex>
+        </Button>
       </Flex>
 
       {/* Stats Cards */}
@@ -146,59 +98,38 @@ export const ExamTemplatesPage = () => {
             Total Templates
           </Text>
           <Text fontSize="32px" fontWeight="700" color="#1A202C">
-            {resource.loading ? (
-              <Spinner size="sm" />
-            ) : (
-              (resource.data?.totalDocumentsCount ?? 0)
-            )}
-          </Text>
-          <Text fontSize="13px" color="#38A169" mt="8px">
-            +5.3% this month
+            {resource.loading ? <Spinner size="sm" /> : templates.length}
           </Text>
         </Box>
         <Box bg="white" p="24px" borderRadius="8px" shadow="sm">
           <Text fontSize="13px" color="#718096" mb="8px">
-            Published Templates
+            Assessment
           </Text>
-          <Text fontSize="32px" fontWeight="700" color="#1A202C">
-            {resource.loading ? <Spinner size="sm" /> : publishedCount}
-          </Text>
-          <Text fontSize="13px" color="#718096" mt="8px">
-            In use
+          <Text fontSize="32px" fontWeight="700" color="#3182CE">
+            {resource.loading ? <Spinner size="sm" /> : assessmentCount}
           </Text>
         </Box>
         <Box bg="white" p="24px" borderRadius="8px" shadow="sm">
           <Text fontSize="13px" color="#718096" mb="8px">
-            Draft Templates
+            Normal Exam
           </Text>
-          <Text fontSize="32px" fontWeight="700" color="#1A202C">
-            {resource.loading ? <Spinner size="sm" /> : draftCount}
-          </Text>
-          <Text fontSize="13px" color="#718096" mt="8px">
-            Pending publish
+          <Text fontSize="32px" fontWeight="700" color="#38A169">
+            {resource.loading ? <Spinner size="sm" /> : normalExamCount}
           </Text>
         </Box>
         <Box bg="white" p="24px" borderRadius="8px" shadow="sm">
           <Text fontSize="13px" color="#718096" mb="8px">
-            Total Usage Count
+            Standalone Exam
           </Text>
-          <Text fontSize="32px" fontWeight="700" color="#1A202C">
-            {resource.loading ? <Spinner size="sm" /> : totalUsage}
-          </Text>
-          <Text fontSize="13px" color="#38A169" mt="8px">
-            Avg 12.5/template
+          <Text fontSize="32px" fontWeight="700" color="#805AD5">
+            {resource.loading ? <Spinner size="sm" /> : standaloneCount}
           </Text>
         </Box>
       </Grid>
 
       {/* Table */}
       <Box bg="white" borderRadius="8px" shadow="sm" border="1px solid #E2E8F0">
-        <Flex
-          gap="16px"
-          p="20px"
-          borderBottom="1px solid #E2E8F0"
-          alignItems="center"
-        >
+        <Flex gap="16px" p="20px" borderBottom="1px solid #E2E8F0" alignItems="center">
           <InputGroup width="300px">
             <InputLeftElement pointerEvents="none">
               <FaSearch color="#A0AEC0" />
@@ -206,12 +137,14 @@ export const ExamTemplatesPage = () => {
             <Input type="text" placeholder="Search templates..." />
           </InputGroup>
           <Select
-            id="statusFilter"
-            placeholder="All statuses"
+            id="scopeFilter"
+            placeholder="All scopes"
+            value={scopeFilter}
+            onChange={(e) => setScopeFilter(e.target.value)}
             options={[
-              { label: "Draft", value: "DRAFT" },
-              { label: "Published", value: "PUBLISHED" },
-              { label: "Archived", value: "ARCHIVED" },
+              { label: "Assessment", value: "Assessment" },
+              { label: "Normal Exam", value: "Normal Exam" },
+              { label: "Standalone Exam", value: "Standalone Exam" },
             ]}
           />
         </Flex>
@@ -233,105 +166,55 @@ export const ExamTemplatesPage = () => {
             <Table variant="simple">
               <Thead>
                 <Tr>
-                  <Th
-                    textTransform="none"
-                    fontSize="13px"
-                    fontWeight="600"
-                    color="#4A5568"
-                  >
-                    Template ID
-                  </Th>
-                  <Th
-                    textTransform="none"
-                    fontSize="13px"
-                    fontWeight="600"
-                    color="#4A5568"
-                  >
+                  <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568">
                     Template Name
                   </Th>
-                  <Th
-                    textTransform="none"
-                    fontSize="13px"
-                    fontWeight="600"
-                    color="#4A5568"
-                  >
-                    Course
+                  <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568">
+                    Usage Scope
                   </Th>
-                  <Th
-                    textTransform="none"
-                    fontSize="13px"
-                    fontWeight="600"
-                    color="#4A5568"
-                  >
-                    Questions
+                  <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568">
+                    Question Types
                   </Th>
-                  <Th
-                    textTransform="none"
-                    fontSize="13px"
-                    fontWeight="600"
-                    color="#4A5568"
-                  >
+                  <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568">
                     Total Marks
                   </Th>
-                  <Th
-                    textTransform="none"
-                    fontSize="13px"
-                    fontWeight="600"
-                    color="#4A5568"
-                  >
-                    Duration
+                  <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568">
+                    Retry Count
                   </Th>
-                  <Th
-                    textTransform="none"
-                    fontSize="13px"
-                    fontWeight="600"
-                    color="#4A5568"
-                  >
-                    Status
+                  <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568">
+                    Retry Policy
                   </Th>
-                  <Th
-                    textTransform="none"
-                    fontSize="13px"
-                    fontWeight="600"
-                    color="#4A5568"
-                  >
-                    Usage
+                  <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568">
+                    Created By
                   </Th>
-                  <Th
-                    textTransform="none"
-                    fontSize="13px"
-                    fontWeight="600"
-                    color="#4A5568"
-                    width="80px"
-                  >
+                  <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" width="80px">
                     Action
                   </Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {templates.map((t) => (
-                  <Tr key={t.templateId} _hover={{ bg: "#FAFAFA" }}>
-                    <Td fontSize="14px" color="#6b006b" fontWeight="500">
-                      {t.templateId}
-                    </Td>
+                  <Tr key={t.id} _hover={{ bg: "#FAFAFA" }}>
                     <Td fontSize="14px" color="#1A202C" fontWeight="500">
-                      {t.templateName}
+                      {t.markingTemplateName}
                     </Td>
-                    <Td fontSize="14px" color="#4A5568">
-                      {t.courseName}
+                    <Td>{getScopeBadge(t.usageScope)}</Td>
+                    <Td fontSize="13px" color="#4A5568" maxWidth="200px">
+                      {(t.questionTypes ?? []).join(", ")}
                     </Td>
-                    <Td fontSize="14px" color="#1A202C">
-                      {t.questionsCount}
-                    </Td>
-                    <Td fontSize="14px" color="#1A202C">
+                    <Td fontSize="14px" color="#1A202C" fontWeight="600">
                       {t.totalMarks}
                     </Td>
                     <Td fontSize="14px" color="#1A202C">
-                      {t.durationMinutes} min
+                      {t.retryCount}
                     </Td>
-                    <Td>{getStatusBadge(t.status)}</Td>
-                    <Td fontSize="14px" color="#1A202C">
-                      {t.usageCount}x
+                    <Td fontSize="14px" color="#1A202C" textTransform="capitalize">
+                      {t.retryPolicy}
+                    </Td>
+                    <Td fontSize="13px" color="#4A5568">
+                      {t.creator
+                        ? `${t.creator.firstName} ${t.creator.lastName}`
+                        : "—"}
                     </Td>
                     <Td>
                       <Menu>
@@ -346,59 +229,28 @@ export const ExamTemplatesPage = () => {
                         <MenuList minWidth="160px">
                           <MenuItem
                             onClick={() =>
-                              history.push(
-                                `/admin/exam-templates/${t.templateId}`,
-                              )
+                              history.push(`/admin/marking-templates/${t.id}`)
                             }
                           >
                             View Details
                           </MenuItem>
-                          {t.status === "PUBLISHED" && (
-                            <MenuItem
-                              onClick={() =>
-                                history.push(
-                                  `/admin/exam-templates/${t.templateId}`,
-                                )
-                              }
-                            >
-                              Generate Paper
-                            </MenuItem>
-                          )}
-                          {(t.status === "DRAFT" || t.status === "PUBLISHED") && (
-                            <>
-                              <MenuDivider />
-                              <MenuItem
-                                color="#E53E3E"
-                                isDisabled={actionLoading === t.templateId + "_archive"}
-                                onClick={() => handleArchive(t.templateId)}
-                              >
-                                Archive
-                              </MenuItem>
-                            </>
-                          )}
-                          {t.status === "ARCHIVED" && (
-                            <>
-                              <MenuDivider />
-                              <MenuItem
-                                color="#E53E3E"
-                                isDisabled={actionLoading === t.templateId + "_delete"}
-                                onClick={() => handlePermanentDelete(t.templateId)}
-                              >
-                                Permanent Delete
-                              </MenuItem>
-                            </>
-                          )}
                         </MenuList>
                       </Menu>
                     </Td>
                   </Tr>
                 ))}
+                {templates.length === 0 && (
+                  <Tr>
+                    <Td colSpan={8} textAlign="center" py="40px" color="#718096" fontSize="14px">
+                      No marking templates found.
+                    </Td>
+                  </Tr>
+                )}
               </Tbody>
             </Table>
           </TableContainer>
         )}
 
-        {/* Pagination */}
         <Flex
           justifyContent="flex-end"
           alignItems="center"
@@ -407,25 +259,12 @@ export const ExamTemplatesPage = () => {
           gap="20px"
         >
           <Text fontSize="14px" fontWeight="600" color="#1A202C">
-            Showing {templates.length} of{" "}
-            {resource.data?.totalDocumentsCount ?? 0} templates
+            Showing {templates.length} template{templates.length !== 1 ? "s" : ""}
           </Text>
           <Flex gap="8px">
-            <IconButton
-              variant="ghost"
-              size="sm"
-              icon={<FaChevronLeft />}
-              aria-label="Previous page"
-            />
-            <Text fontSize="14px" color="#A0AEC0" alignSelf="center">
-              1
-            </Text>
-            <IconButton
-              variant="ghost"
-              size="sm"
-              icon={<FaChevronRight />}
-              aria-label="Next page"
-            />
+            <IconButton variant="ghost" size="sm" icon={<FaChevronLeft />} aria-label="Previous page" />
+            <Text fontSize="14px" color="#A0AEC0" alignSelf="center">1</Text>
+            <IconButton variant="ghost" size="sm" icon={<FaChevronRight />} aria-label="Next page" />
           </Flex>
         </Flex>
       </Box>

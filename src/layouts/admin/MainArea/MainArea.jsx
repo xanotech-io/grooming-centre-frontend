@@ -230,10 +230,10 @@ const MainArea = () => {
           exact
           path="/admin/examination-marking/jobs/:jobId"
         />
-        <ExamTemplatesPageRoute exact path="/admin/exam-templates" />
-        <CreateExamTemplatePageRoute exact path="/admin/exam-templates/create" />
-        <CreateQuestionBankPageRoute exact path="/admin/exam-templates/question-banks/create" />
-        <ExamTemplateDetailsPageRoute exact path="/admin/exam-templates/:templateId" />
+        <ExamTemplatesPageRoute exact path="/admin/marking-templates" />
+        <CreateExamTemplatePageRoute exact path="/admin/marking-templates/create" />
+        <CreateQuestionBankPageRoute exact path="/admin/marking-templates/question-banks/create" />
+        <ExamTemplateDetailsPageRoute exact path="/admin/marking-templates/:templateId" />
         <FeedbackMarkupPageRoute exact path="/admin/feedback-markup" />
         <SubmissionReviewPageRoute exact path="/admin/feedback-markup/review/:documentId" />
         <GradeBookListingPageRoute exact path="/admin/grade-book" />

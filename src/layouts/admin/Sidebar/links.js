@@ -125,8 +125,8 @@ export const links = [
     icon: <TiPen />,
   },
   {
-    href: "/admin/exam-templates",
-    text: "Exam Templates",
+    href: "/admin/marking-templates",
+    text: "Marking Templates",
     icon: <TiPen />,
   },
   {
