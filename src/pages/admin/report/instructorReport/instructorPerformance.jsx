@@ -1,6 +1,6 @@
 import { Box, Flex } from "@chakra-ui/layout";
-import { useState } from "react";
-import { Route, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Route, useHistory, useParams } from "react-router-dom";
 import {
   Button,
   Table,
@@ -18,6 +18,10 @@ import { adminGetInstructorPerformanceReport } from "../../../../services";
 
 const InstructorPerformance = () => {
   const { instructorId } = useParams();
+<<<<<<< Updated upstream
+=======
+  const history = useHistory();
+>>>>>>> Stashed changes
   const safeInstructorId =
     !instructorId || instructorId === "undefined" ? "inst_1" : instructorId;
   const [loading, setLoading] = useState(false);
@@ -25,6 +29,15 @@ const InstructorPerformance = () => {
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
 
+<<<<<<< Updated upstream
+=======
+  useEffect(() => {
+    if (!instructorId || instructorId === "undefined") {
+      history.replace(`/admin/report/instructorReport/${safeInstructorId}/instructorPerformance`);
+    }
+  }, [history, instructorId, safeInstructorId]);
+
+>>>>>>> Stashed changes
   const fetchInstructorPerformanceReports = async (params = {}) => {
     setLoading(true);
     setError(null);
@@ -35,9 +48,14 @@ const InstructorPerformance = () => {
         params,
       );
 
+<<<<<<< Updated upstream
       const rows = response.rows || [];
       setSummary(response.aggregateMetrics || null);
       setTotalCount(response.totalDocumentsCount || rows.length);
+=======
+      const rows = response.rows;
+      setTotalCount(response.totalDocumentsCount);
+>>>>>>> Stashed changes
 
       return {
         rows,

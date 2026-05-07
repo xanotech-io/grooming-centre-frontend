@@ -6,6 +6,10 @@ import {
   Grid,
   Text,
   Textarea,
+<<<<<<< Updated upstream
+=======
+  Spinner,
+>>>>>>> Stashed changes
   Divider,
   useToast,
   IconButton,
@@ -45,9 +49,18 @@ export const CreateMarkingJobPage = () => {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+<<<<<<< Updated upstream
   } = useForm();
   const [criteria, setCriteria] = useState([{ ...DEFAULT_CRITERION }]);
 
+=======
+    watch,
+  } = useForm();
+  const [criteria, setCriteria] = useState([{ ...DEFAULT_CRITERION }]);
+
+  const markingType = watch("markingType");
+
+>>>>>>> Stashed changes
   const handleAddCriterion = () => {
     setCriteria((prev) => [...prev, { ...DEFAULT_CRITERION }]);
   };

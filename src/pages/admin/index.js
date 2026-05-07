@@ -67,6 +67,7 @@ export * from "./questionImport/UploadDetailsPage";
 export * from "./questionBankTemplate/QuestionBankTemplatesPage";
 export * from "./questionBankTemplate/QuestionBankTemplateDetailsPage";
 export * from "./courseContent/CourseContentEditorPage";
+<<<<<<< Updated upstream
 export * from "./courses/CreateModulePage";
 export * from "./dataOperations/DataOperationsPage";
 export { ModuleAssessmentsPageRoute } from "./courses/ViewCourseInfoPage/pages/ModuleAssessmentsPage";
@@ -77,3 +78,5 @@ export { ViewModuleExaminationPageRoute } from "./courses/ViewCourseInfoPage/pag
 export { ModuleProjectsPageRoute } from "./courses/ViewCourseInfoPage/pages/ModuleProjectsPage";
 export { CreateModuleProjectPageRoute } from "./courses/ViewCourseInfoPage/pages/CreateModuleProjectPage";
 export { ViewModuleProjectPageRoute } from "./courses/ViewCourseInfoPage/pages/ViewModuleProjectPage";
+=======
+>>>>>>> Stashed changes

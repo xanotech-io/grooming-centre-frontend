@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Route, useParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Route, useHistory, useParams } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 import {
   Button,
@@ -14,12 +14,16 @@ import { BreadcrumbItem } from "@chakra-ui/react";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
+<<<<<<< Updated upstream
 import { useToast } from "@chakra-ui/react";
 import {
   adminGetAssessmentItemAnalysisReport,
   adminFlagAssessmentQuestionForReview,
   adminBulkFlagAssessmentQuestionsForReview,
 } from "../../../../services";
+=======
+import { adminGetAssessmentItemAnalysisReport } from "../../../../services";
+>>>>>>> Stashed changes
 
 const formatSeconds = (seconds) => {
   const s = Number(seconds) || 0;
@@ -31,20 +35,36 @@ const formatSeconds = (seconds) => {
 
 const AssignmentAnalysis = () => {
   const { instructorId } = useParams();
+<<<<<<< Updated upstream
   const safeInstructorId =
     !instructorId || instructorId === "undefined" ? "inst_1" : instructorId;
   const assessmentId = `assessment_${safeInstructorId}`;
   const toast = useToast();
+=======
+  const history = useHistory();
+  const safeInstructorId =
+    !instructorId || instructorId === "undefined" ? "inst_1" : instructorId;
+>>>>>>> Stashed changes
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
 
+<<<<<<< Updated upstream
+=======
+  useEffect(() => {
+    if (!instructorId || instructorId === "undefined") {
+      history.replace(`/admin/report/instructorReport/${safeInstructorId}/assignmentAnalysis`);
+    }
+  }, [history, instructorId, safeInstructorId]);
+
+>>>>>>> Stashed changes
   const fetchReports = async (params = {}) => {
     setLoading(true);
     setError(null);
 
     try {
+<<<<<<< Updated upstream
       const response = await adminGetAssessmentItemAnalysisReport(assessmentId, {
         ...params,
         instructorId: safeInstructorId,
@@ -53,6 +73,18 @@ const AssignmentAnalysis = () => {
       const rows = (response.rows || []).map((report) => mapReportToRow(report));
       setSummary(response.overallStatistics || null);
       setTotalCount(response.totalDocumentsCount || rows.length);
+=======
+      const response = await adminGetAssessmentItemAnalysisReport(
+        params.assessmentId || "assessment-001",
+        {
+          ...params,
+          instructorId: safeInstructorId,
+        },
+      );
+
+      const rows = response.rows.map((report) => mapReportToRow(report));
+      setTotalCount(response.totalDocumentsCount);
+>>>>>>> Stashed changes
 
       return {
         rows,

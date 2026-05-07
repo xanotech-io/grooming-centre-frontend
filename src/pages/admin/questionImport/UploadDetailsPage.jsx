@@ -108,6 +108,10 @@ const StatItem = ({ label, value, color }) => (
 
 const CancelModal = ({ isOpen, onClose, uploadId, onSuccess }) => {
   const toast = useToast();
+<<<<<<< Updated upstream
+=======
+  const history = useHistory();
+>>>>>>> Stashed changes
   const [loading, setLoading] = useState(false);
 
   const handleCancel = async () => {

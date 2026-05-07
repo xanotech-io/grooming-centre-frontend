@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import { useEffect, useRef, useState } from "react";
 import { useParams, Route, useHistory } from "react-router-dom";
 import {
@@ -25,6 +26,12 @@ import {
   FormLabel,
   Select as ChakraSelect,
 } from "@chakra-ui/react";
+=======
+import { useEffect, useState } from "react";
+import { useHistory, useParams, Route } from "react-router-dom";
+import { Button, Table, Text, Spinner, Breadcrumb, Link, DashboardMetricCard } from "../../../../components";
+import { BreadcrumbItem, useToast } from "@chakra-ui/react";
+>>>>>>> Stashed changes
 import { EmptyState } from "../../../../layouts";
 import { Flex, Box } from "@chakra-ui/layout";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
@@ -36,6 +43,7 @@ import {
   adminRequestOfficialTranscript,
   adminVerifyTranscript,
 } from "../../../../services";
+<<<<<<< Updated upstream
 
 // ---------------------------------------------------------------------------
 // Request Official Transcript Modal (TC09)
@@ -209,6 +217,8 @@ const RequestTranscriptModal = ({ isOpen, onClose, studentId, onSuccess }) => {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+=======
+>>>>>>> Stashed changes
 
 const mapReportToRow = (course) => ({
   id: course?.id || course?.transcriptId || course?.courseCode,
@@ -238,10 +248,16 @@ const statusColorMap = {
 const TranscriptReport = () => {
   const { studentId } = useParams();
   const history = useHistory();
+<<<<<<< Updated upstream
   const toast = useToast();
   const safeStudentId =
     !studentId || studentId === "undefined" ? "mock_student_1" : studentId;
 
+=======
+  const safeStudentId =
+    !studentId || studentId === "undefined" ? "mock_student_1" : studentId;
+  const toast = useToast();
+>>>>>>> Stashed changes
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
@@ -250,9 +266,13 @@ const TranscriptReport = () => {
 
   useEffect(() => {
     if (!studentId || studentId === "undefined") {
+<<<<<<< Updated upstream
       history.replace(
         `/admin/report/studentReport/${safeStudentId}/transcript`,
       );
+=======
+      history.replace(`/admin/report/studentReport/${safeStudentId}/transcript`);
+>>>>>>> Stashed changes
     }
   }, [history, studentId, safeStudentId]);
 
@@ -261,6 +281,7 @@ const TranscriptReport = () => {
     setError(null);
 
     try {
+<<<<<<< Updated upstream
       const apiResponse = await adminGetStudentTranscript(
         studentIdValue,
         params,
@@ -298,6 +319,23 @@ const TranscriptReport = () => {
         currentPage: 1,
         totalPages: 1,
       };
+=======
+      const apiResponse = await adminGetStudentTranscript(studentIdValue, params);
+      const data = apiResponse?.data ?? apiResponse;
+      setMeta({
+        overallGPA: data.overallGPA,
+        totalCreditsEarned: data.totalCreditsEarned,
+        verificationCode: data.verificationCode,
+        status: data.status,
+      });
+      const rows = data.courses.map(mapReportToRow);
+      setTotalCount(data.totalDocumentsCount);
+      return { rows, showingDocumentsCount: data.showingDocumentsCount, totalDocumentsCount: data.totalDocumentsCount, currentPage: data.currentPage, totalPages: data.totalPages };
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Unable to fetch transcript");
+      return { rows: [], showingDocumentsCount: 0, totalDocumentsCount: 0, currentPage: 1, totalPages: 1 };
+>>>>>>> Stashed changes
     } finally {
       setLoading(false);
     }
@@ -310,11 +348,31 @@ const TranscriptReport = () => {
         courseId: "CRS-AGR101",
         examType: "COURSE_EXAMINATION",
         examId: "EXM-AGR101-001",
+<<<<<<< Updated upstream
+=======
+        questionList: [
+          {
+            questionId: "Q001",
+            questionText: "What is the main nutrient in soil?",
+            studentAnswer: "Nitrogen",
+          },
+          {
+            questionId: "Q002",
+            questionText: "Define Photosynthesis",
+            studentAnswer:
+              "Process by which plants convert light energy into chemical energy",
+          },
+        ],
+>>>>>>> Stashed changes
         score: 85,
         completionStatus: "Completed",
         instructorId: "INST-003",
         remarks: "Course completed successfully",
       });
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
       toast({ status: "success", description: message, duration: 3000 });
       fetchRowItems();
     } catch (requestError) {
@@ -326,6 +384,7 @@ const TranscriptReport = () => {
     }
   };
 
+<<<<<<< Updated upstream
   const handleVerifyTranscript = async () => {
     try {
       const { message, data } = await adminVerifyTranscript({
@@ -340,6 +399,28 @@ const TranscriptReport = () => {
         duration: 4000,
         isClosable: true,
       });
+=======
+  const handleRequestOfficialTranscript = async () => {
+    try {
+      const { message } = await adminRequestOfficialTranscript(safeStudentId);
+      toast({ status: "success", description: message, duration: 3000 });
+    } catch (requestError) {
+      toast({
+        status: "error",
+        description:
+          requestError.message || "Unable to request official transcript",
+        duration: 3000,
+      });
+    }
+  };
+
+  const handleVerifyTranscript = async () => {
+    try {
+      const { message } = await adminVerifyTranscript({
+        verificationCode: meta?.verificationCode,
+      });
+      toast({ status: "success", description: message, duration: 3000 });
+>>>>>>> Stashed changes
     } catch (requestError) {
       toast({
         status: "error",
@@ -436,7 +517,7 @@ const TranscriptReport = () => {
         },
       ],
       selection: true,
-      pagination: true,
+      pagination: false,
     },
   };
 
@@ -455,6 +536,7 @@ const TranscriptReport = () => {
   }, [safeStudentId]);
 
   return (
+<<<<<<< Updated upstream
     <AdminMainAreaWrapper>
       <Box
         display="flex"
@@ -524,6 +606,27 @@ const TranscriptReport = () => {
           }
         />
       </Box>
+=======
+    <>
+      <AdminMainAreaWrapper>
+        <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
+          <Breadcrumb
+            item2={<BreadcrumbItem><Link href="/admin/report/studentReport">Learners</Link></BreadcrumbItem>}
+            item3={<BreadcrumbItem isCurrentPage><Link href="#">Transcript Report</Link></BreadcrumbItem>}
+          />
+          <Flex gap="8px">
+            <Button secondary onClick={handlePostCompletion}>Post Completion</Button>
+            <Button secondary onClick={handleRequestOfficialTranscript}>Request Official</Button>
+            <Button onClick={handleVerifyTranscript}>Verify Transcript</Button>
+          </Flex>
+        </Box>
+
+        <Box display="flex" justifyContent="space-between" gridGap={4} mb={10}>
+          <DashboardMetricCard title="Overall GPA" value={meta?.overallGPA?.toFixed(2) ?? "—"} change="weighted average" changeColor="#1A8F3A" />
+          <DashboardMetricCard title="Total Credits Earned" value={meta?.totalCreditsEarned ?? "—"} change="accumulated credits" changeColor="#1A8F3A" />
+          <DashboardMetricCard title="Verification Code" value={meta?.verificationCode ?? "—"} change="transcript ID" changeColor="#6B006B" />
+        </Box>
+>>>>>>> Stashed changes
 
       {loading && !rows?.data?.rows?.length ? (
         <Flex

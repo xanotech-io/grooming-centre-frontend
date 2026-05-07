@@ -6,6 +6,10 @@ import {
   Grid,
   Text,
   Textarea,
+<<<<<<< Updated upstream
+=======
+  Divider,
+>>>>>>> Stashed changes
   IconButton,
   useToast,
   NumberInput,
@@ -13,6 +17,10 @@ import {
   NumberInputStepper,
   NumberIncrementStepper,
   NumberDecrementStepper,
+<<<<<<< Updated upstream
+=======
+  Switch,
+>>>>>>> Stashed changes
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
 import { Button, Heading, Input, Select } from "../../../components";

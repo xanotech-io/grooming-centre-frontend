@@ -8,11 +8,22 @@ import { BreadcrumbItem } from "@chakra-ui/react";
 import { adminGetStudentProgress } from "../../../../services";
 
 const StudentReportDetails = () => {
+<<<<<<< Updated upstream
   const { studentId } = useParams();
   const history = useHistory();
   const [selectedReportType, setSelectedReportType] = useState("progress");
   const [selectedCourse, setSelectedCourse] = useState("");
   const [courseOptions, setCourseOptions] = useState([]);
+=======
+    const { studentId } = useParams();
+    const history = useHistory();
+    const safeStudentId =
+        !studentId || studentId === "undefined" ? "mock_student_1" : studentId;
+    const [courses, setCourses] = useState([]);
+    const [selectedReportType, setSelectedReportType] = useState("progress");
+    const [selectedCourse, setSelectedCourse] = useState("");
+    const [loading, setLoading] = useState(false);
+>>>>>>> Stashed changes
 
   const safeStudentId =
     !studentId || studentId === "undefined" ? "mock_student_1" : studentId;
@@ -46,7 +57,17 @@ const StudentReportDetails = () => {
         if (mounted) {
           setCourseOptions([]);
         }
+<<<<<<< Updated upstream
       }
+=======
+
+        const queryString = queryParams.toString();
+        history.push(
+            `/admin/report/studentReport/${safeStudentId}/${selectedReportType}${
+                queryString ? `?${queryString}` : ""
+            }`,
+        );
+>>>>>>> Stashed changes
     };
 
     fetchCourseOptions();

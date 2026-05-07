@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Route, useParams, useHistory } from "react-router-dom";
 import { Box, Flex, VStack } from "@chakra-ui/layout";
 import { Select } from "@chakra-ui/react";
@@ -10,10 +10,18 @@ const InstructorReportDetails = () => {
     const { instructorId } = useParams();
     const history = useHistory();
     const [selectedReportType, setSelectedReportType] = useState("courseCompletion");
+    const safeInstructorId =
+        !instructorId || instructorId === "undefined" ? "inst_1" : instructorId;
+
+    useEffect(() => {
+        if (!instructorId || instructorId === "undefined") {
+            history.replace(`/admin/report/instructorReport/${safeInstructorId}/details`);
+        }
+    }, [history, instructorId, safeInstructorId]);
 
     const handleGenerateReport = () => {
         if (!selectedReportType) return;
-        history.push(`/admin/report/instructorReport/${instructorId}/${selectedReportType}`);
+        history.push(`/admin/report/instructorReport/${safeInstructorId}/${selectedReportType}`);
     };
 
     return (

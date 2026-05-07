@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Route, useParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Route, useHistory, useParams } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 import {
   Button,
@@ -25,12 +25,22 @@ const getPassPercentage = (passed, failed) => {
 
 const CourseCompletion = () => {
   const { instructorId } = useParams();
+<<<<<<< Updated upstream
+=======
+  const history = useHistory();
+>>>>>>> Stashed changes
   const safeInstructorId =
     !instructorId || instructorId === "undefined" ? "inst_1" : instructorId;
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
+
+  useEffect(() => {
+    if (!instructorId || instructorId === "undefined") {
+      history.replace(`/admin/report/instructorReport/${safeInstructorId}/courseCompletion`);
+    }
+  }, [history, instructorId, safeInstructorId]);
 
   const fetchCourseCompletionReports = async (params = {}) => {
     setLoading(true);
@@ -42,9 +52,14 @@ const CourseCompletion = () => {
         params,
       );
 
+<<<<<<< Updated upstream
       const rows = (response.rows || []).map((report) => mapReportToRow(report));
       setSummary(response.aggregateStats || null);
       setTotalCount(response.totalDocumentsCount || rows.length);
+=======
+      const rows = response.rows.map((report) => mapReportToRow(report));
+      setTotalCount(response.totalDocumentsCount);
+>>>>>>> Stashed changes
 
       return {
         rows,
@@ -52,7 +67,10 @@ const CourseCompletion = () => {
         totalDocumentsCount: response.totalDocumentsCount || rows.length,
         currentPage: response.currentPage || 1,
         totalPages: response.totalPages || 1,
+<<<<<<< Updated upstream
         // `params` is intentionally unused for now
+=======
+>>>>>>> Stashed changes
       };
     } catch (err) {
       console.error(err);

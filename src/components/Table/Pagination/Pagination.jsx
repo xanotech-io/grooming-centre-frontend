@@ -38,7 +38,7 @@ const Pagination = ({
 
   useEffect(() => {
     history.push({
-      pathname: '',
+      pathname: history.location.pathname,
       search: `?page=${currentPage}${limit ? `&limit=${limit}` : ''}`,
     });
   }, [currentPage, limit, history]);

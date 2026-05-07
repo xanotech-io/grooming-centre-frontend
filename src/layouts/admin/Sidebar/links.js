@@ -101,8 +101,13 @@ export const links = [
         text: "Management Report",
       },
       {
+<<<<<<< Updated upstream
         href: "/admin/report/archived",
         text: "Archived Reports",
+=======
+        href: '/admin/report/archived',
+        text: 'Archived Reports',
+>>>>>>> Stashed changes
       },
       {
         href: "/admin/report/compliance",

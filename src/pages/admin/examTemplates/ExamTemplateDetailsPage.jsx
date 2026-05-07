@@ -26,15 +26,22 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaFileAlt, FaChartBar, FaRandom } from "react-icons/fa";
+<<<<<<< Updated upstream
 import { Button, Heading, Input } from "../../../components";
+=======
+import { Button, Heading, Input, Select } from "../../../components";
+>>>>>>> Stashed changes
 import { useFetch } from "../../../hooks";
 import {
   adminGetExamTemplateById,
   adminGetTemplateStatistics,
   adminGenerateExamPaper,
+<<<<<<< Updated upstream
   adminUpdateExamTemplate,
   adminArchiveExamTemplate,
   adminPermanentDeleteExamTemplate,
+=======
+>>>>>>> Stashed changes
 } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
 
@@ -60,6 +67,7 @@ export const ExamTemplateDetailsPage = () => {
   const [studentId, setStudentId] = useState("");
   const [examId, setExamId] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+<<<<<<< Updated upstream
   const [lifecycleLoading, setLifecycleLoading] = useState(false);
 
   const handlePublish = async () => {
@@ -101,6 +109,8 @@ export const ExamTemplateDetailsPage = () => {
       setLifecycleLoading(false);
     }
   };
+=======
+>>>>>>> Stashed changes
 
   const templateFetcher = useCallback(async () => {
     const { template } = await adminGetExamTemplateById(templateId);
@@ -205,6 +215,7 @@ export const ExamTemplateDetailsPage = () => {
                   {template.templateName}
                 </Heading>
                 <Badge
+<<<<<<< Updated upstream
                   bg={
                     template.status === "PUBLISHED"
                       ? "#E6F4EA"
@@ -219,17 +230,25 @@ export const ExamTemplateDetailsPage = () => {
                       ? "#E53E3E"
                       : "#718096"
                   }
+=======
+                  bg={template.status === "ACTIVE" ? "#E6F4EA" : "#F7FAFC"}
+                  color={template.status === "ACTIVE" ? "#38A169" : "#718096"}
+>>>>>>> Stashed changes
                   px="12px"
                   py="4px"
                   borderRadius="12px"
                   textTransform="none"
                   fontWeight="500"
                 >
+<<<<<<< Updated upstream
                   {template.status === "PUBLISHED"
                     ? "Published"
                     : template.status === "ARCHIVED"
                     ? "Archived"
                     : "Draft"}
+=======
+                  {template.status}
+>>>>>>> Stashed changes
                 </Badge>
               </Flex>
               <Flex gap="24px" flexWrap="wrap">
@@ -248,9 +267,13 @@ export const ExamTemplateDetailsPage = () => {
                 <Text color="#718096" fontSize="14px">
                   Created by:{" "}
                   <Text as="span" color="#1A202C" fontWeight="600">
+<<<<<<< Updated upstream
                     {template.creator
                       ? `${template.creator.firstName} ${template.creator.lastName}`
                       : template.createdBy}
+=======
+                    {template.createdBy}
+>>>>>>> Stashed changes
                   </Text>
                 </Text>
                 <Text color="#718096" fontSize="14px">
@@ -261,6 +284,7 @@ export const ExamTemplateDetailsPage = () => {
                 </Text>
               </Flex>
             </Box>
+<<<<<<< Updated upstream
             <Flex gap="12px" flexWrap="wrap">
               {template.status === "DRAFT" && (
                 <Button
@@ -304,6 +328,16 @@ export const ExamTemplateDetailsPage = () => {
                 </Button>
               )}
             </Flex>
+=======
+            <Button
+              onClick={onOpen}
+              style={{ backgroundColor: "#6b006b", color: "white" }}
+            >
+              <Flex alignItems="center" gap="8px">
+                <FaFileAlt size="14px" /> Generate Paper
+              </Flex>
+            </Button>
+>>>>>>> Stashed changes
           </Flex>
 
           <Grid

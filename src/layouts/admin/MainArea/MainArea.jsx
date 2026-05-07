@@ -59,6 +59,7 @@ import {
   QuestionBankTemplatesPageRoute,
   QuestionBankTemplateDetailsPageRoute,
   CourseContentEditorPageRoute,
+<<<<<<< Updated upstream
   DataOperationsPageRoute,
   CreateModulePageRoute,
   ModuleAssessmentsPageRoute,
@@ -69,6 +70,8 @@ import {
   ModuleProjectsPageRoute,
   CreateModuleProjectPageRoute,
   ViewModuleProjectPageRoute,
+=======
+>>>>>>> Stashed changes
 } from "../../../pages/admin";
 import { ModuleLessonsPageRoute } from "../../../pages/admin/courses/ViewCourseInfoPage/pages/ModuleLessonsPage";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
@@ -264,7 +267,10 @@ const MainArea = () => {
         <UploadDetailsPageRoute exact path="/admin/question-import/:uploadId" />
         <QuestionBankTemplatesPageRoute exact path="/admin/question-bank-templates" />
         <QuestionBankTemplateDetailsPageRoute exact path="/admin/question-bank-templates/:templateId" />
+<<<<<<< Updated upstream
         <DataOperationsPageRoute exact path="/admin/data-operations" />
+=======
+>>>>>>> Stashed changes
         <BadgeSupportPageRoute exact path="/admin/badge-support" />
         <AcademicMetricsDashboardRoute exact path="/admin/dashboard/academic" />
 
@@ -293,6 +299,10 @@ const MainArea = () => {
           exact
           path="/admin/report/compliance"
         />
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 
         <NotFoundPageRoute />
       </Switch>

@@ -1,4 +1,8 @@
+<<<<<<< Updated upstream
 import React, { useCallback, useEffect, useState } from "react";
+=======
+import React, { useCallback, useEffect } from "react";
+>>>>>>> Stashed changes
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
@@ -18,12 +22,18 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+<<<<<<< Updated upstream
   MenuDivider,
+=======
+>>>>>>> Stashed changes
   Spinner,
   InputGroup,
   InputLeftElement,
   Input,
+<<<<<<< Updated upstream
   useToast,
+=======
+>>>>>>> Stashed changes
 } from "@chakra-ui/react";
 import {
   FaSearch,
@@ -34,6 +44,7 @@ import {
 import { FiMoreVertical } from "react-icons/fi";
 import { Button, Heading, Select } from "../../../components";
 import { useFetch } from "../../../hooks";
+<<<<<<< Updated upstream
 import {
   adminGetExamTemplates,
   adminArchiveExamTemplate,
@@ -45,6 +56,16 @@ const getStatusBadge = (status) => {
     DRAFT: { bg: "#F7FAFC", color: "#718096", label: "Draft" },
     PUBLISHED: { bg: "#E6F4EA", color: "#38A169", label: "Published" },
     ARCHIVED: { bg: "#FED7D7", color: "#E53E3E", label: "Archived" },
+=======
+import { adminGetExamTemplates } from "../../../services";
+
+const getStatusBadge = (status) => {
+  const map = {
+    ACTIVE: { bg: "#E6F4EA", color: "#38A169", label: "Active" },
+    DRAFT: { bg: "#F7FAFC", color: "#718096", label: "Draft" },
+    ARCHIVED: { bg: "#FED7D7", color: "#E53E3E", label: "Archived" },
+    PUBLISHED: { bg: "#EBF4FF", color: "#3182CE", label: "Published" },
+>>>>>>> Stashed changes
   };
   const s = map[status] || map.DRAFT;
   return (
@@ -64,9 +85,13 @@ const getStatusBadge = (status) => {
 
 export const ExamTemplatesPage = () => {
   const history = useHistory();
+<<<<<<< Updated upstream
   const toast = useToast();
   const { resource, handleFetchResource } = useFetch();
   const [actionLoading, setActionLoading] = useState(null);
+=======
+  const { resource, handleFetchResource } = useFetch();
+>>>>>>> Stashed changes
 
   const fetcher = useCallback(async () => {
     const { templates, totalDocumentsCount } = await adminGetExamTemplates();
@@ -78,6 +103,7 @@ export const ExamTemplatesPage = () => {
   }, [handleFetchResource, fetcher]);
 
   const templates = resource.data?.templates ?? [];
+<<<<<<< Updated upstream
   const publishedCount = templates.filter((t) => t.status === "PUBLISHED").length;
   const draftCount = templates.filter((t) => t.status === "DRAFT").length;
   const totalUsage = templates.reduce((sum, t) => sum + (t.usageCount || 0), 0);
@@ -108,6 +134,12 @@ export const ExamTemplatesPage = () => {
     }
   };
 
+=======
+  const activeCount = templates.filter((t) => t.status === "ACTIVE").length;
+  const draftCount = templates.filter((t) => t.status === "DRAFT").length;
+  const totalUsage = templates.reduce((sum, t) => sum + (t.usageCount || 0), 0);
+
+>>>>>>> Stashed changes
   return (
     <Box marginX="22px" marginY="20px">
       {/* Header */}
@@ -158,10 +190,17 @@ export const ExamTemplatesPage = () => {
         </Box>
         <Box bg="white" p="24px" borderRadius="8px" shadow="sm">
           <Text fontSize="13px" color="#718096" mb="8px">
+<<<<<<< Updated upstream
             Published Templates
           </Text>
           <Text fontSize="32px" fontWeight="700" color="#1A202C">
             {resource.loading ? <Spinner size="sm" /> : publishedCount}
+=======
+            Active Templates
+          </Text>
+          <Text fontSize="32px" fontWeight="700" color="#1A202C">
+            {resource.loading ? <Spinner size="sm" /> : activeCount}
+>>>>>>> Stashed changes
           </Text>
           <Text fontSize="13px" color="#718096" mt="8px">
             In use
@@ -209,8 +248,13 @@ export const ExamTemplatesPage = () => {
             id="statusFilter"
             placeholder="All statuses"
             options={[
+<<<<<<< Updated upstream
               { label: "Draft", value: "DRAFT" },
               { label: "Published", value: "PUBLISHED" },
+=======
+              { label: "Active", value: "ACTIVE" },
+              { label: "Draft", value: "DRAFT" },
+>>>>>>> Stashed changes
               { label: "Archived", value: "ARCHIVED" },
             ]}
           />
@@ -343,7 +387,11 @@ export const ExamTemplatesPage = () => {
                           size="sm"
                           borderRadius="4px"
                         />
+<<<<<<< Updated upstream
                         <MenuList minWidth="160px">
+=======
+                        <MenuList minWidth="140px">
+>>>>>>> Stashed changes
                           <MenuItem
                             onClick={() =>
                               history.push(
@@ -353,6 +401,7 @@ export const ExamTemplatesPage = () => {
                           >
                             View Details
                           </MenuItem>
+<<<<<<< Updated upstream
                           {t.status === "PUBLISHED" && (
                             <MenuItem
                               onClick={() =>
@@ -388,6 +437,17 @@ export const ExamTemplatesPage = () => {
                               </MenuItem>
                             </>
                           )}
+=======
+                          <MenuItem
+                            onClick={() =>
+                              history.push(
+                                `/admin/exam-templates/${t.templateId}/generate`,
+                              )
+                            }
+                          >
+                            Generate Paper
+                          </MenuItem>
+>>>>>>> Stashed changes
                         </MenuList>
                       </Menu>
                     </Td>

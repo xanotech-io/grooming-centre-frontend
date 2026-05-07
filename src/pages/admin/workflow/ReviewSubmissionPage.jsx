@@ -24,6 +24,7 @@ import {
 } from "react-icons/fa";
 import { Button, Heading, Select } from "../../../components";
 import { useFetch } from "../../../hooks";
+import { useApp } from "../../../contexts/App/useApp";
 import {
   adminGetWorkflowById,
   adminApproveWorkflow,
@@ -110,6 +111,8 @@ const ReviewSubmissionPage = () => {
   const history = useHistory();
   const { id: workflowId } = useParams();
   const toast = useToast();
+  const { state: { user } } = useApp();
+  const approverId = user?.id;
 
   const { resource, handleFetchResource } = useFetch();
   const [remarks, setRemarks] = useState("");
@@ -133,7 +136,7 @@ const ReviewSubmissionPage = () => {
   const handleApprove = async () => {
     setIsApproving(true);
     try {
-      const { message } = await adminApproveWorkflow(workflowId, { remarks });
+      const { message } = await adminApproveWorkflow(workflowId, { approverId, remarks });
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",
@@ -162,7 +165,7 @@ const ReviewSubmissionPage = () => {
     }
     setIsRejecting(true);
     try {
-      const { message } = await adminRejectWorkflow(workflowId, { remarks });
+      const { message } = await adminRejectWorkflow(workflowId, { approverId, remarks });
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",
@@ -192,7 +195,7 @@ const ReviewSubmissionPage = () => {
     setIsEscalating(true);
     try {
       const { message } = await adminEscalateWorkflow(workflowId, {
-        newApproverRole,
+        approverId,
         remarks,
       });
       toast({

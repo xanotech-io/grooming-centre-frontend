@@ -40,7 +40,10 @@ import {
   FaFilePdf,
   FaFileExcel,
   FaFileCsv,
+<<<<<<< Updated upstream
   FaFileAlt,
+=======
+>>>>>>> Stashed changes
 } from "react-icons/fa";
 import { Button, Heading } from "../../../components";
 import { useFetch } from "../../../hooks";
@@ -48,7 +51,10 @@ import {
   adminGetAllExports,
   adminGetMyExports,
   adminCreateReportExport,
+<<<<<<< Updated upstream
   adminImportReportTransfer,
+=======
+>>>>>>> Stashed changes
   adminDeleteExport,
   adminDownloadExport,
 } from "../../../services";
@@ -87,8 +93,11 @@ const getFormatIcon = (format) => {
       return <FaFileExcel color="#38A169" />;
     case "CSV":
       return <FaFileCsv color="#D69E2E" />;
+<<<<<<< Updated upstream
     case "JSON":
       return <FaFileAlt color="#805AD5" />;
+=======
+>>>>>>> Stashed changes
     default:
       return null;
   }
@@ -109,11 +118,17 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
+<<<<<<< Updated upstream
     operationType: "EXPORT",
     reportId: "",
     reportName: "",
     fileFormat: "EXCEL",
     sourceOrDestination: "dashboard",
+=======
+    reportId: "",
+    reportName: "",
+    exportFormat: "EXCEL",
+>>>>>>> Stashed changes
     departmentId: "",
     courseId: "",
     dateFrom: "",
@@ -124,11 +139,17 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
 
   const reset = () =>
     setForm({
+<<<<<<< Updated upstream
       operationType: "EXPORT",
       reportId: "",
       reportName: "",
       fileFormat: "EXCEL",
       sourceOrDestination: "dashboard",
+=======
+      reportId: "",
+      reportName: "",
+      exportFormat: "EXCEL",
+>>>>>>> Stashed changes
       departmentId: "",
       courseId: "",
       dateFrom: "",
@@ -146,6 +167,7 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
       return;
     }
 
+<<<<<<< Updated upstream
     const sourceOrDestination = form.sourceOrDestination.trim();
     if (!sourceOrDestination) {
       toast({
@@ -161,6 +183,9 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
     }
 
     const reportId = form.reportId.trim() || `REX-${Date.now()}`;
+=======
+    const reportId = form.reportId.trim() || `report-${Date.now()}`;
+>>>>>>> Stashed changes
     const filters = {};
     if (form.departmentId.trim())
       filters.departmentId = form.departmentId.trim();
@@ -170,6 +195,7 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
 
     setLoading(true);
     try {
+<<<<<<< Updated upstream
       const payload = {
         reportName: form.reportName.trim(),
         fileFormat: form.fileFormat,
@@ -192,6 +218,15 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
 
       toast({
         title: message || "Transfer initiated",
+=======
+      const { message } = await adminCreateReportExport(reportId, {
+        reportName: form.reportName.trim(),
+        exportFormat: form.exportFormat,
+        filters: Object.keys(filters).length > 0 ? filters : undefined,
+      });
+      toast({
+        title: message || "Export initiated",
+>>>>>>> Stashed changes
         status: "success",
         duration: 3000,
         isClosable: true,
@@ -201,7 +236,11 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
       onClose();
     } catch {
       toast({
+<<<<<<< Updated upstream
         title: "Failed to create transfer",
+=======
+        title: "Failed to create export",
+>>>>>>> Stashed changes
         status: "error",
         duration: 3000,
         isClosable: true,
@@ -223,6 +262,7 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
     >
       <ModalOverlay />
       <ModalContent>
+<<<<<<< Updated upstream
         <ModalHeader fontSize="16px">Create Report Transfer</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
@@ -260,6 +300,12 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
               </FormControl>
             </Flex>
 
+=======
+        <ModalHeader fontSize="16px">Create Report Export</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <Flex direction="column" gap="14px">
+>>>>>>> Stashed changes
             <FormControl isRequired>
               <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
                 Report Name
@@ -274,6 +320,7 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
             </FormControl>
 
             <Flex gap="12px">
+<<<<<<< Updated upstream
               {form.operationType === "EXPORT" && (
                 <FormControl flex="1">
                   <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
@@ -291,10 +338,16 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
               <FormControl flex="1" isRequired>
                 <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
                   {form.operationType === "EXPORT" ? "Source" : "Source URL"}
+=======
+              <FormControl flex="1">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Report ID (optional)
+>>>>>>> Stashed changes
                 </FormLabel>
                 <Input
                   size="sm"
                   borderRadius="6px"
+<<<<<<< Updated upstream
                   placeholder={
                     form.operationType === "EXPORT"
                       ? "dashboard or results"
@@ -302,10 +355,69 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
                   }
                   value={form.sourceOrDestination}
                   onChange={(e) => update("sourceOrDestination", e.target.value)}
+=======
+                  placeholder="report-uuid"
+                  value={form.reportId}
+                  onChange={(e) => update("reportId", e.target.value)}
+                />
+              </FormControl>
+              <FormControl flex="1">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Export Format
+                </FormLabel>
+                <ChakraSelect
+                  size="sm"
+                  borderRadius="6px"
+                  value={form.exportFormat}
+                  onChange={(e) => update("exportFormat", e.target.value)}
+                >
+                  <option value="EXCEL">Excel (.xlsx)</option>
+                  <option value="PDF">PDF</option>
+                  <option value="CSV">CSV</option>
+                </ChakraSelect>
+              </FormControl>
+            </Flex>
+
+            <Divider />
+            <Text
+              fontSize="12px"
+              fontWeight="600"
+              color="gray.500"
+              textTransform="uppercase"
+              letterSpacing="0.5px"
+            >
+              Filters (optional)
+            </Text>
+
+            <Flex gap="12px">
+              <FormControl flex="1">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Department ID
+                </FormLabel>
+                <Input
+                  size="sm"
+                  borderRadius="6px"
+                  placeholder="dept-uuid"
+                  value={form.departmentId}
+                  onChange={(e) => update("departmentId", e.target.value)}
+                />
+              </FormControl>
+              <FormControl flex="1">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Course ID
+                </FormLabel>
+                <Input
+                  size="sm"
+                  borderRadius="6px"
+                  placeholder="course-uuid"
+                  value={form.courseId}
+                  onChange={(e) => update("courseId", e.target.value)}
+>>>>>>> Stashed changes
                 />
               </FormControl>
             </Flex>
 
+<<<<<<< Updated upstream
             {form.operationType === "EXPORT" && (
               <>
                 <Divider />
@@ -374,6 +486,34 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
                 </Flex>
               </>
             )}
+=======
+            <Flex gap="12px">
+              <FormControl flex="1">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Date From
+                </FormLabel>
+                <Input
+                  type="date"
+                  size="sm"
+                  borderRadius="6px"
+                  value={form.dateFrom}
+                  onChange={(e) => update("dateFrom", e.target.value)}
+                />
+              </FormControl>
+              <FormControl flex="1">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Date To
+                </FormLabel>
+                <Input
+                  type="date"
+                  size="sm"
+                  borderRadius="6px"
+                  value={form.dateTo}
+                  onChange={(e) => update("dateTo", e.target.value)}
+                />
+              </FormControl>
+            </Flex>
+>>>>>>> Stashed changes
           </Flex>
         </ModalBody>
         <ModalFooter gap="10px">
@@ -392,7 +532,11 @@ const CreateExportModal = ({ isOpen, onClose, onSuccess }) => {
             isLoading={loading}
             loadingText="Creating…"
           >
+<<<<<<< Updated upstream
             Create Transfer
+=======
+            Create Export
+>>>>>>> Stashed changes
           </Button>
         </ModalFooter>
       </ModalContent>
@@ -436,7 +580,11 @@ const DeleteModal = ({ isOpen, onClose, exportItem, onSuccess }) => {
     <Modal isOpen={isOpen} onClose={onClose} isCentered size="sm">
       <ModalOverlay />
       <ModalContent>
+<<<<<<< Updated upstream
         <ModalHeader fontSize="16px">Delete Transfer</ModalHeader>
+=======
+        <ModalHeader fontSize="16px">Delete Export</ModalHeader>
+>>>>>>> Stashed changes
         <ModalCloseButton />
         <ModalBody>
           <Text fontSize="14px" color="gray.600">
@@ -485,6 +633,7 @@ const ExportsTable = ({ exports, showDownloadUrl, onDelete, onDownload }) => (
             fontWeight="600"
             textTransform="none"
           >
+<<<<<<< Updated upstream
             Operation
           </Th>
           <Th
@@ -494,6 +643,8 @@ const ExportsTable = ({ exports, showDownloadUrl, onDelete, onDownload }) => (
             fontWeight="600"
             textTransform="none"
           >
+=======
+>>>>>>> Stashed changes
             Format
           </Th>
           <Th
@@ -554,9 +705,12 @@ const ExportsTable = ({ exports, showDownloadUrl, onDelete, onDownload }) => (
                 {exp.exportId}
               </Text>
             </Td>
+<<<<<<< Updated upstream
             <Td py="14px" fontSize="13px" color="gray.600">
               {exp.operationType || "Export"}
             </Td>
+=======
+>>>>>>> Stashed changes
             <Td py="14px">
               <Flex alignItems="center" gap="6px">
                 {getFormatIcon(exp.exportFormat)}
@@ -719,8 +873,13 @@ const ReportExportPage = () => {
 
   const stats = {
     total: allExports.length,
+<<<<<<< Updated upstream
     exports: allExports.filter((e) => e.operationType === "Export").length,
     imports: allExports.filter((e) => e.operationType === "Import").length,
+=======
+    processing: allExports.filter((e) => e.status === "PROCESSING").length,
+    success: allExports.filter((e) => e.status === "SUCCESS").length,
+>>>>>>> Stashed changes
     failed: allExports.filter((e) => e.status === "FAILED").length,
   };
 
@@ -740,10 +899,17 @@ const ReportExportPage = () => {
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" mb="24px">
         <Heading fontSize="22px" fontWeight="600">
+<<<<<<< Updated upstream
           Report Transfers
         </Heading>
         <Button leftIcon={<FaPlus />} onClick={createModal.onOpen}>
           Create Transfer
+=======
+          Report Exports
+        </Heading>
+        <Button leftIcon={<FaPlus />} onClick={createModal.onOpen}>
+          Create Export
+>>>>>>> Stashed changes
         </Button>
       </Flex>
 
@@ -755,12 +921,17 @@ const ReportExportPage = () => {
       >
         {[
           {
+<<<<<<< Updated upstream
             label: "Total Transfers",
+=======
+            label: "Total Exports",
+>>>>>>> Stashed changes
             value: stats.total,
             color: "#3182CE",
             bg: "#EBF4FF",
           },
           {
+<<<<<<< Updated upstream
             label: "Exports",
             value: stats.exports,
             color: "#1C6AA8",
@@ -771,6 +942,18 @@ const ReportExportPage = () => {
             value: stats.imports,
             color: "#805AD5",
             bg: "#F5EEFF",
+=======
+            label: "Processing",
+            value: stats.processing,
+            color: "#3182CE",
+            bg: "#EBF8FF",
+          },
+          {
+            label: "Successful",
+            value: stats.success,
+            color: "#38A169",
+            bg: "#E6F4EA",
+>>>>>>> Stashed changes
           },
           {
             label: "Failed",
@@ -812,10 +995,17 @@ const ReportExportPage = () => {
         >
           <Flex>
             <Box {...tabStyle("all")} onClick={() => setActiveTab("all")}>
+<<<<<<< Updated upstream
               All Transfers
             </Box>
             <Box {...tabStyle("my")} onClick={() => setActiveTab("my")}>
               My Transfers
+=======
+              All Exports
+            </Box>
+            <Box {...tabStyle("my")} onClick={() => setActiveTab("my")}>
+              My Exports
+>>>>>>> Stashed changes
             </Box>
           </Flex>
           {activeTab === "all" && (
@@ -847,14 +1037,22 @@ const ReportExportPage = () => {
             )}
             {allResource.err && (
               <Flex justifyContent="center" py="40px">
+<<<<<<< Updated upstream
                 <Text color="red.500">Failed to load transfers.</Text>
+=======
+                <Text color="red.500">Failed to load exports.</Text>
+>>>>>>> Stashed changes
               </Flex>
             )}
             {!allResource.loading &&
               !allResource.err &&
               allExports.length === 0 && (
                 <Flex justifyContent="center" py="40px">
+<<<<<<< Updated upstream
                   <Text color="gray.400">No transfers found.</Text>
+=======
+                  <Text color="gray.400">No exports found.</Text>
+>>>>>>> Stashed changes
                 </Flex>
               )}
             {!allResource.loading &&
@@ -909,14 +1107,22 @@ const ReportExportPage = () => {
             )}
             {myResource.err && (
               <Flex justifyContent="center" py="40px">
+<<<<<<< Updated upstream
                 <Text color="red.500">Failed to load your transfers.</Text>
+=======
+                <Text color="red.500">Failed to load your exports.</Text>
+>>>>>>> Stashed changes
               </Flex>
             )}
             {!myResource.loading &&
               !myResource.err &&
               myExports.length === 0 && (
                 <Flex justifyContent="center" py="40px">
+<<<<<<< Updated upstream
                   <Text color="gray.400">You have no transfers yet.</Text>
+=======
+                  <Text color="gray.400">You have no exports yet.</Text>
+>>>>>>> Stashed changes
                 </Flex>
               )}
             {!myResource.loading && !myResource.err && myExports.length > 0 && (

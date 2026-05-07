@@ -29,6 +29,15 @@ const QUESTION_TYPE_OPTIONS = [
   { label: "Matching", value: "MATCHING" },
 ];
 
+<<<<<<< Updated upstream
+=======
+const DIFFICULTY_OPTIONS = [
+  { label: "Easy", value: "easy" },
+  { label: "Medium", value: "medium" },
+  { label: "Hard", value: "hard" },
+];
+
+>>>>>>> Stashed changes
 const emptySection = () => ({
   _key: Date.now() + Math.random(),
   sectionName: "",

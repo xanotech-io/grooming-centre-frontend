@@ -22,6 +22,10 @@ import {
   NumberInputStepper,
   NumberIncrementStepper,
   NumberDecrementStepper,
+<<<<<<< Updated upstream
+=======
+  IconButton,
+>>>>>>> Stashed changes
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus, FaCheck, FaChartBar } from "react-icons/fa";
 import { Button, Heading, Input, Select } from "../../../components";
@@ -33,6 +37,7 @@ import {
   adminResolveFeedbackMarkup,
   adminAddRubricAssessment,
 } from "../../../services";
+<<<<<<< Updated upstream
 import { useApp } from "../../../contexts";
 import { capitalizeFirstLetter } from "../../../utils";
 
@@ -40,6 +45,14 @@ const MARKUP_TYPE_OPTIONS = [
   { label: "Highlight", value: "Highlight" },
   { label: "Text Comment", value: "TextComment" },
   { label: "Annotation", value: "Annotation" },
+=======
+import { capitalizeFirstLetter } from "../../../utils";
+
+const MARKUP_TYPE_OPTIONS = [
+  { label: "Highlight", value: "HIGHLIGHT" },
+  { label: "Text Comment", value: "TEXT_COMMENT" },
+  { label: "Annotation", value: "ANNOTATION" },
+>>>>>>> Stashed changes
 ];
 
 const DOCUMENT_TYPE_OPTIONS = [
@@ -93,7 +106,10 @@ export const SubmissionReviewPage = () => {
   const history = useHistory();
   const { documentId } = useParams();
   const toast = useToast();
+<<<<<<< Updated upstream
   const { state: { user } } = useApp();
+=======
+>>>>>>> Stashed changes
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const { resource: markupsResource, handleFetchResource: fetchMarkups } =
@@ -167,7 +183,10 @@ export const SubmissionReviewPage = () => {
         submissionId: documentId,
         assessmentId,
         markupType,
+<<<<<<< Updated upstream
         reviewerId: user?.id,
+=======
+>>>>>>> Stashed changes
         studentId,
         documentType,
         comment,

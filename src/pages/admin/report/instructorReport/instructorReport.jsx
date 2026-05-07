@@ -11,7 +11,7 @@ import { adminGetInstructorReportDirectory } from "../../../../services";
 const mapInstructorToRow = (instructor) => ({
   id: instructor.id,
   userId: {
-    text: `${instructor.displayId || instructor.id}`,
+    text: instructor.id,
     userId: instructor.id,
   },
   fullName: {
@@ -51,7 +51,9 @@ const InstructorReport = () => {
         {
           text: "View Report",
           onClick: (row) => {
-            history.push(`/admin/report/instructorReport/${row.id}/details`);
+            const instructorId =
+              row?.id || row?.userId?.userId || row?.userId?.text || "inst_1";
+            history.push(`/admin/report/instructorReport/${instructorId}/details`);
           },
         },
       ],
@@ -91,6 +93,7 @@ const InstructorReport = () => {
     ],
   };
 
+<<<<<<< Updated upstream
   const fetcher = (props) => async () => {
     setLoading(true);
     try {
@@ -107,6 +110,18 @@ const InstructorReport = () => {
     } finally {
       setLoading(false);
     }
+=======
+  const mockInstructors = [
+    { id: "inst_1", firstName: "James", lastName: "Smith", email: "j.smith@example.com", active: true },
+    { id: "inst_2", firstName: "Kemi", lastName: "Abens", email: "k.abens@example.com", active: true },
+    { id: "inst_3", firstName: "Mike", lastName: "Johnson", email: "m.johnson@example.com", active: false },
+    { id: "inst_4", firstName: "Kolade", lastName: "Adeyemi", email: "k.adeyemi@example.com", active: true },
+  ];
+
+  const fetcher = () => async () => {
+    const rows = mockInstructors.map(mapInstructorToRow);
+    return { rows, showingDocumentsCount: rows.length, totalDocumentsCount: rows.length };
+>>>>>>> Stashed changes
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);

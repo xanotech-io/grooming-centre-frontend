@@ -5,6 +5,10 @@ import {
   Flex,
   Grid,
   Text,
+<<<<<<< Updated upstream
+=======
+  Divider,
+>>>>>>> Stashed changes
   useToast,
   IconButton,
   NumberInput,

@@ -11,7 +11,12 @@ const useBooks = () => {
 
   const fetcher = useCallback(async () => {
     const { materials } = await userGetCourseMaterials("AGR101", {
+<<<<<<< Updated upstream
       format: "PDF,PPT,DOCX",
+=======
+      downloadableOnly: true,
+      format: "PDF,PPT",
+>>>>>>> Stashed changes
     });
     return materials;
   }, []);

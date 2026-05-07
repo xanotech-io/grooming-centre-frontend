@@ -29,6 +29,7 @@ export const DownloadButton = ({
   title,
   fileExtension,
   asIcon,
+<<<<<<< Updated upstream
   downloadPermission,
   restrictionReason,
   courseId,
@@ -82,10 +83,20 @@ export const DownloadButton = ({
 
     handleDownload(file, filename)();
   };
+=======
+  downloadPermission = true,
+  restrictionReason,
+}) => {
+  const { isLoading, handleDownload } = useDownload();
+  const isRestricted = !downloadPermission || !file;
+  const disabled = isLoading || isRestricted;
+  const label = restrictionReason || "Download restricted";
+>>>>>>> Stashed changes
 
   return (
     <>
       {asIcon ? (
+<<<<<<< Updated upstream
         <Button
           isLoading={isLoading}
           disabled={isLoading}
@@ -107,6 +118,37 @@ export const DownloadButton = ({
         >
           Download
         </Button>
+=======
+        <Tooltip label={isRestricted ? label : "Download"}>
+          <Box>
+            <Button
+              isLoading={isLoading}
+              disabled={disabled}
+              asIcon
+              backgroundColor="primary.base"
+              onClick={handleDownload(file, title + '.' + fileExtension)}
+              _hover={{ backgroundColor: 'primary.hover' }}
+              color="white"
+            >
+              <MdFileDownload />
+            </Button>
+          </Box>
+        </Tooltip>
+      ) : (
+        <Tooltip label={isRestricted ? label : "Download"}>
+          <Box>
+            <Button
+              isLoading={isLoading}
+              disabled={disabled}
+              leftIcon={<MdFileDownload />}
+              mr={3}
+              onClick={handleDownload(file, title + '.' + fileExtension)}
+            >
+              Download
+            </Button>
+          </Box>
+        </Tooltip>
+>>>>>>> Stashed changes
       )}
     </>
   );
@@ -230,8 +272,11 @@ export const CourseBoxCard = ({
                     title={title}
                     file={file}
                     fileExtension={fileExtension}
+<<<<<<< Updated upstream
                     courseId={courseId}
                     materialId={materialId}
+=======
+>>>>>>> Stashed changes
                     downloadPermission={downloadPermission}
                     restrictionReason={restrictionReason}
                   />
@@ -316,8 +361,11 @@ export const CourseBoxCard = ({
                             title={title}
                             file={file}
                             fileExtension={fileExtension}
+<<<<<<< Updated upstream
                             courseId={courseId}
                             materialId={materialId}
+=======
+>>>>>>> Stashed changes
                             downloadPermission={downloadPermission}
                             restrictionReason={restrictionReason}
                           />
@@ -349,8 +397,11 @@ export const CourseBoxCard = ({
                             title={title}
                             file={file}
                             fileExtension={fileExtension}
+<<<<<<< Updated upstream
                             courseId={courseId}
                             materialId={materialId}
+=======
+>>>>>>> Stashed changes
                             downloadPermission={downloadPermission}
                             restrictionReason={restrictionReason}
                           />
@@ -363,8 +414,11 @@ export const CourseBoxCard = ({
                     file={file}
                     title={title}
                     fileExtension={fileExtension}
+<<<<<<< Updated upstream
                     courseId={courseId}
                     materialId={materialId}
+=======
+>>>>>>> Stashed changes
                     downloadPermission={downloadPermission}
                     restrictionReason={restrictionReason}
                   />
