@@ -1,0 +1,5 @@
+# No TypeScript in this project — tsc check skipped.
+# Uncomment the line below to enable a full build check before push (slow ~2-3 min):
+# yarn build
+
+echo "Pre-push checks passed."

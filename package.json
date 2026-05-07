@@ -64,7 +64,15 @@
     "build": "cross-env NODE_OPTIONS=--openssl-legacy-provider react-scripts --max_old_space_size=4096 build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "postbuild": "node webconfig/copyWebConfig.js"
+    "postbuild": "node webconfig/copyWebConfig.js",
+    "lint": "eslint src --ext .js,.jsx --max-warnings 0",
+    "lint:fix": "eslint src --ext .js,.jsx --fix",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "src/**/*.{js,jsx}": [
+      "eslint --fix --max-warnings 0"
+    ]
   },
   "resolutions": {
     "react-error-overlay": "6.0.9"
