@@ -54,29 +54,6 @@ const useAssessment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessment.questions?.[0]]);
 
-  // Handle Late/Too Early comer :) and deals with completed assessment
-  useEffect(() => {
-    if (assessment.hasCompleted)
-      return setError(
-        `You have already taken this ${
-          isExamination ? "examination" : "assessment"
-        }`
-      );
-
-    if (isUpcoming(assessment.startTime))
-      return setError(
-        `This ${
-          isExamination ? "examination" : "assessment"
-        } is not yet time to be taken`
-      );
-
-    if (hasEnded(assessment.endTime))
-      setError(
-        `This ${isExamination ? "examination" : "assessment"} has already ended`
-      );
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessment.endTime, assessment.startTime]);
 
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [submitStatus, setSubmitStatus] = useState({

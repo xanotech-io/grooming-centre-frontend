@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { Box, Flex, Grid, GridItem } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {  useHistory } from "react-router-dom";
 import {
@@ -17,6 +17,7 @@ import { useDateTimePicker, useGoBack, useQueryParams } from "../../../hooks";
 import {
   adminCreateStandaloneExamination,
   adminEditStandaloneExamination,
+  adminGetMarkingTemplates,
 } from "../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../utils";
 import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
@@ -255,13 +256,28 @@ const CreateStandalonePage = () => {
 
   const handleCancel = useGoBack();
   const startTimeManager = useDateTimePicker();
+  const [markingTemplates, setMarkingTemplates] = useState([]);
+  const [markingTemplateId, setMarkingTemplateId] = useState("");
+
+  useEffect(() => {
+    adminGetMarkingTemplates()
+      .then(({ templates }) =>
+        setMarkingTemplates(templates.filter((t) => t.usageScope === "Standalone Exam"))
+      )
+      .catch(() => {});
+  }, []);
 
   const onSubmit = async (data) => {
     try {
       const startTime =
         startTimeManager.handleGetValueAndValidate("Start Time");
+
+      if (!markingTemplateId)
+        throw new Error("A marking template must be selected before creating an examination.");
+
       const body = {
         ...data,
+        markingTemplateId,
         startTime: formatDateToISO(startTime),
       };
       const { message, examination } =
@@ -367,6 +383,17 @@ const CreateStandalonePage = () => {
               id="instructions"
               placeholder="Enter exam instructions for the students"
               {...register("instructions")}
+            />
+          </GridItem>
+
+          <GridItem colSpan={2}>
+            <Select
+              label="Marking Template"
+              placeholder="Select a marking template"
+              isRequired
+              value={markingTemplateId}
+              onChange={(e) => setMarkingTemplateId(e.target.value)}
+              options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
             />
           </GridItem>
         </Grid>

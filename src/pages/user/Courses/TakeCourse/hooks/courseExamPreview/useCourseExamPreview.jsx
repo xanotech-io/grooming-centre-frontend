@@ -6,6 +6,7 @@ import { useComponentIsMount, useQueryParams } from "../../../../../../hooks";
 import {
   requestAssessmentDetails,
   requestExaminationDetails,
+  requestModuleExaminationDetails,
 } from "../../../../../../services";
 
 const useCourseExamPreview = (
@@ -20,6 +21,7 @@ const useCourseExamPreview = (
   const { id: courseId, assessment_id } = useParams();
   const queryParams = useQueryParams();
   const isExamination = queryParams.get("examination");
+  const moduleExamId = queryParams.get("moduleExam");
 
   const [assessmentDetails, setAssessmentDetails] = useState({
     data: null,
@@ -34,12 +36,15 @@ const useCourseExamPreview = (
   const assessmentIsNew = assessmentId === "new";
 
   const fetcher = useCallback(async () => {
+    if (moduleExamId) {
+      const data = await requestModuleExaminationDetails(moduleExamId);
+      return data?.examination;
+    }
     const data = await (!isExamination
       ? requestAssessmentDetails(assessmentId, isForAdmin)
       : requestExaminationDetails(assessmentId, isForAdmin));
-  
     return isExamination ? data?.examination : data?.assessment;
-  }, [assessmentId, isExamination, isForAdmin]);
+  }, [assessmentId, isExamination, moduleExamId, isForAdmin]);
 
   const fetchAssessmentDetails = useCallback(
     async (bypassCache) => {
@@ -47,7 +52,7 @@ const useCourseExamPreview = (
 
       try {
         const assessmentDetails = await handleGetOrSetAndGet(
-          isExamination || assessmentId,
+          moduleExamId || isExamination || assessmentId,
           fetcher,
           bypassCache
         );

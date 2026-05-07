@@ -104,6 +104,11 @@ const ModulesListingPage = () => {
     options: {
       action: [
         {
+          text: "View",
+          link: (module) =>
+            `/admin/courses/${courseId}/modules/${module.id}/view`,
+        },
+        {
           text: "Lessons",
           link: (module) =>
             `/admin/courses/${courseId}/module/${module.id}/lessons`,
@@ -117,6 +122,16 @@ const ModulesListingPage = () => {
           text: "Examinations",
           link: (module) =>
             `/admin/courses/${courseId}/module/${module.id}/examinations`,
+        },
+        {
+          text: "Projects",
+          link: (module) =>
+            `/admin/courses/${courseId}/module/${module.id}/projects`,
+        },
+        {
+          text: "Progress",
+          link: (module) =>
+            `/admin/courses/${courseId}/module/${module.id}/progress`,
         },
         {
           text: "Edit",

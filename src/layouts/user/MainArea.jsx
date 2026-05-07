@@ -5,6 +5,7 @@ import { NotFoundPageRoute } from "../../pages/admin";
 
 import {
   CourseDetailsPageRoute,
+  CourseProgressReportPageRoute,
   CoursesPagesRoute,
   DashboardPageRoute,
   EventsPageRoute,
@@ -30,6 +31,7 @@ const MainArea = () => {
         <ForumLayoutRoute path="/forum" />
         <ChatLayoutRoute path="/chats" />
         <EventsPageRoute exact path="/events" />
+        <CourseProgressReportPageRoute exact path="/courses/details/:id/progress" />
         <CourseDetailsPageRoute path="/courses/details/:id" />
         <GradesPageRoute path="/courses/grade-overview" />
 

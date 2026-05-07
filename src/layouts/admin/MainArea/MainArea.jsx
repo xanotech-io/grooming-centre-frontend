@@ -66,6 +66,14 @@ import {
   ModuleExaminationsPageRoute,
   CreateModuleExaminationPageRoute,
   ViewModuleExaminationPageRoute,
+  ViewModulePageRoute,
+  ModuleProjectsPageRoute,
+  CreateModuleProjectPageRoute,
+  ViewModuleProjectPageRoute,
+  EditModuleProjectPageRoute,
+  ProjectSubmissionsPageRoute,
+  ProjectSubmissionReviewPageRoute,
+  ModuleProgressPageRoute,
 } from "../../../pages/admin";
 import { ModuleLessonsPageRoute } from "../../../pages/admin/courses/ViewCourseInfoPage/pages/ModuleLessonsPage";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
@@ -110,6 +118,10 @@ const MainArea = () => {
           exact
           path="/admin/courses/:courseId/lessons/edit/:lessonId"
         />
+        <ViewModulePageRoute
+          exact
+          path="/admin/courses/:courseId/modules/:moduleId/view"
+        />
         <CreateModulePageRoute
           exact
           path="/admin/courses/:courseId/modules/:moduleId/edit"
@@ -137,6 +149,34 @@ const MainArea = () => {
         <ViewModuleExaminationPageRoute
           exact
           path="/admin/courses/:courseId/module/:moduleId/examinations/view/:examinationId"
+        />
+        <ModuleProjectsPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/projects"
+        />
+        <CreateModuleProjectPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/projects/new"
+        />
+        <ViewModuleProjectPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/projects/:projectId/view"
+        />
+        <EditModuleProjectPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/projects/:projectId/edit"
+        />
+        <ProjectSubmissionsPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/projects/:projectId/submissions"
+        />
+        <ProjectSubmissionReviewPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/projects/:projectId/submissions/:submissionId"
+        />
+        <ModuleProgressPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/progress"
         />
         <CreateLessonPageRoute
           exact

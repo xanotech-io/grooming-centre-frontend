@@ -11,14 +11,14 @@ const links = [
     href: (courseId) => `/admin/courses/details/${courseId}/modules`,
     text: 'Modules',
   },
-  {
-    href: (courseId) => `/admin/courses/details/${courseId}/assessment`,
-    text: 'Assessment',
-  },
-  {
-    href: (courseId) => `/admin/courses/details/${courseId}/exam`,
-    text: 'Exam',
-  },
+  // {
+  //   href: (courseId) => `/admin/courses/details/${courseId}/assessment`,
+  //   text: 'Assessment',
+  // },
+  // {
+  //   href: (courseId) => `/admin/courses/details/${courseId}/exam`,
+  //   text: 'Exam',
+  // },
   {
     href: (courseId) => `/admin/courses/details/${courseId}/progress-report`,
     text: 'Progress Report',

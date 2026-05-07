@@ -2,10 +2,12 @@ import { Route, useParams, useHistory } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
+import { useEffect, useState } from "react";
 import {
   Button,
   DateTimePicker,
   Input,
+  Select,
 } from "../../../../../components";
 import {
   useDateTimePicker,
@@ -14,6 +16,7 @@ import {
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
   adminCreateExamination,
+  adminGetMarkingTemplates,
 } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
 
@@ -22,6 +25,15 @@ const CreateModuleExaminationPage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
+
+  const [markingTemplates, setMarkingTemplates] = useState([]);
+  const [markingTemplateId, setMarkingTemplateId] = useState("");
+
+  useEffect(() => {
+    adminGetMarkingTemplates()
+      .then(({ templates }) => setMarkingTemplates(templates))
+      .catch(() => {});
+  }, []);
 
   const {
     register,
@@ -35,6 +47,8 @@ const CreateModuleExaminationPage = () => {
     try {
       const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
 
+      if (!markingTemplateId) throw new Error("A marking template must be selected before creating an examination.");
+
       const body = {
         ...data,
         courseId,
@@ -42,6 +56,7 @@ const CreateModuleExaminationPage = () => {
         duration: Number(data.duration),
         amountOfQuestions: Number(data.amountOfQuestions),
         startTime: formatDateToISO(startTime),
+        markingTemplateId,
       };
 
       const { message, examination } = await adminCreateExamination(body);
@@ -108,6 +123,16 @@ const CreateModuleExaminationPage = () => {
             isRequired
             value={startTimeManager.value}
             onChange={startTimeManager.handleChange}
+            mb={6}
+          />
+
+          <Select
+            label="Marking Template"
+            placeholder="Select a marking template"
+            isRequired
+            value={markingTemplateId}
+            onChange={(e) => setMarkingTemplateId(e.target.value)}
+            options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
             mb={6}
           />
 

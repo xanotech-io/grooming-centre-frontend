@@ -1,10 +1,16 @@
 import Icon from "@chakra-ui/icon";
 import { Box, Flex, HStack, Stack } from "@chakra-ui/layout";
-import { BsClockFill, BsFillCaretUpFill } from "react-icons/bs";
+import { Badge } from "@chakra-ui/react";
+import {
+  BsClockFill,
+  BsFillCaretDownFill,
+  BsFillCaretUpFill,
+} from "react-icons/bs";
 import { FaCalendar, FaCheck } from "react-icons/fa";
 import { IoVideocam } from "react-icons/io5";
 import { VscFiles } from "react-icons/vsc";
 import { Route } from "react-router-dom";
+import { useParams } from "react-router";
 import coverImagePlaceholder from "../../../../assets/images/User_CourseDetailsHeader.svg";
 import avatarImagePlaceholder from "../../../../assets/images/Avatar.svg";
 import { Button, Heading, Image, Spinner, Text } from "../../../../components";
@@ -13,230 +19,550 @@ import breakpoints, {
 } from "../../../../theme/breakpoints";
 import {
   getDuration,
+  getEndTime,
   hasEnded,
   isOngoing,
   isUpcoming,
 } from "../../../../utils";
-import useAccordion from "./hooks/useAccordion";
 import useCourseDetails from "./hooks/useCourseDetails";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import dayjs from "dayjs";
+import {
+  adminListModules,
+  adminGetModuleLessons,
+  adminListModuleAssessments,
+  adminListModuleExaminations,
+  getModuleProjects,
+  getCourseProgress,
+  getModuleProgress,
+} from "../../../../services";
+
+// ─── Module content fetcher (lazy, per module) ───────────────────────────────
+
+const useModuleContent = (moduleId) => {
+  const [state, setState] = useState({
+    lessons: null,
+    assessments: null,
+    examinations: null,
+    projects: null,
+    progress: null,
+    loading: false,
+    err: null,
+    fetched: false,
+  });
+
+  const fetch = useCallback(async () => {
+    if (!moduleId || state.fetched) return;
+    setState((s) => ({ ...s, loading: true, err: null }));
+    try {
+      const [
+        { lessons },
+        { assessments },
+        { examinations },
+        { projects },
+        progress,
+      ] = await Promise.all([
+        adminGetModuleLessons(moduleId).catch(() => ({ lessons: [] })),
+        adminListModuleAssessments(moduleId).catch(() => ({ assessments: [] })),
+        adminListModuleExaminations(moduleId).catch(() => ({ examinations: [] })),
+        getModuleProjects(moduleId).catch(() => ({ projects: [] })),
+        getModuleProgress(moduleId).catch(() => null),
+      ]);
+
+      setState({
+        lessons,
+        assessments: assessments.map((a) => ({
+          ...a,
+          endTime: getEndTime(a.startTime, a.duration),
+        })),
+        examinations: examinations.map((e) => ({
+          ...e,
+          endTime: getEndTime(e.startTime, e.duration),
+        })),
+        projects,
+        progress,
+        loading: false,
+        err: null,
+        fetched: true,
+      });
+    } catch (err) {
+      setState((s) => ({ ...s, loading: false, err: err.message }));
+    }
+  }, [moduleId, state.fetched]);
+
+  return { content: state, fetchContent: fetch };
+};
+
+// ─── Single module row (expandable) ──────────────────────────────────────────
+
+const ModuleRow = ({ module, index, courseId }) => {
+  const [open, setOpen] = useState(false);
+  const { content, fetchContent } = useModuleContent(module.id);
+
+  const toggle = () => {
+    setOpen((prev) => {
+      if (!prev) fetchContent();
+      return !prev;
+    });
+  };
+
+  const getItemLink = (item, type) => {
+    if (type === "lesson")
+      return `/courses/take/${courseId}/lessons/${item.id}`;
+    if (type === "assessment")
+      return `/courses/take/${courseId}/assessment/${item.id}`;
+    if (type === "examination")
+      return `/courses/take/${courseId}/assessment/${item.id}?moduleExam=${module.id}`;
+    return "#";
+  };
+
+  const renderActionButton = (item, type) => {
+    const isExam = type === "examination";
+    const isLesson = type === "lesson";
+    const label = isExam ? "Examination" : isLesson ? "Lesson" : "Assessment";
+
+    const hasTime = !!item.startTime;
+    const ongoing = hasTime && isOngoing(item.startTime, item.endTime);
+    const ended = hasTime && hasEnded(item.endTime);
+    const upcoming = hasTime && isUpcoming(item.startTime);
+
+    let buttonText;
+    if (!hasTime || ended) buttonText = `View ${label}`;
+    else if (ongoing && item.hasCompleted) buttonText = `View ${label}`;
+    else if (ongoing) buttonText = `Take ${label}`;
+    else if (upcoming) buttonText = `${label} Upcoming`;
+    else buttonText = `View ${label}`;
+
+    return (
+      <Button
+        link={getItemLink(item, type)}
+        secondary
+        sm
+        width="165px"
+        leftIcon={item.hasCompleted && <FaCheck />}
+      >
+        {buttonText}
+      </Button>
+    );
+  };
+
+  const renderSubSection = (title, items, type, emptyText) => {
+    if (!items) return null;
+    return (
+      <Box mb={4}>
+        <Flex
+          alignItems="center"
+          px={4}
+          py={2}
+          backgroundColor="gray.50"
+          borderBottom="1px"
+          borderColor="gray.200"
+        >
+          <Text bold color="gray.600" fontSize="sm">
+            {title}
+          </Text>
+          <Badge ml={2} colorScheme="gray" fontSize="10px">
+            {items.length}
+          </Badge>
+        </Flex>
+
+        {items.length === 0 ? (
+          <Box px={6} py={3}>
+            <Text color="gray.400" fontSize="sm">
+              {emptyText}
+            </Text>
+          </Box>
+        ) : (
+          items.map((item) => (
+            <Flex
+              key={item.id}
+              justifyContent="space-between"
+              alignItems="center"
+              px={6}
+              py={3}
+              borderBottom="1px"
+              borderColor="accent.1"
+              _hover={{ backgroundColor: "gray.50" }}
+            >
+              {/* Left: icon + title */}
+              <HStack spacing={3} flex={1}>
+                <Icon fontSize="text.level2" color="primary.base">
+                  {type === "lesson" && item.lessonType?.name === "video" ? (
+                    <IoVideocam />
+                  ) : (
+                    <VscFiles />
+                  )}
+                </Icon>
+                <Box>
+                  <Text bold>{item.title}</Text>
+                  {item.startTime && (
+                    <Text as="level5" color="accent.3">
+                      {dayjs(item.startTime).format("ddd, D MMM · h:mm A")}
+                      {item.duration
+                        ? ` · ${getDuration(item.duration).combinedText}`
+                        : ""}
+                    </Text>
+                  )}
+                </Box>
+              </HStack>
+
+              {/* Right: status badge + button */}
+              <HStack spacing={3}>
+                {item.startTime && (
+                  <Badge
+                    fontSize="10px"
+                    colorScheme={
+                      item.hasCompleted
+                        ? "green"
+                        : isOngoing(item.startTime, item.endTime)
+                          ? "blue"
+                          : hasEnded(item.endTime)
+                            ? "gray"
+                            : "orange"
+                    }
+                    textTransform="capitalize"
+                  >
+                    {item.hasCompleted
+                      ? "Completed"
+                      : isOngoing(item.startTime, item.endTime)
+                        ? "Ongoing"
+                        : hasEnded(item.endTime)
+                          ? "Ended"
+                          : "Upcoming"}
+                  </Badge>
+                )}
+                {renderActionButton(item, type)}
+              </HStack>
+            </Flex>
+          ))
+        )}
+      </Box>
+    );
+  };
+
+  const renderProjectsSection = (projects) => {
+    if (!projects) return null;
+    return (
+      <Box mb={4}>
+        <Flex
+          alignItems="center"
+          px={4}
+          py={2}
+          backgroundColor="gray.50"
+          borderBottom="1px"
+          borderColor="gray.200"
+        >
+          <Text bold color="gray.600" fontSize="sm">
+            Projects
+          </Text>
+          <Badge ml={2} colorScheme="gray" fontSize="10px">
+            {projects.length}
+          </Badge>
+        </Flex>
+
+        {projects.length === 0 ? (
+          <Box px={6} py={3}>
+            <Text color="gray.400" fontSize="sm">
+              No projects in this module.
+            </Text>
+          </Box>
+        ) : (
+          projects.map((project) => (
+            <Flex
+              key={project.id}
+              justifyContent="space-between"
+              alignItems="center"
+              px={6}
+              py={3}
+              borderBottom="1px"
+              borderColor="accent.1"
+              _hover={{ backgroundColor: "gray.50" }}
+            >
+              <Box flex={1}>
+                <Text bold>{project.title}</Text>
+                {project.description && (
+                  <Text as="level5" color="gray.500" noOfLines={1}>
+                    {project.description}
+                  </Text>
+                )}
+                <HStack spacing={4} mt={1}>
+                  {project.dueDate && (
+                    <Text as="level5" color="accent.3">
+                      Due: {dayjs(project.dueDate).format("ddd, D MMM YYYY")}
+                    </Text>
+                  )}
+                  {project.maxGrade != null && (
+                    <Text as="level5" color="accent.3">
+                      Max grade: {project.maxGrade}
+                    </Text>
+                  )}
+                </HStack>
+              </Box>
+
+              <HStack spacing={3}>
+                <Badge
+                  fontSize="10px"
+                  colorScheme={project.status === "published" ? "green" : "gray"}
+                  textTransform="capitalize"
+                  px={2}
+                  py="2px"
+                  borderRadius="full"
+                >
+                  {project.status}
+                </Badge>
+                <Button
+                  link={`/courses/take/${courseId}/projects/${project.id}`}
+                  secondary
+                  sm
+                  width="140px"
+                >
+                  View Project
+                </Button>
+              </HStack>
+            </Flex>
+          ))
+        )}
+      </Box>
+    );
+  };
+
+  return (
+    <Box
+      border="1px"
+      borderColor="gray.200"
+      borderRadius="md"
+      mb={3}
+      overflow="hidden"
+    >
+      {/* Module header row */}
+      <Flex
+        alignItems="center"
+        px={6}
+        py={4}
+        backgroundColor={open ? "primary.base" : "white"}
+        color={open ? "white" : "inherit"}
+        cursor="pointer"
+        onClick={toggle}
+        _hover={{ backgroundColor: open ? "primary.base" : "gray.50" }}
+        transition="background .15s"
+      >
+        {/* Order badge */}
+        <Box
+          minW="28px"
+          h="28px"
+          borderRadius="full"
+          backgroundColor={open ? "white" : "primary.base"}
+          color={open ? "primary.base" : "white"}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          mr={4}
+          fontSize="sm"
+          fontWeight="bold"
+          flexShrink={0}
+        >
+          {index + 1}
+        </Box>
+
+        {/* Title + description */}
+        <Box flex={1}>
+          <Text bold>{module.title}</Text>
+          {module.description && (
+            <Text
+              as="level5"
+              color={open ? "whiteAlpha.800" : "gray.500"}
+              noOfLines={1}
+            >
+              {module.description}
+            </Text>
+          )}
+        </Box>
+
+        {/* Status badge */}
+        <Badge
+          mr={4}
+          fontSize="10px"
+          backgroundColor={
+            open
+              ? "whiteAlpha.300"
+              : module.status === "published"
+                ? "green.100"
+                : "gray.100"
+          }
+          color={
+            open
+              ? "white"
+              : module.status === "published"
+                ? "green.700"
+                : "gray.600"
+          }
+          textTransform="capitalize"
+          px={2}
+          py="2px"
+          borderRadius="full"
+        >
+          {module.status}
+        </Badge>
+
+        {/* Chevron */}
+        <Icon fontSize="text.level2">
+          {open ? <BsFillCaretUpFill /> : <BsFillCaretDownFill />}
+        </Icon>
+      </Flex>
+
+      {/* Expanded content */}
+      {open && (
+        <Box backgroundColor="white">
+          {content.loading && (
+            <Flex justifyContent="center" py={6}>
+              <Spinner />
+            </Flex>
+          )}
+
+          {content.err && (
+            <Box px={6} py={4}>
+              <Text color="red.500">{content.err}</Text>
+            </Box>
+          )}
+
+          {content.fetched && (
+            <>
+              {/* Module progress bar */}
+              {content.progress && (
+                <Box px={6} py={4} borderBottom="1px" borderColor="gray.100">
+                  <Flex justifyContent="space-between" alignItems="center" mb={2}>
+                    <Text bold fontSize="sm" color="gray.600">
+                      Module Progress
+                    </Text>
+                    <HStack spacing={2}>
+                      <Text fontSize="sm" color="gray.500">
+                        {content.progress.completedLessonsCount}/{content.progress.totalLessons} lessons
+                      </Text>
+                      <Badge
+                        colorScheme={content.progress.isModuleCompleted ? "green" : "blue"}
+                        fontSize="10px"
+                        px={2}
+                        py="2px"
+                        borderRadius="full"
+                      >
+                        {content.progress.isModuleCompleted ? "Completed" : `${content.progress.completionPercentage}%`}
+                      </Badge>
+                    </HStack>
+                  </Flex>
+                  <Box
+                    height="8px"
+                    backgroundColor="gray.200"
+                    borderRadius="full"
+                    overflow="hidden"
+                  >
+                    <Box
+                      height="100%"
+                      width={`${content.progress.completionPercentage}%`}
+                      backgroundColor={content.progress.isModuleCompleted ? "green.400" : "primary.base"}
+                      borderRadius="full"
+                      transition="width .4s ease"
+                    />
+                  </Box>
+                </Box>
+              )}
+
+              {renderSubSection(
+                "Lessons",
+                content.lessons,
+                "lesson",
+                "No lessons in this module."
+              )}
+              {renderSubSection(
+                "Assessments",
+                content.assessments,
+                "assessment",
+                "No assessments in this module."
+              )}
+              {renderSubSection(
+                "Examinations",
+                content.examinations,
+                "examination",
+                "No examinations in this module."
+              )}
+              {renderProjectsSection(content.projects)}
+            </>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 const CourseDetailsPage = () => {
+  const { id: courseId } = useParams();
   const { courseDetails, fetchCourseDetails } = useCourseDetails();
 
-  console.log("=== Course Details State ===", courseDetails);
+  const [modulesState, setModulesState] = useState({
+    data: null,
+    loading: false,
+    err: null,
+  });
+
+  const [courseProgress, setCourseProgress] = useState(null);
 
   useEffect(() => {
     fetchCourseDetails(true);
   }, [fetchCourseDetails]);
 
-  const courseDetailsData = courseDetails.data;
-  const courseDuration = getDuration(courseDetailsData?.duration).combinedText;
+  useEffect(() => {
+    if (!courseId) return;
+    setModulesState({ data: null, loading: true, err: null });
+    Promise.all([
+      adminListModules(courseId),
+      getCourseProgress(courseId).catch(() => null),
+    ])
+      .then(([{ modules }, progress]) => {
+        const sorted = [...modules].sort(
+          (a, b) => a.sequenceOrder - b.sequenceOrder
+        );
+        setModulesState({ data: sorted, loading: false, err: null });
+        setCourseProgress(progress);
+      })
+      .catch((err) =>
+        setModulesState({ data: null, loading: false, err: err.message })
+      );
+  }, [courseId]);
 
+  const courseData = courseDetails.data;
   const isLoading = courseDetails.loading;
   const isError = courseDetails.err;
+  const courseDuration = getDuration(courseData?.duration).combinedText;
 
-  // const getCurrentOngoingLesson = () => {
-  //   const lesson =
-  //     courseDetailsData?.lessons.find((lesson) =>
-  //       isOngoing(lesson.startTime, lesson.endTime)
-  //     ) || courseDetailsData?.lessons.find((lesson) => lesson.hasCompleted);
-
-  //   return lesson;
-  // };
-
-  const getDisability = (item, isAssessment, isExamination) => {
-    console.log(isAssessment, isExamination);
-    if (isAssessment || isExamination) {
-      if (!isOngoing(item?.startTime, item?.endTime) || item?.hasCompleted) {
-        console.log("disabled", "ass", "exam", item?.title);
-        return true;
-      }
-    }
-
-    if (!isOngoing(item?.startTime, item?.endTime) && !item?.hasCompleted) {
-      return true;
-    }
-  };
-
-  const renderItem = (item, { isAssessment, isExamination }) => {
-    const getContextText = () =>
-      isAssessment ? "Assessment" : isExamination ? "Examination" : "Lesson";
-
-    return (
-      <Flex
-        key={item?.id}
-        justifyContent="space-between"
-        paddingY={3}
-        paddingX={2}
-        borderBottom="1px"
-        borderColor="accent.1"
-      >
-        <InfoContent
-          title={dayjs(item?.startTime).format("ddd, D MMM")}
-          date={`${dayjs(item?.startTime).format("h:mm A")} to ${dayjs(
-            item?.endTime
-          ).format("h:mm A")}`}
-          icon={<FaCalendar />}
-          flex={0.6}
-          opacity={item?.disabled ? 0.5 : 1}
-        />
-        <InfoContent
-          title={item?.title}
-          date={`${getDuration(item?.duration).combinedText}`}
-          icon={
-            isAssessment || isExamination ? (
-              <VscFiles />
-            ) : item?.lessonType?.name === "video" ? (
-              <IoVideocam />
-            ) : (
-              <VscFiles />
-            )
-          }
-          flex={1}
-          marginLeft={16}
-          opacity={item?.disabled ? 0.5 : 1}
-        />
-
-        <Button
-          link={`/courses/take/${courseDetailsData?.id}/${
-            isAssessment || isExamination ? "assessment" : "lessons"
-          }/${isExamination ? courseDetailsData?.id : item?.id}${
-            isExamination ? "?examination=true" : ""
-          }`}
-          width="165px"
-          secondary
-          sm
-          disabled={getDisability(item, isAssessment, isExamination)}
-          leftIcon={item?.hasCompleted && <FaCheck />}
-        >
-          {isOngoing(item?.startTime, item?.endTime) &&
-            !item?.hasCompleted &&
-            `Take ${getContextText()}`}
-          {isOngoing(item?.startTime, item?.endTime) &&
-            item?.hasCompleted &&
-            `View ${getContextText()}`}
-          {hasEnded(item?.endTime) && `View ${getContextText()}`}
-          {isUpcoming(item?.startTime) && `${getContextText()} Upcoming`}
-        </Button>
-      </Flex>
-    );
-  };
-
-  const renderCurriculumList = () => {
-    const combinedItems = [];
-
-    if (courseDetailsData?.lessons) {
-      courseDetailsData.lessons.forEach((lesson) => {
-        combinedItems.push({
-          ...lesson,
-          itemType: "lesson",
-        });
-      });
-    }
-
-    if (courseDetailsData?.assessments) {
-      courseDetailsData.assessments.forEach((assessment) => {
-        combinedItems.push({
-          ...assessment,
-          itemType: "assessment",
-        });
-      });
-    }
-
-    const extractModuleNumber = (title) => {
-      const match = title.match(/(module|lesson)\s+(\d+)/i);
-      return match ? parseInt(match[2], 10) : null;
-    };
-
-    const extractAssessmentModules = (title) => {
-      const numbers = title.match(/\d+/g);
-      if (numbers && numbers.length > 0) {
-        return Math.max(...numbers.map((n) => parseInt(n, 10)));
-      }
-      return null;
-    };
-
-    const itemsWithSortKeys = combinedItems.map((item) => {
-      let sortKey;
-
-      if (item.itemType === "lesson") {
-        const moduleNum = extractModuleNumber(item.title);
-        if (moduleNum !== null) {
-          sortKey = moduleNum;
-        } else {
-          const createdTime = new Date(item.createdAt).getTime();
-          sortKey = -createdTime / 1e15;
-        }
-      } else if (item.itemType === "assessment") {
-        const maxModule = extractAssessmentModules(item.title);
-        if (maxModule !== null) {
-          sortKey = maxModule + 0.5;
-        } else {
-          sortKey = 9999;
-        }
-      }
-
-      return { ...item, sortKey };
-    });
-
-    itemsWithSortKeys.forEach((item, index) => {
-      console.log(
-        `${index + 1}. [${item.itemType}] ${item.title} - sortKey: ${
-          item.sortKey
-        }`
-      );
-    });
-
-    const sortedItems = itemsWithSortKeys.sort((a, b) => {
-      if (a.sortKey !== b.sortKey) {
-        return a.sortKey - b.sortKey;
-      }
-      const createdA = new Date(a.createdAt).getTime();
-      const createdB = new Date(b.createdAt).getTime();
-      return createdA - createdB;
-    });
-
-    sortedItems.forEach((item, index) => {
-      console.log(
-        `${index + 1}. [${item.itemType}] ${item.title} - sortKey: ${
-          item.sortKey
-        }`
-      );
-    });
-
-    return sortedItems.map((item) => {
-      const isAssessment = item.itemType === "assessment";
-      return renderItem(item, { isAssessment });
-    });
-  };
-
-  return isLoading || isError ? (
+  return isLoading ? (
     <Flex
-      // Make the height 100% of the screen minus the `height` of the Header and Footer
       height="calc(100vh - 200px)"
       justifyContent="center"
       alignItems="center"
     >
-      {isLoading ? (
-        <Spinner />
-      ) : isError ? (
-        <Heading color="red.500">{isError}</Heading>
-      ) : null}
+      <Spinner />
+    </Flex>
+  ) : isError ? (
+    <Flex
+      height="calc(100vh - 200px)"
+      justifyContent="center"
+      alignItems="center"
+    >
+      <Heading color="red.500">{isError}</Heading>
     </Flex>
   ) : (
     <Box>
+      {/* ── Hero ── */}
       <Box
         as="section"
         padding={10}
         marginBottom={10}
-        // backgroundColor="secondary.9"
         color="white"
         position="relative"
       >
         <Image
-          src={courseDetailsData?.thumbnail || coverImagePlaceholder}
+          src={courseData?.thumbnail || coverImagePlaceholder}
           width="100%"
           height="100%"
           top={0}
@@ -252,155 +578,174 @@ const CourseDetailsPage = () => {
           position="absolute"
           backgroundColor="black"
           opacity={0.7}
-        ></Box>
-
-        <Stack
-          spacing={7}
-          position="relative"
-          // zIndex={1}
-          {...maxWidthStyles_userPages}
-        >
-          <Heading>{courseDetailsData?.title}</Heading>
-          <Text as="level2">{courseDetailsData?.description}</Text>
-
+        />
+        <Stack spacing={7} position="relative" {...maxWidthStyles_userPages}>
+          <Heading>{courseData?.title}</Heading>
+          <Text as="level2">{courseData?.description}</Text>
           <HStack spacing={4}>
             <Image
-              src={
-                courseDetailsData?.user.profilePics || avatarImagePlaceholder
-              }
+              src={courseData?.user?.profilePics || avatarImagePlaceholder}
               rounded="full"
               boxSize="40px"
             />
-
             <Text as="level1" bold>
-              {`${courseDetailsData?.user.firstName} ${courseDetailsData?.user.lastName}`}
+              {`${courseData?.user?.firstName} ${courseData?.user?.lastName}`}
             </Text>
           </HStack>
         </Stack>
       </Box>
 
+      {/* ── Body ── */}
       <Box
         padding={5}
         minHeight="50vh"
         maxWidth={breakpoints.laptop}
         marginX="auto"
       >
-        {/* <Flex justifyContent="flex-end" marginBottom={10}>
-          <Button
-            link={`/courses/take/${courseDetailsData?.id}/lessons/${
-              getCurrentOngoingLesson()?.id
-            }`}
-            disabled={getCurrentOngoingLesson() ? false : true}
-          >
-            Start Course
-          </Button>
-        </Flex> */}
-
-        {/* {isOngoing(event.startTime, event.endTime) && "Join Event"}
-              {hasEnded(event.endTime) && "Event Has Ended"}
-              {isUpcoming(event.startTime) && "Event Is Upcoming"} */}
-
-        <Accordion heading="Course Details">
-          <Flex justifyContent="space-between" padding={2}>
-            <InfoContent
-              title="Duration"
-              date={`${courseDuration}`}
-              icon={<BsClockFill />}
-            />
-            <InfoContent
-              title="Start Date"
-              date={dayjs(courseDetailsData?.startTime).format(
-                "ddd, MMM D, YYYY"
-              )}
-              icon={<FaCalendar />}
-            />
-            <InfoContent
-              title="End Date"
-              date={dayjs(courseDetailsData?.endTime).format(
-                "ddd, MMM D, YYYY"
-              )}
-              icon={<FaCalendar />}
-            />
-          </Flex>
-        </Accordion>
-
-        <Accordion heading="Course Curriculum">
-          {renderCurriculumList()}
-          {courseDetailsData?.examination &&
-            renderItem(courseDetailsData?.examination, { isExamination: true })}
-        </Accordion>
-        {/* {courseDetailsData?.lessons[0] && (
-          <Box textAlign="right" pr={2}>
-            <Button
-              rightIcon={<AiOutlineRight />}
-              width="150px"
-              link={`/courses/take/${courseDetailsData?.id}/lessons/${courseDetailsData?.lessons[0].id}`}
-            >
-              See all
-            </Button>
-          </Box>
-        )} */}
-      </Box>
-    </Box>
-  );
-};
-
-const Accordion = ({ heading, children }) => {
-  const accordionManager = useAccordion();
-
-  return (
-    <Box as="section" marginBottom={7}>
-      <Flex
-        as="header"
-        backgroundColor="primary.base"
-        color="white"
-        paddingX={8}
-        paddingY={3}
-        rounded="5px"
-        justifyContent="space-between"
-        alignItems="center"
-        onClick={accordionManager.handleToggle}
-        cursor="pointer"
-      >
-        <Heading as="h4">{heading}</Heading>
-
-        <Icon
-          fontSize="text.level1"
-          transition=".15s"
-          transform={`rotate(${!accordionManager.isOpen ? 180 : 0}deg)`}
-          transformOrigin="center"
+        {/* Course info strip */}
+        <Flex
+          backgroundColor="white"
+          borderRadius="md"
+          border="1px"
+          borderColor="gray.200"
+          px={6}
+          py={4}
+          mb={6}
+          gap={8}
+          flexWrap="wrap"
         >
-          <BsFillCaretUpFill />
-        </Icon>
-      </Flex>
+          <HStack spacing={2}>
+            <Icon color="primary.base">
+              <BsClockFill />
+            </Icon>
+            <Box>
+              <Text bold>Duration</Text>
+              <Text as="level5" color="accent.3">
+                {courseDuration}
+              </Text>
+            </Box>
+          </HStack>
+          <HStack spacing={2}>
+            <Icon color="primary.base">
+              <FaCalendar />
+            </Icon>
+            <Box>
+              <Text bold>Start Date</Text>
+              <Text as="level5" color="accent.3">
+                {courseData?.startTime
+                  ? dayjs(courseData.startTime).format("ddd, MMM D, YYYY")
+                  : "—"}
+              </Text>
+            </Box>
+          </HStack>
+          <HStack spacing={2}>
+            <Icon color="primary.base">
+              <FaCalendar />
+            </Icon>
+            <Box>
+              <Text bold>End Date</Text>
+              <Text as="level5" color="accent.3">
+                {courseData?.endTime
+                  ? dayjs(courseData.endTime).format("ddd, MMM D, YYYY")
+                  : "—"}
+              </Text>
+            </Box>
+          </HStack>
 
-      <Box
-        overflowY="hidden"
-        transition=".5s"
-        // maxHeight={accordionManager.isOpen ? "1000px" : "0px"}
-      >
-        {children}
+          {courseProgress && (
+            <Box flex={1} minWidth="200px">
+              <Flex justifyContent="space-between" alignItems="center" mb={1}>
+                <Text bold>Your Progress</Text>
+                <HStack spacing={2}>
+                  <Text as="level5" color="accent.3">
+                    {courseProgress.completedModules}/{courseProgress.totalModules} modules
+                  </Text>
+                  <Badge
+                    colorScheme={courseProgress.completionPercentage === 100 ? "green" : "blue"}
+                    fontSize="10px"
+                    px={2}
+                    borderRadius="full"
+                  >
+                    {courseProgress.completionPercentage}%
+                  </Badge>
+                </HStack>
+              </Flex>
+              <Box
+                height="8px"
+                backgroundColor="gray.200"
+                borderRadius="full"
+                overflow="hidden"
+              >
+                <Box
+                  height="100%"
+                  width={`${courseProgress.completionPercentage}%`}
+                  backgroundColor={courseProgress.completionPercentage === 100 ? "green.400" : "primary.base"}
+                  borderRadius="full"
+                  transition="width .4s ease"
+                />
+              </Box>
+            </Box>
+          )}
+        </Flex>
+
+        {/* Modules heading */}
+        <Flex
+          justifyContent="space-between"
+          alignItems="center"
+          mb={4}
+          pb={3}
+          borderBottom="1px"
+          borderColor="accent.2"
+        >
+          <Heading as="h3" fontSize="heading.h4">
+            Course Modules
+          </Heading>
+          {modulesState.data && (
+            <Badge colorScheme="blue" fontSize="12px" px={3} py={1}>
+              {modulesState.data.length}{" "}
+              {modulesState.data.length === 1 ? "Module" : "Modules"}
+            </Badge>
+          )}
+        </Flex>
+
+        {/* Modules list */}
+        {modulesState.loading && (
+          <Flex justifyContent="center" py={10}>
+            <Spinner />
+          </Flex>
+        )}
+
+        {modulesState.err && (
+          <Box py={6} textAlign="center">
+            <Text color="red.500">{modulesState.err}</Text>
+          </Box>
+        )}
+
+        {modulesState.data?.length === 0 && (
+          <Box
+            py={10}
+            textAlign="center"
+            backgroundColor="gray.50"
+            borderRadius="md"
+          >
+            <Text color="gray.400">No modules available for this course.</Text>
+          </Box>
+        )}
+
+        {modulesState.data?.map((module, idx) => (
+          <ModuleRow
+            key={module.id}
+            module={module}
+            index={idx}
+            courseId={courseId}
+          />
+        ))}
       </Box>
     </Box>
   );
 };
 
-const InfoContent = ({ date, icon, title, ...rest }) => {
-  return (
-    <HStack spacing={1} alignItems="flex-start" {...rest}>
-      <Box paddingTop="1px">
-        <Icon fontSize="text.level1">{icon}</Icon>
-      </Box>
-
-      <Box>
-        <Text bold>{title}</Text>
-        <Text as="level5" color="accent.3">
-          {date}
-        </Text>
-      </Box>
-    </HStack>
-  );
-};
+// ─── Route export ─────────────────────────────────────────────────────────────
 
 export const CourseDetailsPageRoute = ({ ...rest }) => {
   return (

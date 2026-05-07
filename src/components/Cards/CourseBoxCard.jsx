@@ -374,6 +374,7 @@ export const CourseBoxCard = ({
           </Stack>
         </div>
       ) : !preRequisiteIncomplete ? (
+        <Box position="relative">
         <Link
           className={`course-box-card ${
             disabled ? 'course-box-card--disabled' : ''
@@ -489,6 +490,28 @@ export const CourseBoxCard = ({
             </Flex>
           </Stack>
         </Link>
+        {!isLoading && (
+          <Box px={2} pb={2}>
+            <Link
+              href={`/courses/details/${id}/progress`}
+              display="block"
+              width="100%"
+              textAlign="center"
+              fontSize="12px"
+              fontWeight="600"
+              color="primary.base"
+              border="1px"
+              borderColor="primary.base"
+              borderRadius="md"
+              py={1}
+              _hover={{ backgroundColor: "primary.base", color: "white" }}
+              transition="all .15s"
+            >
+              Progress Report
+            </Link>
+          </Box>
+        )}
+        </Box>
       ) : (
         <Tooltip
           label={`Complete ${preRequisite?.title} to have access to this course`}

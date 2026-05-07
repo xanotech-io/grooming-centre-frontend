@@ -8,6 +8,7 @@ import { Switch, Redirect } from 'react-router-dom';
 import {
   AssessmentPreviewPageRoute,
   LessonDetailsPageRoute,
+  ProjectSubmissionPageRoute,
 } from '../../../../pages/user';
 import {
   useRedirectNonAuthUserToSigninPage,
@@ -32,6 +33,11 @@ const TakeCourseLayout = () => {
           path="/courses/take/:course_id/assessment/:assessment_id" // TODO: replace `/take` to `/preview`
           sidebarLinks={sidebarManager.links}
           sidebarLinkClickedState={sidebarManager.sidebarLinkClickedState}
+        />
+        <ProjectSubmissionPageRoute
+          exact
+          path="/courses/take/:course_id/projects/:project_id"
+          sidebarLinks={sidebarManager.links}
         />
 
         <Redirect to="/not-found" />

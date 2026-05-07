@@ -43,6 +43,7 @@ import {
 import useAssessmentPreview from "../../../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import { PageLoaderLayout } from "../../../../../layouts";
 import { useCallback, useEffect, useState } from "react";
+import { useSections } from "./useSections";
 import { BsCheckCircle } from "react-icons/bs";
 
 const QuestionsPage = () => {
@@ -230,6 +231,7 @@ const CreateQuestionPage = (assessmentManager) => {
   const { id: courseId, assessmentId, questionId } = useParams();
   const isExamination = useQueryParams().get("examination");
   const isEditMode = useQueryParams().get("edit") === "true";
+  const pendingSectionId = useQueryParams().get("section");
   const isStandaloneExamination =
     courseId === "not-set" && assessmentId === "not-set" && isExamination
       ? true
@@ -240,10 +242,20 @@ const CreateQuestionPage = (assessmentManager) => {
 
   const { question, isLoading, error } = useQuestionDetails(assessmentManager);
 
-  const [isMultipleChoiceOptions, setIsMultipleChoiceOptions] = useState(true);
+  const QUESTION_TYPES = ["MCQ", "TrueFalse", "FillBlank", "Matching", "ShortAnswer", "Essay"];
 
-  const handleMultipleChoiceOptionsToggle = () =>
-    setIsMultipleChoiceOptions((prev) => !prev);
+  const [questionType, setQuestionType] = useState("MCQ");
+  const isMultipleChoiceOptions = questionType === "MCQ";
+
+  const [answer, setAnswer] = useState();
+  const [matchingPairs, setMatchingPairs] = useState([{ left: "", right: "" }]);
+
+  const handleAnswerChange = (event) => setAnswer(event.target.value);
+
+  const handleAddPair = () => setMatchingPairs((prev) => [...prev, { left: "", right: "" }]);
+  const handleRemovePair = (idx) => setMatchingPairs((prev) => prev.filter((_, i) => i !== idx));
+  const handlePairChange = (idx, side, value) =>
+    setMatchingPairs((prev) => prev.map((p, i) => (i === idx ? { ...p, [side]: value } : p)));
 
   const {
     register,
@@ -252,59 +264,45 @@ const CreateQuestionPage = (assessmentManager) => {
     setValue,
     formState: { isSubmitting },
   } = useForm();
-  const [answer, setAnswer] = useState();
 
-  const handleAnswerChange = (event) => {
-    setAnswer(event.target.value);
-  };
   const questionRichTextManager = useRichText();
 
   useEffect(() => {
     if (question) {
-      const option1 = question.options.find((opt) => opt.optionIndex === 1);
-      console.log(option1);
+      const isTrueFalse = question.options?.length === 2;
+      setQuestionType(question.questionType || (isTrueFalse ? "TrueFalse" : "MCQ"));
 
-      setValue("option-1", !isMultipleChoiceOptions ? "True" : option1.name);
+      const option1 = question.options?.find((opt) => opt.optionIndex === 1);
+      setValue("option-1", isTrueFalse ? "True" : option1?.name);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [question, isMultipleChoiceOptions]);
+  }, [question]);
 
   useEffect(() => {
-    if (!isMultipleChoiceOptions) {
+    if (questionType === "TrueFalse") {
       setValue("option-1", "True");
       setValue("option-2", "False");
     }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMultipleChoiceOptions]);
-
-  useEffect(() => {
-    if (question?.options.length === 2) {
-      return setIsMultipleChoiceOptions(false);
-    }
-    setIsMultipleChoiceOptions(true);
-  }, [question, question?.options.length]);
+  }, [questionType]);
 
   useEffect(() => {
     if (question) {
-      const option2 = question.options.find((opt) => opt.optionIndex === 2);
-
-      setValue("option-2", option2.name);
+      const option2 = question.options?.find((opt) => opt.optionIndex === 2);
+      setValue("option-2", option2?.name);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question]);
   useEffect(() => {
     if (question) {
-      const option3 = question.options.find((opt) => opt.optionIndex === 3);
-
+      const option3 = question.options?.find((opt) => opt.optionIndex === 3);
       setValue("option-3", option3?.name);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question]);
   useEffect(() => {
     if (question) {
-      const option4 = question.options.find((opt) => opt.optionIndex === 4);
-
+      const option4 = question.options?.find((opt) => opt.optionIndex === 4);
       setValue("option-4", option4?.name);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -312,8 +310,7 @@ const CreateQuestionPage = (assessmentManager) => {
 
   useEffect(() => {
     if (question) {
-      const optionWithAns = question.options.find((opt) => opt.isAnswer);
-
+      const optionWithAns = question.options?.find((opt) => opt.isAnswer);
       setAnswer(`${optionWithAns?.optionIndex}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -379,18 +376,30 @@ const CreateQuestionPage = (assessmentManager) => {
       const questionText =
         questionRichTextManager.handleGetValueAndValidate("Question");
 
-      const options = buildOptions(
-        { ...data, answer },
-        isStandaloneExamination,
-      );
-      if (!isMultipleChoiceOptions && options.length === 4) {
-        options.pop();
-        options.pop();
+      const isObjectiveType = questionType === "MCQ" || questionType === "TrueFalse";
+
+      let options = [];
+      if (isObjectiveType) {
+        options = buildOptions({ ...data, answer }, isStandaloneExamination);
+        if (questionType === "TrueFalse" && options.length === 4) {
+          options = options.slice(0, 2);
+        }
+        const hasAnswer = options.find((opt) => opt.isAnswer);
+        if (!hasAnswer) throw new Error("Please select an answer");
+      } else if (questionType === "Matching") {
+        if (matchingPairs.some((p) => !p.left.trim() || !p.right.trim()))
+          throw new Error("All matching pairs must have both left and right values");
       }
 
-      // Validate `isAnswer` field
-      const hasAnswer = options.find((opt) => opt.isAnswer);
-      if (!hasAnswer) throw new Error("Please select an answer");
+      const typeSpecificFields = isObjectiveType
+        ? { options: JSON.stringify(options) }
+        : questionType === "FillBlank"
+        ? { correctAnswer: data.correctAnswer, questionType: "FillBlank" }
+        : questionType === "Matching"
+        ? { pairs: JSON.stringify(matchingPairs), questionType: "Matching" }
+        : questionType === "ShortAnswer"
+        ? { modelAnswer: data.modelAnswer, questionType: "ShortAnswer" }
+        : { rubricDescription: data.rubricDescription, questionType: "Essay" };
 
       // Prepare data for edit mode
       if (isEditMode) {
@@ -401,15 +410,19 @@ const CreateQuestionPage = (assessmentManager) => {
                 id: questionId,
                 question: questionText,
                 standAloneExaminationId: isExamination,
+                ...(!isObjectiveType && { questionType }),
               }),
-              options: JSON.stringify(
-                options.map((opt) => ({
-                  ...opt,
-                  id: question?.options.find(({ name }) => opt.name === name)
-                    ?.id,
-                  standAloneExaminationQuestionId: questionId,
-                })),
-              ),
+              ...(isObjectiveType
+                ? {
+                    options: JSON.stringify(
+                      options.map((opt) => ({
+                        ...opt,
+                        id: question?.options.find(({ name }) => opt.name === name)?.id,
+                        standAloneExaminationQuestionId: questionId,
+                      })),
+                    ),
+                  }
+                : typeSpecificFields),
             }
           : isExamination
             ? {
@@ -418,15 +431,19 @@ const CreateQuestionPage = (assessmentManager) => {
                   id: questionId,
                   question: questionText,
                   examinationId: isExamination,
+                  ...(!isObjectiveType && { questionType }),
                 }),
-                options: JSON.stringify(
-                  options.map((opt) => ({
-                    ...opt,
-                    id: question?.options.find(({ name }) => opt.name === name)
-                      ?.id,
-                    examinationQuestionId: questionId,
-                  })),
-                ),
+                ...(isObjectiveType
+                  ? {
+                      options: JSON.stringify(
+                        options.map((opt) => ({
+                          ...opt,
+                          id: question?.options.find(({ name }) => opt.name === name)?.id,
+                          examinationQuestionId: questionId,
+                        })),
+                      ),
+                    }
+                  : typeSpecificFields),
               }
             : {
                 file,
@@ -434,15 +451,19 @@ const CreateQuestionPage = (assessmentManager) => {
                   id: questionId,
                   question: questionText,
                   assessmentId,
+                  ...(!isObjectiveType && { questionType }),
                 }),
-                options: JSON.stringify(
-                  options.map((opt) => ({
-                    ...opt,
-                    id: question?.options.find(({ name }) => opt.name === name)
-                      ?.id,
-                    assessmentQuestionId: questionId,
-                  })),
-                ),
+                ...(isObjectiveType
+                  ? {
+                      options: JSON.stringify(
+                        options.map((opt) => ({
+                          ...opt,
+                          id: question?.options.find(({ name }) => opt.name === name)?.id,
+                          assessmentQuestionId: questionId,
+                        })),
+                      ),
+                    }
+                  : typeSpecificFields),
               };
       } else {
         // Create mode
@@ -451,20 +472,23 @@ const CreateQuestionPage = (assessmentManager) => {
               file,
               standAloneExaminationId: isExamination,
               question: questionText,
-              options: JSON.stringify(options),
+              ...(!isObjectiveType && { questionType }),
+              ...typeSpecificFields,
             }
           : isExamination
             ? {
                 file,
                 examinationId: isExamination,
                 question: questionText,
-                options: JSON.stringify(options),
+                ...(!isObjectiveType && { questionType }),
+                ...typeSpecificFields,
               }
             : {
                 file,
                 assessmentId,
                 question: questionText,
-                options: JSON.stringify(options),
+                ...(!isObjectiveType && { questionType }),
+                ...typeSpecificFields,
               };
       }
 
@@ -521,7 +545,10 @@ const CreateQuestionPage = (assessmentManager) => {
         );
         push(viewLink);
       } else {
-        // After create, go to listing
+        // After create, persist pending section so listing page can assign it
+        if (pendingSectionId) {
+          sessionStorage.setItem(`ps_${assessmentId}`, pendingSectionId);
+        }
         push(getQuestionListingLink(courseId, assessmentId, isExamination));
       }
     } catch (error) {
@@ -594,124 +621,167 @@ const CreateQuestionPage = (assessmentManager) => {
       </Box>
 
       <Box marginTop={10} padding={6} backgroundColor="white">
-        <Heading fontSize="heading.h4">Enter the Options</Heading>
-        <Text paddingTop={2} paddingBottom={8}>
-          Mark the correct option
-        </Text>
-        {/* <fieldset onChange={setAnswer} id="radio" value={answer}> */}
+        <Heading fontSize="heading.h4" mb={4}>Question Type & Answer</Heading>
 
-        <Box borderBottom="1px" borderColor="accent.2" pb={2} mb={5}>
-          <ButtonGroup size="xs">
-            <Button
-              onClick={handleMultipleChoiceOptionsToggle}
-              leftIcon={isMultipleChoiceOptions && <BsCheckCircle />}
-              ghost={!isMultipleChoiceOptions}
-              disabled={isExistingQuestion && !isEditMode}
-            >
-              Multiple Choices
-            </Button>
-            <Button
-              onClick={handleMultipleChoiceOptionsToggle}
-              leftIcon={!isMultipleChoiceOptions && <BsCheckCircle />}
-              ghost={isMultipleChoiceOptions}
-              disabled={isExistingQuestion && !isEditMode}
-            >
-              True/False
-            </Button>
-          </ButtonGroup>
-        </Box>
+        {/* Question type selector — only shown in create mode */}
+        {(!isExistingQuestion || isEditMode) && (
+          <Box borderBottom="1px" borderColor="accent.2" pb={4} mb={6}>
+            <ButtonGroup size="xs" flexWrap="wrap" gap={2}>
+              {QUESTION_TYPES.map((type) => (
+                <Button
+                  key={type}
+                  onClick={() => setQuestionType(type)}
+                  leftIcon={questionType === type && <BsCheckCircle />}
+                  ghost={questionType !== type}
+                  disabled={isExistingQuestion && !isEditMode}
+                >
+                  {type === "TrueFalse" ? "True / False" : type === "FillBlank" ? "Fill in the Blank" : type === "ShortAnswer" ? "Short Answer" : type}
+                </Button>
+              ))}
+            </ButtonGroup>
+          </Box>
+        )}
 
-        <Stack direction="column">
-          <Flex flexDirection="row" paddingBottom={6}>
-            <Flex paddingTop={12} paddingRight={6}>
-              <input
-                disabled={isExistingQuestion && !isEditMode}
-                type="radio"
-                checked={answer === "1"}
-                onChange={handleAnswerChange}
-                name="radio"
-                value="1"
-                id="radio-1"
-              />
-            </Flex>
-            <Input
-              id="option-1"
-              label="Option 01"
-              {...register("option-1", { required: true })}
-              disabled={
-                !isMultipleChoiceOptions || (isExistingQuestion && !isEditMode)
-              }
-              placeholder="Enter the first option here"
-            />
-          </Flex>
-          <Flex flexDirection="row" paddingBottom={6}>
-            <Flex paddingTop={12} paddingRight={6}>
-              <input
-                disabled={isExistingQuestion && !isEditMode}
-                type="radio"
-                checked={answer === "2"}
-                onChange={handleAnswerChange}
-                name="radio"
-                value="2"
-                id="radio-2"
-              />
-            </Flex>
-            <Input
-              id="option-2"
-              label="Option 02"
-              {...register("option-2", { required: true })}
-              disabled={
-                !isMultipleChoiceOptions || (isExistingQuestion && !isEditMode)
-              }
-              placeholder="Enter the second option here"
-            />
-          </Flex>
-          {isMultipleChoiceOptions && (
-            <>
-              <Flex flexDirection="row" paddingBottom={6}>
+        {/* MCQ */}
+        {(questionType === "MCQ" || (isExistingQuestion && !isEditMode && !["FillBlank","Matching","ShortAnswer","Essay"].includes(questionType))) && questionType !== "TrueFalse" && (
+          <Stack direction="column">
+            <Text paddingBottom={4} color="gray.500">Select the correct answer</Text>
+            {[1, 2, 3, 4].map((num) => (
+              <Flex key={num} flexDirection="row" paddingBottom={6}>
                 <Flex paddingTop={12} paddingRight={6}>
                   <input
                     disabled={isExistingQuestion && !isEditMode}
                     type="radio"
-                    checked={answer === "3"}
+                    checked={answer === `${num}`}
                     onChange={handleAnswerChange}
                     name="radio"
-                    value="3"
-                    id="radio-3"
+                    value={`${num}`}
+                    id={`radio-${num}`}
                   />
                 </Flex>
                 <Input
                   disabled={isExistingQuestion && !isEditMode}
-                  id="option-3"
-                  label="Option 03"
-                  {...register("option-3", { required: true })}
-                  placeholder="Enter the third option here"
+                  id={`option-${num}`}
+                  label={`Option 0${num}`}
+                  {...register(`option-${num}`, { required: true })}
+                  placeholder={`Enter option ${num} here`}
                 />
               </Flex>
-              <Flex flexDirection="row" paddingBottom={6}>
+            ))}
+          </Stack>
+        )}
+
+        {/* True / False */}
+        {questionType === "TrueFalse" && (
+          <Stack direction="column">
+            <Text paddingBottom={4} color="gray.500">Select the correct answer</Text>
+            {["True", "False"].map((label, i) => (
+              <Flex key={label} flexDirection="row" paddingBottom={6}>
                 <Flex paddingTop={12} paddingRight={6}>
                   <input
                     disabled={isExistingQuestion && !isEditMode}
                     type="radio"
-                    checked={answer === "4"}
+                    checked={answer === `${i + 1}`}
                     onChange={handleAnswerChange}
                     name="radio"
-                    value="4"
-                    id="radio-4"
+                    value={`${i + 1}`}
+                    id={`radio-${i + 1}`}
                   />
                 </Flex>
                 <Input
-                  disabled={isExistingQuestion && !isEditMode}
-                  id="option-4"
-                  label="Option 04"
-                  {...register("option-4", { required: true })}
-                  placeholder="Enter the last option here"
+                  id={`option-${i + 1}`}
+                  label={label}
+                  value={label}
+                  disabled
+                  {...register(`option-${i + 1}`)}
                 />
               </Flex>
-            </>
-          )}
-        </Stack>
-        {/* </fieldset> */}
+            ))}
+          </Stack>
+        )}
+
+        {/* Fill in the Blank */}
+        {questionType === "FillBlank" && (
+          <Box>
+            <Text paddingBottom={4} color="gray.500">Provide the correct answer for the blank</Text>
+            <Input
+              label="Correct Answer"
+              isRequired
+              placeholder="e.g. Paris"
+              disabled={isExistingQuestion && !isEditMode}
+              {...register("correctAnswer", { required: "Correct answer is required" })}
+            />
+          </Box>
+        )}
+
+        {/* Matching */}
+        {questionType === "Matching" && (
+          <Box>
+            <Text paddingBottom={4} color="gray.500">Add matching pairs (left → right)</Text>
+            {matchingPairs.map((pair, idx) => (
+              <Flex key={idx} gap={4} mb={4} alignItems="flex-end">
+                <Box flex={1}>
+                  <Input
+                    label={`Left ${idx + 1}`}
+                    placeholder="e.g. H2O"
+                    value={pair.left}
+                    disabled={isExistingQuestion && !isEditMode}
+                    onChange={(e) => handlePairChange(idx, "left", e.target.value)}
+                  />
+                </Box>
+                <Box flex={1}>
+                  <Input
+                    label={`Right ${idx + 1}`}
+                    placeholder="e.g. Water"
+                    value={pair.right}
+                    disabled={isExistingQuestion && !isEditMode}
+                    onChange={(e) => handlePairChange(idx, "right", e.target.value)}
+                  />
+                </Box>
+                {!(isExistingQuestion && !isEditMode) && matchingPairs.length > 1 && (
+                  <Button ghost onClick={() => handleRemovePair(idx)} type="button" mb={2}>
+                    Remove
+                  </Button>
+                )}
+              </Flex>
+            ))}
+            {!(isExistingQuestion && !isEditMode) && (
+              <Button ghost onClick={handleAddPair} type="button" mt={2}>
+                + Add Pair
+              </Button>
+            )}
+          </Box>
+        )}
+
+        {/* Short Answer */}
+        {questionType === "ShortAnswer" && (
+          <Box>
+            <Box backgroundColor="blue.50" borderRadius="md" p={3} mb={4}>
+              <Text color="blue.700" fontSize="sm">This question type is manually graded by the instructor.</Text>
+            </Box>
+            <Input
+              label="Model Answer"
+              placeholder="Enter the expected model answer"
+              disabled={isExistingQuestion && !isEditMode}
+              {...register("modelAnswer")}
+            />
+          </Box>
+        )}
+
+        {/* Essay */}
+        {questionType === "Essay" && (
+          <Box>
+            <Box backgroundColor="blue.50" borderRadius="md" p={3} mb={4}>
+              <Text color="blue.700" fontSize="sm">Essay questions are manually graded by the instructor using the rubric defined in the marking template.</Text>
+            </Box>
+            <Input
+              label="Rubric Description (optional)"
+              placeholder="e.g. Clarity (5pts), Depth (5pts)"
+              disabled={isExistingQuestion && !isEditMode}
+              {...register("rubricDescription")}
+            />
+          </Box>
+        )}
       </Box>
       <Flex justifyContent="flex-end" paddingTop={8} gap={4}>
         {isExistingQuestion && !isEditMode && (
@@ -765,25 +835,69 @@ const CreateQuestionPage = (assessmentManager) => {
 
 const QuestionListingPage = ({ assessment, isLoading, error }) => {
   const { id: courseId, assessmentId } = useParams();
-
   const isExamination = useQueryParams().get("examination");
 
-  const questions = assessment?.questions;
+  const questions = Array.isArray(assessment?.questions)
+    ? assessment.questions
+    : [];
 
-  const questionsIsEmpty =
-    !isLoading && !error && !questions?.length ? true : false;
+  const sm = useSections(assessmentId);
+
+  const [editingId, setEditingId] = useState(null);
+  const [titleInput, setTitleInput] = useState("");
+  const [showNewSection, setShowNewSection] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+
+  // After a question is created with a section context, assign it
+  useEffect(() => {
+    if (!questions.length) return;
+    const pending = sessionStorage.getItem(`ps_${assessmentId}`);
+    if (!pending) return;
+    const unassigned = questions.filter((q) => !sm.assignments[q.id]);
+    if (unassigned.length) {
+      sm.assign(unassigned[unassigned.length - 1].id, pending);
+      sessionStorage.removeItem(`ps_${assessmentId}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questions, assessmentId]);
+
+  const questionsIsEmpty = !isLoading && !error && !questions.length;
+
+  const buildAddLink = (sectionId) => {
+    const base = `/admin/courses/${courseId}/assessment/${assessmentId}/questions/new`;
+    const parts = [
+      isExamination && `examination=${isExamination}`,
+      sectionId && `section=${sectionId}`,
+    ].filter(Boolean);
+    return parts.length ? `${base}?${parts.join("&")}` : base;
+  };
+
+  const handleAddSection = () => {
+    if (newTitle.trim()) {
+      sm.add(newTitle.trim());
+      setNewTitle("");
+      setShowNewSection(false);
+    }
+  };
+
+  const handleRename = (sId) => {
+    if (titleInput.trim()) sm.rename(sId, titleInput.trim());
+    setEditingId(null);
+  };
+
+  const unassigned = questions.filter((q) => !sm.assignments[q.id]);
 
   return (
     <Box padding={6} width="70%">
       {isLoading && <PageLoaderLayout height="70%" width="100%" />}
 
-      {questionsIsEmpty && (
+      {questionsIsEmpty && !sm.sections.length && (
         <PageLoaderLayout height="70%" width="100%">
           <Heading as="h3" marginBottom={3}>
             No Questions Asked Yet
           </Heading>
           <Text as="level3" marginBottom={7}>
-            Create a new question to get started.
+            Add a section below or create a question directly.
           </Text>
         </PageLoaderLayout>
       )}
@@ -796,31 +910,217 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
         </PageLoaderLayout>
       )}
 
-      {questions?.map((q, index) => (
-        <QuestionCard
-          key={q.id}
-          id={q.id}
-          questionNumber={getQuestionNumber(index)}
-          question={q.question}
-          image={q.file}
-          marginBottom={4}
-        />
-      ))}
+      {/* ── Sections ── */}
+      {sm.sections.map((section, si) => {
+        const sectionQs = questions.filter(
+          (q) => sm.assignments[q.id] === section.id
+        );
+        return (
+          <Box
+            key={section.id}
+            marginBottom={8}
+            border="1px"
+            borderColor="gray.200"
+            borderRadius="md"
+            overflow="hidden"
+          >
+            {/* Section header */}
+            <Flex
+              alignItems="center"
+              gap={3}
+              px={5}
+              py={3}
+              backgroundColor="primary.base"
+            >
+              {editingId === section.id ? (
+                <Flex gap={2} flex={1} alignItems="center">
+                  <input
+                    autoFocus
+                    value={titleInput}
+                    onChange={(e) => setTitleInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRename(section.id);
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    style={{
+                      flex: 1,
+                      border: "1px solid #ccc",
+                      borderRadius: 4,
+                      padding: "4px 10px",
+                      fontSize: 14,
+                    }}
+                  />
+                  <Button size="sm" onClick={() => handleRename(section.id)}>
+                    Save
+                  </Button>
+                  <Button size="sm" ghost onClick={() => setEditingId(null)}>
+                    Cancel
+                  </Button>
+                </Flex>
+              ) : (
+                <>
+                  <Heading fontSize="heading.h5" color="white" flex={1}>
+                    Section {si + 1}: {section.title}
+                  </Heading>
+                  <Button
+                    size="xs"
+                    ghost
+                    onClick={() => {
+                      setEditingId(section.id);
+                      setTitleInput(section.title);
+                    }}
+                    color="white"
+                  >
+                    Rename
+                  </Button>
+                  <Button
+                    size="xs"
+                    ghost
+                    onClick={() => sm.remove(section.id)}
+                    color="red.200"
+                  >
+                    Delete
+                  </Button>
+                </>
+              )}
+            </Flex>
 
-      <Box paddingTop={10}>
-        <Button
-          link={`/admin/courses/${courseId}/assessment/${assessmentId}/questions/new${
-            isExamination ? `?examination=${isExamination}` : ""
-          }`}
-        >
-          Add New Question
-        </Button>
+            {/* Section questions */}
+            <Box px={5} pt={4} pb={2}>
+              {sectionQs.length === 0 && (
+                <Box
+                  padding={4}
+                  backgroundColor="gray.50"
+                  textAlign="center"
+                  borderRadius="md"
+                  mb={4}
+                >
+                  <Text color="gray.400">
+                    No questions in this section yet.
+                  </Text>
+                </Box>
+              )}
+              {sectionQs.map((q, index) => (
+                <QuestionCard
+                  key={q.id}
+                  id={q.id}
+                  questionNumber={getQuestionNumber(index)}
+                  question={q.question}
+                  image={q.file}
+                  marginBottom={4}
+                  sections={sm.sections}
+                  currentSectionId={section.id}
+                  onAssign={(qId, sId) => sm.assign(qId, sId)}
+                  onUnassign={(qId) => sm.unassign(qId)}
+                />
+              ))}
+              <Box pb={4}>
+                <Button link={buildAddLink(section.id)} size="sm" ghost>
+                  + Add Question to this Section
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+        );
+      })}
+
+      {/* ── Unassigned / no-section questions ── */}
+      {(unassigned.length > 0 || sm.sections.length === 0) && (
+        <Box marginBottom={8}>
+          {sm.sections.length > 0 && (
+            <Flex
+              alignItems="center"
+              mb={4}
+              pb={2}
+              borderBottom="1px"
+              borderColor="gray.300"
+            >
+              <Heading fontSize="heading.h5" color="gray.500">
+                Unassigned Questions
+              </Heading>
+            </Flex>
+          )}
+
+          {unassigned.map((q, index) => (
+            <QuestionCard
+              key={q.id}
+              id={q.id}
+              questionNumber={getQuestionNumber(index)}
+              question={q.question}
+              image={q.file}
+              marginBottom={4}
+              sections={sm.sections}
+              currentSectionId={null}
+              onAssign={(qId, sId) => sm.assign(qId, sId)}
+              onUnassign={(qId) => sm.unassign(qId)}
+            />
+          ))}
+
+          <Box paddingTop={4}>
+            <Button link={buildAddLink(null)}>Add New Question</Button>
+          </Box>
+        </Box>
+      )}
+
+      {/* ── Add Section ── */}
+      <Box
+        paddingTop={5}
+        borderTop="1px"
+        borderColor="gray.200"
+        marginTop={4}
+      >
+        {showNewSection ? (
+          <Flex gap={3} alignItems="flex-end">
+            <Box flex={1}>
+              <Input
+                label="Section Title"
+                placeholder='e.g. "Section A – General Knowledge"'
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddSection();
+                }}
+              />
+            </Box>
+            <Button
+              onClick={handleAddSection}
+              disabled={!newTitle.trim()}
+              mb={2}
+            >
+              Add Section
+            </Button>
+            <Button
+              ghost
+              onClick={() => {
+                setShowNewSection(false);
+                setNewTitle("");
+              }}
+              mb={2}
+            >
+              Cancel
+            </Button>
+          </Flex>
+        ) : (
+          <Button ghost onClick={() => setShowNewSection(true)}>
+            + Add Section
+          </Button>
+        )}
       </Box>
     </Box>
   );
 };
 
-const QuestionCard = ({ questionNumber, question, image, id, ...rest }) => {
+const QuestionCard = ({
+  questionNumber,
+  question,
+  image,
+  id,
+  sections,
+  currentSectionId,
+  onAssign,
+  onUnassign,
+  ...rest
+}) => {
   const { id: courseId, assessmentId } = useParams();
   const isExamination = useQueryParams().get("examination");
   const isStandaloneExamination =
@@ -932,33 +1232,41 @@ const QuestionCard = ({ questionNumber, question, image, id, ...rest }) => {
         </Box>
 
         <Box transform="translateY(-10px)">
-          <MoreIconButton editLink={editLink} onDelete={handleDelete} />
+          <MoreIconButton
+            editLink={editLink}
+            onDelete={handleDelete}
+            sections={sections}
+            currentSectionId={currentSectionId}
+            onAssign={onAssign ? (sId) => onAssign(id, sId) : null}
+            onUnassign={onUnassign ? () => onUnassign(id) : null}
+          />
         </Box>
       </Flex>
     </>
   );
 };
 
-export const MoreIconButton = ({ editLink, onDelete }) => {
+export const MoreIconButton = ({
+  editLink,
+  onDelete,
+  sections,
+  currentSectionId,
+  onAssign,
+  onUnassign,
+}) => {
   const { push } = useHistory();
 
-  const handleViewClick = () => {
-    push(editLink);
-  };
+  const handleViewClick = () => push(editLink);
+  const handleEditClick = () => push(editLink + "&edit=true");
 
-  const handleEditClick = () => {
-    push(editLink + "&edit=true");
-  };
+  const otherSections = sections?.filter((s) => s.id !== currentSectionId) ?? [];
 
   return (
     <Menu placement="bottom-end">
       <MenuButton
         padding={2}
         rounded="full"
-        _hover={{
-          background: "none",
-          color: "others.3",
-        }}
+        _hover={{ background: "none", color: "others.3" }}
         _focus={{ border: "none", background: "white" }}
       >
         <FiMoreHorizontal />
@@ -967,6 +1275,20 @@ export const MoreIconButton = ({ editLink, onDelete }) => {
       <MenuList position="relative" zIndex={2}>
         <MenuItem onClick={handleViewClick}>Preview question</MenuItem>
         <MenuItem onClick={handleEditClick}>Edit question</MenuItem>
+
+        {/* Section assignment */}
+        {otherSections.length > 0 &&
+          otherSections.map((s) => (
+            <MenuItem key={s.id} onClick={() => onAssign && onAssign(s.id)}>
+              Move to: {s.title}
+            </MenuItem>
+          ))}
+        {currentSectionId && onUnassign && (
+          <MenuItem onClick={onUnassign} color="orange.500">
+            Remove from section
+          </MenuItem>
+        )}
+
         <MenuItem onClick={onDelete} color="red.500">
           Delete question
         </MenuItem>

@@ -74,3 +74,11 @@ export { CreateModuleAssessmentPageRoute } from "./courses/ViewCourseInfoPage/pa
 export { ModuleExaminationsPageRoute } from "./courses/ViewCourseInfoPage/pages/ModuleExaminationsPage";
 export { CreateModuleExaminationPageRoute } from "./courses/ViewCourseInfoPage/pages/CreateModuleExaminationPage";
 export { ViewModuleExaminationPageRoute } from "./courses/ViewCourseInfoPage/pages/ViewModuleExaminationPage";
+export { ViewModulePageRoute } from "./courses/ViewCourseInfoPage/pages/ViewModulePage";
+export { ModuleProjectsPageRoute } from "./courses/ViewCourseInfoPage/pages/ModuleProjectsPage";
+export { CreateModuleProjectPageRoute } from "./courses/ViewCourseInfoPage/pages/CreateModuleProjectPage";
+export { ViewModuleProjectPageRoute } from "./courses/ViewCourseInfoPage/pages/ViewModuleProjectPage";
+export { EditModuleProjectPageRoute } from "./courses/ViewCourseInfoPage/pages/EditModuleProjectPage";
+export { ProjectSubmissionsPageRoute } from "./courses/ViewCourseInfoPage/pages/ProjectSubmissionsPage";
+export { ProjectSubmissionReviewPageRoute } from "./courses/ViewCourseInfoPage/pages/ProjectSubmissionReviewPage";
+export { ModuleProgressPageRoute } from "./courses/ViewCourseInfoPage/pages/ModuleProgressPage";

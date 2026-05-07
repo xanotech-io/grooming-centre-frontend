@@ -7,6 +7,7 @@ import {
   Button,
   DateTimePicker,
   Input,
+  Select,
   Spinner,
   Text,
 } from "../../../../../components";
@@ -20,6 +21,7 @@ import {
   adminCreateAssessment,
   adminCreateExamination,
   adminCreateStandaloneExamination,
+  adminGetMarkingTemplates,
 } from "../../../../../services";
 import {
   capitalizeFirstLetter,
@@ -44,6 +46,23 @@ const CreateAssessmentPage = ({ users }) => {
   const { push } = useHistory();
   const toast = useToast();
   const [selectedIDs, setSelectedIDs] = useState([]);
+  const [markingTemplates, setMarkingTemplates] = useState([]);
+  const [markingTemplateId, setMarkingTemplateId] = useState("");
+
+  const usageScope = isStandaloneExamination
+    ? "Standalone Exam"
+    : isExamination
+    ? "Normal Exam"
+    : "Assessment";
+
+  useEffect(() => {
+    adminGetMarkingTemplates()
+      .then(({ templates }) =>
+        setMarkingTemplates(templates.filter((t) => t.usageScope === usageScope))
+      )
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usageScope]);
   const {
     state: { metadata },
   } = useApp();
@@ -67,9 +86,13 @@ const CreateAssessmentPage = ({ users }) => {
       if (selectedIDs.length === 0 && isStandaloneExamination)
         throw new Error("Please select at least one User or Department");
 
+      if (!markingTemplateId)
+        throw new Error("A marking template must be selected before creating an assessment or examination.");
+
       data = {
         ...data,
         courseId,
+        markingTemplateId,
         startTime: formatDateToISO(startTime),
       };
 
@@ -291,6 +314,16 @@ const CreateAssessmentPage = ({ users }) => {
                 {...register("amountOfQuestions", {
                   required: "Please enter number of questions",
                 })}
+              />
+            </GridItem>
+            <GridItem colSpan={{ base: 1, lg: 2 }}>
+              <Select
+                label="Marking Template"
+                placeholder="Select a marking template"
+                isRequired
+                value={markingTemplateId}
+                onChange={(e) => setMarkingTemplateId(e.target.value)}
+                options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
               />
             </GridItem>
           </Box>

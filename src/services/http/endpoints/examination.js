@@ -231,6 +231,60 @@ export const adminListModuleExaminations = async (moduleId) => {
 };
 
 /**
+ * Fetch a module examination for a user to take
+ * Hits /v1/examination/module/{moduleId} and maps to the same shape as requestExaminationDetails
+ * @param {string} moduleId
+ * @returns {Promise<{ examination: Examination }>}
+ */
+export const requestModuleExaminationDetails = async (moduleId) => {
+  const path = `/v1/examination/module/${moduleId}`;
+
+  const {
+    data: { data },
+  } = await http.get(path);
+
+  const raw = Array.isArray(data) ? data[0] : data;
+  if (!raw) throw new Error("No examination found for this module");
+
+  const questionArray = raw.examinationQuestions ?? [];
+
+  for (let i = questionArray.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * i);
+    const temp = questionArray[i];
+    questionArray[i] = questionArray[j];
+    questionArray[j] = temp;
+  }
+
+  const examination = {
+    id: raw.id,
+    courseId: raw.courseId,
+    moduleId: raw.moduleId,
+    topic: raw.title,
+    duration: raw.duration,
+    questionCount: raw.amountOfQuestions,
+    startTime: raw.startTime,
+    endTime: getEndTime(raw.startTime, raw.duration),
+    hasCompleted: raw.examinationScoreSheets?.[0] ? true : false,
+    minimumPercentageScoreToEarnABadge:
+      raw.minimumPercentageScoreToEarnABadge || 30,
+    questions: questionArray.map((q, index) => ({
+      id: q.id,
+      question: q.question,
+      file: q.file,
+      questionIndex: +q.questionIndex || index,
+      options: (q.options ?? []).map((opt) => ({
+        id: opt.id,
+        isAnswer: opt.isAnswer,
+        name: opt.name,
+        optionIndex: +opt.optionIndex,
+      })),
+    })),
+  };
+
+  return { examination };
+};
+
+/**
  * Endpoint for examination modification/update
  * @param {object} body
  * @returns {Promise<{ message: string }>}

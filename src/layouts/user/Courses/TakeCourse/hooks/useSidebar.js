@@ -7,8 +7,7 @@ const mapLessonsToLinks = (course) => {
     id: lesson.id,
     to: `/courses/take/${course.id}/lessons/${lesson.id}`,
     text: lesson.title,
-    disabled:
-      !isOngoing(lesson.startTime, lesson.endTime) && !lesson.hasCompleted,
+    disabled: false,
     type: lesson.lessonType.name,
     hasCompleted: lesson.hasCompleted,
     hasElapsed: hasEnded(lesson.endTime) && !lesson.hasCompleted,
@@ -22,9 +21,7 @@ const mapLessonsToLinks = (course) => {
     id: assessment.id,
     to: `/courses/take/${course.id}/assessment/${assessment.id}`,
     text: assessment.title || "Assessment",
-    disabled:
-      !isOngoing(assessment.startTime, assessment.endTime) ||
-      assessment.hasCompleted,
+    disabled: false,
     type: "assessment",
     hasCompleted: assessment.hasCompleted,
     hasElapsed: hasEnded(assessment.endTime) && !assessment.hasCompleted,
@@ -97,11 +94,7 @@ const mapLessonsToLinks = (course) => {
     id: course?.examination?.id,
     to: `/courses/take/${course?.id}/assessment/${course?.id}?examination=true`,
     text: "Examination",
-    disabled:
-      !isOngoing(
-        course?.examination?.startTime,
-        course?.examination?.endTime
-      ) || course?.examination?.hasCompleted,
+    disabled: false,
     type: "examination",
     hasCompleted: course?.examination?.hasCompleted,
     hasElapsed:
