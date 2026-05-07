@@ -32,7 +32,7 @@ fi
 # ─── Full ESLint pass (entire src) ───────────────────────────────────────────
 printf "  ${INFO} Verifying code quality (full lint)...\n"
 
-if yarn lint --silent 2>&1; then
+if yarn --silent lint 2>&1; then
   printf "  ${PASS} ESLint passed.\n"
 else
   echo ""
