@@ -1,6 +1,6 @@
 import { Box, useDisclosure } from "@chakra-ui/react";
 import { Warning } from "@material-ui/icons";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MdRadioButtonUnchecked } from "react-icons/md";
 import { RiRadioButtonFill } from "react-icons/ri";
 import { Route } from "react-router-dom";
@@ -16,10 +16,9 @@ const AssessmentStart = () => {
     score: false,
   });
   const modalManager = useDisclosure();
-  const [modalContent, setModalContent] = useState();
-  const [modalPrompt, setModalPrompt] = useState(null);
-  const [modalCanClose, setModalCanClose] = useState(true);
-  const [end, setEnd] = useState(true);
+  const { onOpen } = modalManager;
+  const [ , setModalContent] = useState();
+  const [, setModalPrompt] = useState(null);
   const [icon, setIcon] = useState(false);
   const [page, setPage] = useState(0);
   const [id, setId] = useState("");
@@ -43,6 +42,10 @@ const AssessmentStart = () => {
     setExitAttempts((prevAttempts) => prevAttempts + 1);
   };
 
+  const handleSubmit = useCallback(() => {
+    setModal((prev) => ({ ...prev, state: true }));
+  }, []);
+
   useEffect(() => {
     const handleUnload = (event) => {
       event.preventDefault();
@@ -52,7 +55,7 @@ const AssessmentStart = () => {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        modalManager.onOpen();
+        onOpen();
         setModalContent(null);
         setModalPrompt({
           heading: `Leaving this tab more than twice will automatically submit your examination`,
@@ -80,13 +83,13 @@ const AssessmentStart = () => {
       window.removeEventListener("beforeunload", handleUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [onOpen]);
 
   useEffect(() => {
     if (exitAttempts >= 3) {
       handleSubmit();
     }
-  }, [exitAttempts]);
+  }, [exitAttempts, handleSubmit]);
 
   //   return (
   //     <div>
@@ -121,16 +124,19 @@ const AssessmentStart = () => {
     setId(id);
   };
   useEffect(() => {
-    if (ans.ans1.length > 1) {
-      setAns({ ...ans, ans1: [ans.ans1.pop()] });
-    }
+    setAns((prev) => {
+      if (prev.ans1.length > 1) {
+        return { ...prev, ans1: [prev.ans1[prev.ans1.length - 1]] };
+      }
+      return prev;
+    });
   }, [ans.ans1.length]);
 
   // console.log(ans.ans1);
 
   useEffect(() => {
-    setMain([...main, ...ans.ans1]);
-  }, []);
+    setMain((prev) => [...prev, ...ans.ans1]);
+  }, [ans.ans1]);
 
   // console.log(main);
 
@@ -143,9 +149,6 @@ const AssessmentStart = () => {
     setIcon(false);
   };
 
-  const handleSubmit = () => {
-    setModal({ ...modal, state: true });
-  };
   const handlePrev = () => {
     setPage(page === 0 ? 0 : page - 1);
     setIcon(false);

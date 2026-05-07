@@ -1,10 +1,8 @@
-import { useState } from "react";
-import { exportComponentAsPNG, exportComponentAsPDF } from "react-component-export-image";
+import { exportComponentAsPNG } from "react-component-export-image";
 import { useRef } from "react";
 import template from "../../../../assets/images/template.png"
 import "./style.css";
-import { AdminMainAreaWrapper } from "../../../../layouts";
-import { Button, Heading } from "../../../../components";
+import { Button } from "../../../../components";
 import { Flex } from "@chakra-ui/react";
 export const Certificate = ({name, title}) => {
   const certificateWrapper = useRef(null);

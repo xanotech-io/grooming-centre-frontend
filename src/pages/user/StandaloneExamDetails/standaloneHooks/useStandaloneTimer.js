@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getEndTime, getServerDateNow } from '../../../../utils';
 
 const getLateEndDate = (startTime, endTime) => {
@@ -12,8 +12,8 @@ const getLateEndDate = (startTime, endTime) => {
 const useStandaloneTimer = ({ startDate: _startDate, duration }) => {
   const [time, setTime] = useState('');
   const [startDate, setStartDate] = useState();
-  const [startCountDown, setStartCountDown] = useState(false);
-  const [hasTimeout, setHasTimeout] = useState(false);
+  const [, setStartCountDown] = useState(false);
+  const [hasTimeout] = useState(false);
 
   const copyDate = new Date(_startDate);
 
@@ -24,12 +24,12 @@ const useStandaloneTimer = ({ startDate: _startDate, duration }) => {
     day: 'numeric',
   };
 
-  const toHoursAndMinutes = (totalMinutes) => {
+  const toHoursAndMinutes = useCallback((totalMinutes) => {
     const minutes = totalMinutes % 60;
     const hours = Math.floor(totalMinutes / 60);
 
     setTime(`${padTo2Digits(hours)}:${padTo2Digits(minutes)}`);
-  };
+  }, []);
 
   function padTo2Digits(num) {
     return num.toString().padStart(2, '0');
@@ -37,7 +37,7 @@ const useStandaloneTimer = ({ startDate: _startDate, duration }) => {
 
   useEffect(() => {
     toHoursAndMinutes(duration);
-  }, [duration]);
+  }, [duration, toHoursAndMinutes]);
 
   const myDate = copyDate.toLocaleString('en-IN', options).replaceAll(',', '');
   const _endDate = new Date(`${myDate} ${time}:00`).toJSON();
