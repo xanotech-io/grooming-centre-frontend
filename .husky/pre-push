@@ -1,5 +1,64 @@
-# No TypeScript in this project — tsc check skipped.
-# Uncomment the line below to enable a full build check before push (slow ~2-3 min):
-# yarn build
+#!/usr/bin/env sh
 
-echo "Pre-push checks passed."
+# ─── Colors & symbols ────────────────────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+DIM='\033[2m'
+RESET='\033[0m'
+
+PASS="${GREEN}✔${RESET}"
+FAIL="${RED}✖${RESET}"
+INFO="${CYAN}›${RESET}"
+WARN="${YELLOW}⚠${RESET}"
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+# ─── Header ──────────────────────────────────────────────────────────────────
+echo ""
+printf "${BOLD}${CYAN}  Pre-push check${RESET}  ${DIM}branch: ${BRANCH}${RESET}\n"
+printf "${DIM}  ─────────────────────────────────────────${RESET}\n"
+echo ""
+
+# ─── Guard: warn on direct push to main/master ───────────────────────────────
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+  printf "  ${WARN}  ${YELLOW}${BOLD}Pushing directly to ${BRANCH}.${RESET}\n"
+  printf "  ${DIM}  Consider using a feature branch and PR instead.${RESET}\n"
+  echo ""
+fi
+
+# ─── Full ESLint pass (entire src) ───────────────────────────────────────────
+printf "  ${INFO} Verifying code quality (full lint)...\n"
+
+if yarn lint --silent 2>&1; then
+  printf "  ${PASS} ESLint passed.\n"
+else
+  echo ""
+  printf "  ${DIM}─────────────────────────────────────────${RESET}\n"
+  printf "  ${FAIL} ${BOLD}${RED}Push blocked — ESLint errors in codebase.${RESET}\n"
+  echo ""
+  printf "  ${YELLOW}Run:${RESET}  ${DIM}yarn lint:fix${RESET}\n"
+  printf "  ${DIM}Then review any remaining errors before pushing.${RESET}\n"
+  echo ""
+  exit 1
+fi
+
+# ─── Optional: build verification ────────────────────────────────────────────
+# Uncomment to verify the production build passes before every push.
+# Slow (~2-3 min) — recommended only on release/main branches.
+#
+# printf "  ${INFO} Verifying production build...\n"
+# if yarn build --silent 2>&1; then
+#   printf "  ${PASS} Build passed.\n"
+# else
+#   printf "  ${FAIL} ${RED}Build failed. Push blocked.${RESET}\n"
+#   exit 1
+# fi
+
+# ─── Done ────────────────────────────────────────────────────────────────────
+echo ""
+printf "  ${DIM}─────────────────────────────────────────${RESET}\n"
+printf "  ${PASS} ${BOLD}${GREEN}All checks passed.${RESET} Pushing to ${DIM}${BRANCH}${RESET}...\n"
+echo ""

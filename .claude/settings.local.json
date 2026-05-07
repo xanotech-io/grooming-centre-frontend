@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\kamal\\\\Work\\\\grooming-centre-frontend\\\\src\\\\pages\\\\user\\\\Courses\" -Recurse -File)"
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\kamal\\\\Work\\\\grooming-centre-frontend\\\\src\\\\pages\\\\user\\\\Courses\" -Recurse -File)",
+      "Bash(git config *)"
     ]
   }
 }
