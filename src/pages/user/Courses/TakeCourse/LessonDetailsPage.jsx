@@ -10,7 +10,6 @@ import {
   NavigationBlocker,
   RichTextToView,
   SkeletonText,
-  Text,
 } from '../../../../components';
 import useLessonDetails from './hooks/useLessonDetails';
 import { capitalizeFirstLetter } from '../../../../utils/formatString';

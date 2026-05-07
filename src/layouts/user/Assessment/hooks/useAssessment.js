@@ -7,7 +7,7 @@ import { Text } from "../../../../components";
 import useQueryParams from "../../../../hooks/useQueryParams";
 import {  submitAssessment } from "../../../../services";
 import { submitExamination } from "../../../../services/http/endpoints/examination";
-import { hasEnded, isUpcoming, sortByIndexField } from "../../../../utils";
+import {  sortByIndexField } from "../../../../utils";
 import { CongratsModalContent } from "../Modal";
 import useTimerCountdown from "./useTimerCountdown";
 import { Box } from "@chakra-ui/layout";

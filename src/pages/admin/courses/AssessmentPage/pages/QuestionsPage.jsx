@@ -245,7 +245,6 @@ const CreateQuestionPage = (assessmentManager) => {
   const QUESTION_TYPES = ["MCQ", "TrueFalse", "FillBlank", "Matching", "ShortAnswer", "Essay"];
 
   const [questionType, setQuestionType] = useState("MCQ");
-  const isMultipleChoiceOptions = questionType === "MCQ";
 
   const [answer, setAnswer] = useState();
   const [matchingPairs, setMatchingPairs] = useState([{ left: "", right: "" }]);

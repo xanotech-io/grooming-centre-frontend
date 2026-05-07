@@ -55,7 +55,6 @@ const getScopeBadge = (scope) => {
 
 export const ExamTemplatesPage = () => {
   const history = useHistory();
-  const toast = useToast();
   const { resource, handleFetchResource } = useFetch();
   const [scopeFilter, setScopeFilter] = useState("");
 

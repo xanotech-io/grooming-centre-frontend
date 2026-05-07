@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useApp, useTakeCourse } from "../../../../../contexts";
-import { hasEnded, isOngoing, isUpcoming } from "../../../../../utils";
+import { hasEnded, isUpcoming } from "../../../../../utils";
 
 const mapLessonsToLinks = (course) => {
   const mapLessonToLink = (lesson) => ({
