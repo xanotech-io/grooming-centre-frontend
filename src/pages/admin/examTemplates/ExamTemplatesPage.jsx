@@ -22,7 +22,6 @@ import {
   InputGroup,
   InputLeftElement,
   Input,
-  useToast,
 } from "@chakra-ui/react";
 import { FaSearch, FaPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { FiMoreVertical } from "react-icons/fi";

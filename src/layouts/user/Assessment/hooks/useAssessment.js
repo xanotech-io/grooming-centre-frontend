@@ -19,7 +19,7 @@ import {
 
 
 const useAssessment = () => {
-  const { assessment, isLoading, error, setError } = useCourseExamPreview();
+  const { assessment, isLoading, error } = useCourseExamPreview();
   const { course_id } = useParams();
   const isExamination = useQueryParams().get("examination");
   const [score, setScore] = useState("");
