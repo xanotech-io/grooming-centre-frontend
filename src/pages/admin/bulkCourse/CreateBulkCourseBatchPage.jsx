@@ -21,6 +21,7 @@ import { Button, Heading } from "../../../components";
 import {
   adminGetCourseTemplates,
   adminCreateBulkCourseBatch,
+  adminGetDepartmentListing,
 } from "../../../services";
 
 const EMPTY_COURSE = { title: "", description: "", credits: 3 };
@@ -30,32 +31,37 @@ const CreateBulkCourseBatchPage = () => {
   const toast = useToast();
 
   const [templates, setTemplates] = useState([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [departments, setDepartments] = useState([]);
+  const [loadingMeta, setLoadingMeta] = useState(true);
 
   const [departmentId, setDepartmentId] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [courses, setCourses] = useState([{ ...EMPTY_COURSE }]);
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchTemplates = useCallback(async () => {
+  const fetchMeta = useCallback(async () => {
     try {
-      const { templates: list } = await adminGetCourseTemplates();
-      setTemplates(list);
+      const [tplRes, deptRes] = await Promise.all([
+        adminGetCourseTemplates(),
+        adminGetDepartmentListing(),
+      ]);
+      setTemplates(tplRes.templates ?? []);
+      setDepartments(deptRes.departments ?? []);
     } catch {
       toast({
-        title: "Failed to load templates",
+        title: "Failed to load form data",
         status: "error",
         duration: 3000,
         isClosable: true,
       });
     } finally {
-      setLoadingTemplates(false);
+      setLoadingMeta(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
+    fetchMeta();
+  }, [fetchMeta]);
 
   const addCourse = () => setCourses((prev) => [...prev, { ...EMPTY_COURSE }]);
 
@@ -71,9 +77,9 @@ const CreateBulkCourseBatchPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!departmentId.trim()) {
+    if (!departmentId) {
       toast({
-        title: "Department ID is required",
+        title: "Please select a department",
         status: "warning",
         duration: 3000,
         isClosable: true,
@@ -95,12 +101,11 @@ const CreateBulkCourseBatchPage = () => {
     setSubmitting(true);
     try {
       const { message } = await adminCreateBulkCourseBatch({
-        departmentId: departmentId.trim(),
-        templateId: templateId || undefined,
-        courses: validCourses.map((c) => ({
+        departmentId,
+        ...(templateId && { templateId }),
+        courseList: validCourses.map((c) => ({
           title: c.title.trim(),
-          description: c.description.trim(),
-          credits: Number(c.credits) || 3,
+          ...(c.description.trim() && { description: c.description.trim() }),
         })),
       });
 
@@ -123,9 +128,16 @@ const CreateBulkCourseBatchPage = () => {
     }
   };
 
+  if (loadingMeta) {
+    return (
+      <Flex justifyContent="center" alignItems="center" height="300px">
+        <Spinner size="xl" color="blue.500" />
+      </Flex>
+    );
+  }
+
   return (
     <Box marginX="22px" marginY="20px">
-      {/* Header */}
       <Flex alignItems="center" gap="12px" mb="24px">
         <IconButton
           aria-label="Go back"
@@ -148,7 +160,6 @@ const CreateBulkCourseBatchPage = () => {
         p="24px"
         maxW="780px"
       >
-        {/* Batch Info */}
         <Text fontSize="16px" fontWeight="600" color="gray.700" mb="16px">
           Batch Configuration
         </Text>
@@ -156,56 +167,52 @@ const CreateBulkCourseBatchPage = () => {
         <Flex gap="16px" mb="16px" direction={{ base: "column", md: "row" }}>
           <FormControl isRequired flex="1">
             <FormLabel fontSize="14px" fontWeight="500" color="gray.600">
-              Department ID
+              Department
             </FormLabel>
-            <Input
-              placeholder="e.g. dept-uuid-123"
+            <ChakraSelect
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
+              placeholder="Select department"
               size="sm"
               borderRadius="6px"
-            />
+            >
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </ChakraSelect>
           </FormControl>
 
           <FormControl flex="1">
             <FormLabel fontSize="14px" fontWeight="500" color="gray.600">
               Course Template
             </FormLabel>
-            {loadingTemplates ? (
-              <Flex alignItems="center" gap="8px" pt="8px">
-                <Spinner size="sm" />
-                <Text fontSize="13px" color="gray.500">
-                  Loading templates…
-                </Text>
-              </Flex>
-            ) : (
-              <ChakraSelect
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-                placeholder="No template (optional)"
-                size="sm"
-                borderRadius="6px"
-              >
-                {templates.map((t) => (
-                  <option key={t.templateId} value={t.templateId}>
-                    {t.templateName}
-                  </option>
-                ))}
-              </ChakraSelect>
-            )}
+            <ChakraSelect
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              placeholder="No template (optional)"
+              size="sm"
+              borderRadius="6px"
+            >
+              {templates.map((t) => (
+                <option key={t.templateId} value={t.templateId}>
+                  {t.templateName}
+                </option>
+              ))}
+            </ChakraSelect>
           </FormControl>
         </Flex>
 
         <Divider my="20px" />
 
-        {/* Course List */}
         <Flex justifyContent="space-between" alignItems="center" mb="16px">
           <Text fontSize="16px" fontWeight="600" color="gray.700">
             Courses ({courses.length})
           </Text>
           <Button
             size="sm"
-            variant="outline"
+            secondary
             leftIcon={<FaPlus />}
             onClick={addCourse}
           >
@@ -295,10 +302,9 @@ const CreateBulkCourseBatchPage = () => {
           ))}
         </Flex>
 
-        {/* Submit */}
         <Flex justifyContent="flex-end" gap="12px" mt="24px">
           <Button
-            variant="outline"
+            secondary
             onClick={() => history.push("/admin/bulk-courses")}
             isDisabled={submitting}
           >

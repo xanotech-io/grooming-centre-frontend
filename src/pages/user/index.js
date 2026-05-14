@@ -25,3 +25,7 @@ export * from './Profile/ProfilePage';
 export * from './StandaloneExamDetails/StandaloneExaminationListingPage';
 export * from './StandaloneExamDetails/timeConverter';
 export * from './StandaloneExamDetails/StandaloneExamsStart.jsx';
+export * from './GradeBook/MyGradeBookPage';
+export * from './GradeBook/MyGradeBooksListPage';
+export * from './Assessment/StudentResultPage';
+export * from './Assessment/AwaitingGradePage';

@@ -24,6 +24,33 @@ const links = [
       }`,
     text: "Questions",
   },
+  {
+    matcher: (courseId, assessmentId) =>
+      `/admin/courses/${courseId}/assessment/${assessmentId}/submissions`,
+    href: (courseId, assessmentId, examinationId) =>
+      `/admin/courses/${courseId}/assessment/${assessmentId}/submissions${
+        examinationId ? `?examination=${examinationId}` : ""
+      }`,
+    text: "Submissions",
+  },
+  {
+    matcher: (courseId, assessmentId) =>
+      `/admin/courses/${courseId}/assessment/${assessmentId}/grading`,
+    href: (courseId, assessmentId, examinationId) =>
+      `/admin/courses/${courseId}/assessment/${assessmentId}/grading${
+        examinationId ? `?examination=${examinationId}` : ""
+      }`,
+    text: "Grading",
+  },
+  {
+    matcher: (courseId, assessmentId) =>
+      `/admin/courses/${courseId}/assessment/${assessmentId}/results`,
+    href: (courseId, assessmentId, examinationId) =>
+      `/admin/courses/${courseId}/assessment/${assessmentId}/results${
+        examinationId ? `?examination=${examinationId}` : ""
+      }`,
+    text: "Results",
+  },
 ];
 
 const Header = () => {

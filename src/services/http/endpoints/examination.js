@@ -52,6 +52,14 @@ export const requestExaminationDetails = async (id, forAdmin) => {
   return { examination };
 };
 
+export const adminGetExaminationById = async (examinationId) => {
+  const {
+    data: { data },
+  } = await http.get(`/v1/examination/admin/${examinationId}`);
+
+  return { examination: data };
+};
+
 export const adminDeleteExaminationQuestionFile = async (questionId) => {
   const path = `/v1/examination/question/delete-image/${questionId}`;
 

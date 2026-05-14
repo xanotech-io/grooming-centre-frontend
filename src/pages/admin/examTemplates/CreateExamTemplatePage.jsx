@@ -46,6 +46,14 @@ const USAGE_SCOPE_OPTIONS = [
   { label: "Standalone Exam", value: "Standalone Exam" },
 ];
 
+const SECTION_TYPE_OPTIONS = [
+  { label: "Objective", value: "objective" },
+  { label: "Essay", value: "essay" },
+  { label: "Mixed", value: "mixed" },
+];
+
+const defaultSection = () => ({ name: "", type: "objective", questionCount: 1, marksPerQuestion: 1 });
+
 const defaultTypeConfig = () => ({
   quantity: 5,
   marks: 5,
@@ -64,7 +72,13 @@ export const CreateExamTemplatePage = () => {
   const [kpInput, setKpInput] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [retryPolicy, setRetryPolicy] = useState("highest");
+  const [sections, setSections] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const addSection = () => setSections((p) => [...p, defaultSection()]);
+  const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
+  const updateSection = (i, field, value) =>
+    setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
 
   const handleTypeToggle = (types) => {
     setSelectedTypes(types);
@@ -140,6 +154,14 @@ export const CreateExamTemplatePage = () => {
       totalMarks,
       retryCount: Number(retryCount),
       retryPolicy,
+      ...(sections.length > 0 && {
+        sections: sections.map((s) => ({
+          name: s.name,
+          type: s.type,
+          questionCount: Number(s.questionCount),
+          marksPerQuestion: Number(s.marksPerQuestion),
+        })),
+      }),
     };
 
     setIsSubmitting(true);
@@ -290,6 +312,84 @@ export const CreateExamTemplatePage = () => {
                       value={typeConfigs[type]?.difficulty}
                       onChange={(e) => handleTypeConfigChange(type, "difficulty", e.target.value)}
                     />
+                  </Grid>
+                ))}
+              </>
+            )}
+          </Box>
+
+          {/* Paper Sections */}
+          <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
+            <Flex justifyContent="space-between" alignItems="center" mb="16px">
+              <Text fontSize="16px" fontWeight="600" color="#1A202C">Paper Sections</Text>
+              <Button ghost onClick={addSection} type="button">
+                <Flex alignItems="center" gap="6px"><FaPlus size="11px" /> Add Section</Flex>
+              </Button>
+            </Flex>
+
+            {sections.length === 0 ? (
+              <Box bg="#F7F9FC" borderRadius="8px" p="20px" textAlign="center">
+                <Text fontSize="13px" color="#A0AEC0">No sections added — the paper will be unsectioned.</Text>
+              </Box>
+            ) : (
+              <>
+                <Grid templateColumns="2fr 1fr 1fr 1fr auto" gap="10px" mb="8px">
+                  {["NAME", "TYPE", "QUESTIONS", "MARKS/Q", ""].map((h) => (
+                    <Text key={h} fontSize="11px" fontWeight="600" color="#718096">{h}</Text>
+                  ))}
+                </Grid>
+                {sections.map((s, i) => (
+                  <Grid key={i} templateColumns="2fr 1fr 1fr 1fr auto" gap="10px" mb="10px" alignItems="center">
+                    <input
+                      value={s.name}
+                      onChange={(e) => updateSection(i, "name", e.target.value)}
+                      placeholder="e.g. Section A"
+                      style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 10px", fontSize: 13, width: "100%" }}
+                    />
+                    <select
+                      value={s.type}
+                      onChange={(e) => updateSection(i, "type", e.target.value)}
+                      style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 6px", fontSize: 13, width: "100%" }}
+                    >
+                      {SECTION_TYPE_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    <NumberInput
+                      min={1}
+                      value={s.questionCount}
+                      onChange={(v) => updateSection(i, "questionCount", v)}
+                    >
+                      <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
+                      <NumberInputStepper>
+                        <NumberIncrementStepper />
+                        <NumberDecrementStepper />
+                      </NumberInputStepper>
+                    </NumberInput>
+                    <NumberInput
+                      min={0}
+                      value={s.marksPerQuestion}
+                      onChange={(v) => updateSection(i, "marksPerQuestion", v)}
+                    >
+                      <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
+                      <NumberInputStepper>
+                        <NumberIncrementStepper />
+                        <NumberDecrementStepper />
+                      </NumberInputStepper>
+                    </NumberInput>
+                    <Box
+                      as="button"
+                      type="button"
+                      onClick={() => removeSection(i)}
+                      color="red.400"
+                      fontWeight="600"
+                      fontSize="18px"
+                      lineHeight="1"
+                      px={1}
+                      _hover={{ color: "red.600" }}
+                    >
+                      ×
+                    </Box>
                   </Grid>
                 ))}
               </>

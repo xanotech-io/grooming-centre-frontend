@@ -5,7 +5,7 @@ import { useParams } from "react-router";
 import { useCache } from "../../../../contexts";
 import { Text } from "../../../../components";
 import useQueryParams from "../../../../hooks/useQueryParams";
-import {  submitAssessment } from "../../../../services";
+import { submitAssessmentMarking } from "../../../../services";
 import { submitExamination } from "../../../../services/http/endpoints/examination";
 import {  sortByIndexField } from "../../../../utils";
 import { CongratsModalContent } from "../Modal";
@@ -73,47 +73,43 @@ const useAssessment = () => {
     });
 
     try {
-      const questionIdArr = assessment?.questions?.reduce((acc, question) => {
-        acc.push(question.id);
-        return acc;
-      }, []);
-      const optionIdArr = [];
+      if (isExamination) {
+        const questionIdArr = assessment?.questions?.map((q) => q.id);
+        const optionIdArr = questionIdArr.map((id) => selectedAnswers[id] || null);
+        const body = {
+          examinationId: assessment.id,
+          examinationQuestionsId: questionIdArr,
+          examinationOptionsId: optionIdArr,
+          courseId: assessment.courseId,
+        };
+        const { message, data } = await submitExamination(body);
+        setScore(data?.score);
+        toast({
+          description: exitAttempts === totalSteps ? "Exam auto submitted" : message,
+          position: "top",
+          status: "success",
+        });
+      } else {
+        const answers = assessment?.questions?.map((q) => ({
+          questionId: q.id,
+          answer: selectedAnswers[q.id] ?? null,
+          timeTaken: 0,
+        }));
+        const body = {
+          answers,
+          submissionTime: new Date().toISOString(),
+          timeTaken: 0,
+        };
+        const { message, data } = await submitAssessmentMarking(assessment.id, body);
+        setScore(data?.totalScore ?? data?.score);
+        toast({
+          description: exitAttempts === totalSteps ? "Assessment auto submitted" : message,
+          position: "top",
+          status: "success",
+        });
+      }
 
-      questionIdArr.forEach((questionId, index) => {
-        optionIdArr[index] = selectedAnswers[questionId] || null;
-      });
-
-      const context = isExamination ? "examination" : "assessment";
-
-      const body = {
-        [`${context}Id`]: assessment.id,
-        [`${context}QuestionsId`]: questionIdArr,
-        [`${context}OptionsId`]: optionIdArr,
-        // userId: user.id,
-        courseId: assessment.courseId,
-      };
-
-      //   {
-      //     "assessmentId": "2a69af3f-3073-41b2-994d-bc31f69e37cb",
-      //     "courseId": "c3b2a0a5-59eb-454f-9c2f-5a6b1c4ff1e2",
-      // }
-
-      console.log(questionIdArr, optionIdArr);
-
-      const { message, data } = await (isExamination
-        ? submitExamination(body)
-        : submitAssessment(body));
-
-      setScore(data?.score);
-      toast({
-        description:
-          exitAttempts === totalSteps ? "Exam auto submitted" : message,
-        position: "top",
-        status: "success",
-      });
-      setSubmitStatus({
-        success: true,
-      });
+      setSubmitStatus({ success: true });
     } catch (error) {
       toast({
         description: error.message,
@@ -130,9 +126,9 @@ const useAssessment = () => {
   }, [
     assessment.courseId,
     assessment.id,
+    assessment.questions,
     isExamination,
     selectedAnswers,
-    // user?.id,
   ]);
 
   useEffect(() => {
@@ -286,10 +282,17 @@ const useAssessment = () => {
     handleQuestionChange(previousQuestion);
   };
 
-  const handleOptionSelect = (selectedAssessmentOptionId) => {
+  const handleOptionSelect = (value) => {
     setSelectedAnswers((prev) => ({
       ...prev,
-      [currentQuestion?.id]: selectedAssessmentOptionId,
+      [currentQuestion?.id]: value,
+    }));
+  };
+
+  const handleAnswerChange = (value) => {
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [currentQuestion?.id]: value,
     }));
   };
 
@@ -317,6 +320,7 @@ const useAssessment = () => {
     handleNextQuestion,
     handlePreviousQuestion,
     handleOptionSelect,
+    handleAnswerChange,
     handleCert,
     nav,
     timerCountdownManger,

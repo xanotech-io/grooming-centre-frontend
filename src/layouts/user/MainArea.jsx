@@ -15,6 +15,10 @@ import {
   ProfilePageRoute,
   StandalonePagesRoute,
   StandaloneExamsStartRoute,
+  MyGradeBookPageRoute,
+  MyGradeBooksListPageRoute,
+  StudentResultPageRoute,
+  AwaitingGradePageRoute,
 } from "../../pages/user";
 import { PollsPageRoute } from "../../pages/user/PollsPage/PollsPage";
 import { StandalonePreAssessmentRoute } from "../../pages/user/StandaloneExamDetails/StandalonePreAssessment";
@@ -34,9 +38,13 @@ const MainArea = () => {
         <CourseProgressReportPageRoute exact path="/courses/details/:id/progress" />
         <CourseDetailsPageRoute path="/courses/details/:id" />
         <GradesPageRoute path="/courses/grade-overview" />
+        <MyGradeBooksListPageRoute exact path="/grade-books" />
+        <MyGradeBookPageRoute exact path="/grade-book/:gradebookId" />
 
         <CertificatePageRoute path="/courses/:course_id/certificate" />
         <PollsVotePageRoute path="/polls/:id/vote" />
+        <StudentResultPageRoute exact path="/courses/take/:courseId/assessment/:assessmentId/result" />
+        <AwaitingGradePageRoute exact path="/courses/take/:courseId/assessment/:assessmentId/awaiting" />
         <CoursesPagesRoute path="/courses" />
         <PollsPageRoute exact path="/polls" />
         <ProfilePageRoute exact path="/profile" />

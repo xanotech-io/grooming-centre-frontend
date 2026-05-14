@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\kamal\\\\Work\\\\grooming-centre-frontend\\\\src\\\\pages\\\\user\\\\Courses\" -Recurse -File)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\kamal\\\\Work\\\\grooming-centre-frontend\\\\src\\\\pages\\\\admin\\\\bulkCourse\" -Force)",
+      "Bash(ls -la \"/c/Users/kamal/Work/grooming-centre-frontend/src/pages/admin/bulkCourse/\")",
+      "Read(//c/Users/kamal/Work/grooming-centre-frontend/src/pages/admin/bulkCourse//**)",
+      "Bash(find \"/c/Users/kamal/Work/grooming-centre-frontend/src/pages/admin/courses\" -name \"*CreateCourse*\" -type f)",
+      "Read(//c/Users/kamal/Work/grooming-centre-frontend/src/pages/admin/courses/**)",
+      "Bash(yarn --silent lint)",
+      "Bash(xargs grep -l \"adminEditExamination\")",
+      "WebFetch(domain:gclms.xanotech.org)"
     ]
   }
 }

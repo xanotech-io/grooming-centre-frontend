@@ -1,32 +1,28 @@
-import { useEffect, useState } from 'react';
-import { Route } from 'react-router-dom';
-import { Box, Grid, Flex } from '@chakra-ui/layout';
+import { Box, Flex } from '@chakra-ui/layout';
 import { BreadcrumbItem } from '@chakra-ui/react';
-import {
-  Heading,
-  Breadcrumb,
-  SkeletonText,
-  Text,
-  Button,
-  Link,
-  Image,
-  Spinner,
-} from '../../../../../components';
-import { OverviewBox } from '../../../users/UserInfoPage/pages/ProfilePage';
-import { FiCheckSquare } from 'react-icons/fi';
-import { BiCertification } from 'react-icons/bi';
-import { ImArrowUp } from 'react-icons/im';
-import useCourseDetails from '../../../../user/Courses/CourseDetails/hooks/useCourseDetails';
+import { useToast } from '@chakra-ui/toast';
+import { useEffect, useState } from 'react';
+import { AiOutlineClose } from 'react-icons/ai';
 import { FaEdit } from 'react-icons/fa';
 import { HiBadgeCheck } from 'react-icons/hi';
+import { Route } from 'react-router-dom';
+import {
+  Breadcrumb,
+  Button,
+  Heading,
+  Image,
+  Link,
+  SkeletonText,
+  Spinner,
+  Text,
+} from '../../../../../components';
+import { EmptyState } from '../../../../../layouts';
 import {
   adminPublishCourse,
   adminUnpublishCourse,
 } from '../../../../../services';
-import { AiOutlineClose } from 'react-icons/ai';
-import { useToast } from '@chakra-ui/toast';
 import { capitalizeFirstLetter } from '../../../../../utils';
-import { EmptyState } from '../../../../../layouts';
+import useCourseDetails from '../../../../user/Courses/CourseDetails/hooks/useCourseDetails';
 
 const InfoPage = () => {
   const { courseDetails, fetchCourseDetails } = useCourseDetails();
@@ -184,7 +180,7 @@ const InfoPage = () => {
           </Flex>
         </Box>
 
-        <Box marginTop={10}>
+        {/* <Box marginTop={10}>
           <Heading paddingBottom={4} fontSize="heading.h3">
             Overview
           </Heading>
@@ -218,7 +214,7 @@ const InfoPage = () => {
               isLoading={isLoading}
             />
           </Grid>
-        </Box>
+        </Box> */}
       </Box>
     </Box>
   );

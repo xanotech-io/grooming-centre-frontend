@@ -31,10 +31,17 @@ export const useRichText = () => {
     return data.stringified;
   };
 
+  /** Returns the editor content as plain text (blocks joined by newline). */
+  const getPlainText = () => {
+    if (!data.raw) return "";
+    return data.raw.blocks.map((b) => b.text).join("\n").trim();
+  };
+
   return {
     data,
     handleChange,
     handleGetValueAndValidate,
     handleInitData,
+    getPlainText,
   };
 };

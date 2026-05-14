@@ -15,8 +15,10 @@ export const RichTextToView = ({ text, ...rest }) => {
 };
 
 const getConvertedHTML = (text) => {
-  if (text) {
-    text = JSON.parse(text);
-    return stateToHTML(convertFromRaw(text));
+  if (!text) return "";
+  try {
+    return stateToHTML(convertFromRaw(JSON.parse(text)));
+  } catch {
+    return text;
   }
 };

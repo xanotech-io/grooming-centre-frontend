@@ -9,7 +9,7 @@ import {
 import { FaCalendar, FaCheck } from "react-icons/fa";
 import { IoVideocam } from "react-icons/io5";
 import { VscFiles } from "react-icons/vsc";
-import { Route } from "react-router-dom";
+import { Route, useHistory } from "react-router-dom";
 import { useParams } from "react-router";
 import coverImagePlaceholder from "../../../../assets/images/User_CourseDetailsHeader.svg";
 import avatarImagePlaceholder from "../../../../assets/images/Avatar.svg";
@@ -35,6 +35,7 @@ import {
   getModuleProjects,
   getCourseProgress,
   getModuleProgress,
+  gradeBookV2GetByCourse,
 } from "../../../../services";
 
 // ─── Module content fetcher (lazy, per module) ───────────────────────────────
@@ -497,6 +498,7 @@ const ModuleRow = ({ module, index, courseId }) => {
 
 const CourseDetailsPage = () => {
   const { id: courseId } = useParams();
+  const history = useHistory();
   const { courseDetails, fetchCourseDetails } = useCourseDetails();
 
   const [modulesState, setModulesState] = useState({
@@ -506,10 +508,22 @@ const CourseDetailsPage = () => {
   });
 
   const [courseProgress, setCourseProgress] = useState(null);
+  const [gradeBookId, setGradeBookId] = useState(null);
 
   useEffect(() => {
     fetchCourseDetails(true);
   }, [fetchCourseDetails]);
+
+  useEffect(() => {
+    if (!courseId) return;
+    gradeBookV2GetByCourse(courseId)
+      .then(({ gradeBook }) => {
+        if (gradeBook?.id && String(gradeBook.status).toLowerCase() === "published") {
+          setGradeBookId(gradeBook.id);
+        }
+      })
+      .catch(() => {});
+  }, [courseId]);
 
   useEffect(() => {
     if (!courseId) return;
@@ -651,6 +665,18 @@ const CourseDetailsPage = () => {
               </Text>
             </Box>
           </HStack>
+
+          {gradeBookId && (
+            <HStack spacing={2} alignSelf="center">
+              <Button
+                size="sm"
+                onClick={() => history.push(`/grade-book/${gradeBookId}`)}
+                style={{ backgroundColor: "#6b006b", color: "white" }}
+              >
+                View Grade Book
+              </Button>
+            </HStack>
+          )}
 
           {courseProgress && (
             <Box flex={1} minWidth="200px">

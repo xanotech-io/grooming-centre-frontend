@@ -17,6 +17,7 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
   const assessment = {
     id: data?.id,
     courseId: data?.courseId,
+    markingTemplateId: data?.markingTemplateId ?? null,
     topic: data?.title,
     duration: data?.duration,
     questionCount: data?.amountOfQuestions,
@@ -31,17 +32,24 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
         question: q?.question,
         file: q?.file,
         questionIndex: index,
-        options: q?.options.map((opt) => ({
+        questionType: q?.questionType || "MCQ",
+        markingType: q?.markingType || "automatic",
+        options: q?.options?.map((opt) => ({
           id: opt?.id,
           isAnswer: opt?.isAnswer,
           name: opt?.name,
           optionIndex: +opt?.optionIndex,
-        })),
+        })) ?? [],
       }))
       : "not set",
   };
 
   return { assessment };
+};
+
+export const adminGetAssessmentMarkingTemplateId = async (assessmentId) => {
+  const { data: { data } } = await http.get(`/v1/assessment/admin/${assessmentId}`);
+  return data?.markingTemplateId ?? null;
 };
 
 export const adminDeleteAssessmentQuestionFile = async (questionId) => {
@@ -62,6 +70,14 @@ export const submitAssessment = async (body) => {
   const {
     data: { message, data },
   } = await http.post(path, body);
+
+  return { message, data };
+};
+
+export const submitAssessmentMarking = async (assessmentId, body) => {
+  const {
+    data: { message, data },
+  } = await http.post(`/v1/assessment-marking/submit/${assessmentId}`, body);
 
   return { message, data };
 };

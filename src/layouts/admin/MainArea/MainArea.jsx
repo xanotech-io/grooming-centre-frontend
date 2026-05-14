@@ -48,9 +48,6 @@ import {
   GradeBookListingPageRoute,
   CreateGradeBookPageRoute,
   GradeBookDetailsPageRoute,
-  BulkCourseListingPageRoute,
-  CreateBulkCourseBatchPageRoute,
-  BatchDetailsPageRoute,
   UserDocumentsPageRoute,
   UserDocumentDetailsPageRoute,
   ReportExportPageRoute,
@@ -74,6 +71,17 @@ import {
   ProjectSubmissionsPageRoute,
   ProjectSubmissionReviewPageRoute,
   ModuleProgressPageRoute,
+  BulkCourseV2ListingPageRoute,
+  CreateBulkCourseV2BatchPageRoute,
+  BulkCourseV2BatchDetailsPageRoute,
+  TemplatesListingPageRoute,
+  TemplateFormPageRoute,
+  ManualMarkingExamsPageRoute,
+  ManualMarkingStudentsPageRoute,
+  StudentMarkingPageRoute,
+  GradeBookV2ListingPageRoute,
+  SetupGradeBookV2PageRoute,
+  GradeBookV2DetailsPageRoute,
 } from "../../../pages/admin";
 import { ModuleLessonsPageRoute } from "../../../pages/admin/courses/ViewCourseInfoPage/pages/ModuleLessonsPage";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
@@ -279,9 +287,19 @@ const MainArea = () => {
         <GradeBookListingPageRoute exact path="/admin/grade-book" />
         <CreateGradeBookPageRoute exact path="/admin/grade-book/create" />
         <GradeBookDetailsPageRoute exact path="/admin/grade-book/:gradeBookId" />
-        <BulkCourseListingPageRoute exact path="/admin/bulk-courses" />
-        <CreateBulkCourseBatchPageRoute exact path="/admin/bulk-courses/create" />
-        <BatchDetailsPageRoute exact path="/admin/bulk-courses/:batchId" />
+        <GradeBookV2ListingPageRoute exact path="/admin/grade-book-v2" />
+        <SetupGradeBookV2PageRoute exact path="/admin/grade-book-v2/create" />
+        <SetupGradeBookV2PageRoute exact path="/admin/grade-book-v2/:gradebookId/edit" />
+        <GradeBookV2DetailsPageRoute exact path="/admin/grade-book-v2/:gradebookId" />
+        <ManualMarkingExamsPageRoute exact path="/admin/manual-marking" />
+        <ManualMarkingStudentsPageRoute exact path="/admin/manual-marking/:examId/students" />
+        <StudentMarkingPageRoute exact path="/admin/manual-marking/:examId/student/:studentId" />
+        <BulkCourseV2ListingPageRoute exact path="/admin/bulk-courses" />
+        <CreateBulkCourseV2BatchPageRoute exact path="/admin/bulk-courses/create" />
+        <TemplatesListingPageRoute exact path="/admin/bulk-courses/templates" />
+        <TemplateFormPageRoute exact path="/admin/bulk-courses/templates/create" />
+        <TemplateFormPageRoute exact path="/admin/bulk-courses/templates/:templateId/edit" />
+        <BulkCourseV2BatchDetailsPageRoute exact path="/admin/bulk-courses/:batchId" />
         <UserDocumentsPageRoute exact path="/admin/user-documents" />
         <UserDocumentDetailsPageRoute exact path="/admin/user-documents/:userId/:uploadId" />
         <ReportExportPageRoute exact path="/admin/report-export" />

@@ -1,5 +1,7 @@
 import { Box, Flex, Grid, HStack, Stack } from "@chakra-ui/layout";
 import { Radio, RadioGroup } from "@chakra-ui/radio";
+import { Textarea } from "@chakra-ui/textarea";
+import { Input as ChakraInput } from "@chakra-ui/input";
 import { Route } from "react-router-dom";
 import {
   Button,
@@ -35,6 +37,7 @@ const AssessmentLayout = () => {
     handleNextQuestion,
     handlePreviousQuestion,
     handleOptionSelect,
+    handleAnswerChange,
     nav,
   } = useAssessment();
   console.log(assessment, "assessment");
@@ -164,25 +167,12 @@ const AssessmentLayout = () => {
                       )}
                     </Box>
 
-                    <RadioGroup
-                      defaultValue="1"
-                      marginBottom={8}
-                      flex={1}
-                      onChange={handleOptionSelect}
-                      value={selectedAnswers[currentQuestion?.id] || "default"}
-                    >
-                      <Stack spacing={4}>
-                        {currentQuestion?.options?.map((option) => (
-                          <Radio key={option.id} value={option.id}>
-                            <Text>{option.name}</Text>
-                          </Radio>
-                        ))}
-
-                        <Radio value={"default"} display="none">
-                          <Text>default</Text>
-                        </Radio>
-                      </Stack>
-                    </RadioGroup>
+                    <QuestionInput
+                      question={currentQuestion}
+                      selectedAnswers={selectedAnswers}
+                      onOptionSelect={handleOptionSelect}
+                      onAnswerChange={handleAnswerChange}
+                    />
 
                     <Flex justifyContent="space-between">
                       <Button
@@ -292,6 +282,133 @@ const AssessmentLayout = () => {
   );
 
   return renderContent();
+};
+
+const QuestionInput = ({ question, selectedAnswers, onOptionSelect, onAnswerChange }) => {
+  const qType = question?.questionType || "MCQ";
+  const currentAnswer = selectedAnswers[question?.id];
+
+  if (qType === "MCQ" || qType === "TrueFalse") {
+    return (
+      <RadioGroup
+        marginBottom={8}
+        flex={1}
+        onChange={onOptionSelect}
+        value={currentAnswer || "default"}
+      >
+        <Stack spacing={4}>
+          {question?.options?.map((option) => (
+            <Radio key={option.id} value={option.id}>
+              <Text>{option.name}</Text>
+            </Radio>
+          ))}
+          <Radio value="default" display="none">
+            <Text>default</Text>
+          </Radio>
+        </Stack>
+      </RadioGroup>
+    );
+  }
+
+  if (qType === "FillBlank") {
+    return (
+      <Box marginBottom={8}>
+        <Text color="gray.500" fontSize="sm" mb={2}>Type your answer below</Text>
+        <ChakraInput
+          value={currentAnswer || ""}
+          onChange={(e) => onAnswerChange(e.target.value)}
+          placeholder="Your answer..."
+          bg="white"
+          borderColor="gray.300"
+          _focus={{ borderColor: "#6b006b" }}
+        />
+      </Box>
+    );
+  }
+
+  if (qType === "ShortAnswer") {
+    return (
+      <Box marginBottom={8}>
+        <Text color="gray.500" fontSize="sm" mb={2}>Write a short answer</Text>
+        <Textarea
+          value={currentAnswer || ""}
+          onChange={(e) => onAnswerChange(e.target.value)}
+          placeholder="Your answer..."
+          rows={4}
+          bg="white"
+          borderColor="gray.300"
+          _focus={{ borderColor: "#6b006b" }}
+        />
+      </Box>
+    );
+  }
+
+  if (qType === "Essay") {
+    return (
+      <Box marginBottom={8}>
+        <Text color="gray.500" fontSize="sm" mb={2}>Write your essay response</Text>
+        <Textarea
+          value={currentAnswer || ""}
+          onChange={(e) => onAnswerChange(e.target.value)}
+          placeholder="Your essay..."
+          rows={10}
+          bg="white"
+          borderColor="gray.300"
+          _focus={{ borderColor: "#6b006b" }}
+        />
+      </Box>
+    );
+  }
+
+  if (qType === "Matching") {
+    let pairs = [];
+    try { pairs = JSON.parse(question?.pairs || "[]"); } catch { pairs = []; }
+    const savedAnswers = (() => {
+      try { return JSON.parse(currentAnswer || "{}"); } catch { return {}; }
+    })();
+
+    const handlePairAnswer = (left, value) => {
+      const updated = { ...savedAnswers, [left]: value };
+      onAnswerChange(JSON.stringify(updated));
+    };
+
+    return (
+      <Box marginBottom={8}>
+        <Text color="gray.500" fontSize="sm" mb={3}>Match each item on the left with its pair on the right</Text>
+        <Stack spacing={4}>
+          {pairs.map((pair, i) => (
+            <Flex key={i} alignItems="center" gap={4}>
+              <Box
+                flex={1}
+                bg="gray.50"
+                border="1px solid"
+                borderColor="gray.200"
+                borderRadius="md"
+                px={3}
+                py={2}
+                fontSize="sm"
+              >
+                {pair.left}
+              </Box>
+              <Text color="gray.400">→</Text>
+              <ChakraInput
+                flex={1}
+                value={savedAnswers[pair.left] || ""}
+                onChange={(e) => handlePairAnswer(pair.left, e.target.value)}
+                placeholder="Your match..."
+                size="sm"
+                bg="white"
+                borderColor="gray.300"
+                _focus={{ borderColor: "#6b006b" }}
+              />
+            </Flex>
+          ))}
+        </Stack>
+      </Box>
+    );
+  }
+
+  return null;
 };
 
 const ButtonNavItem = ({ number, answered, isCurrent, onClick }) => {

@@ -145,6 +145,16 @@ export const links = [
     icon: <FaClone />,
   },
   {
+    href: "/admin/manual-marking",
+    text: "Manual Marking",
+    icon: <TiPen />,
+  },
+  {
+    href: "/admin/grade-book-v2",
+    text: "Advanced Grade Book",
+    icon: <TiPen />,
+  },
+  {
     href: "/admin/user-documents",
     text: "Document Verification",
     icon: <FaFolderOpen />,

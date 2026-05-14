@@ -1,50 +1,53 @@
-import { useToast } from "@chakra-ui/toast";
-import { Flex, Box, Grid, ButtonGroup } from "@chakra-ui/react";
 import { Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/menu";
+import { Box, ButtonGroup, Select as ChakraSelect, Flex, Grid, Stack } from "@chakra-ui/react";
+import { useToast } from "@chakra-ui/toast";
+import { useCallback, useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { BsCheckCircle } from "react-icons/bs";
+import { FiMoreHorizontal } from "react-icons/fi";
+import { useHistory, useParams } from "react-router";
 import { Route } from "react-router-dom";
 import {
-  RichText,
-  Input,
-  Heading,
-  Text,
   Button,
-  Link,
-  RichTextToView,
-  Upload,
+  Heading,
   Image,
+  Input,
+  Link,
+  RichText,
+  RichTextToView,
   Spinner,
+  Text,
+  Upload,
 } from "../../../../../components";
-import { useForm } from "react-hook-form";
-import { Stack } from "@chakra-ui/react";
-import { useHistory, useParams } from "react-router";
 import {
-  useRichText,
-  useQueryParams,
-  useUpload,
   useFetch,
+  useQueryParams,
+  useRichText,
+  useUpload,
 } from "../../../../../hooks";
-import {
-  capitalizeFirstLetter,
-  capitalizeWords,
-  appendFormData,
-} from "../../../../../utils";
-import { FiMoreHorizontal } from "react-icons/fi";
+import { PageLoaderLayout } from "../../../../../layouts";
 import {
   adminCreateAssessmentQuestion,
   adminCreateExaminationQuestion,
   adminCreateStandaloneExaminationQuestion,
-  adminEditAssessmentQuestion,
-  adminEditExaminationQuestion,
   adminDeleteAssessmentQuestion,
   adminDeleteExaminationQuestion,
   adminDeleteUploadedQuestion,
+  adminEditAssessmentQuestion,
+  adminEditExaminationQuestion,
+  adminGetAssessmentMarkingTemplateId,
+  adminGetExaminationById,
+  adminGetMarkingTemplateById,
+  adminGetMarkingTemplates,
   adminUpdateUploadedQuestion,
 } from "../../../../../services";
+import {
+  appendFormData,
+  capitalizeFirstLetter,
+  capitalizeWords,
+} from "../../../../../utils";
 import useAssessmentPreview from "../../../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
-import { PageLoaderLayout } from "../../../../../layouts";
-import { useCallback, useEffect, useState } from "react";
 import { useSections } from "./useSections";
-import { BsCheckCircle } from "react-icons/bs";
 
 const QuestionsPage = () => {
   const isQuestionListingPage = useQueryParams().get("question-listing");
@@ -245,6 +248,56 @@ const CreateQuestionPage = (assessmentManager) => {
   const QUESTION_TYPES = ["MCQ", "TrueFalse", "FillBlank", "Matching", "ShortAnswer", "Essay"];
 
   const [questionType, setQuestionType] = useState("MCQ");
+  const [marks, setMarks] = useState(1);
+  const [markingType, setMarkingType] = useState("automatic");
+  const [selectedSectionId, setSelectedSectionId] = useState(pendingSectionId || "");
+  const [rubric, setRubric] = useState("");
+  const [difficultyLevel, setDifficultyLevel] = useState("medium");
+  const [bloomLevel, setBloomLevel] = useState("");
+
+  // Marking template selector — visible in the form so the user can pick one
+  const [markingTemplates, setMarkingTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [templateSections, setTemplateSections] = useState([]);
+
+  // Load all templates once
+  useEffect(() => {
+    adminGetMarkingTemplates()
+      .then(({ templates }) => setMarkingTemplates(templates))
+      .catch(() => {});
+  }, []);
+
+  // Pre-select the template that is already linked to this assessment
+  useEffect(() => {
+    if (isExamination || !assessmentId || assessmentId === "new") return;
+    adminGetAssessmentMarkingTemplateId(assessmentId)
+      .then((templateId) => { if (templateId) setSelectedTemplateId(templateId); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assessmentId, isExamination]);
+
+  // Whenever the selected template changes, load its sections
+  useEffect(() => {
+    if (!selectedTemplateId) { setTemplateSections([]); return; }
+    adminGetMarkingTemplateById(selectedTemplateId)
+      .then(({ template }) => {
+        setTemplateSections(Array.isArray(template?.sections) ? template.sections.map((s) => s.name) : []);
+      })
+      .catch(() => setTemplateSections([]));
+  }, [selectedTemplateId]);
+
+  // Examination — pre-select linked marking template
+  useEffect(() => {
+    if (!isExamination || isStandaloneExamination || !courseId) return;
+    adminGetExaminationById(courseId)
+      .then(({ examination }) => {
+        if (examination?.markingTemplateId) {
+          setSelectedTemplateId(examination.markingTemplateId);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExamination, courseId]);
 
   const [answer, setAnswer] = useState();
   const [matchingPairs, setMatchingPairs] = useState([{ left: "", right: "" }]);
@@ -286,6 +339,13 @@ const CreateQuestionPage = (assessmentManager) => {
   }, [questionType]);
 
   useEffect(() => {
+    const manualTypes = ["ShortAnswer", "Essay"];
+    const automaticTypes = ["MCQ", "TrueFalse", "FillBlank", "Matching"];
+    if (manualTypes.includes(questionType)) setMarkingType("manual");
+    else if (automaticTypes.includes(questionType)) setMarkingType("automatic");
+  }, [questionType]);
+
+  useEffect(() => {
     if (question) {
       const option2 = question.options?.find((opt) => opt.optionIndex === 2);
       setValue("option-2", option2?.name);
@@ -311,6 +371,20 @@ const CreateQuestionPage = (assessmentManager) => {
     if (question) {
       const optionWithAns = question.options?.find((opt) => opt.isAnswer);
       setAnswer(`${optionWithAns?.optionIndex}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question]);
+
+  useEffect(() => {
+    if (question) {
+      if (question.marks) setMarks(question.marks);
+      if (question.markingType) setMarkingType(question.markingType);
+      if (question.rubric) setRubric(question.rubric);
+      if (question.difficultyLevel) setDifficultyLevel(question.difficultyLevel);
+      if (question.bloomLevel) setBloomLevel(question.bloomLevel);
+      if (question.section) {
+        setSelectedSectionId(question.section);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question]);
@@ -372,8 +446,12 @@ const CreateQuestionPage = (assessmentManager) => {
         true,
       );
 
+      // Validates presence and returns Draft.js stringified JSON (used by assessment endpoints)
       const questionText =
         questionRichTextManager.handleGetValueAndValidate("Question");
+
+      // Plain text string required by the examination question endpoint
+      const questionPlainText = questionRichTextManager.getPlainText();
 
       const isObjectiveType = questionType === "MCQ" || questionType === "TrueFalse";
 
@@ -400,7 +478,18 @@ const CreateQuestionPage = (assessmentManager) => {
         ? { modelAnswer: data.modelAnswer, questionType: "ShortAnswer" }
         : { rubricDescription: data.rubricDescription, questionType: "Essay" };
 
-      // Prepare data for edit mode
+      // selectedSectionId is the section name string for both examination and assessment
+      const editSectionTitle = selectedSectionId || undefined;
+
+      const editMeta = {
+        marks: Number(marks),
+        markingType,
+        ...(editSectionTitle && { section: editSectionTitle }),
+        ...(rubric && { rubric }),
+        difficultyLevel,
+        ...(bloomLevel && { bloomLevel }),
+      };
+
       if (isEditMode) {
         data = isStandaloneExamination
           ? {
@@ -409,6 +498,7 @@ const CreateQuestionPage = (assessmentManager) => {
                 id: questionId,
                 question: questionText,
                 standAloneExaminationId: isExamination,
+                ...editMeta,
                 ...(!isObjectiveType && { questionType }),
               }),
               ...(isObjectiveType
@@ -428,8 +518,9 @@ const CreateQuestionPage = (assessmentManager) => {
                 file,
                 question: JSON.stringify({
                   id: questionId,
-                  question: questionText,
+                  question: questionPlainText,
                   examinationId: isExamination,
+                  ...editMeta,
                   ...(!isObjectiveType && { questionType }),
                 }),
                 ...(isObjectiveType
@@ -450,6 +541,7 @@ const CreateQuestionPage = (assessmentManager) => {
                   id: questionId,
                   question: questionText,
                   assessmentId,
+                  ...editMeta,
                   ...(!isObjectiveType && { questionType }),
                 }),
                 ...(isObjectiveType
@@ -465,12 +557,24 @@ const CreateQuestionPage = (assessmentManager) => {
                   : typeSpecificFields),
               };
       } else {
-        // Create mode
+        // Create mode — selectedSectionId is the section name string for both exam and assessment
+        const sectionTitle = selectedSectionId || undefined;
+
+        const examMeta = {
+          marks: Number(marks),
+          markingType,
+          ...(sectionTitle && { section: sectionTitle }),
+          ...(rubric && { rubric }),
+          difficultyLevel,
+          ...(bloomLevel && { bloomLevel }),
+        };
+
         data = isStandaloneExamination
           ? {
               file,
               standAloneExaminationId: isExamination,
               question: questionText,
+              ...examMeta,
               ...(!isObjectiveType && { questionType }),
               ...typeSpecificFields,
             }
@@ -478,7 +582,8 @@ const CreateQuestionPage = (assessmentManager) => {
             ? {
                 file,
                 examinationId: isExamination,
-                question: questionText,
+                question: questionPlainText,
+                ...examMeta,
                 ...(!isObjectiveType && { questionType }),
                 ...typeSpecificFields,
               }
@@ -486,6 +591,7 @@ const CreateQuestionPage = (assessmentManager) => {
                 file,
                 assessmentId,
                 question: questionText,
+                ...examMeta,
                 ...(!isObjectiveType && { questionType }),
                 ...typeSpecificFields,
               };
@@ -639,6 +745,93 @@ const CreateQuestionPage = (assessmentManager) => {
               ))}
             </ButtonGroup>
           </Box>
+        )}
+
+        {/* Question metadata row */}
+        {(!isExistingQuestion || isEditMode) && (
+          <>
+            <Flex gap={4} mb={4} flexWrap="wrap" alignItems="flex-end">
+              <Box minW="120px">
+                <Text fontSize="sm" mb={1} color="gray.600">Marks</Text>
+                <input
+                  type="number"
+                  min={1}
+                  value={marks}
+                  onChange={(e) => setMarks(e.target.value)}
+                  style={{ border: "1px solid #E2E8F0", borderRadius: 4, padding: "8px 10px", width: "100%", fontSize: 14 }}
+                />
+              </Box>
+              <Box minW="180px">
+                <Text fontSize="sm" mb={1} color="gray.600">Marking Type</Text>
+                <ChakraSelect value={markingType} onChange={(e) => setMarkingType(e.target.value)} size="sm">
+                  <option value="automatic">Automatic</option>
+                  <option value="manual">Manual</option>
+                  <option value="hybrid">Hybrid</option>
+                </ChakraSelect>
+              </Box>
+              <Box minW="160px">
+                <Text fontSize="sm" mb={1} color="gray.600">Difficulty</Text>
+                <ChakraSelect value={difficultyLevel} onChange={(e) => setDifficultyLevel(e.target.value)} size="sm">
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </ChakraSelect>
+              </Box>
+              <Box minW="200px">
+                <Text fontSize="sm" mb={1} color="gray.600">Bloom's Level</Text>
+                <ChakraSelect value={bloomLevel} onChange={(e) => setBloomLevel(e.target.value)} size="sm">
+                  <option value="">— None —</option>
+                  <option value="Remember">Remember</option>
+                  <option value="Understand">Understand</option>
+                  <option value="Apply">Apply</option>
+                  <option value="Analyse">Analyse</option>
+                  <option value="Evaluate">Evaluate</option>
+                  <option value="Create">Create</option>
+                </ChakraSelect>
+              </Box>
+              {/* Marking template selector (assessment and examination, not standalone) */}
+              {!isStandaloneExamination && (
+                <Box minW="220px">
+                  <Text fontSize="sm" mb={1} color="gray.600">Marking Template</Text>
+                  <ChakraSelect
+                    value={selectedTemplateId}
+                    onChange={(e) => setSelectedTemplateId(e.target.value)}
+                    size="sm"
+                    placeholder="Select template"
+                  >
+                    {markingTemplates.map((t) => (
+                      <option key={t.id} value={t.id}>{t.markingTemplateName}</option>
+                    ))}
+                  </ChakraSelect>
+                </Box>
+              )}
+              {/* Section — populated from the selected marking template */}
+              {templateSections.length > 0 && (
+                <Box minW="200px">
+                  <Text fontSize="sm" mb={1} color="gray.600">Section</Text>
+                  <ChakraSelect value={selectedSectionId} onChange={(e) => setSelectedSectionId(e.target.value)} size="sm">
+                    <option value="">No Section</option>
+                    {templateSections.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </ChakraSelect>
+                </Box>
+              )}
+            </Flex>
+            {/* Rubric — shown for manual / hybrid marking types */}
+            {(markingType === "manual" || markingType === "hybrid") && (
+              <Box mb={6}>
+                <Text fontSize="sm" mb={1} color="gray.600">Rubric</Text>
+                <textarea
+                  value={rubric}
+                  onChange={(e) => setRubric(e.target.value)}
+                  placeholder="Describe how this question should be graded (e.g. Clarity 5pts, Depth 5pts)"
+                  rows={3}
+                  style={{ border: "1px solid #E2E8F0", borderRadius: 4, padding: "8px 10px", width: "100%", fontSize: 14, resize: "vertical" }}
+                />
+              </Box>
+            )}
+          </>
         )}
 
         {/* MCQ */}
