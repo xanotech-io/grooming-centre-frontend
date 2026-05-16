@@ -1,6 +1,6 @@
 import { Box, Flex, Grid, HStack, Stack, Center } from "@chakra-ui/layout";
 import { Radio, RadioGroup } from "@chakra-ui/radio";
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Route } from "react-router";
 import {
   Button,
@@ -19,8 +19,8 @@ import congratsIcon from "../../../assets/images/congratsIcon.png";
 import { useToast } from "@chakra-ui/toast";
 import { capitalizeFirstLetter } from "../../../utils";
 import {
-  userCreateStandaloneExaminationGrade,
-  usersGetStandaloneExaminationListing,
+  submitSAExamAnswers,
+  getSAExamResult,
 } from "../../../services";
 import { useQueryParams } from "../../../hooks";
 import { useHistory } from "react-router-dom";
@@ -43,51 +43,66 @@ const StandaloneExamsStart = () => {
     handleOptionSelect,
     pageLength,
     index,
-    questionId,
-    optionId,
     end,
   } = useStandalone();
   const toast = useToast();
-  const questionArr = useMemo(() => Object.values(questionId), [questionId]);
-  const optionArr = useMemo(() => Object.values(optionId), [optionId]);
-
   const isExamination = useQueryParams().get("exam");
   const [grade, setGrade] = useState("");
   const [loading, setLoading] = useState(false);
-  const [myAssessment, setMyAssessment] = useState([]);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const { push } = useHistory();
   const [modal, setModal] = useState({
     state: false,
     congrats: false,
     score: false,
   });
+
+  useEffect(() => {
+    if (!isExamination) return;
+    getSAExamResult(isExamination)
+      .then(({ result }) => {
+        if (result) {
+          setAlreadySubmitted(true);
+          setGrade(result.totalScore ?? result.score ?? "");
+        }
+      })
+      .catch(() => {});
+  }, [isExamination]);
   const [exitAttempts, setExitAttempts] = useState(0);
   const totalSteps = 3;
   const handleExamSubmit = useCallback(async () => {
     try {
+      const answers = Object.entries(selectedAnswers).map(([questionId, answer]) => ({
+        questionId,
+        answer,
+        timeTaken: 0,
+      }));
       const body = {
-        standAloneExaminationId: isExamination,
-        standAloneExaminationQuestionsId: questionArr,
-        standAloneExaminationOptionsId: optionArr,
+        answers,
+        submissionTime: new Date().toISOString(),
+        timeTaken: 0,
       };
-      const { message } = await userCreateStandaloneExaminationGrade(body);
+      const { submission } = await submitSAExamAnswers(isExamination, body);
       toast({
-        description:
+        description: capitalizeFirstLetter(
           exitAttempts === totalSteps
-            ? capitalizeFirstLetter("Examination auto submitted successfully")
-            : capitalizeFirstLetter(message),
+            ? "Examination auto submitted successfully"
+            : "Examination submitted successfully"
+        ),
         position: "top",
         status: "success",
       });
+      if (submission?.totalScore != null) setGrade(submission.totalScore);
+      else if (submission?.score != null) setGrade(submission.score);
       setModal((prevModal) => ({ ...prevModal, congrats: true }));
     } catch (error) {
       toast({
-        description: error.message,
+        description: error?.response?.data?.message || error.message,
         position: "top",
         status: "error",
       });
     }
-  }, [isExamination, questionArr, optionArr, exitAttempts, totalSteps, toast]);
+  }, [isExamination, selectedAnswers, exitAttempts, totalSteps, toast]);
 
   const handleExitAttempt = useCallback(() => {
     if (exitAttempts < totalSteps) {
@@ -128,24 +143,9 @@ const StandaloneExamsStart = () => {
     };
   }, [exitAttempts, handleExitAttempt, toast]);
 
-  const handleViewResult = useCallback(async () => {
-    setModal({ ...modal, score: true });
-    setLoading(true);
-    try {
-      const { examinations } = await usersGetStandaloneExaminationListing();
-      setMyAssessment(examinations);
-    } catch (error) {
-      setLoading(false);
-    }
-  }, [modal]);
-
-  useEffect(() => {
-    const currentExamDetails = myAssessment?.find(
-      (item) => item?.id === isExamination
-    );
-    setGrade(currentExamDetails?.standAloneExaminationGrade[0]?.score);
-    setLoading(false);
-  }, [isExamination, myAssessment]);
+  const handleViewResult = useCallback(() => {
+    setModal((prev) => ({ ...prev, score: true }));
+  }, []);
 
   const handleSubmit = () => {
     setModal({ ...modal, state: true });
@@ -292,6 +292,35 @@ const StandaloneExamsStart = () => {
 
       {isLoading ? (
         <PageLoaderLayout />
+      ) : alreadySubmitted ? (
+        <Flex
+          justifyContent="center"
+          alignItems="center"
+          height="100vh"
+          backgroundColor="accent.1"
+        >
+          <Box
+            bg="white"
+            p={10}
+            borderRadius="10px"
+            shadow="0px 2px 7px rgba(0,0,0,0.1)"
+            textAlign="center"
+            maxW="480px"
+            w="100%"
+          >
+            <img src={congratsIcon} width={"60px"} alt="done" style={{ margin: "0 auto 16px" }} />
+            <Heading as="h2" fontSize="heading.h4" mb={3}>
+              Already Submitted
+            </Heading>
+            <Text mb={2}>You have already submitted this examination.</Text>
+            {grade !== "" && (
+              <Text fontWeight="bold" fontSize="text.level2" mb={6}>
+                Your Score: {grade}%
+              </Text>
+            )}
+            <Button link="/standalone-exams">Back to Exams</Button>
+          </Box>
+        </Flex>
       ) : error ? (
         <EmptyState
           height="100vh"

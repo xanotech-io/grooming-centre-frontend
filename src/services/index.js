@@ -48,3 +48,5 @@ export * from "./http/endpoints/projects";
 export * from "./http/endpoints/bulkCourseV2";
 export * from "./http/endpoints/manualMarking";
 export * from "./http/endpoints/gradeBookV2";
+export * from "./http/endpoints/examMarking";
+export * from "./http/endpoints/saExamMarking";

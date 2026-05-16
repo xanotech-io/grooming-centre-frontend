@@ -68,3 +68,21 @@ export const gradeBookV2GetAudit = async (gradebookId) => {
   const { data: { data } } = await http.get(`/v1/grade-book-v2/${gradebookId}/audit`);
   return { audit: data ?? [] };
 };
+
+export const gradeBookV2Sync = async (gradebookId) => {
+  const { data: { data } } = await http.post(`/v1/grade-book-v2/${gradebookId}/sync`);
+  return { result: data };
+};
+
+export const gradeBookV2AdjustEntry = async (gradebookId, entryId, body) => {
+  const { data: { data } } = await http.patch(`/v1/grade-book-v2/${gradebookId}/entries/${entryId}/adjust`, body);
+  return { entry: data };
+};
+
+export const gradeBookV2Export = async (gradebookId, format = "Excel") => {
+  const response = await http.get(`/v1/grade-book-v2/${gradebookId}/export`, {
+    params: { format },
+    responseType: "blob",
+  });
+  return response.data;
+};

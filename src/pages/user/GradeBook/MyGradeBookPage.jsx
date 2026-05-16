@@ -21,7 +21,7 @@ import {
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { useFetch } from "../../../hooks";
-import { gradeBookV2GetMyGrades } from "../../../services";
+import { gradeBookV2GetMyGrades, gradeBookV2GetAnalytics } from "../../../services";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -164,17 +164,25 @@ const MyGradeBookPage = () => {
   const history = useHistory();
   const { gradebookId } = useParams();
   const { resource, handleFetchResource } = useFetch();
+  const { resource: analyticsResource, handleFetchResource: fetchAnalytics } = useFetch();
 
   const fetcher = useCallback(async () => {
     const { breakdown } = await gradeBookV2GetMyGrades(gradebookId);
     return { breakdown };
   }, [gradebookId]);
 
+  const analyticsFetcher = useCallback(async () => {
+    const { analytics } = await gradeBookV2GetAnalytics(gradebookId);
+    return { analytics };
+  }, [gradebookId]);
+
   useEffect(() => {
     handleFetchResource({ fetcher });
-  }, [handleFetchResource, fetcher]);
+    fetchAnalytics({ fetcher: analyticsFetcher });
+  }, [handleFetchResource, fetcher, fetchAnalytics, analyticsFetcher]);
 
   const data = resource.data?.breakdown;
+  const analytics = analyticsResource.data?.analytics;
   const finalScore = data?.finalScore ?? 0;
   const finalGrade = data?.finalGrade;
 
@@ -331,6 +339,52 @@ const MyGradeBookPage = () => {
               </>
             )}
           </Box>
+
+          {/* Class KPIs */}
+          {analytics && (
+            <Box mb="24px">
+              <Text fontSize="16px" fontWeight="700" color="#1A202C" mb="14px">Class Statistics</Text>
+              <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }} gap="12px" mb="16px">
+                {[
+                  { label: "Class Average", value: `${(analytics.classAverage ?? 0).toFixed(1)}%`, color: "#6b006b", bg: "#F0E6FF" },
+                  { label: "Highest Score", value: `${analytics.highestScore ?? "—"}%`, color: "#38A169", bg: "#E6F4EA" },
+                  { label: "Lowest Score", value: `${analytics.lowestScore ?? "—"}%`, color: "#E53E3E", bg: "#FED7D7" },
+                  { label: "Pass Rate", value: `${(analytics.passRate ?? 0).toFixed(1)}%`, color: "#DD6B20", bg: "#FFF5EA" },
+                ].map((kpi) => (
+                  <Box key={kpi.label} bg={kpi.bg} borderRadius="10px" p="16px" textAlign="center">
+                    <Text fontSize="20px" fontWeight="700" color={kpi.color}>{kpi.value}</Text>
+                    <Text fontSize="12px" color="gray.500" mt="4px">{kpi.label}</Text>
+                  </Box>
+                ))}
+              </Grid>
+
+              {/* Grade distribution bar */}
+              {analytics.gradeDistribution && Object.keys(analytics.gradeDistribution).length > 0 && (
+                <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" p="16px">
+                  <Text fontSize="13px" fontWeight="600" color="gray.600" mb="12px">Grade Distribution</Text>
+                  {(() => {
+                    const gradeColors = { A: "#38A169", B: "#3182CE", C: "#718096", D: "#DD6B20", F: "#E53E3E" };
+                    const maxVal = Math.max(...Object.values(analytics.gradeDistribution), 1);
+                    return Object.entries(analytics.gradeDistribution).map(([grade, count]) => (
+                      <Flex key={grade} alignItems="center" gap="10px" mb="8px">
+                        <Text fontSize="13px" fontWeight="700" w="20px" color={gradeColors[grade] || "#718096"}>{grade}</Text>
+                        <Box flex="1" bg="#F7FAFC" borderRadius="4px" overflow="hidden" h="16px">
+                          <Box
+                            h="100%"
+                            w={`${(count / maxVal) * 100}%`}
+                            bg={gradeColors[grade] || "#718096"}
+                            borderRadius="4px"
+                            transition="width 0.3s"
+                          />
+                        </Box>
+                        <Text fontSize="12px" fontWeight="600" w="20px" textAlign="right" color="gray.600">{count}</Text>
+                      </Flex>
+                    ));
+                  })()}
+                </Box>
+              )}
+            </Box>
+          )}
 
           {/* Category breakdowns */}
           <Box mb="8px">

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { FaUpload, FaExternalLinkAlt, FaCheckCircle } from "react-icons/fa";
 import Icon from "@chakra-ui/icon";
 import { Button, Heading, Spinner, Text } from "../../../../components";
-import { getProjectById, submitProjectFile } from "../../../../services";
+import { getProjectById, getProjectSubmissions, submitProjectFile } from "../../../../services";
 import { capitalizeFirstLetter } from "../../../../utils";
 import dayjs from "dayjs";
 
@@ -26,10 +26,18 @@ const ProjectSubmissionPage = ({ sidebarLinks }) => {
   useEffect(() => {
     const fetch = async () => {
       try {
-        const { project: data } = await getProjectById(project_id);
+        const [{ project: data }, submissionsResult] = await Promise.allSettled([
+          getProjectById(project_id),
+          getProjectSubmissions(project_id),
+        ]).then(([p, s]) => [
+          p.status === "fulfilled" ? p.value : (() => { throw new Error("Failed to load project details."); })(),
+          s.status === "fulfilled" ? s.value : { submissions: [] },
+        ]);
         setProject(data);
-      } catch {
-        setError("Failed to load project details.");
+        const existing = submissionsResult.submissions?.[0] ?? null;
+        if (existing) setSubmission(existing);
+      } catch (err) {
+        setError(err.message || "Failed to load project details.");
       } finally {
         setIsLoading(false);
       }

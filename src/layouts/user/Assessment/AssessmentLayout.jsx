@@ -288,6 +288,7 @@ const QuestionInput = ({ question, selectedAnswers, onOptionSelect, onAnswerChan
   const qType = question?.questionType || "MCQ";
   const currentAnswer = selectedAnswers[question?.id];
 
+  // ── MCQ / True-False ──
   if (qType === "MCQ" || qType === "TrueFalse") {
     return (
       <RadioGroup
@@ -310,100 +311,237 @@ const QuestionInput = ({ question, selectedAnswers, onOptionSelect, onAnswerChan
     );
   }
 
+  // ── Fill in the Blank ──
   if (qType === "FillBlank") {
     return (
       <Box marginBottom={8}>
-        <Text color="gray.500" fontSize="sm" mb={2}>Type your answer below</Text>
+        <Box
+          bg="blue.50"
+          border="1px solid"
+          borderColor="blue.200"
+          borderRadius="md"
+          px={4}
+          py={3}
+          mb={4}
+        >
+          <Text fontSize="sm" color="blue.700">
+            Type the word or phrase that completes the blank in the question above.
+          </Text>
+        </Box>
         <ChakraInput
           value={currentAnswer || ""}
           onChange={(e) => onAnswerChange(e.target.value)}
-          placeholder="Your answer..."
+          placeholder="Type your answer here…"
+          size="lg"
           bg="white"
           borderColor="gray.300"
-          _focus={{ borderColor: "#6b006b" }}
+          borderRadius="md"
+          _focus={{ borderColor: "primary.base", boxShadow: "0 0 0 1px var(--chakra-colors-primary-base)" }}
         />
+        {currentAnswer && (
+          <Text fontSize="xs" color="gray.400" mt={1}>
+            Your answer: <b>{currentAnswer}</b>
+          </Text>
+        )}
       </Box>
     );
   }
 
+  // ── Short Answer ──
   if (qType === "ShortAnswer") {
+    const wordCount = (currentAnswer || "").trim().split(/\s+/).filter(Boolean).length;
     return (
       <Box marginBottom={8}>
-        <Text color="gray.500" fontSize="sm" mb={2}>Write a short answer</Text>
+        <Box
+          bg="blue.50"
+          border="1px solid"
+          borderColor="blue.200"
+          borderRadius="md"
+          px={4}
+          py={3}
+          mb={4}
+        >
+          <Text fontSize="sm" color="blue.700">
+            Write a concise answer. Your response will be reviewed by the instructor.
+          </Text>
+        </Box>
         <Textarea
           value={currentAnswer || ""}
           onChange={(e) => onAnswerChange(e.target.value)}
-          placeholder="Your answer..."
-          rows={4}
+          placeholder="Write your short answer here…"
+          rows={5}
           bg="white"
           borderColor="gray.300"
-          _focus={{ borderColor: "#6b006b" }}
+          borderRadius="md"
+          resize="vertical"
+          _focus={{ borderColor: "primary.base", boxShadow: "0 0 0 1px var(--chakra-colors-primary-base)" }}
         />
+        <Text fontSize="xs" color="gray.400" mt={1} textAlign="right">
+          {wordCount} word{wordCount !== 1 ? "s" : ""}
+        </Text>
       </Box>
     );
   }
 
+  // ── Essay ──
   if (qType === "Essay") {
+    const wordCount = (currentAnswer || "").trim().split(/\s+/).filter(Boolean).length;
     return (
       <Box marginBottom={8}>
-        <Text color="gray.500" fontSize="sm" mb={2}>Write your essay response</Text>
+        <Box
+          bg="purple.50"
+          border="1px solid"
+          borderColor="purple.200"
+          borderRadius="md"
+          px={4}
+          py={3}
+          mb={4}
+        >
+          <Text fontSize="sm" color="purple.700" fontWeight="500" mb={1}>
+            Essay Question
+          </Text>
+          <Text fontSize="sm" color="purple.600">
+            Write a well-structured response. Your essay will be manually graded by the instructor based on the rubric.
+          </Text>
+        </Box>
         <Textarea
           value={currentAnswer || ""}
           onChange={(e) => onAnswerChange(e.target.value)}
-          placeholder="Your essay..."
-          rows={10}
+          placeholder="Write your essay response here. Organise your thoughts clearly, support your arguments with relevant examples, and review before submitting."
+          rows={12}
           bg="white"
           borderColor="gray.300"
-          _focus={{ borderColor: "#6b006b" }}
+          borderRadius="md"
+          resize="vertical"
+          fontSize="sm"
+          lineHeight="1.7"
+          _focus={{ borderColor: "primary.base", boxShadow: "0 0 0 1px var(--chakra-colors-primary-base)" }}
         />
+        <Flex justifyContent="flex-end" mt={1}>
+          <Text fontSize="xs" color={wordCount > 50 ? "green.500" : "gray.400"}>
+            {wordCount} word{wordCount !== 1 ? "s" : ""}
+          </Text>
+        </Flex>
       </Box>
     );
   }
 
+  // ── Matching ──
   if (qType === "Matching") {
     let pairs = [];
-    try { pairs = JSON.parse(question?.pairs || "[]"); } catch { pairs = []; }
+    try {
+      const raw = question?.pairs;
+      pairs = typeof raw === "string" ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+    } catch {
+      pairs = [];
+    }
+
     const savedAnswers = (() => {
       try { return JSON.parse(currentAnswer || "{}"); } catch { return {}; }
     })();
 
-    const handlePairAnswer = (left, value) => {
-      const updated = { ...savedAnswers, [left]: value };
+    const rightValues = pairs.map((p) => p.right).filter(Boolean);
+
+    const handlePairAnswer = (leftKey, value) => {
+      const updated = { ...savedAnswers, [leftKey]: value };
       onAnswerChange(JSON.stringify(updated));
     };
 
+    const answeredCount = Object.keys(savedAnswers).filter((k) => savedAnswers[k]).length;
+
     return (
       <Box marginBottom={8}>
-        <Text color="gray.500" fontSize="sm" mb={3}>Match each item on the left with its pair on the right</Text>
-        <Stack spacing={4}>
-          {pairs.map((pair, i) => (
-            <Flex key={i} alignItems="center" gap={4}>
-              <Box
-                flex={1}
-                bg="gray.50"
-                border="1px solid"
-                borderColor="gray.200"
-                borderRadius="md"
-                px={3}
-                py={2}
-                fontSize="sm"
-              >
-                {pair.left}
-              </Box>
-              <Text color="gray.400">→</Text>
-              <ChakraInput
-                flex={1}
-                value={savedAnswers[pair.left] || ""}
-                onChange={(e) => handlePairAnswer(pair.left, e.target.value)}
-                placeholder="Your match..."
-                size="sm"
-                bg="white"
-                borderColor="gray.300"
-                _focus={{ borderColor: "#6b006b" }}
-              />
+        <Box
+          bg="orange.50"
+          border="1px solid"
+          borderColor="orange.200"
+          borderRadius="md"
+          px={4}
+          py={3}
+          mb={5}
+        >
+          <Text fontSize="sm" color="orange.700" fontWeight="500" mb={1}>
+            Matching Question
+          </Text>
+          <Text fontSize="sm" color="orange.600">
+            For each item on the left, select the correct match from the dropdown on the right.
+          </Text>
+        </Box>
+
+        {pairs.length === 0 ? (
+          <Text color="gray.400" fontSize="sm">No matching pairs available for this question.</Text>
+        ) : (
+          <>
+            {/* Column headers */}
+            <Grid templateColumns="1fr 32px 1fr" gap={3} mb={3} px={1}>
+              <Text fontSize="xs" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="wide">
+                Item
+              </Text>
+              <Box />
+              <Text fontSize="xs" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="wide">
+                Match
+              </Text>
+            </Grid>
+
+            <Stack spacing={3}>
+              {pairs.map((pair, i) => {
+                const isAnswered = !!savedAnswers[pair.left];
+                return (
+                  <Grid key={i} templateColumns="1fr 32px 1fr" gap={3} alignItems="center">
+                    {/* Left item */}
+                    <Box
+                      bg={isAnswered ? "green.50" : "gray.50"}
+                      border="1px solid"
+                      borderColor={isAnswered ? "green.300" : "gray.200"}
+                      borderRadius="md"
+                      px={4}
+                      py={3}
+                      fontSize="sm"
+                      fontWeight="500"
+                      transition="all 0.2s"
+                    >
+                      {pair.left}
+                    </Box>
+
+                    {/* Arrow */}
+                    <Flex justifyContent="center" color="gray.400">
+                      <Text fontSize="lg">→</Text>
+                    </Flex>
+
+                    {/* Right: select from pool */}
+                    <Box
+                      as="select"
+                      value={savedAnswers[pair.left] || ""}
+                      onChange={(e) => handlePairAnswer(pair.left, e.target.value)}
+                      borderRadius="md"
+                      border="1px solid"
+                      borderColor={isAnswered ? "green.300" : "gray.300"}
+                      bg={isAnswered ? "green.50" : "white"}
+                      px={3}
+                      py="10px"
+                      fontSize="sm"
+                      width="100%"
+                      cursor="pointer"
+                      _focus={{ outline: "2px solid", outlineColor: "primary.base", outlineOffset: "2px" }}
+                      transition="all 0.2s"
+                    >
+                      <option value="">— Select a match —</option>
+                      {rightValues.map((rv) => (
+                        <option key={rv} value={rv}>{rv}</option>
+                      ))}
+                    </Box>
+                  </Grid>
+                );
+              })}
+            </Stack>
+
+            <Flex justifyContent="flex-end" mt={3}>
+              <Text fontSize="xs" color={answeredCount === pairs.length ? "green.500" : "gray.400"}>
+                {answeredCount} of {pairs.length} matched
+              </Text>
             </Flex>
-          ))}
-        </Stack>
+          </>
+        )}
       </Box>
     );
   }

@@ -1,49 +1,194 @@
 import { useCallback, useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
-import {
-  Box,
-  Flex,
-  Badge,
-  Grid,
-  Progress,
-  Spinner,
-} from "@chakra-ui/react";
-import { Heading, Text, Button } from "../../../../../components";
+import { Box, Flex, Badge, Grid, Progress, Spinner } from "@chakra-ui/react";
+import { Text, Button } from "../../../../../components";
 import { RichTextToView } from "../../../../../components";
 import { getAnswerSheet, manualGradeQuestion } from "../../../../../services";
 import { capitalizeFirstLetter } from "../../../../../utils";
 import { useToast } from "@chakra-ui/toast";
-import { FiArrowLeft, FiCheck, FiUser, FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import {
+  FiArrowLeft,
+  FiCheck,
+  FiUser,
+  FiChevronLeft,
+  FiChevronRight,
+} from "react-icons/fi";
 
-const MANUAL_TYPES = ["Essay", "ShortAnswer"];
+/* ─── Infer display label from options ─────────────── */
+const inferTypeLabel = (q) => {
+  const opts = q?.options ?? [];
+  if (opts.length === 0) return "Open";
+  const names = opts.map((o) => (o?.name || "").toLowerCase());
+  if (opts.length === 2 && names.includes("true") && names.includes("false"))
+    return "True/False";
+  return "MCQ";
+};
 
-const statusColor = (saved) =>
-  saved
-    ? { bg: "#E6F4EA", color: "#38A169" }
-    : { bg: "#F7FAFC", color: "#718096" };
+/* ─── Answer renderer ───────────────────────────────── */
+const AnswerDisplay = ({ q }) => {
+  const options = q?.options ?? [];
+  const studentAnswer = q?.studentAnswer;
 
-/* ─── Answer renderer by question type ─────────────── */
-const AnswerDisplay = ({ questionType, answer }) => {
-  if (!answer) return <Text fontSize="14px" color="gray.400" fontStyle="italic">No answer submitted</Text>;
-
-  if (questionType === "Matching") {
-    let parsed = {};
-    try { parsed = JSON.parse(answer); } catch { return <Text fontSize="14px" color="#1A202C" whiteSpace="pre-wrap">{answer}</Text>; }
+  // MCQ / True-False — show options with correct/selected highlights
+  if (options.length > 0) {
     return (
       <Box>
-        {Object.entries(parsed).map(([left, right], i) => (
-          <Flex key={i} alignItems="center" gap={3} mb={2}>
-            <Box flex={1} bg="#F7F9FC" border="1px solid #E2E8F0" borderRadius="6px" px={3} py={2} fontSize="13px">{left}</Box>
-            <Text color="gray.400" fontSize="12px">→</Text>
-            <Box flex={1} bg="white" border="1px solid #E2E8F0" borderRadius="6px" px={3} py={2} fontSize="13px" fontWeight="500">{right || <em style={{ color: "#CBD5E0" }}>blank</em>}</Box>
-          </Flex>
-        ))}
+        {options.map((opt) => {
+          const isCorrect = opt.isAnswer === true;
+          const isSelected = opt.id === studentAnswer;
+
+          let bg = "white";
+          let borderColor = "#E2E8F0";
+          let textColor = "#1A202C";
+
+          if (isCorrect && isSelected) {
+            bg = "#E6F4EA";
+            borderColor = "#38A169";
+            textColor = "#276749";
+          } else if (isCorrect) {
+            bg = "#F0FFF4";
+            borderColor = "#9AE6B4";
+            textColor = "#276749";
+          } else if (isSelected) {
+            bg = "#FFF5F5";
+            borderColor = "#FC8181";
+            textColor = "#C53030";
+          }
+
+          return (
+            <Flex
+              key={opt.id}
+              alignItems="center"
+              gap={3}
+              mb={2}
+              p={3}
+              borderRadius="6px"
+              border="1px solid"
+              borderColor={borderColor}
+              bg={bg}
+            >
+              <Box
+                w="18px"
+                h="18px"
+                borderRadius="50%"
+                border="2px solid"
+                borderColor={
+                  isCorrect ? "#38A169" : isSelected ? "#E53E3E" : "#CBD5E0"
+                }
+                bg={
+                  isCorrect || isSelected
+                    ? isCorrect
+                      ? "#38A169"
+                      : "#E53E3E"
+                    : "white"
+                }
+                flexShrink={0}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
+                {(isCorrect || isSelected) && (
+                  <Box w="7px" h="7px" borderRadius="50%" bg="white" />
+                )}
+              </Box>
+              <Text
+                fontSize="13px"
+                color={textColor}
+                fontWeight={isCorrect || isSelected ? "600" : "400"}
+                flex={1}
+              >
+                {opt.name}
+              </Text>
+              {isCorrect && !isSelected && (
+                <Badge colorScheme="green" fontSize="9px">
+                  Correct answer
+                </Badge>
+              )}
+              {isSelected && !isCorrect && (
+                <Badge colorScheme="red" fontSize="9px">
+                  Student selected
+                </Badge>
+              )}
+              {isCorrect && isSelected && (
+                <Badge colorScheme="green" fontSize="9px">
+                  Student selected ✓
+                </Badge>
+              )}
+            </Flex>
+          );
+        })}
+        {!studentAnswer && (
+          <Text fontSize="12px" color="gray.400" fontStyle="italic" mt={2}>
+            Student did not select an option.
+          </Text>
+        )}
       </Box>
     );
   }
 
+  // Matching — JSON pairs
+  if (studentAnswer && studentAnswer.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(studentAnswer);
+      const entries = Object.entries(parsed);
+      if (entries.length > 0) {
+        return (
+          <Box>
+            {entries.map(([left, right], i) => (
+              <Flex key={i} alignItems="center" gap={3} mb={2}>
+                <Box
+                  flex={1}
+                  bg="#F7F9FC"
+                  border="1px solid #E2E8F0"
+                  borderRadius="6px"
+                  px={3}
+                  py={2}
+                  fontSize="13px"
+                >
+                  {left}
+                </Box>
+                <Text color="gray.400" fontSize="12px">
+                  →
+                </Text>
+                <Box
+                  flex={1}
+                  bg="white"
+                  border="1px solid #E2E8F0"
+                  borderRadius="6px"
+                  px={3}
+                  py={2}
+                  fontSize="13px"
+                  fontWeight="500"
+                >
+                  {right || <em style={{ color: "#CBD5E0" }}>blank</em>}
+                </Box>
+              </Flex>
+            ))}
+          </Box>
+        );
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  // Text answer (Essay, ShortAnswer, FillBlank)
+  if (!studentAnswer) {
+    return (
+      <Text fontSize="14px" color="gray.400" fontStyle="italic">
+        No answer submitted
+      </Text>
+    );
+  }
   return (
-    <Text fontSize="14px" color="#1A202C" whiteSpace="pre-wrap" lineHeight="1.7">{answer}</Text>
+    <Text
+      fontSize="14px"
+      color="#1A202C"
+      whiteSpace="pre-wrap"
+      lineHeight="1.7"
+    >
+      {studentAnswer}
+    </Text>
   );
 };
 
@@ -66,18 +211,18 @@ const ManualGradingPage = () => {
       .then(({ sheet: data }) => {
         setSheet(data);
         const initial = {};
-        (data?.answers || []).forEach((a) => {
-          initial[a.questionId] = {
-            score: a.score != null ? String(a.score) : "",
-            remark: a.remark || "",
+        (data?.questions || []).forEach((q) => {
+          initial[q.questionId] = {
+            score: q.scoreAssigned != null ? String(q.scoreAssigned) : "",
+            remark: q.remark || "",
             saving: false,
-            saved: a.gradingStatus === "completed",
+            saved: q.gradingStatus === "completed",
           };
         });
         setGrades(initial);
         // Auto-jump to first ungraded manual question
-        const firstManual = (data?.questions || []).findIndex((q) =>
-          MANUAL_TYPES.includes(q.questionType)
+        const firstManual = (data?.questions || []).findIndex(
+          (q) => q.markingType === "manual" && q.gradingStatus !== "completed",
         );
         if (firstManual >= 0) setCurrentQIdx(firstManual);
       })
@@ -85,43 +230,54 @@ const ManualGradingPage = () => {
       .finally(() => setLoading(false));
   }, [assessmentId, studentId]);
 
-  const qnaList = (sheet?.questions || []).map((q) => ({
-    ...q,
-    answer: (sheet?.answers || []).find((a) => a.questionId === q.id),
-  }));
+  const questions = sheet?.questions || [];
+  const currentQna = questions[currentQIdx] || null;
+  const isManualQ = currentQna?.markingType === "manual";
+  console.log(isManualQ);
+  const currentGrade = grades[currentQna?.questionId] || {
+    score: "",
+    remark: "",
+    saving: false,
+    saved: false,
+  };
 
-  const currentQna = qnaList[currentQIdx] || null;
-  const isManualQ = currentQna ? MANUAL_TYPES.includes(currentQna.questionType) : false;
-  const currentGrade = grades[currentQna?.id] || { score: "", remark: "", saving: false, saved: false };
-
-  const totalManual = qnaList.filter((q) => MANUAL_TYPES.includes(q.questionType)).length;
-  const gradedCount = qnaList.filter(
-    (q) => MANUAL_TYPES.includes(q.questionType) && grades[q.id]?.saved
+  const totalManual = questions.filter(
+    (q) => q.markingType === "manual",
+  ).length;
+  const gradedCount = questions.filter(
+    (q) => q.markingType === "manual" && grades[q.questionId]?.saved,
   ).length;
 
   const updateGrade = (field, value) => {
     if (!currentQna) return;
     setGrades((prev) => ({
       ...prev,
-      [currentQna.id]: { ...prev[currentQna.id], [field]: value, saved: false },
+      [currentQna.questionId]: {
+        ...prev[currentQna.questionId],
+        [field]: value,
+        saved: false,
+      },
     }));
   };
 
   const handleSave = useCallback(
     async (andNext = false) => {
       if (!currentQna || !isManualQ) return;
-      const g = grades[currentQna.id] || {};
+      const g = grades[currentQna.questionId] || {};
 
       setGrades((prev) => ({
         ...prev,
-        [currentQna.id]: { ...prev[currentQna.id], saving: true },
+        [currentQna.questionId]: {
+          ...prev[currentQna.questionId],
+          saving: true,
+        },
       }));
 
       try {
         await manualGradeQuestion({
           studentId,
           assessmentId,
-          questionId: currentQna.id,
+          questionId: currentQna.questionId,
           score: Number(g.score) || 0,
           remark: g.remark || "",
           gradingStatus: "completed",
@@ -129,15 +285,19 @@ const ManualGradingPage = () => {
 
         setGrades((prev) => ({
           ...prev,
-          [currentQna.id]: { ...prev[currentQna.id], saving: false, saved: true },
+          [currentQna.questionId]: {
+            ...prev[currentQna.questionId],
+            saving: false,
+            saved: true,
+          },
         }));
 
         if (andNext) {
-          const nextIdx = qnaList.findIndex(
+          const nextIdx = questions.findIndex(
             (q, i) =>
               i > currentQIdx &&
-              MANUAL_TYPES.includes(q.questionType) &&
-              !grades[q.id]?.saved
+              q.markingType === "manual" &&
+              !grades[q.questionId]?.saved,
           );
           if (nextIdx >= 0) {
             setCurrentQIdx(nextIdx);
@@ -152,16 +312,30 @@ const ManualGradingPage = () => {
       } catch (err) {
         setGrades((prev) => ({
           ...prev,
-          [currentQna.id]: { ...prev[currentQna.id], saving: false },
+          [currentQna.questionId]: {
+            ...prev[currentQna.questionId],
+            saving: false,
+          },
         }));
         toast({
-          description: capitalizeFirstLetter(err?.response?.data?.message || err.message || "Failed to save"),
+          description: capitalizeFirstLetter(
+            err?.response?.data?.message || err.message || "Failed to save",
+          ),
           status: "error",
           position: "top",
         });
       }
     },
-    [currentQna, currentQIdx, grades, isManualQ, qnaList, studentId, assessmentId, toast]
+    [
+      currentQna,
+      currentQIdx,
+      grades,
+      isManualQ,
+      questions,
+      studentId,
+      assessmentId,
+      toast,
+    ],
   );
 
   if (loading) {
@@ -175,14 +349,20 @@ const ManualGradingPage = () => {
   if (error) {
     return (
       <Box p={6}>
-        <Text color="red.500" mb={4}>{capitalizeFirstLetter(error)}</Text>
-        <Button secondary onClick={goBack}>Go Back</Button>
+        <Text color="red.500" mb={4}>
+          {capitalizeFirstLetter(error)}
+        </Text>
+        <Button secondary onClick={goBack}>
+          Go Back
+        </Button>
       </Box>
     );
   }
 
   const fullName =
-    [sheet?.student?.firstName, sheet?.student?.lastName].filter(Boolean).join(" ") || "—";
+    [sheet?.student?.firstName, sheet?.student?.lastName]
+      .filter(Boolean)
+      .join(" ") || "—";
 
   return (
     <Box minH="calc(100vh - 160px)" display="flex" flexDirection="column">
@@ -200,7 +380,9 @@ const ManualGradingPage = () => {
           <Flex
             as="button"
             onClick={() =>
-              push(`/admin/courses/${courseId}/assessment/${assessmentId}/grading`)
+              push(
+                `/admin/courses/${courseId}/assessment/${assessmentId}/grading`,
+              )
             }
             alignItems="center"
             gap={2}
@@ -208,14 +390,17 @@ const ManualGradingPage = () => {
             _hover={{ opacity: 0.8 }}
           >
             <FiArrowLeft size={14} />
-            <Text fontSize="sm" fontWeight="600">Queue</Text>
+            <Text fontSize="sm" fontWeight="600">
+              Queue
+            </Text>
           </Flex>
 
           <Box w="1px" h="20px" bg="#E2E8F0" />
 
           <Flex alignItems="center" gap={2} flex={1}>
             <Box
-              w="32px" h="32px"
+              w="32px"
+              h="32px"
               bg="#F0E6FF"
               borderRadius="50%"
               display="flex"
@@ -226,8 +411,12 @@ const ManualGradingPage = () => {
               <FiUser color="#6b006b" size={14} />
             </Box>
             <Box>
-              <Text fontSize="13px" fontWeight="700" color="#1A202C">{fullName}</Text>
-              <Text fontSize="11px" color="gray.400">{sheet?.student?.email || ""}</Text>
+              <Text fontSize="13px" fontWeight="700" color="#1A202C">
+                {fullName}
+              </Text>
+              <Text fontSize="11px" color="gray.400">
+                {sheet?.student?.email || ""}
+              </Text>
             </Box>
           </Flex>
 
@@ -244,11 +433,11 @@ const ManualGradingPage = () => {
             />
           </Flex>
 
-          {/* Prev / Next student arrows (placeholder — extend with queue list) */}
           <Flex gap={1}>
             <Box
               as="button"
-              w="28px" h="28px"
+              w="28px"
+              h="28px"
               border="1px solid #E2E8F0"
               borderRadius="6px"
               display="flex"
@@ -256,12 +445,14 @@ const ManualGradingPage = () => {
               justifyContent="center"
               _hover={{ bg: "#F7F9FC" }}
               onClick={goBack}
+              title="Previous student"
             >
               <FiChevronLeft size={14} color="#718096" />
             </Box>
             <Box
               as="button"
-              w="28px" h="28px"
+              w="28px"
+              h="28px"
               border="1px solid #E2E8F0"
               borderRadius="6px"
               display="flex"
@@ -269,6 +460,7 @@ const ManualGradingPage = () => {
               justifyContent="center"
               _hover={{ bg: "#F7F9FC" }}
               onClick={goBack}
+              title="Next student"
             >
               <FiChevronRight size={14} color="#718096" />
             </Box>
@@ -297,25 +489,28 @@ const ManualGradingPage = () => {
               textTransform="uppercase"
               letterSpacing="wider"
             >
-              Questions ({qnaList.length})
+              Questions ({questions.length})
             </Text>
           </Box>
 
-          {qnaList.map((q, idx) => {
-            const isManual = MANUAL_TYPES.includes(q.questionType);
-            const saved = grades[q.id]?.saved;
+          {questions.map((q, idx) => {
+            const isManual = q.markingType === "manual";
+            const saved = grades[q.questionId]?.saved;
             const isCurrent = idx === currentQIdx;
+            const typeLabel = inferTypeLabel(q);
 
             return (
               <Box
-                key={q.id}
+                key={q.questionId}
                 as="button"
                 w="100%"
                 textAlign="left"
                 px={4}
                 py={3}
                 borderBottom="1px solid #E2E8F0"
-                borderLeft={isCurrent ? "3px solid #6b006b" : "3px solid transparent"}
+                borderLeft={
+                  isCurrent ? "3px solid #6b006b" : "3px solid transparent"
+                }
                 bg={isCurrent ? "#F0E6FF" : "transparent"}
                 _hover={{ bg: isCurrent ? "#F0E6FF" : "#F7F9FC" }}
                 onClick={() => setCurrentQIdx(idx)}
@@ -332,27 +527,47 @@ const ManualGradingPage = () => {
                       Q{idx + 1}
                     </Text>
                     <Text fontSize="10px" color="gray.400" mt="2px">
-                      {q.questionType}
+                      {typeLabel}
                     </Text>
+                    {q.section && (
+                      <Text
+                        fontSize="10px"
+                        color="gray.300"
+                        mt="1px"
+                        noOfLines={1}
+                      >
+                        {q.section}
+                      </Text>
+                    )}
                   </Box>
 
                   {isManual ? (
                     saved ? (
                       <Box
-                        w="18px" h="18px"
+                        w="18px"
+                        h="18px"
                         bg="#38A169"
                         borderRadius="50%"
                         display="flex"
                         alignItems="center"
                         justifyContent="center"
+                        flexShrink={0}
                       >
                         <FiCheck color="white" size={10} />
                       </Box>
                     ) : (
-                      <Box w="18px" h="18px" bg="#E2E8F0" borderRadius="50%" />
+                      <Box
+                        w="18px"
+                        h="18px"
+                        bg="#E2E8F0"
+                        borderRadius="50%"
+                        flexShrink={0}
+                      />
                     )
                   ) : (
-                    <Badge colorScheme="blue" fontSize="9px" px="4px">Auto</Badge>
+                    <Badge colorScheme="blue" fontSize="9px" px="4px">
+                      Auto
+                    </Badge>
                   )}
                 </Flex>
               </Box>
@@ -371,21 +586,34 @@ const ManualGradingPage = () => {
                   fontSize="11px"
                   px={2}
                 >
-                  {currentQna.questionType}
+                  {inferTypeLabel(currentQna)}
                 </Badge>
-                {currentQna.maxMarks != null && (
-                  <Badge variant="outline" colorScheme="gray" fontSize="11px" px={2}>
-                    {currentQna.maxMarks} mark{currentQna.maxMarks !== 1 ? "s" : ""}
+                <Badge
+                  colorScheme={isManualQ ? "orange" : "green"}
+                  variant="outline"
+                  fontSize="11px"
+                  px={2}
+                >
+                  {currentQna.markingType}
+                </Badge>
+                {currentQna.marks != null && (
+                  <Badge
+                    variant="outline"
+                    colorScheme="gray"
+                    fontSize="11px"
+                    px={2}
+                  >
+                    {currentQna.marks} mark{currentQna.marks !== 1 ? "s" : ""}
                   </Badge>
                 )}
                 {currentQna.section && (
-                  <Badge variant="outline" colorScheme="gray" fontSize="11px" px={2}>
+                  <Badge
+                    variant="outline"
+                    colorScheme="gray"
+                    fontSize="11px"
+                    px={2}
+                  >
                     {currentQna.section}
-                  </Badge>
-                )}
-                {currentQna.difficultyLevel && (
-                  <Badge variant="outline" colorScheme="gray" fontSize="11px" px={2}>
-                    {currentQna.difficultyLevel}
                   </Badge>
                 )}
               </Flex>
@@ -427,60 +655,13 @@ const ManualGradingPage = () => {
                   letterSpacing="wider"
                   mb={3}
                 >
-                  Student's Answer
+                  Student&apos;s Answer
                 </Text>
-                <AnswerDisplay
-                  questionType={currentQna.questionType}
-                  answer={currentQna.answer?.answer}
-                />
+                <AnswerDisplay q={currentQna} />
               </Box>
 
-              {/* Model answer / rubric */}
-              {(currentQna.modelAnswer || currentQna.rubric) && (
-                <Box
-                  p={4}
-                  bg="#FFFFF0"
-                  border="1px solid #ECC94B"
-                  borderRadius="8px"
-                  mb={4}
-                >
-                  {currentQna.modelAnswer && (
-                    <>
-                      <Text
-                        fontSize="10px"
-                        fontWeight="700"
-                        color="gray.500"
-                        textTransform="uppercase"
-                        letterSpacing="wider"
-                        mb={2}
-                      >
-                        Model Answer
-                      </Text>
-                      <Text fontSize="13px" color="#1A202C" mb={currentQna.rubric ? 3 : 0}>
-                        {currentQna.modelAnswer}
-                      </Text>
-                    </>
-                  )}
-                  {currentQna.rubric && (
-                    <>
-                      <Text
-                        fontSize="10px"
-                        fontWeight="700"
-                        color="gray.500"
-                        textTransform="uppercase"
-                        letterSpacing="wider"
-                        mb={2}
-                      >
-                        Rubric
-                      </Text>
-                      <Text fontSize="13px" color="#1A202C">{currentQna.rubric}</Text>
-                    </>
-                  )}
-                </Box>
-              )}
-
-              {/* Auto-graded info for objective questions */}
-              {!isManualQ && currentQna.answer && (
+              {/* Auto-graded info */}
+              {!isManualQ && (
                 <Box
                   p={4}
                   bg="#EBF4FF"
@@ -488,26 +669,29 @@ const ManualGradingPage = () => {
                   borderRadius="8px"
                 >
                   <Text fontSize="12px" fontWeight="600" color="#2B6CB0">
-                    Auto-graded — {currentQna.answer.autoScore ?? currentQna.answer.score ?? "—"} / {currentQna.maxMarks ?? "—"}
+                    Auto-graded — {currentQna.scoreAssigned ?? "—"} /{" "}
+                    {currentQna.marks ?? "—"}
                   </Text>
-                  {currentQna.answer.isCorrect != null && (
+                  {currentQna.isCorrect != null && (
                     <Text
                       fontSize="12px"
-                      color={currentQna.answer.isCorrect ? "#38A169" : "#E53E3E"}
+                      color={currentQna.isCorrect ? "#38A169" : "#E53E3E"}
                       mt={1}
                     >
-                      {currentQna.answer.isCorrect ? "Correct answer" : "Incorrect answer"}
+                      {currentQna.isCorrect
+                        ? "Correct answer"
+                        : "Incorrect answer"}
                     </Text>
                   )}
                 </Box>
               )}
 
-              {/* Mobile: show grading panel inline */}
+              {/* Mobile: inline grading panel */}
               <Box display={{ base: "block", lg: "none" }} mt={6}>
                 <GradingPanelContent
                   isManualQ={isManualQ}
                   currentGrade={currentGrade}
-                  maxMarks={currentQna?.maxMarks}
+                  maxMarks={currentQna?.marks}
                   onScoreChange={(v) => updateGrade("score", v)}
                   onRemarkChange={(v) => updateGrade("remark", v)}
                   onSave={() => handleSave(false)}
@@ -518,19 +702,18 @@ const ManualGradingPage = () => {
           )}
         </Box>
 
-        {/* Right: Grading panel (desktop sticky) */}
+        {/* Right: Grading panel (desktop) */}
         <Box
           borderLeft="1px solid #E2E8F0"
           bg="#FAFAFA"
           display={{ base: "none", lg: "flex" }}
           flexDirection="column"
-          position="relative"
         >
           <Box flex={1} overflowY="auto" p={5}>
             <GradingPanelContent
               isManualQ={isManualQ}
               currentGrade={currentGrade}
-              maxMarks={currentQna?.maxMarks}
+              maxMarks={currentQna?.marks}
               onScoreChange={(v) => updateGrade("score", v)}
               onRemarkChange={(v) => updateGrade("remark", v)}
               onSave={() => handleSave(false)}
@@ -588,9 +771,13 @@ const GradingPanelContent = ({
       {/* Score input */}
       <Box mb={4}>
         <Flex alignItems="baseline" gap={2} mb={2}>
-          <Text fontSize="sm" fontWeight="600" color="#1A202C">Marks</Text>
+          <Text fontSize="sm" fontWeight="600" color="#1A202C">
+            Marks
+          </Text>
           {maxMarks != null && (
-            <Text fontSize="xs" color="gray.400">/ {maxMarks}</Text>
+            <Text fontSize="xs" color="gray.400">
+              / {maxMarks}
+            </Text>
           )}
         </Flex>
         <input
@@ -674,11 +861,7 @@ const GradingPanelContent = ({
       </Box>
 
       {/* Action buttons */}
-      <Box
-        pt={4}
-        borderTop="1px solid #E2E8F0"
-        mt={2}
-      >
+      <Box pt={4} borderTop="1px solid #E2E8F0" mt={2}>
         <Flex gap={3} mb={2}>
           <Button
             secondary
@@ -695,13 +878,15 @@ const GradingPanelContent = ({
             flex={2}
             type="button"
           >
-            Save & Next
+            Save &amp; Next
           </Button>
         </Flex>
         {currentGrade.saved && (
           <Flex justifyContent="center" alignItems="center" gap={1} mt={1}>
             <FiCheck color="#38A169" size={11} />
-            <Text fontSize="11px" color="#38A169">Saved</Text>
+            <Text fontSize="11px" color="#38A169">
+              Saved
+            </Text>
           </Flex>
         )}
       </Box>

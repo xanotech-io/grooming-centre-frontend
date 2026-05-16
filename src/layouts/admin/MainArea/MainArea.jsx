@@ -82,6 +82,9 @@ import {
   GradeBookV2ListingPageRoute,
   SetupGradeBookV2PageRoute,
   GradeBookV2DetailsPageRoute,
+  ViewStandaloneExamPageRoute,
+  StandaloneStudentGradingPageRoute,
+  MISReportsPageRoute,
 } from "../../../pages/admin";
 import { ModuleLessonsPageRoute } from "../../../pages/admin/courses/ViewCourseInfoPage/pages/ModuleLessonsPage";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
@@ -110,6 +113,7 @@ import { TemplateLibraryPageRoute } from "../../../pages/admin/standaloneExams/T
 import { AnnouncementListingRoute } from "../../../pages/admin/Annoncement/AnnouncementListing";
 import { CreateAnnouncementRoute } from "../../../pages/admin/Annoncement/CreateAnnouncement";
 import { AcademicMetricsDashboardRoute } from "../../../pages/admin/dashboard/AcademicMetricsDashboard";
+import { InteractiveDashboardRoute } from "../../../pages/admin/dashboard/InteractiveDashboard";
 
 const MainArea = () => {
   return (
@@ -245,6 +249,14 @@ const MainArea = () => {
           exact
           path="/admin/standalone-exams/:examinationId/:examinationName"
         /> */}
+        <ViewStandaloneExamPageRoute
+          exact
+          path="/admin/standalone-exams/view/:examId"
+        />
+        <StandaloneStudentGradingPageRoute
+          exact
+          path="/admin/standalone-exams/grade/:examId/student/:studentId"
+        />
         <CreateStandalonePageRoute path="/admin/standalone-exams" />
 
         <PollsListingPageRoute exact path="/admin/polls" />
@@ -310,6 +322,7 @@ const MainArea = () => {
         <DataOperationsPageRoute exact path="/admin/data-operations" />
         <BadgeSupportPageRoute exact path="/admin/badge-support" />
         <AcademicMetricsDashboardRoute exact path="/admin/dashboard/academic" />
+        <InteractiveDashboardRoute exact path="/admin/dashboard/interactive" />
 
         <SecurityPageRoute path="/admin/settings/security" />
         <GradeCriteriaPageRoute path="/admin/settings/grade-criteria" />
@@ -336,6 +349,7 @@ const MainArea = () => {
           exact
           path="/admin/report/compliance"
         />
+        <MISReportsPageRoute exact path="/admin/mis-reports" />
 
         <NotFoundPageRoute />
       </Switch>

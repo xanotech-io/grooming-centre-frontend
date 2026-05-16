@@ -16,6 +16,11 @@ export const links = [
     text: "dashboard",
     exact: true,
     icon: <RiDashboardLine />,
+    links: [
+      { href: "/admin/", text: "Overview", exact: true },
+      { href: "/admin/dashboard/interactive", text: "Interactive Dashboard" },
+      { href: "/admin/dashboard/academic", text: "Academic Metrics" },
+    ],
   },
   {
     href: "/admin/users?page=1&limit=10",
@@ -111,6 +116,10 @@ export const links = [
       {
         href: "/admin/report/instructorReport",
         text: "Instructor Report",
+      },
+      {
+        href: "/admin/mis-reports",
+        text: "MIS Reports",
       },
     ],
   },

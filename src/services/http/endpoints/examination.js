@@ -14,7 +14,10 @@ export const requestExaminationDetails = async (id, forAdmin) => {
     data: { data },
   } = await http.get(path);
 
-  const questionArray = data.examinationQuestions;
+  const raw = Array.isArray(data) ? data[0] : data;
+  if (!raw) throw new Error("No examination found");
+
+  const questionArray = raw.examinationQuestions ?? raw.questions ?? [];
 
   // shuffle questions
   for (let i = questionArray.length - 1; i > 0; i -= 1) {
@@ -25,28 +28,43 @@ export const requestExaminationDetails = async (id, forAdmin) => {
   }
 
   const examination = {
-    id: data.id,
-    courseId: data.courseId,
-    topic: data.title,
-    duration: data.duration,
-    questionCount: data.amountOfQuestions,
-    startTime: data.startTime,
-    endTime: getEndTime(data.startTime, data.duration),
-    hasCompleted: data.examinationScoreSheets?.[0] ? true : false,
+    id: raw.id,
+    courseId: raw.courseId,
+    topic: raw.title,
+    duration: raw.duration,
+    questionCount: raw.amountOfQuestions,
+    startTime: raw.startTime,
+    endTime: getEndTime(raw.startTime, raw.duration),
+    hasCompleted: raw.examinationScoreSheets?.[0] ? true : false,
     minimumPercentageScoreToEarnABadge:
-      data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
-    questions: questionArray.map((q, index) => ({
-      id: q.id,
-      question: q.question,
-      file: q.file,
-      questionIndex: +q.questionIndex || index,
-      options: q.options.map((opt) => ({
-        id: opt.id,
-        isAnswer: opt.isAnswer,
-        name: opt.name,
-        optionIndex: +opt.optionIndex,
-      })),
-    })),
+      raw.minimumPercentageScoreToEarnABadge || 30,
+    questions: questionArray.map((q, index) => {
+      const opts = q.options ?? [];
+      const inferredType = (() => {
+        if (q.questionType) return q.questionType;
+        if (opts.length === 0) return "ShortAnswer";
+        const names = opts.map((o) => (o?.name || "").toLowerCase());
+        if (opts.length === 2 && names.includes("true") && names.includes("false")) return "TrueFalse";
+        return "MCQ";
+      })();
+      return {
+        id: q.id,
+        question: q.question,
+        file: q.file,
+        questionIndex: +q.questionIndex || index,
+        questionType: inferredType,
+        markingType: q.markingType ?? "automatic",
+        pairs: q.pairs ?? null,
+        modelAnswer: q.modelAnswer ?? null,
+        correctAnswer: q.correctAnswer ?? null,
+        options: opts.map((opt) => ({
+          id: opt.id,
+          isAnswer: opt.isAnswer,
+          name: opt.name,
+          optionIndex: +opt.optionIndex,
+        })),
+      };
+    }),
   };
 
   return { examination };
@@ -99,6 +117,8 @@ export const adminCreateExamination = async (body) => {
 
   const examination = {
     id: data.id,
+    templateId: data.templateId ?? null,
+    sections: Array.isArray(data.sections) ? data.sections : [],
   };
 
   return { message, examination };
@@ -113,6 +133,8 @@ export const adminCreateStandaloneExamination = async (body) => {
 
   const examination = {
     id: data.id,
+    templateId: data.templateId ?? null,
+    sections: Array.isArray(data.sections) ? data.sections : [],
   };
 
   return { message, examination };
@@ -233,7 +255,19 @@ export const adminListModuleExaminations = async (moduleId) => {
       amountOfQuestions: examination.amountOfQuestions,
       active: examination.active,
       startTime: examination.startTime,
+      markingMode: examination.markingMode,
+      totalMarks: examination.totalMarks,
+      passThreshold: examination.passThreshold,
+      navigationMode: examination.navigationMode,
+      randomizationMethod: examination.randomizationMethod,
+      sections: examination.sections,
+      randomizationConfig: examination.randomizationConfig,
+      uiSettings: examination.uiSettings,
+      toolsEnabled: examination.toolsEnabled,
+      submissionSettings: examination.submissionSettings,
+      paperStatus: examination.paperStatus,
       createdAt: examination.createdAt,
+      updatedAt: examination.updatedAt,
     })),
   };
 };
@@ -275,18 +309,33 @@ export const requestModuleExaminationDetails = async (moduleId) => {
     hasCompleted: raw.examinationScoreSheets?.[0] ? true : false,
     minimumPercentageScoreToEarnABadge:
       raw.minimumPercentageScoreToEarnABadge || 30,
-    questions: questionArray.map((q, index) => ({
-      id: q.id,
-      question: q.question,
-      file: q.file,
-      questionIndex: +q.questionIndex || index,
-      options: (q.options ?? []).map((opt) => ({
-        id: opt.id,
-        isAnswer: opt.isAnswer,
-        name: opt.name,
-        optionIndex: +opt.optionIndex,
-      })),
-    })),
+    questions: questionArray.map((q, index) => {
+      const opts = q.options ?? [];
+      const inferredType = (() => {
+        if (q.questionType) return q.questionType;
+        if (opts.length === 0) return "ShortAnswer";
+        const names = opts.map((o) => (o?.name || "").toLowerCase());
+        if (opts.length === 2 && names.includes("true") && names.includes("false")) return "TrueFalse";
+        return "MCQ";
+      })();
+      return {
+        id: q.id,
+        question: q.question,
+        file: q.file,
+        questionIndex: +q.questionIndex || index,
+        questionType: inferredType,
+        markingType: q.markingType ?? "automatic",
+        pairs: q.pairs ?? null,
+        modelAnswer: q.modelAnswer ?? null,
+        correctAnswer: q.correctAnswer ?? null,
+        options: opts.map((opt) => ({
+          id: opt.id,
+          isAnswer: opt.isAnswer,
+          name: opt.name,
+          optionIndex: +opt.optionIndex,
+        })),
+      };
+    }),
   };
 
   return { examination };

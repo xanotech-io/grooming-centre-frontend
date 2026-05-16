@@ -12,7 +12,7 @@ import {
   SimpleGrid,
   HStack,
   VStack,
-  Input,
+  Input as ChakraInput,
   InputGroup,
   InputLeftElement,
   Menu,
@@ -31,6 +31,16 @@ import {
   Select,
   Grid,
   useDisclosure,
+  useToast,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
 } from '@chakra-ui/react';
 import { 
   FiSearch, 
@@ -40,7 +50,7 @@ import {
   FiChevronRight,
 } from 'react-icons/fi';
 import {  Route } from 'react-router-dom';
-import { adminGenerateMISReport } from '../../../services';
+import { adminListMISReports, adminGetMISKPIs, adminGenerateMISReport, adminArchiveMISReport, adminDeleteMISReport } from '../../../services';
 import { AdminMainAreaWrapper } from '../../../layouts';
 import { motion } from 'framer-motion';
 import ScheduleReportModal from './components/ScheduleReportModal';
@@ -57,6 +67,8 @@ const SummaryCard = ({ title, value, subtext, subtextColor }) => (
 const MISReportsPage = () => {
   const [activeTab, setActiveTab] = useState(0);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const toast = useToast();
+  const { isOpen: isGenerateOpen, onOpen: onGenerateOpen, onClose: onGenerateClose } = useDisclosure();
 
   // Overview tab data state
   const [reports, setReports] = useState([]);
@@ -65,22 +77,27 @@ const MISReportsPage = () => {
   const [reportsLoading, setReportsLoading] = useState(false);
   const [overviewSearch, setOverviewSearch] = useState('');
   const [overviewCategory, setOverviewCategory] = useState('');
+  const [kpis, setKpis] = useState({ systemUsageRate: '—', reportAccuracyRate: '—', automationRate: '—', avgReportGenerationTimeMs: '—' });
+  const [generateForm, setGenerateForm] = useState({ reportCategory: 'academic', reportName: '', reportFormat: 'json', frequency: 'on_demand' });
+  const [generating, setGenerating] = useState(false);
 
   const fetchReports = useCallback(async (filters = {}) => {
     setReportsLoading(true);
     try {
-      const result = await adminGenerateMISReport({
-        reportType: 'overview',
-        filters: {
-          search: filters.search ?? overviewSearch,
-          category: filters.category ?? overviewCategory,
-        },
-        page: 1,
-        limit: 10,
-      });
+      const params = {};
+      const search = filters.search ?? overviewSearch;
+      const category = filters.category ?? overviewCategory;
+      const statusFilter = filters.status ?? '';
+      if (category) params.category = category.toLowerCase();
+      if (statusFilter) params.status = statusFilter;
+      if (search) params.search = search;
+      params.page = 1;
+      params.limit = 10;
+      const result = await adminListMISReports(params);
       setReports(result.reports);
-      setSummary(result.summary);
       setPagination(result.pagination);
+    } catch {
+      setReports([]);
     } finally {
       setReportsLoading(false);
     }
@@ -90,6 +107,56 @@ const MISReportsPage = () => {
     fetchReports();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    adminGetMISKPIs()
+      .then(({ kpis: data }) => setKpis(data))
+      .catch(() => {});
+  }, []);
+
+  const handleArchive = async (reportId) => {
+    try {
+      const { message } = await adminArchiveMISReport(reportId);
+      toast({ description: message || 'Report archived.', status: 'success', position: 'top' });
+      fetchReports();
+    } catch (err) {
+      toast({ description: err?.response?.data?.message || 'Failed to archive.', status: 'error', position: 'top' });
+    }
+  };
+
+  const handleDelete = async (reportId) => {
+    if (!window.confirm('Delete this report?')) return;
+    try {
+      const { message } = await adminDeleteMISReport(reportId);
+      toast({ description: message || 'Report deleted.', status: 'success', position: 'top' });
+      fetchReports();
+    } catch (err) {
+      toast({ description: err?.response?.data?.message || 'Failed to delete.', status: 'error', position: 'top' });
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!generateForm.reportName.trim()) {
+      toast({ description: 'Report name is required.', status: 'warning', position: 'top' });
+      return;
+    }
+    setGenerating(true);
+    try {
+      const { message } = await adminGenerateMISReport({
+        reportCategory: generateForm.reportCategory,
+        reportName: generateForm.reportName,
+        reportFormat: generateForm.reportFormat,
+        frequency: generateForm.frequency,
+      });
+      toast({ description: message || 'Report generated successfully.', status: 'success', position: 'top' });
+      onGenerateClose();
+      fetchReports();
+    } catch (err) {
+      toast({ description: err?.response?.data?.message || 'Failed to generate report.', status: 'error', position: 'top' });
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSearchChange = (e) => {
     const val = e.target.value;
@@ -166,8 +233,8 @@ const MISReportsPage = () => {
       <SimpleGrid columns={4} spacing={6} mb={8}>
         <SummaryCard title="Total Report" value={String(summary.totalReports)} subtext="+5% vs last month" />
         <SummaryCard title="Automated Report" value={String(summary.automatedReports)} subtext="+5% vs last month" />
-        <SummaryCard title="Average Creation Time" value={String(summary.averageCreationTime)} />
-        <SummaryCard title="Report Accuracy" value={String(summary.reportAccuracy)} subtext="+5% vs last month" />
+        <SummaryCard title="Average Creation Time" value={kpis.avgReportGenerationTimeMs ? kpis.avgReportGenerationTimeMs + 'ms' : '—'} />
+        <SummaryCard title="Report Accuracy" value={kpis.reportAccuracyRate ? kpis.reportAccuracyRate + '%' : '—'} subtext="+5% vs last month" />
       </SimpleGrid>
 
       <Box bg="white" borderRadius="xl" border="1px solid #E4E7EC" overflow="hidden" boxShadow="xs">
@@ -176,7 +243,7 @@ const MISReportsPage = () => {
             <HStack spacing={3}>
               <InputGroup w="350px">
                 <InputLeftElement pointerEvents="none"><FiSearch color="#667085" /></InputLeftElement>
-                <Input
+                <ChakraInput
                   placeholder="Search here..."
                   fontSize="14px"
                   borderRadius="md"
@@ -198,6 +265,12 @@ const MISReportsPage = () => {
                 <option value="Academic">Academic</option>
                 <option value="Administrative">Administrative</option>
                 <option value="Compliance">Compliance</option>
+              </Select>
+              <Select w="120px" size="sm" borderRadius="md" placeholder="Status"
+                onChange={(e) => fetchReports({ status: e.target.value, search: overviewSearch, category: overviewCategory })}>
+                <option value="draft">Draft</option>
+                <option value="generated">Generated</option>
+                <option value="archived">Archived</option>
               </Select>
               <Select w="120px" size="sm" borderRadius="md" placeholder="Region">
                  <option>Lagos</option>
@@ -247,7 +320,10 @@ const MISReportsPage = () => {
                     <Td>
                       <Menu>
                         <MenuButton as={IconButton} icon={<FiMoreVertical />} variant="ghost" size="sm" color="#98A2B3" border="1px solid #E4E7EC" borderRadius="md" />
-                        <MenuList><MenuItem fontSize="13px">Archive report</MenuItem></MenuList>
+                        <MenuList>
+                          <MenuItem fontSize="13px" onClick={() => handleArchive(item.id)}>Archive report</MenuItem>
+                          <MenuItem fontSize="13px" color="red.500" onClick={() => handleDelete(item.id)}>Delete report</MenuItem>
+                        </MenuList>
                       </Menu>
                     </Td>
                   </Tr>
@@ -324,7 +400,7 @@ const MISReportsPage = () => {
             <HStack spacing={3}>
               <InputGroup w="350px">
                 <InputLeftElement pointerEvents="none"><FiSearch color="#667085" /></InputLeftElement>
-                <Input placeholder="Search here..." fontSize="14px" borderRadius="md" />
+                <ChakraInput placeholder="Search here..." fontSize="14px" borderRadius="md" />
               </InputGroup>
               <Button leftIcon={<FiFilter />} variant="outline" size="sm" fontSize="14px" fontWeight="500" color="#344054" borderRadius="md">Filter</Button>
             </HStack>
@@ -524,7 +600,7 @@ const MISReportsPage = () => {
             <HStack spacing={3}>
               <InputGroup w="350px">
                 <InputLeftElement pointerEvents="none"><FiSearch color="#667085" /></InputLeftElement>
-                <Input placeholder="Search here..." fontSize="14px" borderRadius="md" />
+                <ChakraInput placeholder="Search here..." fontSize="14px" borderRadius="md" />
               </InputGroup>
               <Button leftIcon={<FiFilter />} variant="outline" size="sm" fontSize="14px" fontWeight="500" color="#344054" borderRadius="md">Filter</Button>
             </HStack>
@@ -634,7 +710,7 @@ const MISReportsPage = () => {
             <HStack spacing={3}>
               <InputGroup w="350px">
                 <InputLeftElement pointerEvents="none"><FiSearch color="#667085" /></InputLeftElement>
-                <Input placeholder="Search here..." fontSize="14px" borderRadius="md" />
+                <ChakraInput placeholder="Search here..." fontSize="14px" borderRadius="md" />
               </InputGroup>
               <Button leftIcon={<FiFilter />} variant="outline" size="sm" fontSize="14px" fontWeight="500" color="#344054" borderRadius="md">Filter</Button>
             </HStack>
@@ -691,17 +767,8 @@ const MISReportsPage = () => {
           <Text fontSize="24px" fontWeight="700" color="#101928">Management Information System Reports</Text>
           <HStack spacing={3}>
             <Button variant="outline" borderColor="#660066" color="#660066" h="40px" fontSize="14px" fontWeight="500" onClick={onOpen}>Schedule report</Button>
-            <Button
-              bg="#660066"
-              color="white"
-              _hover={{ bg: "#550055" }}
-              h="40px"
-              fontSize="14px"
-              fontWeight="500"
-              isLoading={reportsLoading}
-              onClick={() => adminGenerateMISReport({ reportType: 'overview', format: 'PDF', filters: { search: overviewSearch, category: overviewCategory } })}
-            >
-              Export Report
+            <Button bg="#660066" color="white" _hover={{ bg: "#550055" }} h="40px" fontSize="14px" fontWeight="500" onClick={onGenerateOpen}>
+              Generate Report
             </Button>
           </HStack>
         </Flex>
@@ -760,6 +827,56 @@ const MISReportsPage = () => {
           </Tabs>
         </Box>
       </Box>
+      <Modal isOpen={isGenerateOpen} onClose={onGenerateClose} isCentered size="md">
+        <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(2px)" />
+        <ModalContent borderRadius="xl" p={2}>
+          <ModalHeader fontSize="lg" fontWeight="700" color="#101928">Generate Report</ModalHeader>
+          <ModalCloseButton mt={3} mr={2} />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <FormControl>
+                <FormLabel fontSize="14px" fontWeight="500" color="#344054">Report Name</FormLabel>
+                <ChakraInput
+                  placeholder="e.g. Course Completion Summary – Oct 2026"
+                  value={generateForm.reportName}
+                  onChange={(e) => setGenerateForm((f) => ({ ...f, reportName: e.target.value }))}
+                  borderRadius="md" fontSize="14px"
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="14px" fontWeight="500" color="#344054">Category</FormLabel>
+                <Select value={generateForm.reportCategory} onChange={(e) => setGenerateForm((f) => ({ ...f, reportCategory: e.target.value }))} borderRadius="md" fontSize="14px">
+                  <option value="academic">Academic</option>
+                  <option value="admin">Administrative</option>
+                  <option value="compliance">Compliance</option>
+                </Select>
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="14px" fontWeight="500" color="#344054">Format</FormLabel>
+                <Select value={generateForm.reportFormat} onChange={(e) => setGenerateForm((f) => ({ ...f, reportFormat: e.target.value }))} borderRadius="md" fontSize="14px">
+                  <option value="json">JSON</option>
+                  <option value="pdf">PDF</option>
+                  <option value="excel">Excel</option>
+                  <option value="csv">CSV</option>
+                </Select>
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="14px" fontWeight="500" color="#344054">Frequency</FormLabel>
+                <Select value={generateForm.frequency} onChange={(e) => setGenerateForm((f) => ({ ...f, frequency: e.target.value }))} borderRadius="md" fontSize="14px">
+                  <option value="on_demand">On Demand</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </Select>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter gap={3} pt={6} pb={4}>
+            <Button variant="outline" flex={1} borderColor="#D0D5DD" color="#344054" fontSize="14px" fontWeight="600" onClick={onGenerateClose} borderRadius="md" h="44px">Cancel</Button>
+            <Button bg="#660066" flex={1} color="white" _hover={{ bg: "#550055" }} fontSize="14px" fontWeight="600" borderRadius="md" h="44px" isLoading={generating} onClick={handleGenerate}>Generate</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
       <ScheduleReportModal isOpen={isOpen} onClose={onClose} />
     </AdminMainAreaWrapper>
   );

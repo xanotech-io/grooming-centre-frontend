@@ -11,6 +11,8 @@ import '../styles/responsiveness.css';
 import {
   AdminLayoutRoute,
   AssessmentLayoutRoute,
+  AssessmentTakingLayoutRoute,
+  ExaminationLayoutRoute,
   TakeCourseLayoutRoute,
   UserLayoutRoute,
 } from '../layouts';
@@ -73,6 +75,14 @@ function AppConfig() {
       <AssessmentLayoutRoute
         exact
         path="/courses/take/:course_id/assessment/start/:assessment_id"
+      />
+      <AssessmentTakingLayoutRoute
+        exact
+        path="/courses/take/:course_id/assessment-take/:assessment_id"
+      />
+      <ExaminationLayoutRoute
+        exact
+        path="/courses/take/:course_id/exam/:exam_id"
       />
       <TakeCourseLayoutRoute path="/courses/take" />
       <UserLayoutRoute path="/" />

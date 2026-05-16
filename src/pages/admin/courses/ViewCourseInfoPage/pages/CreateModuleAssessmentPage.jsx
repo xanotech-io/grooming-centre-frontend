@@ -19,12 +19,14 @@ import {
   adminGetMarkingTemplates,
 } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
+import useAssessmentStore from "../../../../../store/assessmentStore";
 
 const CreateModuleAssessmentPage = () => {
   const { courseId, moduleId } = useParams();
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
+  const setAssessment = useAssessmentStore((s) => s.setAssessment);
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
@@ -60,6 +62,7 @@ const CreateModuleAssessmentPage = () => {
       };
 
       const { message, assessment } = await adminCreateAssessment(body);
+      setAssessment(assessment);
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",

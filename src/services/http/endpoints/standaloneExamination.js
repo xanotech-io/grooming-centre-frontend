@@ -14,19 +14,27 @@ export const adminGetStandaloneExaminationListing = async (params) => {
     data: { data },
   } = await http.get(path, { params });
 
-  const examinations = data?.rows?.map((exam) => ({
+  // Response shape: { data: { count, rows: [...] } }
+  const rows = data?.data?.rows ?? data?.rows ?? [];
+  const count = data?.data?.count ?? data?.count ?? 0;
+
+  const examinations = rows.map((exam) => ({
     id: exam.id,
     title: exam.title,
     duration: exam.duration,
+    amountOfQuestions: exam.amountOfQuestions,
     startTime: exam.startTime,
+    markingMode: exam.markingMode,
+    active: exam.active,
     noOfUsers: exam.standAloneExaminationGrade?.length ?? 0,
     isPublished: exam.isPublished,
+    createdAt: exam.createdAt,
   }));
 
   return {
     examinations,
-    showingDocumentsCount: data?.rows?.length,
-    totalDocumentsCount: data?.count,
+    showingDocumentsCount: rows.length,
+    totalDocumentsCount: count,
   };
 };
 
@@ -84,7 +92,9 @@ export const getStandaloneExaminationDetails = async (id, forAdmin) => {
     data: { data },
   } = await http.get(path);
   console.log(data, "data");
-  const questionArray = data.standAloneExaminationQuestion;
+  const questionArray = Array.isArray(data.standAloneExaminationQuestion)
+    ? data.standAloneExaminationQuestion
+    : [];
 
   // shuffle questions
   for (let i = questionArray.length - 1; i > 0; i -= 1) {
@@ -224,9 +234,15 @@ export const adminCreateStandaloneExaminationParticipants = async (body) => {
  * @param {object} body
  * @returns {Promise<{ message: string }>}
  */
+export const adminGetStandaloneExamTemplateId = async (id) => {
+  const {
+    data: { data },
+  } = await http.get(`/v1/stand-alone-examination/admin/${id}`);
+  return data?.templateId ?? null;
+};
+
 export const adminCreateStandaloneExaminationQuestion = async (body) => {
   const path = "/v1/stand-alone-examination-question/create";
-  console.log(body);
 
   const {
     data: { message },

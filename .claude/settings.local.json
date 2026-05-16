@@ -10,7 +10,8 @@
       "Read(//c/Users/kamal/Work/grooming-centre-frontend/src/pages/admin/courses/**)",
       "Bash(yarn --silent lint)",
       "Bash(xargs grep -l \"adminEditExamination\")",
-      "WebFetch(domain:gclms.xanotech.org)"
+      "WebFetch(domain:gclms.xanotech.org)",
+      "Bash(npm install *)"
     ]
   }
 }

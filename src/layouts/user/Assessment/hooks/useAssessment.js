@@ -74,13 +74,15 @@ const useAssessment = () => {
 
     try {
       if (isExamination) {
-        const questionIdArr = assessment?.questions?.map((q) => q.id);
-        const optionIdArr = questionIdArr.map((id) => selectedAnswers[id] || null);
+        const examinationQuestionsId = assessment?.questions?.map((q) => q.id);
+        const examinationOptionsId = examinationQuestionsId.map(
+          (id) => selectedAnswers[id] || null
+        );
         const body = {
           examinationId: assessment.id,
-          examinationQuestionsId: questionIdArr,
-          examinationOptionsId: optionIdArr,
           courseId: assessment.courseId,
+          examinationQuestionsId,
+          examinationOptionsId,
         };
         const { message, data } = await submitExamination(body);
         setScore(data?.score);

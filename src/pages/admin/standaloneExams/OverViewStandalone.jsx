@@ -21,6 +21,7 @@ import {
 } from "../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../utils";
 import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
+import useAssessmentStore from "../../../store/assessmentStore";
 import { FaRegSave, FaFileAlt } from "react-icons/fa";
 
 const OverViewStandalone = () => {
@@ -257,31 +258,37 @@ const CreateStandalonePage = () => {
   const handleCancel = useGoBack();
   const startTimeManager = useDateTimePicker();
   const [markingTemplates, setMarkingTemplates] = useState([]);
-  const [markingTemplateId, setMarkingTemplateId] = useState("");
+  const [templateId, setTemplateId] = useState("");
+  const [markingMode, setMarkingMode] = useState("automatic");
+  const setAssessment = useAssessmentStore((s) => s.setAssessment);
 
   useEffect(() => {
     adminGetMarkingTemplates()
       .then(({ templates }) =>
-        setMarkingTemplates(templates.filter((t) => t.usageScope === "Standalone Exam"))
+        setMarkingTemplates(templates)
       )
       .catch(() => {});
   }, []);
 
   const onSubmit = async (data) => {
     try {
-      const startTime =
-        startTimeManager.handleGetValueAndValidate("Start Time");
+      const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
 
-      if (!markingTemplateId)
+      if (!templateId)
         throw new Error("A marking template must be selected before creating an examination.");
 
       const body = {
-        ...data,
-        markingTemplateId,
+        title: data.title,
+        duration: Number(data.duration),
+        amountOfQuestions: Number(data.amountOfQuestions),
+        totalMarks: Number(data.totalMarks),
+        templateId,
+        markingMode,
         startTime: formatDateToISO(startTime),
       };
-      const { message, examination } =
-        await adminCreateStandaloneExamination(body);
+
+      const { message, examination } = await adminCreateStandaloneExamination(body);
+      setAssessment(examination);
 
       toast({
         description: capitalizeFirstLetter(message),
@@ -299,24 +306,14 @@ const CreateStandalonePage = () => {
   };
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit(onSubmit)}
-      marginY="20px"
-      marginX="22px"
-    >
-      <Box
-        backgroundColor="white"
-        padding="40px"
-        borderRadius="8px"
-        shadow="sm"
-      >
+    <Box as="form" onSubmit={handleSubmit(onSubmit)} marginY="20px" marginX="22px">
+      <Box backgroundColor="white" padding="40px" borderRadius="8px" shadow="sm">
         <Heading as="h3" size="md" marginBottom="20px" color="#1A202C">
           Examination Details
         </Heading>
 
         <Grid templateColumns="repeat(2, 1fr)" gap={6}>
-          <GridItem>
+          <GridItem colSpan={2}>
             <Input
               label="Examination Title"
               id="title"
@@ -325,25 +322,7 @@ const CreateStandalonePage = () => {
               {...register("title", { required: "Title is required" })}
             />
           </GridItem>
-          <GridItem>
-            <Select
-              label="Course"
-              id="course"
-              placeholder="Select the course associated with the exam"
-              options={[]}
-              {...register("course")}
-            />
-          </GridItem>
 
-          <GridItem>
-            <Select
-              label="Instructor"
-              id="instructor"
-              placeholder="Select instructor for the exam"
-              options={[]}
-              {...register("instructor")}
-            />
-          </GridItem>
           <GridItem>
             <Input
               label="Number of Questions"
@@ -354,6 +333,16 @@ const CreateStandalonePage = () => {
               {...register("amountOfQuestions", {
                 required: "Please enter number of questions",
               })}
+            />
+          </GridItem>
+          <GridItem>
+            <Input
+              label="Total Marks"
+              type="number"
+              id="totalMarks"
+              placeholder="e.g. 100"
+              error={errors.totalMarks?.message}
+              {...register("totalMarks", { required: "Please enter total marks" })}
             />
           </GridItem>
 
@@ -368,7 +357,7 @@ const CreateStandalonePage = () => {
           </GridItem>
           <GridItem>
             <Input
-              label="Duration"
+              label="Duration (minutes)"
               type="number"
               id="duration"
               placeholder="Enter duration in minutes"
@@ -377,22 +366,27 @@ const CreateStandalonePage = () => {
             />
           </GridItem>
 
-          <GridItem colSpan={2}>
-            <Input
-              label="Instructions"
-              id="instructions"
-              placeholder="Enter exam instructions for the students"
-              {...register("instructions")}
+          <GridItem>
+            <Select
+              label="Marking Mode"
+              placeholder="Select marking mode"
+              isRequired
+              value={markingMode}
+              onChange={(e) => setMarkingMode(e.target.value)}
+              options={[
+                { label: "Automatic", value: "automatic" },
+                { label: "Manual", value: "manual" },
+                { label: "Hybrid", value: "hybrid" },
+              ]}
             />
           </GridItem>
-
-          <GridItem colSpan={2}>
+          <GridItem>
             <Select
               label="Marking Template"
               placeholder="Select a marking template"
               isRequired
-              value={markingTemplateId}
-              onChange={(e) => setMarkingTemplateId(e.target.value)}
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
               options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
             />
           </GridItem>
@@ -425,7 +419,7 @@ const CreateStandalonePage = () => {
             _hover={{ bg: "#520052" }}
           >
             <FaFileAlt />
-            Next: Template
+            Create &amp; Add Questions
           </Button>
         </Flex>
       </Box>

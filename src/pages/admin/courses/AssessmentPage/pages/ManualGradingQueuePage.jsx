@@ -129,7 +129,8 @@ const ManualGradingQueuePage = () => {
                   <Th color="gray.500" fontSize="11px" py={3}>#</Th>
                   <Th color="gray.500" fontSize="11px" py={3}>Student</Th>
                   <Th color="gray.500" fontSize="11px" py={3}>Submitted</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Pending Questions</Th>
+                  <Th color="gray.500" fontSize="11px" py={3}>Questions</Th>
+                  <Th color="gray.500" fontSize="11px" py={3}>Status</Th>
                   <Th color="gray.500" fontSize="11px" py={3}>Action</Th>
                 </Tr>
               </Thead>
@@ -137,13 +138,19 @@ const ManualGradingQueuePage = () => {
                 {pending.map((row, i) => {
                   const fullName = [row.student?.firstName, row.student?.lastName]
                     .filter(Boolean).join(" ") || "—";
-                  const uc = urgencyColor(row.pendingCount || 0);
-                  const submittedAt = row.submittedAt
-                    ? dayjs(row.submittedAt).fromNow()
+                  const answerCount = Array.isArray(row.answers) ? row.answers.length : 0;
+                  const uc = urgencyColor(answerCount);
+                  const submittedAt = row.submissionTime
+                    ? dayjs(row.submissionTime).fromNow()
                     : "—";
+                  const statusColors = {
+                    graded: { bg: "#F0FFF4", color: "#276749" },
+                    pending: { bg: "#FFFAF0", color: "#C05621" },
+                  };
+                  const sc = statusColors[row.status] ?? { bg: "#EDF2F7", color: "#4A5568" };
 
                   return (
-                    <Tr key={row.studentId} _hover={{ bg: "#F9F0FF" }}>
+                    <Tr key={row.id} _hover={{ bg: "#F9F0FF" }}>
                       <Td color="gray.400" fontSize="13px">{i + 1}</Td>
                       <Td>
                         <Flex alignItems="center" gap={3}>
@@ -179,7 +186,12 @@ const ManualGradingQueuePage = () => {
                           fontSize="12px"
                           fontWeight="700"
                         >
-                          {row.pendingCount ?? 0} question{(row.pendingCount ?? 0) !== 1 ? "s" : ""}
+                          {answerCount} question{answerCount !== 1 ? "s" : ""}
+                        </Badge>
+                      </Td>
+                      <Td>
+                        <Badge bg={sc.bg} color={sc.color} px={2} py="2px" borderRadius="8px" fontSize="11px" fontWeight="600" textTransform="capitalize">
+                          {row.status || "—"}
                         </Badge>
                       </Td>
                       <Td>

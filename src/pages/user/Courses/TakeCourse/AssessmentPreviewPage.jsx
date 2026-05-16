@@ -15,6 +15,8 @@ const AssessmentPreviewPage = ({ sidebarLinks, sidebarLinkClickedState }) => {
   useTakeCourse();
   console.log(assessment, "assessment");
   const isExamination = useQueryParams().get("examination");
+  const moduleExamId = useQueryParams().get("moduleExam");
+  const isExam = !!(isExamination || moduleExamId);
   const duration = getDuration(assessment.duration);
   const handleGoBack = useGoBack();
 
@@ -33,7 +35,7 @@ const AssessmentPreviewPage = ({ sidebarLinks, sidebarLinkClickedState }) => {
       cta={<Button onClick={handleGoBack}>Go Back</Button>}
       heading="Oops An Error Occurred"
       description={`You are are not allowed to view this ${
-        isExamination ? "examination" : "assessment"
+        isExam ? "examination" : "assessment"
       }`}
     />
   ) : (
@@ -57,7 +59,7 @@ const AssessmentPreviewPage = ({ sidebarLinks, sidebarLinkClickedState }) => {
                 <BsClockFill />
               </ListIcon>
 
-              <Text>{assessment.questionCount} multiple choice questions</Text>
+              <Text>{assessment.questionCount} questions</Text>
             </ListItem>
             <ListItem d="flex" alignItems="center">
               <ListIcon fontSize="text.level1" color="accent.2">
@@ -87,14 +89,14 @@ const AssessmentPreviewPage = ({ sidebarLinks, sidebarLinkClickedState }) => {
         <ListItem>
           <Text>
             You must complete this{" "}
-            {isExamination ? "examination" : "assessment"} in one session — make
+            {isExam ? "examination" : "assessment"} in one session — make
             sure your internet is reliable.
           </Text>
         </ListItem>
         <ListItem>
           <Text>
             You can only take this{" "}
-            {isExamination ? "examination" : "assessment"} once, so do well to
+            {isExam ? "examination" : "assessment"} once, so do well to
             put in your best.
           </Text>
         </ListItem>
@@ -105,7 +107,7 @@ const AssessmentPreviewPage = ({ sidebarLinks, sidebarLinkClickedState }) => {
         </ListItem>
       </UnorderedList>
 
-      {isExamination ? (
+      {isExam ? (
         <Button
           link={`/courses/take/${assessment?.courseId}/assessment/start/${assessment.courseId}?examination=true`}
           disabled={isLoading && error}

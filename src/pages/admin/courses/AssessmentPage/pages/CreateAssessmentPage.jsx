@@ -21,8 +21,10 @@ import {
   adminCreateAssessment,
   adminCreateExamination,
   adminCreateStandaloneExamination,
+  adminGetMarkingTemplateById,
   adminGetMarkingTemplates,
 } from "../../../../../services";
+import useAssessmentStore from "../../../../../store/assessmentStore";
 import {
   capitalizeFirstLetter,
   capitalizeWords,
@@ -45,9 +47,11 @@ const CreateAssessmentPage = ({ users }) => {
 
   const { push } = useHistory();
   const toast = useToast();
+  const setAssessment = useAssessmentStore((s) => s.setAssessment);
   const [selectedIDs, setSelectedIDs] = useState([]);
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
+  const [templateSections, setTemplateSections] = useState([]);
 
   const usageScope = isStandaloneExamination
     ? "Standalone Exam"
@@ -63,6 +67,15 @@ const CreateAssessmentPage = ({ users }) => {
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usageScope]);
+
+  useEffect(() => {
+    if (!markingTemplateId) { setTemplateSections([]); return; }
+    adminGetMarkingTemplateById(markingTemplateId)
+      .then(({ template }) =>
+        setTemplateSections(Array.isArray(template?.sections) ? template.sections : [])
+      )
+      .catch(() => setTemplateSections([]));
+  }, [markingTemplateId]);
   const {
     state: { metadata },
   } = useApp();
@@ -123,6 +136,12 @@ const CreateAssessmentPage = ({ users }) => {
         position: "top",
         status: "success",
       });
+
+      if (isExamination) {
+        setAssessment(examination);
+      } else {
+        setAssessment(assessment);
+      }
 
       isExamination
         ? push(
@@ -326,6 +345,35 @@ const CreateAssessmentPage = ({ users }) => {
                 options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
               />
             </GridItem>
+
+            {templateSections.length > 0 && (
+              <GridItem colSpan={{ base: 1, lg: 2 }}>
+                <Select
+                  label="Sections"
+                  placeholder="— Sections in this template —"
+                  options={templateSections.map((s) => ({ label: s.name, value: s.name }))}
+                  disabled
+                />
+                <Flex flexWrap="wrap" gap={2} mt={3}>
+                  {templateSections.map((s) => (
+                    <Box
+                      key={s.name}
+                      px={3}
+                      py={1}
+                      borderRadius="md"
+                      border="1px"
+                      borderColor="primary.base"
+                      fontSize="sm"
+                    >
+                      <Text bold color="primary.base">{s.name}</Text>
+                      <Text fontSize="xs" color="gray.500">
+                        {s.questionCount} question{s.questionCount !== 1 ? "s" : ""} · {s.marksPerQuestion} mark{s.marksPerQuestion !== 1 ? "s" : ""} each
+                      </Text>
+                    </Box>
+                  ))}
+                </Flex>
+              </GridItem>
+            )}
           </Box>
         </Box>
         <Flex paddingY={10} marginX={6} justifyContent="space-between">

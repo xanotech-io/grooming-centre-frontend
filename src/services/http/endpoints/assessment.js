@@ -17,7 +17,7 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
   const assessment = {
     id: data?.id,
     courseId: data?.courseId,
-    markingTemplateId: data?.markingTemplateId ?? null,
+    markingTemplateId: data?.templateId ?? data?.markingTemplateId ?? null,
     topic: data?.title,
     duration: data?.duration,
     questionCount: data?.amountOfQuestions,
@@ -27,20 +27,33 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
     minimumPercentageScoreToEarnABadge:
       data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
     questions: data?.assessmentQuestions
-      ? data?.assessmentQuestions?.map((q, index) => ({
-        id: q.id,
-        question: q?.question,
-        file: q?.file,
-        questionIndex: index,
-        questionType: q?.questionType || "MCQ",
-        markingType: q?.markingType || "automatic",
-        options: q?.options?.map((opt) => ({
-          id: opt?.id,
-          isAnswer: opt?.isAnswer,
-          name: opt?.name,
-          optionIndex: +opt?.optionIndex,
-        })) ?? [],
-      }))
+      ? data?.assessmentQuestions?.map((q, index) => {
+        const opts = q?.options ?? [];
+        const inferredType = (() => {
+          if (q?.questionType) return q.questionType;
+          if (opts.length === 0) return "ShortAnswer";
+          const names = opts.map((o) => (o?.name || "").toLowerCase());
+          if (opts.length === 2 && names.includes("true") && names.includes("false")) return "TrueFalse";
+          return "MCQ";
+        })();
+        return {
+          id: q.id,
+          question: q?.question,
+          file: q?.file,
+          questionIndex: index,
+          questionType: inferredType,
+          markingType: q?.markingType || "automatic",
+          pairs: q?.pairs ?? null,
+          modelAnswer: q?.modelAnswer ?? null,
+          correctAnswer: q?.correctAnswer ?? null,
+          options: opts.map((opt) => ({
+            id: opt?.id,
+            isAnswer: opt?.isAnswer,
+            name: opt?.name,
+            optionIndex: +opt?.optionIndex,
+          })),
+        };
+      })
       : "not set",
   };
 
@@ -49,7 +62,7 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
 
 export const adminGetAssessmentMarkingTemplateId = async (assessmentId) => {
   const { data: { data } } = await http.get(`/v1/assessment/admin/${assessmentId}`);
-  return data?.markingTemplateId ?? null;
+  return data?.templateId ?? data?.markingTemplateId ?? null;
 };
 
 export const adminDeleteAssessmentQuestionFile = async (questionId) => {
@@ -96,8 +109,9 @@ export const adminCreateAssessment = async (body) => {
 
   const assessment = {
     id: data.id,
+    templateId: data.templateId ?? null,
+    sections: Array.isArray(data.sections) ? data.sections : [],
   };
-  console.log(assessment);
   return { message, assessment };
 };
 
@@ -110,10 +124,10 @@ export const adminCreateAssessmentQuestion = async (body) => {
   const path = "/v1/assessment/question/create";
 
   const {
-    data: { message },
+    data: { message, data },
   } = await http.post(path, body);
 
-  return { message };
+  return { message, question: data };
 };
 
 /**
@@ -125,10 +139,10 @@ export const adminEditAssessmentQuestion = async (body) => {
   const path = `/v1/assessment/question/edit`;
 
   const {
-    data: { message },
+    data: { message, data },
   } = await http.patch(path, body);
 
-  return { message };
+  return { message, question: data };
 };
 
 export const adminDeleteAssessment = async (assessmentId) => {

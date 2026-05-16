@@ -1,298 +1,406 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
-import {
-  Box,
-  Flex,
-  Text,
-  Spinner,
-  IconButton,
-  Badge,
-  Textarea,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-  NumberIncrementStepper,
-  NumberDecrementStepper,
-  Divider,
-  useToast,
-  Select as ChakraSelect,
-} from "@chakra-ui/react";
-import { FaArrowLeft } from "react-icons/fa";
-import { Button, Heading } from "../../../components";
-import { useFetch } from "../../../hooks";
+import { Box, Flex, Badge, Grid, Progress, Spinner } from "@chakra-ui/react";
+import { Text, Button } from "../../../components";
+import { RichTextToView } from "../../../components";
 import { getStudentSubmission, submitManualMark, updateManualMark } from "../../../services";
+import { capitalizeFirstLetter } from "../../../utils";
+import { useToast } from "@chakra-ui/toast";
+import {
+  FiArrowLeft,
+  FiCheck,
+  FiUser,
+} from "react-icons/fi";
 
-const QuestionCard = ({ answer, index, onSave }) => {
-  const markEntry = answer.markEntry;
-  const [score, setScore] = useState(markEntry?.score ?? "");
-  const [remark, setRemark] = useState(markEntry?.remark ?? "");
-  const [gradingStatus, setGradingStatus] = useState(markEntry?.gradingStatus ?? "in_progress");
-  const [saving, setSaving] = useState(false);
+/* ─── Rubric display ───────────────────────────────────── */
+const RubricDisplay = ({ rubric }) => {
+  if (!rubric) return null;
+  const criteria = Array.isArray(rubric.criteria) ? rubric.criteria : [];
+  const maxPer = rubric.max_per_criteria;
+
+  if (!criteria.length) return null;
+  return (
+    <Box mb={4} p={4} bg="#EBF4FF" border="1px solid #BEE3F8" borderRadius="8px">
+      <Text fontSize="10px" fontWeight="700" color="#2B6CB0" textTransform="uppercase" letterSpacing="wider" mb={2}>
+        Marking Rubric {maxPer != null ? `(${maxPer} pts each)` : ""}
+      </Text>
+      {criteria.map((c, i) => (
+        <Flex key={i} alignItems="flex-start" gap={2} mb={1}>
+          <Box w="6px" h="6px" borderRadius="50%" bg="#3182CE" mt="6px" flexShrink={0} />
+          <Text fontSize="13px" color="#2B6CB0">{c}</Text>
+        </Flex>
+      ))}
+    </Box>
+  );
+};
+
+/* ─── Grading panel ────────────────────────────────────── */
+const GradingPanel = ({ question, onSaved }) => {
+  const { examId, studentId } = useParams();
   const toast = useToast();
 
-  const maxMarks = answer.question?.maxMarks ?? answer.question?.marks ?? 0;
-  const isGraded = !!markEntry;
+  const alreadyGraded = question.gradingStatus?.toLowerCase() !== "pending" && question.scoreAssigned != null;
+  const [score, setScore] = useState(alreadyGraded ? String(question.scoreAssigned) : "");
+  const [remark, setRemark] = useState(question.remark ?? "");
+  const [gradingStatus, setGradingStatus] = useState(
+    alreadyGraded ? (question.gradingStatus?.toLowerCase() === "completed" ? "completed" : "in_progress") : "in_progress"
+  );
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(alreadyGraded);
+
+  const maxScore = question.maxScore ?? 0;
+  const scoreNum = parseFloat(score);
+  const quickMarks = [
+    { label: "0", value: 0 },
+    { label: "Half", value: Math.floor(maxScore / 2) },
+    { label: "Full", value: maxScore },
+  ];
 
   const handleSave = async () => {
-    if (score === "" || score === null || score === undefined) {
-      toast({ title: "Please enter a score", status: "warning", duration: 2000, isClosable: true });
+    if (score === "" || score === null) {
+      toast({ description: "Please enter a score.", status: "warning", position: "top" });
       return;
     }
-    const numScore = Number(score);
-    if (numScore < 0 || numScore > maxMarks) {
-      toast({ title: `Score must be between 0 and ${maxMarks}`, status: "warning", duration: 2000, isClosable: true });
+    if (!isNaN(scoreNum) && (scoreNum < 0 || scoreNum > maxScore)) {
+      toast({ description: `Score must be between 0 and ${maxScore}.`, status: "warning", position: "top" });
       return;
     }
+
     setSaving(true);
     try {
-      if (isGraded) {
-        await updateManualMark({
-          markEntryId: markEntry.id,
-          score: numScore,
-          remark: remark.trim() || undefined,
-          gradingStatus,
-        });
+      const payload = {
+        studentId,
+        examId,
+        questionId: question.questionId,
+        score: Number(score),
+        remark: remark.trim() || "",
+        gradingStatus,
+      };
+
+      if (alreadyGraded || saved) {
+        await updateManualMark(payload);
       } else {
-        await submitManualMark({
-          submissionId: answer.submissionId,
-          questionId: answer.questionId,
-          score: numScore,
-          remark: remark.trim() || undefined,
-          gradingStatus,
-        });
+        await submitManualMark(payload);
       }
-      toast({ title: "Mark saved", status: "success", duration: 2000, isClosable: true });
-      onSave();
-    } catch {
-      toast({ title: "Failed to save mark", status: "error", duration: 3000, isClosable: true });
+
+      setSaved(true);
+      toast({ description: "Mark saved.", status: "success", position: "top" });
+      onSaved();
+    } catch (err) {
+      toast({
+        description: capitalizeFirstLetter(err?.response?.data?.message || err.message || "Failed to save"),
+        status: "error",
+        position: "top",
+      });
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" p={6} mb={4}>
-      <Flex justifyContent="space-between" alignItems="flex-start" mb={4}>
-        <Flex alignItems="center" gap={3}>
-          <Text fontWeight="600" fontSize="16px" color="#1A202C">
-            Question {index + 1}
-          </Text>
-          {answer.question?.type && (
-            <Badge bg="#F0E6FF" color="#6b006b" px="10px" py="4px" borderRadius="12px" textTransform="none" fontWeight="500" fontSize="12px">
-              {answer.question.type}
-            </Badge>
-          )}
-          {isGraded ? (
-            <Badge bg="#E6F4EA" color="#38A169" px="10px" py="4px" borderRadius="12px" textTransform="none" fontWeight="500" fontSize="12px">
-              Graded
-            </Badge>
-          ) : (
-            <Badge bg="#FFF5EA" color="#DD6B20" px="10px" py="4px" borderRadius="12px" textTransform="none" fontWeight="500" fontSize="12px">
-              Pending
-            </Badge>
-          )}
+    <>
+      <Text fontSize="10px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider" mb={4}>Grade</Text>
+
+      <Box mb={4}>
+        <Flex alignItems="baseline" gap={2} mb={2}>
+          <Text fontSize="sm" fontWeight="600" color="#1A202C">Marks</Text>
+          <Text fontSize="xs" color="gray.400">/ {maxScore}</Text>
         </Flex>
-        <Text fontSize="14px" color="gray.500" fontWeight="500">
-          Max: {maxMarks} pts
-        </Text>
-      </Flex>
-
-      {/* Question text */}
-      {answer.question?.text && (
-        <Box bg="#F7FAFC" borderRadius="8px" p={4} mb={4}>
-          <Text fontSize="13px" color="gray.500" fontWeight="600" mb={1}>Question</Text>
-          <Text fontSize="14px" color="#1A202C">{answer.question.text}</Text>
-        </Box>
-      )}
-
-      {/* Student answer */}
-      <Box bg="#FFFBEB" border="1px solid #FCEFC7" borderRadius="8px" p={4} mb={4}>
-        <Text fontSize="13px" color="gray.500" fontWeight="600" mb={1}>Student Answer</Text>
-        <Text fontSize="14px" color="#1A202C" whiteSpace="pre-wrap">
-          {answer.answer || <Text as="span" color="gray.400" fontStyle="italic">No answer provided</Text>}
-        </Text>
+        <input
+          type="number"
+          min={0}
+          max={maxScore}
+          value={score}
+          onChange={(e) => { setScore(e.target.value); setSaved(false); }}
+          style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 12px", fontSize: 20, fontWeight: 700, width: "100%", background: "white", outline: "none" }}
+        />
+        {!isNaN(scoreNum) && scoreNum > maxScore && (
+          <Text fontSize="11px" color="red.500" mt={1}>Score exceeds maximum ({maxScore})</Text>
+        )}
       </Box>
 
-      {answer.question?.rubric && (
-        <Box bg="#EBF4FF" border="1px solid #BEE3F8" borderRadius="8px" p={4} mb={4}>
-          <Text fontSize="13px" color="gray.500" fontWeight="600" mb={1}>Rubric / Marking Scheme</Text>
-          <Text fontSize="14px" color="#1A202C" whiteSpace="pre-wrap">{answer.question.rubric}</Text>
-        </Box>
-      )}
-
-      <Divider mb={4} />
-
-      {/* Grading inputs */}
-      <Flex gap={4} flexWrap="wrap" alignItems="flex-end">
-        <Box minW="120px">
-          <Text fontSize="13px" fontWeight="600" color="gray.600" mb={1}>Score (out of {maxMarks})</Text>
-          <NumberInput
-            value={score}
-            onChange={(val) => setScore(val)}
-            min={0}
-            max={maxMarks}
-            size="sm"
-          >
-            <NumberInputField borderRadius="6px" />
-            <NumberInputStepper>
-              <NumberIncrementStepper />
-              <NumberDecrementStepper />
-            </NumberInputStepper>
-          </NumberInput>
-        </Box>
-
-        <Box minW="160px">
-          <Text fontSize="13px" fontWeight="600" color="gray.600" mb={1}>Status</Text>
-          <ChakraSelect
-            value={gradingStatus}
-            onChange={(e) => setGradingStatus(e.target.value)}
-            size="sm"
-            borderRadius="6px"
-          >
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-          </ChakraSelect>
-        </Box>
-
-        <Box flex="1" minW="200px">
-          <Text fontSize="13px" fontWeight="600" color="gray.600" mb={1}>Remark (optional)</Text>
-          <Textarea
-            value={remark}
-            onChange={(e) => setRemark(e.target.value)}
-            size="sm"
-            rows={2}
-            borderRadius="6px"
-            placeholder="Add a comment or feedback…"
-            resize="vertical"
-          />
-        </Box>
-
-        <Button size="sm" isLoading={saving} onClick={handleSave}>
-          {isGraded ? "Update" : "Save"}
-        </Button>
+      <Flex gap={2} mb={5}>
+        {quickMarks.map((btn) => {
+          const isActive = String(score) === String(btn.value);
+          return (
+            <Box
+              key={btn.label} as="button" flex={1} py={2} borderRadius="6px" border="1px solid"
+              borderColor={isActive ? "#6b006b" : "#E2E8F0"}
+              bg={isActive ? "#6b006b" : "white"}
+              color={isActive ? "white" : "#1A202C"}
+              fontSize="12px" fontWeight="600"
+              _hover={{ bg: isActive ? "#560056" : "#F7F9FC" }}
+              onClick={() => { setScore(String(btn.value)); setSaved(false); }}
+            >
+              {btn.label}
+            </Box>
+          );
+        })}
       </Flex>
-    </Box>
+
+      <Box w="100%" h="1px" bg="#E2E8F0" mb={4} />
+
+      <Box mb={4}>
+        <Text fontSize="sm" fontWeight="600" color="#1A202C" mb={2}>Status</Text>
+        <Flex gap={2} mb={3}>
+          {["in_progress", "completed"].map((s) => (
+            <Box
+              key={s} as="button" flex={1} py={2} borderRadius="6px" border="1px solid"
+              borderColor={gradingStatus === s ? "#6b006b" : "#E2E8F0"}
+              bg={gradingStatus === s ? "#6b006b" : "white"}
+              color={gradingStatus === s ? "white" : "#1A202C"}
+              fontSize="12px" fontWeight="600"
+              onClick={() => setGradingStatus(s)}
+            >
+              {s === "in_progress" ? "In Progress" : "Completed"}
+            </Box>
+          ))}
+        </Flex>
+        {gradingStatus === "completed" && (
+          <Box bg="green.50" border="1px solid" borderColor="green.200" borderRadius="6px" px={3} py={2}>
+            <Text fontSize="11px" color="green.700">Score aggregation will be triggered after saving.</Text>
+          </Box>
+        )}
+      </Box>
+
+      <Box mb={4}>
+        <Text fontSize="sm" fontWeight="600" color="#1A202C" mb={2}>Feedback to student</Text>
+        <textarea
+          value={remark}
+          onChange={(e) => { setRemark(e.target.value); setSaved(false); }}
+          placeholder="Optional feedback or comments…"
+          rows={5}
+          style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "10px 12px", fontSize: 13, width: "100%", resize: "vertical", background: "white", outline: "none", fontFamily: "inherit", lineHeight: 1.6 }}
+        />
+      </Box>
+
+      <Box pt={4} borderTop="1px solid #E2E8F0">
+        <Button onClick={handleSave} isLoading={saving} w="100%" type="button">
+          {saved ? "Update" : "Save"}
+        </Button>
+        {saved && (
+          <Flex justifyContent="center" alignItems="center" gap={1} mt={2}>
+            <FiCheck color="#38A169" size={11} />
+            <Text fontSize="11px" color="#38A169">Saved</Text>
+          </Flex>
+        )}
+      </Box>
+    </>
   );
 };
 
+/* ─── Main page ────────────────────────────────────────── */
 const StudentMarkingPage = () => {
-  const history = useHistory();
   const { examId, studentId } = useParams();
+  const { push } = useHistory();
   const toast = useToast();
-  const { resource, handleFetchResource } = useFetch();
+
+  const [loading, setLoading] = useState(true);
+  const [submission, setSubmission] = useState(null);
+  const [error, setError] = useState(null);
+  const [currentQIdx, setCurrentQIdx] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const fetcher = useCallback(async () => {
-    const { submission } = await getStudentSubmission(examId, studentId);
-    return { submission };
+  const load = useCallback(() => {
+    setLoading(true);
+    getStudentSubmission(examId, studentId)
+      .then(({ submission: data }) => {
+        setSubmission(data);
+        const firstPending = (data?.questions || []).findIndex(
+          (q) => q.gradingStatus?.toLowerCase() === "pending"
+        );
+        if (firstPending >= 0) setCurrentQIdx(firstPending);
+      })
+      .catch((err) => setError(err.message || "Failed to load submission"))
+      .finally(() => setLoading(false));
   }, [examId, studentId]);
 
-  useEffect(() => {
-    handleFetchResource({ fetcher });
-  }, [handleFetchResource, fetcher, refreshKey]);
+  useEffect(() => { load(); }, [load, refreshKey]);
 
-  const submission = resource.data?.submission;
-  const answers = submission?.answers ?? [];
+  const questions = submission?.questions || [];
+  const currentQ = questions[currentQIdx] || null;
 
-  const handleSave = () => setRefreshKey((k) => k + 1);
+  const totalQ = questions.length;
+  const gradedCount = questions.filter(
+    (q) => q.gradingStatus?.toLowerCase() !== "pending" && q.scoreAssigned != null
+  ).length;
+
+  const handleSaved = () => setRefreshKey((k) => k + 1);
+
+  if (loading) return <Flex justifyContent="center" alignItems="center" minH="400px"><Spinner size="xl" color="#6b006b" /></Flex>;
+
+  if (error) {
+    return (
+      <Box p={6}>
+        <Text color="red.500" mb={4}>{capitalizeFirstLetter(error)}</Text>
+        <Button secondary onClick={() => push(`/admin/manual-marking/${examId}/students`)}>Go Back</Button>
+      </Box>
+    );
+  }
+
+  const studentFullName = [submission?.student?.firstName, submission?.student?.lastName].filter(Boolean).join(" ") || "—";
 
   return (
-    <Box marginX="22px" marginY="20px">
-      <Flex alignItems="center" gap="12px" mb="24px">
-        <IconButton
-          aria-label="Go back"
-          icon={<FaArrowLeft />}
-          variant="ghost"
-          size="sm"
-          onClick={() => history.push(`/admin/manual-marking/${examId}/students`)}
-        />
-        <Heading fontSize="22px" fontWeight="600">Grade Student Submission</Heading>
-      </Flex>
+    <Box minH="calc(100vh - 160px)" display="flex" flexDirection="column">
+      {/* Sticky header */}
+      <Box bg="white" borderBottom="1px solid #E2E8F0" px={6} py={3} position="sticky" top={0} zIndex={10}>
+        <Flex alignItems="center" gap={4} flexWrap="wrap">
+          <Flex
+            as="button"
+            onClick={() => push(`/admin/manual-marking/${examId}/students`)}
+            alignItems="center" gap={2} color="#6b006b" _hover={{ opacity: 0.8 }}
+          >
+            <FiArrowLeft size={14} />
+            <Text fontSize="sm" fontWeight="600">Students</Text>
+          </Flex>
 
-      {resource.loading && (
-        <Flex justifyContent="center" py="60px"><Spinner size="xl" color="blue.500" /></Flex>
-      )}
-      {resource.err && (
-        <Flex justifyContent="center" py="60px">
-          <Text color="red.500">Failed to load submission. Please try again.</Text>
+          <Box w="1px" h="20px" bg="#E2E8F0" />
+
+          <Flex alignItems="center" gap={2} flex={1}>
+            <Box w="32px" h="32px" bg="#F0E6FF" borderRadius="50%" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+              <FiUser color="#6b006b" size={14} />
+            </Box>
+            <Box>
+              <Text fontSize="13px" fontWeight="700" color="#1A202C">{studentFullName}</Text>
+              <Flex gap={3} mt="2px">
+                {submission?.student?.email && (
+                  <Text fontSize="11px" color="gray.400">{submission.student.email}</Text>
+                )}
+                {submission?.attemptNumber && (
+                  <Text fontSize="11px" color="gray.400">Attempt {submission.attemptNumber}</Text>
+                )}
+                {submission?.submissionTime && (
+                  <Text fontSize="11px" color="gray.400">
+                    {new Date(submission.submissionTime).toLocaleString()}
+                  </Text>
+                )}
+              </Flex>
+            </Box>
+          </Flex>
+
+          <Flex alignItems="center" gap={3}>
+            <Text fontSize="12px" color="gray.500" fontWeight="500">{gradedCount}/{totalQ} graded</Text>
+            <Progress value={totalQ ? (gradedCount / totalQ) * 100 : 0} w="80px" size="sm" borderRadius="4px" colorScheme="purple" />
+          </Flex>
         </Flex>
-      )}
+      </Box>
 
-      {!resource.loading && !resource.err && submission && (
-        <>
-          {/* Student info card */}
-          <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" p={6} mb={6}>
-            <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={4}>
-              <Box>
-                <Text fontSize="20px" fontWeight="600" color="#1A202C" mb={1}>
-                  {submission.student?.firstName} {submission.student?.lastName}
-                </Text>
-                <Flex gap={4} flexWrap="wrap">
-                  {submission.student?.email && (
-                    <Text fontSize="14px" color="gray.500">{submission.student.email}</Text>
-                  )}
-                  {submission.attemptNumber && (
-                    <Text fontSize="14px" color="gray.500">
-                      Attempt <Text as="span" fontWeight="600" color="#1A202C">{submission.attemptNumber}</Text>
-                    </Text>
-                  )}
-                  {submission.submissionTime && (
-                    <Text fontSize="14px" color="gray.500">
-                      Submitted:{" "}
-                      <Text as="span" fontWeight="600" color="#1A202C">
-                        {new Date(submission.submissionTime).toLocaleString()}
-                      </Text>
-                    </Text>
+      {/* 3-column body */}
+      <Grid templateColumns={{ base: "1fr", lg: "210px 1fr 320px" }} flex={1} minH="0">
+        {/* Left: question nav */}
+        <Box borderRight="1px solid #E2E8F0" bg="#FAFAFA" overflowY="auto" display={{ base: "none", lg: "block" }}>
+          <Box px={4} py={3} borderBottom="1px solid #E2E8F0">
+            <Text fontSize="10px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider">
+              Questions ({totalQ})
+            </Text>
+          </Box>
+          {questions.map((q, idx) => {
+            const isGraded = q.gradingStatus?.toLowerCase() !== "pending" && q.scoreAssigned != null;
+            const isCurrent = idx === currentQIdx;
+            return (
+              <Box
+                key={q.questionId} as="button" w="100%" textAlign="left" px={4} py={3}
+                borderBottom="1px solid #E2E8F0"
+                borderLeft={isCurrent ? "3px solid #6b006b" : "3px solid transparent"}
+                bg={isCurrent ? "#F0E6FF" : "transparent"}
+                _hover={{ bg: isCurrent ? "#F0E6FF" : "#F7F9FC" }}
+                onClick={() => setCurrentQIdx(idx)}
+              >
+                <Flex alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Text fontSize="12px" fontWeight="700" color={isCurrent ? "#6b006b" : "#1A202C"} lineHeight="1.2">Q{idx + 1}</Text>
+                    <Text fontSize="10px" color="gray.400" mt="2px" textTransform="capitalize">{q.questionType || "Open"}</Text>
+                  </Box>
+                  {isGraded ? (
+                    <Box w="18px" h="18px" bg="#38A169" borderRadius="50%" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                      <FiCheck color="white" size={10} />
+                    </Box>
+                  ) : (
+                    <Box w="18px" h="18px" bg="#E2E8F0" borderRadius="50%" flexShrink={0} />
                   )}
                 </Flex>
               </Box>
+            );
+          })}
+        </Box>
 
-              <Flex gap={4} flexWrap="wrap">
-                {submission.autoScore !== undefined && (
-                  <Box border="1px solid #E2E8F0" borderRadius="10px" p={4} textAlign="left" minW="120px">
-                    <Text fontSize="13px" color="gray.500" mb={1}>Auto Score</Text>
-                    <Text fontSize="18px" fontWeight="600" color="#1A202C">
-                      {submission.autoScore}/{submission.totalAutoMarks ?? "—"}
-                    </Text>
-                  </Box>
-                )}
-                {submission.manualScore !== undefined && (
-                  <Box border="1px solid #E2E8F0" borderRadius="10px" p={4} textAlign="left" minW="120px">
-                    <Text fontSize="13px" color="gray.500" mb={1}>Manual Score</Text>
-                    <Text fontSize="18px" fontWeight="600" color="#1A202C">
-                      {submission.manualScore}/{submission.totalManualMarks ?? "—"}
-                    </Text>
-                  </Box>
-                )}
-                {submission.totalScore !== undefined && (
-                  <Box border="1px solid #E2E8F0" borderRadius="10px" p={4} textAlign="left" minW="120px">
-                    <Text fontSize="13px" color="gray.500" mb={1}>Total Score</Text>
-                    <Text fontSize="18px" fontWeight="700" color="#6b006b">
-                      {submission.totalScore}
-                    </Text>
-                  </Box>
-                )}
+        {/* Center: question + student answer */}
+        <Box overflowY="auto" p={6} bg="white">
+          {currentQ && (
+            <>
+              <Flex gap={2} mb={4} flexWrap="wrap">
+                <Badge colorScheme="purple" fontSize="11px" px={2} textTransform="capitalize">
+                  {currentQ.questionType || "Open"}
+                </Badge>
+                <Badge
+                  fontSize="11px" px={2}
+                  colorScheme={currentQ.gradingStatus?.toLowerCase() === "completed" ? "green" : currentQ.gradingStatus?.toLowerCase() === "in_progress" ? "orange" : "gray"}
+                  variant="outline"
+                >
+                  {currentQ.gradingStatus || "Pending"}
+                </Badge>
+                <Badge variant="outline" colorScheme="gray" fontSize="11px" px={2}>
+                  {currentQ.maxScore ?? 0} mark{currentQ.maxScore !== 1 ? "s" : ""}
+                </Badge>
               </Flex>
-            </Flex>
-          </Box>
 
-          {/* Questions */}
-          {answers.length === 0 ? (
-            <Flex justifyContent="center" py="40px">
-              <Text color="gray.400">No subjective questions to grade.</Text>
-            </Flex>
-          ) : (
-            answers.map((answer, i) => (
-              <QuestionCard
-                key={answer.id || answer.questionId || i}
-                answer={answer}
-                index={i}
-                onSave={handleSave}
-              />
-            ))
+              <Box mb={5} p={4} bg="#F7F9FC" borderRadius="8px" borderLeft="3px solid #6b006b">
+                <Text fontSize="10px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider" mb={2}>Question</Text>
+                <RichTextToView text={currentQ.questionText} />
+              </Box>
+
+              <RubricDisplay rubric={currentQ.rubric} />
+
+              <Box mb={4} p={4} bg="white" border="1px solid #E2E8F0" borderRadius="8px">
+                <Text fontSize="10px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider" mb={3}>
+                  Student&apos;s Answer
+                </Text>
+                {currentQ.studentAnswer ? (
+                  <Text fontSize="14px" color="#1A202C" whiteSpace="pre-wrap" lineHeight="1.7">
+                    {currentQ.studentAnswer}
+                  </Text>
+                ) : (
+                  <Text fontSize="14px" color="gray.400" fontStyle="italic">No answer submitted</Text>
+                )}
+              </Box>
+
+              {/* Already-graded info */}
+              {currentQ.gradingStatus?.toLowerCase() === "completed" && currentQ.scoreAssigned != null && (
+                <Box mb={4} p={4} bg="green.50" border="1px solid" borderColor="green.200" borderRadius="8px">
+                  <Text fontSize="12px" fontWeight="600" color="green.700">
+                    Graded — {currentQ.scoreAssigned} / {currentQ.maxScore ?? 0}
+                  </Text>
+                  {currentQ.remark && (
+                    <Text fontSize="12px" color="green.600" mt={1}>{currentQ.remark}</Text>
+                  )}
+                </Box>
+              )}
+
+              {/* Mobile grading panel */}
+              <Box display={{ base: "block", lg: "none" }} mt={6} p={4} bg="#FAFAFA" border="1px solid #E2E8F0" borderRadius="8px">
+                <GradingPanel question={currentQ} onSaved={handleSaved} />
+              </Box>
+            </>
           )}
-        </>
-      )}
+
+          {!currentQ && !loading && (
+            <Flex justifyContent="center" alignItems="center" minH="200px">
+              <Text color="gray.400">No questions to display.</Text>
+            </Flex>
+          )}
+        </Box>
+
+        {/* Right: grading panel (desktop) */}
+        <Box borderLeft="1px solid #E2E8F0" bg="#FAFAFA" display={{ base: "none", lg: "flex" }} flexDirection="column">
+          <Box flex={1} overflowY="auto" p={5}>
+            {currentQ ? (
+              <GradingPanel key={currentQ.questionId} question={currentQ} onSaved={handleSaved} />
+            ) : (
+              <Text fontSize="13px" color="gray.400" mt={4}>Select a question to grade.</Text>
+            )}
+          </Box>
+        </Box>
+      </Grid>
     </Box>
   );
 };

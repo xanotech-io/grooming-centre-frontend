@@ -65,7 +65,7 @@ const ModuleExaminationsPage = () => {
         fraction: "3fr",
         renderContent: (data) => (
           <Link
-            href={`/admin/courses/${courseId}/assessment/${courseId}/overview?examination=${data.examinationId}`}
+            href={`/admin/courses/${courseId}/module/${moduleId}/examinations/view/${data.examinationId}`}
           >
             <Text>{data.text}</Text>
           </Link>

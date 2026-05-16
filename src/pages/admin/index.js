@@ -90,3 +90,5 @@ export { StudentMarkingPageRoute } from "./manualMarking/StudentMarkingPage";
 export { GradeBookV2ListingPageRoute } from "./gradeBookV2/GradeBookV2ListingPage";
 export { SetupGradeBookV2PageRoute } from "./gradeBookV2/SetupGradeBookV2Page";
 export { GradeBookV2DetailsPageRoute } from "./gradeBookV2/GradeBookV2DetailsPage";
+export { ViewStandaloneExamPageRoute } from "./standaloneExams/ViewStandaloneExamPage";
+export { StandaloneStudentGradingPageRoute } from "./standaloneExams/StandaloneStudentGradingPage";

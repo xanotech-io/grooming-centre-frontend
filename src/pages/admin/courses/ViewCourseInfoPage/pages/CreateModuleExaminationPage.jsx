@@ -20,6 +20,7 @@ import {
   adminGetMarkingTemplates,
 } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
+import useAssessmentStore from "../../../../../store/assessmentStore";
 
 const SectionCard = ({ title, children }) => (
   <Box
@@ -55,6 +56,7 @@ const CreateModuleExaminationPage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
+  const setAssessment = useAssessmentStore((s) => s.setAssessment);
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
@@ -132,6 +134,7 @@ const CreateModuleExaminationPage = () => {
       };
 
       const { message, examination } = await adminCreateExamination(body);
+      setAssessment(examination);
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",

@@ -1,83 +1,113 @@
-/* eslint-disable no-unused-vars */
 import {
   Box,
   Flex,
   Grid,
-  GridItem,
-  Heading,
-  Text,
-  useToast,
-  Tabs,
-  TabList,
-  TabPanels,
+  Select as ChakraSelect,
   Tab,
+  TabList,
   TabPanel,
-  Icon,
-  Input as ChakraInput,
-  InputGroup,
-  InputRightAddon
+  TabPanels,
+  Tabs,
+  useToast,
 } from "@chakra-ui/react";
-import {
-  useUpload,
-  useRichText,
-  useFetch,
-  useQueryParams,
-} from "../../../hooks";
 import { Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/menu";
-import { Button, Image, Input, Link, Spinner, Select } from "../../../components";
-import React, { useCallback, useEffect, useState } from "react";
+import {
+  Button,
+  Heading,
+  Image,
+  Input,
+  Link,
+  RichText,
+  RichTextToView,
+  Spinner,
+  Text,
+  Upload,
+} from "../../../components";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { BsCheckCircle } from "react-icons/bs";
-import { FaTrash, FaArrowRight } from "react-icons/fa";
+import { FaArrowRight, FaTrash } from "react-icons/fa";
+import { FiMoreHorizontal } from "react-icons/fi";
 import { Route, useHistory, useParams } from "react-router-dom";
-import { RichText, RichTextToView, Upload } from "../../../components";
-import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
+import { PageLoaderLayout } from "../../../layouts";
 import {
-  appendFormData,
-  capitalizeFirstLetter,
-  capitalizeWords,
-} from "../../../utils";
+  useFetch,
+  useQueryParams,
+  useRichText,
+  useUpload,
+} from "../../../hooks";
 import {
   adminCreateStandaloneExaminationQuestion,
-  adminDeleteAssessmentQuestion,
-  adminDeleteExaminationQuestion,
-  adminDeleteUploadedQuestion,
-  adminUpdateUploadedQuestion,
+  adminDeleteStandaloneExaminationQuestion,
+  adminEditStandaloneExaminationQuestion,
+  adminGetMarkingTemplateById,
+  adminGetStandaloneExamTemplateId,
 } from "../../../services";
-import { PageLoaderLayout } from "../../../layouts";
-import { FiMoreHorizontal } from "react-icons/fi";
+import { capitalizeFirstLetter, capitalizeWords } from "../../../utils";
+import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
+import useAssessmentStore from "../../../store/assessmentStore";
+
+const QUESTION_TYPES = ["MCQ", "TrueFalse", "Matching", "FillBlank"];
 
 const QuestionsStandalone = () => {
   const isQuestionListingPage = useQueryParams().get("question-listing");
-  const examinationId = useQueryParams().get("examination");
-  const { id: courseId, assessmentId } = useParams();
   const isExamination = useQueryParams().get("examination");
   const questionId = useQueryParams().get("question");
 
-  const isStandaloneExamination = isExamination ? true : false;
+  const assessmentManager = useAssessmentPreview(null, isExamination, true);
 
-  const assessmentManager = useAssessmentPreview(null, examinationId, true);
+  const storeSections = useAssessmentStore((s) => s.sections);
+  const [templateSections, setTemplateSections] = useState([]);
+  const [sectionsLoading, setSectionsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isExamination) return;
+
+    if (storeSections.length > 0) {
+      setTemplateSections(storeSections.map((s) => s.name));
+      return;
+    }
+
+    setSectionsLoading(true);
+    adminGetStandaloneExamTemplateId(isExamination)
+      .then((templateId) => {
+        if (!templateId) throw new Error("no-template");
+        return adminGetMarkingTemplateById(templateId);
+      })
+      .then(({ template }) =>
+        setTemplateSections(
+          Array.isArray(template?.sections)
+            ? template.sections.map((s) => s.name)
+            : [],
+        ),
+      )
+      .catch(() => setTemplateSections([]))
+      .finally(() => setSectionsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExamination, storeSections]);
 
   return (
     <>
       <Heading fontSize="heading.h3" paddingTop={3} paddingX={6}>
-        {!questionId
-          ? "Create Standalone Question"
-          : "Update Standalone Question"}
+        {isQuestionListingPage
+          ? null
+          : !questionId
+            ? "Create Standalone Question"
+            : "Update Standalone Question"}
       </Heading>
 
       <Flex
-        flexDirection={{
-          base: "column-reverse",
-          md: "column-reverse",
-          lg: "row",
-        }}
+        flexDirection={{ base: "column-reverse", md: "column-reverse", lg: "row" }}
         alignItems={{ base: "flex-start", md: "column", lg: "row" }}
       >
         {isQuestionListingPage ? (
           <QuestionListingPage {...assessmentManager} />
         ) : (
-          <CreateQuestionPage {...assessmentManager} />
+          <CreateQuestionPage
+            {...assessmentManager}
+            templateSections={templateSections}
+            sectionsLoading={sectionsLoading}
+          />
         )}
 
         <Box padding={6} width={{ base: "100%", md: "100%", lg: "30%" }}>
@@ -97,31 +127,21 @@ const QuestionsStandalone = () => {
               pb={3}
             >
               <Heading fontSize="heading.h5">List Of Questions</Heading>
-
-              <Link href={getQuestionListingLink(questionId, isExamination)}>
-                <Text bold color="primary.base">
-                  See All
-                </Text>
+              <Link href={getQuestionListingLink(isExamination)}>
+                <Text bold color="primary.base">See All</Text>
               </Link>
             </Flex>
 
             <Grid templateColumns="repeat(5, 1fr)" gap={2}>
-              {assessmentManager.assessment?.questions?.map(
-                (question, index) => (
-                  <>
-                    <ButtonNavItem
-                      key={index}
-                      number={index + 1}
-                      isCurrent={questionId === question.id}
-                      answered={questionId === question.id}
-                      link={getEditQuestionLink(
-                        question.id,
-                        assessmentManager?.assessment?.id
-                      )}
-                    />
-                  </>
-                )
-              )}
+              {assessmentManager.assessment?.questions?.map((question, index) => (
+                <ButtonNavItem
+                  key={question.id}
+                  number={index + 1}
+                  isCurrent={questionId === question.id}
+                  answered={questionId === question.id}
+                  link={getEditQuestionLink(isExamination, question.id)}
+                />
+              ))}
             </Grid>
           </Box>
         </Box>
@@ -132,14 +152,8 @@ const QuestionsStandalone = () => {
 
 const ButtonNavItem = ({ number, answered, isCurrent, link }) => {
   const styleProps = answered
-    ? {
-      backgroundColor: "primary.base",
-      color: "white",
-      borderColor: "transparent",
-    }
-    : {
-      borderColor: "primary.base",
-    };
+    ? { backgroundColor: "primary.base", color: "white", borderColor: "transparent" }
+    : { borderColor: "primary.base" };
 
   return (
     <Link href={link}>
@@ -156,9 +170,7 @@ const ButtonNavItem = ({ number, answered, isCurrent, link }) => {
         transform={isCurrent && "scale(1.05)"}
         {...styleProps}
       >
-        <Text bold as="level1">
-          {number}
-        </Text>
+        <Text bold as="level1">{number}</Text>
       </Flex>
     </Link>
   );
@@ -171,34 +183,22 @@ const useQuestionDetails = (assessmentManager) => {
   const getQuestions = useCallback(() => {
     if (assessmentManager?.assessment?.questions) {
       let index;
-
-      const question = assessmentManager?.assessment?.questions.find((q, i) => {
-        const foundQuestion = q.id === questionId;
-
-        if (foundQuestion) index = i;
-
-        return foundQuestion;
+      const found = assessmentManager.assessment.questions.find((q, i) => {
+        if (q.id === questionId) { index = i; return true; }
+        return false;
       });
-
-      if (question) setQuestion({ ...question, index });
+      if (found) setQuestion({ ...found, index });
     }
   }, [assessmentManager.assessment?.questions, questionId]);
 
-  // Handle fetch category
-  useEffect(() => {
-    getQuestions();
-  }, [getQuestions]);
+  useEffect(() => { getQuestions(); }, [getQuestions]);
 
   const toast = useToast();
-
   useEffect(() => {
     if (assessmentManager.error) {
       toast.closeAll();
-
       toast({
-        description: capitalizeFirstLetter(
-          "there was an error filling the form, reload the page!"
-        ),
+        description: capitalizeFirstLetter("There was an error filling the form, reload the page!"),
         position: "top",
         status: "error",
         duration: 60000,
@@ -206,274 +206,132 @@ const useQuestionDetails = (assessmentManager) => {
     }
   }, [assessmentManager.error, toast]);
 
-  return {
-    question,
-    isLoading: assessmentManager.isLoading,
-    error: assessmentManager.error,
-  };
+  return { question, isLoading: assessmentManager.isLoading, error: assessmentManager.error };
 };
 
-const CreateQuestionPage = (assessmentManager) => {
+const CreateQuestionPage = ({ templateSections, sectionsLoading, ...assessmentManager }) => {
   const { push } = useHistory();
   const toast = useToast();
-  const { id: courseId, assessmentId } = useParams();
-  const questionId = useQueryParams().get("question");
   const isExamination = useQueryParams().get("examination");
+  const questionId = useQueryParams().get("question");
   const isEditMode = useQueryParams().get("edit") === "true";
-
-  const isStandaloneExamination =
-    courseId === "not-set" && assessmentId === "not-set" && isExamination
-      ? true
-      : false;
 
   const isExistingQuestion = questionId && questionId !== "new";
 
   const { question, isLoading, error } = useQuestionDetails(assessmentManager);
-  console.log(question, "quest");
-  const [isMultipleChoiceOptions, setIsMultipleChoiceOptions] = useState(true);
 
-  const handleMultipleChoiceOptionsToggle = () =>
-    setIsMultipleChoiceOptions((prev) => !prev);
+  const [tabIndex, setTabIndex] = useState(0);
+  const questionType = QUESTION_TYPES[tabIndex];
 
-  const {
-    register,
-    reset,
-    handleSubmit,
-    setValue,
-    formState: { isSubmitting },
-  } = useForm();
-  const [answer, setAnswer] = useState();
+  const [answer, setAnswer] = useState("");
+  const [matchingPairs, setMatchingPairs] = useState([{ left: "", right: "" }]);
+  const [markingType, setMarkingType] = useState("automatic");
+  const [selectedSectionId, setSelectedSectionId] = useState("");
 
-  const handleAnswerChange = (event) => {
-    setAnswer(event.target.value);
-  };
+  const { register, reset, handleSubmit, setValue, formState: { isSubmitting } } = useForm();
   const questionRichTextManager = useRichText();
+  const questionImageManager = useUpload();
+
+  // Hydrate form when editing an existing question
+  useEffect(() => {
+    if (!question) return;
+    if (question.markingType) setMarkingType(question.markingType);
+    if (question.section) setSelectedSectionId(question.section);
+    // Detect question type from options count
+    if (question.options?.length === 2) setTabIndex(1); // TrueFalse
+    else setTabIndex(0); // MCQ default
+
+    [1, 2, 3, 4].forEach((num) => {
+      const opt = question.options?.find((o) => o.optionIndex === num);
+      if (opt) setValue(`option-${num}`, opt.name ?? opt.option ?? "");
+    });
+
+    const correct = question.options?.find((o) => o.isAnswer);
+    if (correct) setAnswer(`${correct.optionIndex}`);
+
+    questionImageManager.handleInitialImageSelect(question.file);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question]);
 
   useEffect(() => {
-    if (question) {
-      const option1 = question.options.find((opt) => opt.optionIndex === 1);
-
-      setValue("option-1", !isMultipleChoiceOptions ? "True" : option1.name);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [question, isMultipleChoiceOptions]);
-
-  useEffect(() => {
-    if (!isMultipleChoiceOptions) {
+    if (tabIndex === 1) {
       setValue("option-1", "True");
       setValue("option-2", "False");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabIndex]);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMultipleChoiceOptions]);
+  const handleAddPair = () => setMatchingPairs((p) => [...p, { left: "", right: "" }]);
+  const handleRemovePair = (idx) => setMatchingPairs((p) => p.filter((_, i) => i !== idx));
+  const handlePairChange = (idx, side, value) =>
+    setMatchingPairs((p) => p.map((pair, i) => (i === idx ? { ...pair, [side]: value } : pair)));
 
-  useEffect(() => {
-    if (question?.options.length === 2) {
-      return setIsMultipleChoiceOptions(false);
-    }
-    setIsMultipleChoiceOptions(true);
-  }, [question, question?.options?.length]);
-
-  useEffect(() => {
-    if (question) {
-      const option2 = question.options.find((opt) => opt.optionIndex === 2);
-
-      setValue("option-2", option2?.name);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [question]);
-  useEffect(() => {
-    if (question) {
-      const option3 = question.options.find((opt) => opt.optionIndex === 3);
-
-      setValue("option-3", option3?.name);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [question]);
-  useEffect(() => {
-    if (question) {
-      const option4 = question.options.find((opt) => opt.optionIndex === 4);
-
-      setValue("option-4", option4?.name);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [question]);
-
-  useEffect(() => {
-    if (question) {
-      const optionWithAns = question.options.find((opt) => opt.isAnswer);
-
-      setAnswer(`${optionWithAns?.optionIndex}`);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [question]);
-
-  const questionImageManager = useUpload();
-
-  // TODO: uncomment for editMode's sake
-  useEffect(() => {
-    if (question) {
-      questionImageManager.handleInitialImageSelect(question?.file);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [question]);
-
-  // const { handleDelete } = useCache();
   const onSubmit = async (data) => {
     try {
-      // Handle delete mode (only if not in edit mode)
+      // ── Delete mode ──
       if (isExistingQuestion && !isEditMode) {
-        const ok = window.confirm(
-          "Are you sure you want to delete this question?"
-        );
-
-        if (!ok) return;
-
-        const deleteResponse = await adminDeleteUploadedQuestion(question.id);
-        if (deleteResponse?.data?.deletePermission === "Not Allowed") {
-          throw new Error(
-            deleteResponse?.data?.remarks ||
-              deleteResponse?.message ||
-              "Deletion not permitted for standalone examination"
-          );
-        }
-
-        const message = deleteResponse?.message || "Question deleted successfully";
-
-        toast({
-          description: capitalizeFirstLetter(message),
-          position: "top",
-          status: "success",
-        });
-
+        if (!window.confirm("Are you sure you want to delete this question?")) return;
+        const { message } = await adminDeleteStandaloneExaminationQuestion(question.id);
+        toast({ description: capitalizeFirstLetter(message || "Question deleted"), position: "top", status: "success" });
         assessmentManager.handleFetch(true);
-        push(getQuestionListingLink(isExamination, questionId));
+        push(getQuestionListingLink(isExamination));
         return;
       }
 
-      // Handle create or edit mode
-      const file = questionImageManager.handleGetFileAndValidate(
-        "Question Cover",
-        true
-      );
+      // ── Validate question text ──
+      const questionPlainText = questionRichTextManager.getPlainText().trim();
+      if (!questionPlainText) throw new Error("Question text is required");
 
-      const questionText =
-        questionRichTextManager.handleGetValueAndValidate("Question");
+      const sectionTitle = selectedSectionId || undefined;
+      const isObjectiveType = questionType === "MCQ" || questionType === "TrueFalse";
 
-      console.log(data);
-
-      const options = buildOptions(
-        { ...data, answer },
-        isStandaloneExamination
-      );
-      if (!isMultipleChoiceOptions && options?.length === 4) {
-        options.pop();
-        options.pop();
+      // ── Build options ──
+      let options = [];
+      if (isObjectiveType) {
+        options = buildOptions({ ...data, answer });
+        if (questionType === "TrueFalse") options = options.slice(0, 2);
+        if (!options.find((o) => o.isAnswer)) throw new Error("Please select the correct answer");
+      } else if (questionType === "Matching") {
+        if (matchingPairs.some((p) => !p.left.trim() || !p.right.trim()))
+          throw new Error("All matching pairs must have both values filled");
       }
 
-      // Validate `isAnswer` field
-      const hasAnswer = options.find((opt) => opt.isAnswer);
-      if (!hasAnswer) throw new Error("Please select an answer");
-
-      // Prepare data for edit or create
-      let requestData;
-
+      // ── Build payload ──
+      let body;
       if (isEditMode) {
-        // Edit mode - for standalone examination
-        requestData = {
-          file,
-          question: JSON.stringify({
-            id: questionId,
-            question: questionText,
-            standAloneExaminationId: isExamination,
-          }),
-          options: JSON.stringify(
-            options?.map((opt) => ({
-              ...opt,
-              id: question?.options.find(
-                ({ name }) => (opt.answer || opt.name) === name
-              )?.id,
-              standAloneExaminationQuestionId: questionId,
-            }))
-          ),
+        body = {
+          questionId,
+          question: questionPlainText,
+          ...(sectionTitle && { section: sectionTitle }),
+          markingType,
+          ...(isObjectiveType && { options }),
         };
+        await adminEditStandaloneExaminationQuestion(body);
       } else {
-        // Create mode
-        requestData = {
-          file,
+        body = {
           standAloneExaminationId: isExamination,
-          question: questionText,
-          options: JSON.stringify(options),
+          question: questionPlainText,
+          ...(sectionTitle && { section: sectionTitle }),
+          markingType,
+          ...(isObjectiveType && { options }),
         };
+        await adminCreateStandaloneExaminationQuestion(body);
       }
 
-      console.log(JSON.parse(requestData.options));
-      const body = appendFormData(requestData);
-
-      const response = await (isEditMode
-        ? adminUpdateUploadedQuestion(questionId, {
-          content: questionText,
-          difficultyLevel: "MEDIUM",
-          marks: Number(question?.marks || 1),
-        })
-        : adminCreateStandaloneExaminationQuestion(body));
-
-      if (isEditMode && response?.question?.updateStatus === "Not Updated") {
-        throw new Error(
-          response?.question?.remarks ||
-            response?.message ||
-            "Modification cannot be saved for standalone examination"
-        );
-      }
-
-      const message = response?.message || "Question saved successfully";
-
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
-
-      // Clean UP input
+      toast({ description: "Question saved successfully", position: "top", status: "success" });
       reset();
-
       assessmentManager.handleFetch(true);
 
-      // Navigate appropriately based on mode
       if (isEditMode) {
-        // After editing, go back to view mode
-        const viewLink = getEditLink(
-          questionId,
-          isStandaloneExamination,
-          isExamination,
-          courseId,
-          assessmentId
-        );
-        push(viewLink);
+        push(getEditQuestionLink(isExamination, questionId));
       } else {
-        // After creating, go to listing
-        push(getQuestionListingLink(isExamination, questionId));
+        push(getQuestionListingLink(isExamination));
       }
-    } catch (error) {
-      toast({
-        description: capitalizeFirstLetter(error.message),
-        position: "top",
-        status: "error",
-      });
+    } catch (err) {
+      toast({ description: capitalizeFirstLetter(err.message), position: "top", status: "error" });
     }
   };
 
-  // const deleteImage = async () => {
-  //   if (question) {
-  //     if (isStandaloneExamination)
-  //       await adminDeleteStandaloneExaminationQuestionFile(question.id);
-  //     else if (isExamination)
-  //       await adminDeleteExaminationQuestionFile(question.id);
-  //     else await adminDeleteAssessmentQuestionFile(question.id);
-  //   }
-  // };
-
-  // where stuffs start
   return (
     <Box
       as="form"
@@ -481,17 +339,13 @@ const CreateQuestionPage = (assessmentManager) => {
       padding={6}
       width={{ base: "100%", md: "100%", lg: "70%" }}
     >
-      <Box
-        paddingTop="20px"
-        paddingX="20px"
-        paddingBottom="60px"
-        backgroundColor="white"
-      >
+      {/* ── Question text + image ── */}
+      <Box paddingTop="20px" paddingX="20px" paddingBottom="40px" backgroundColor="white">
         <Heading fontSize="22px" mb={6} color="#1A202C">
           {getQuestionNumber(
-            question && questionId !== "new"
+            question && questionId
               ? question.index
-              : assessmentManager.assessment?.questions?.length
+              : assessmentManager.assessment?.questions?.length,
           )}
         </Heading>
 
@@ -513,11 +367,12 @@ const CreateQuestionPage = (assessmentManager) => {
             defaultValue={questionRichTextManager.data.default}
           />
         )}
+
         <Box marginTop={8} bg="#F7FAFC" p={4} borderRadius="8px">
           {isExistingQuestion && !isEditMode && !question?.file ? null : (
             <Upload
               id="coverImage"
-              label="Question Image/Video"
+              label="Question Image"
               onFileSelect={questionImageManager.handleFileSelect}
               imageUrl={questionImageManager.image.url}
               accept={questionImageManager.accept}
@@ -525,136 +380,198 @@ const CreateQuestionPage = (assessmentManager) => {
             />
           )}
         </Box>
+      </Box>
 
-        <Grid templateColumns="repeat(2, 1fr)" gap={6} marginTop={10}>
-          <GridItem>
-            <Select
-              label="Difficulty Level"
-              id="difficulty"
-              placeholder="Easy"
-              options={[
-                { label: "Easy", value: "easy" },
-                { label: "Medium", value: "medium" },
-                { label: "Hard", value: "hard" },
-              ]}
-              {...register("difficulty")}
-            />
-          </GridItem>
-          <GridItem>
-            <Text fontSize="14px" fontWeight="500" mb="8px" color="#1A202C">Default point</Text>
-            <InputGroup size="lg">
-              <ChakraInput
-                id="defaultPoint"
-                defaultValue="10"
-                type="number"
-                bg="#F7FAFC"
+      {/* ── Settings + Answer Options ── */}
+      {(!isExistingQuestion || isEditMode) && (
+        <Box marginTop={6} padding={6} backgroundColor="white">
+          <Heading fontSize="18px" mb={4} color="#1A202C">Question Settings</Heading>
+
+          <Flex gap={4} mb={6} flexWrap="wrap" alignItems="flex-end">
+            {/* Marking Type */}
+            <Box minW="180px">
+              <Text fontSize="sm" fontWeight="500" mb={1} color="#1A202C">Marking Type</Text>
+              <ChakraSelect
+                value={markingType}
+                onChange={(e) => setMarkingType(e.target.value)}
+                size="sm"
+                bg="white"
                 borderColor="#E2E8F0"
-                {...register("defaultPoint")}
-              />
-              <InputRightAddon bg="transparent" border="none" color="#A0AEC0" paddingRight="4">
-                points
-              </InputRightAddon>
-            </InputGroup>
-          </GridItem>
-        </Grid>
-      </Box>
+              >
+                <option value="automatic">Automatic</option>
+                <option value="manual">Manual</option>
+                <option value="hybrid">Hybrid</option>
+              </ChakraSelect>
+            </Box>
 
-      <Box marginTop={6} padding={6} backgroundColor="white">
-        <Heading fontSize="18px" mb={4} color="#1A202C">Options</Heading>
+            {/* Section */}
+            <Box minW="220px">
+              <Text fontSize="sm" fontWeight="500" mb={1} color="#1A202C">
+                Section{" "}
+                {sectionsLoading && (
+                  <Text as="span" fontSize="xs" color="gray.400">(loading…)</Text>
+                )}
+              </Text>
+              <ChakraSelect
+                value={selectedSectionId}
+                onChange={(e) => setSelectedSectionId(e.target.value)}
+                size="sm"
+                bg="white"
+                borderColor="#E2E8F0"
+                disabled={sectionsLoading || templateSections.length === 0}
+                placeholder={
+                  sectionsLoading
+                    ? "Loading sections…"
+                    : templateSections.length === 0
+                      ? "No sections available"
+                      : "Select a section"
+                }
+              >
+                {templateSections.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </ChakraSelect>
+            </Box>
+          </Flex>
 
-        <Tabs colorScheme="purple" defaultIndex={2}>
-          <TabList borderBottom="1px solid #E2E8F0" mb="24px">
-            <Tab _selected={{ color: '#6b006b', borderColor: '#6b006b', fontWeight: "bold" }}>Mutiple Choice (MCQ)</Tab>
-            <Tab _selected={{ color: '#6b006b', borderColor: '#6b006b', fontWeight: "bold" }}>True/False</Tab>
-            <Tab _selected={{ color: '#6b006b', borderColor: '#6b006b', fontWeight: "bold" }}>Matching</Tab>
-            <Tab _selected={{ color: '#6b006b', borderColor: '#6b006b', fontWeight: "bold" }}>Fill in the blank</Tab>
-          </TabList>
+          <Heading fontSize="18px" mb={4} color="#1A202C">Answer Options</Heading>
 
-          <TabPanels>
-            {/* MCQ Panel (Hidden/Empty for now layout match) */}
-            <TabPanel p={0}></TabPanel>
+          <Tabs
+            colorScheme="purple"
+            index={tabIndex}
+            onChange={(idx) => {
+              setTabIndex(idx);
+              setAnswer("");
+            }}
+          >
+            <TabList borderBottom="1px solid #E2E8F0" mb="24px">
+              {["Multiple Choice (MCQ)", "True / False", "Matching", "Fill in the Blank"].map((label) => (
+                <Tab
+                  key={label}
+                  _selected={{ color: "#6b006b", borderColor: "#6b006b", fontWeight: "bold" }}
+                  fontSize="sm"
+                >
+                  {label}
+                </Tab>
+              ))}
+            </TabList>
 
-            {/* T/F Panel */}
-            <TabPanel p={0}></TabPanel>
+            <TabPanels>
+              {/* MCQ */}
+              <TabPanel p={0}>
+                <Text pb={4} color="gray.500">Select the correct answer</Text>
+                {[1, 2, 3, 4].map((num) => (
+                  <Flex key={num} mb={4} alignItems="center" gap={3}>
+                    <input
+                      type="radio"
+                      name="mcq-answer"
+                      value={`${num}`}
+                      checked={answer === `${num}`}
+                      onChange={(e) => setAnswer(e.target.value)}
+                      style={{ accentColor: "#6b006b", transform: "scale(1.3)", flexShrink: 0 }}
+                    />
+                    <Box flex={1}>
+                      <Input
+                        id={`option-${num}`}
+                        label={`Option ${num}`}
+                        placeholder={`Enter option ${num}`}
+                        {...register(`option-${num}`)}
+                      />
+                    </Box>
+                  </Flex>
+                ))}
+              </TabPanel>
 
-            {/* Matching Panel UI */}
-            <TabPanel p={0}>
-              <Grid templateColumns="40px 1fr 40px 1fr" gap={4} alignItems="center" mb={4}>
-                <Box></Box>
-                <Text fontWeight="600" fontSize="14px" color="#1A202C">Column 1</Text>
-                <Box></Box>
-                <Text fontWeight="600" fontSize="14px" color="#1A202C">Column 2</Text>
+              {/* True / False */}
+              <TabPanel p={0}>
+                <Text pb={4} color="gray.500">Select the correct answer</Text>
+                {["True", "False"].map((label, i) => (
+                  <Flex key={label} mb={4} alignItems="center" gap={3}>
+                    <input
+                      type="radio"
+                      name="tf-answer"
+                      value={`${i + 1}`}
+                      checked={answer === `${i + 1}`}
+                      onChange={(e) => setAnswer(e.target.value)}
+                      style={{ accentColor: "#6b006b", transform: "scale(1.3)", flexShrink: 0 }}
+                    />
+                    <Box
+                      flex={1}
+                      border="1px solid #E2E8F0"
+                      borderRadius="6px"
+                      px={4}
+                      py={3}
+                      bg="white"
+                    >
+                      <Text fontWeight="500">{label}</Text>
+                    </Box>
+                  </Flex>
+                ))}
+              </TabPanel>
 
-                {/* Row 1 */}
-                <Flex justifyContent="center">
-                  <input type="radio" style={{ accentColor: '#6b006b', transform: 'scale(1.5)' }} defaultChecked />
-                </Flex>
-                <ChakraInput size="lg" placeholder="Option 1" defaultValue="Option 1" bg="white" borderColor="#E2E8F0" />
-                <Flex justifyContent="center"><Icon as={FaArrowRight} color="#6b006b" /></Flex>
-                <ChakraInput size="lg" placeholder="Answer" defaultValue="Answer" bg="white" borderColor="#E2E8F0" />
+              {/* Matching */}
+              <TabPanel p={0}>
+                <Text pb={4} color="gray.500">Add matching pairs (left → right)</Text>
+                {matchingPairs.map((pair, idx) => (
+                  <Flex key={idx} gap={3} mb={4} alignItems="flex-end">
+                    <Box flex={1}>
+                      <Input
+                        label={`Left ${idx + 1}`}
+                        placeholder="e.g. H₂O"
+                        value={pair.left}
+                        onChange={(e) => handlePairChange(idx, "left", e.target.value)}
+                      />
+                    </Box>
+                    <Box color="#6b006b" pb={2}>
+                      <FaArrowRight />
+                    </Box>
+                    <Box flex={1}>
+                      <Input
+                        label={`Right ${idx + 1}`}
+                        placeholder="e.g. Water"
+                        value={pair.right}
+                        onChange={(e) => handlePairChange(idx, "right", e.target.value)}
+                      />
+                    </Box>
+                    {matchingPairs.length > 1 && (
+                      <Button ghost onClick={() => handleRemovePair(idx)} type="button" mb={2}>
+                        Remove
+                      </Button>
+                    )}
+                  </Flex>
+                ))}
+                <Button ghost onClick={handleAddPair} type="button" mt={2}>
+                  + Add Pair
+                </Button>
+              </TabPanel>
 
-                {/* Row 2 */}
-                <Flex justifyContent="center">
-                  <input type="radio" style={{ accentColor: '#6b006b', transform: 'scale(1.5)' }} />
-                </Flex>
-                <ChakraInput size="lg" placeholder="Option 2" defaultValue="Option 2" bg="white" borderColor="#E2E8F0" />
-                <Flex justifyContent="center"><Icon as={FaArrowRight} color="#6b006b" /></Flex>
-                <ChakraInput size="lg" placeholder="Answer" defaultValue="Answer" bg="white" borderColor="#E2E8F0" />
+              {/* Fill in the Blank */}
+              <TabPanel p={0}>
+                <Text pb={4} color="gray.500">Provide the correct answer for the blank</Text>
+                <Input
+                  label="Correct Answer"
+                  isRequired
+                  placeholder="e.g. Paris"
+                  {...register("correctAnswer", { required: "Correct answer is required" })}
+                />
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
+        </Box>
+      )}
 
-                {/* Row 3 */}
-                <Flex justifyContent="center">
-                  <input type="radio" style={{ accentColor: '#6b006b', transform: 'scale(1.5)' }} />
-                </Flex>
-                <ChakraInput size="lg" placeholder="Option 3" defaultValue="Option 3" bg="white" borderColor="#E2E8F0" />
-                <Flex justifyContent="center"><Icon as={FaArrowRight} color="#6b006b" /></Flex>
-                <ChakraInput size="lg" placeholder="Answer" defaultValue="Answer" bg="white" borderColor="#E2E8F0" />
-
-                {/* Row 4 */}
-                <Flex justifyContent="center">
-                  <input type="radio" style={{ accentColor: '#6b006b', transform: 'scale(1.5)' }} />
-                </Flex>
-                <ChakraInput size="lg" placeholder="Option 4" defaultValue="Option 4" bg="white" borderColor="#E2E8F0" />
-                <Flex justifyContent="center"><Icon as={FaArrowRight} color="#6b006b" /></Flex>
-                <ChakraInput size="lg" placeholder="Answer" defaultValue="Answer" bg="white" borderColor="#E2E8F0" />
-              </Grid>
-            </TabPanel>
-
-            {/* Fill blank Panel */}
-            <TabPanel p={0}></TabPanel>
-          </TabPanels>
-        </Tabs>
-      </Box>
-
+      {/* ── Buttons ── */}
       <Flex justifyContent="flex-end" paddingTop={8} gap={3}>
         {isExistingQuestion && !isEditMode && (
           <Button
-            onClick={() => {
-              const editLink = getEditLink(
-                questionId,
-                isStandaloneExamination,
-                isExamination,
-                courseId,
-                assessmentId
-              );
-              push(editLink + "&edit=true");
-            }}
+            onClick={() => push(getEditQuestionLink(isExamination, questionId) + "&edit=true")}
+            type="button"
           >
             Edit Question
           </Button>
         )}
         {isEditMode && (
-          <Button
-            onClick={() => {
-              const viewLink = getEditLink(
-                questionId,
-                isStandaloneExamination,
-                isExamination,
-                courseId,
-                assessmentId
-              );
-              push(viewLink);
-            }}
-          >
+          <Button ghost onClick={() => push(getEditQuestionLink(isExamination, questionId))} type="button">
             Cancel
           </Button>
         )}
@@ -662,14 +579,9 @@ const CreateQuestionPage = (assessmentManager) => {
           type="submit"
           disabled={isLoading || isSubmitting || error}
           isLoading={isLoading || isSubmitting}
-          leftIcon={isExistingQuestion && !isEditMode && <FaTrash />}
+          leftIcon={isExistingQuestion && !isEditMode ? <FaTrash /> : null}
         >
-          {isExistingQuestion && !isEditMode
-            ? "Delete"
-            : isEditMode
-              ? "Update"
-              : "Add"}{" "}
-          Question
+          {isExistingQuestion && !isEditMode ? "Delete" : isEditMode ? "Update" : "Add"} Question
         </Button>
       </Flex>
     </Box>
@@ -677,10 +589,9 @@ const CreateQuestionPage = (assessmentManager) => {
 };
 
 const QuestionListingPage = ({ assessment, isLoading, error }) => {
-  const questions = assessment?.questions;
-  console.log(assessment, "hhh");
-  const questionsIsEmpty =
-    !isLoading && !error && !questions?.length ? true : false;
+  const isExamination = useQueryParams().get("examination");
+  const questions = Array.isArray(assessment?.questions) ? assessment.questions : [];
+  const questionsIsEmpty = !isLoading && !error && !questions.length;
 
   return (
     <Box padding={6} width="70%">
@@ -688,24 +599,18 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
 
       {questionsIsEmpty && (
         <PageLoaderLayout height="70%" width="100%">
-          <Heading as="h3" marginBottom={3}>
-            No Questions Asked Yet
-          </Heading>
-          <Text as="level3" marginBottom={7}>
-            Create a new question to get started.
-          </Text>
+          <Heading as="h3" marginBottom={3}>No Questions Yet</Heading>
+          <Text as="level3" marginBottom={7}>Create a new question to get started.</Text>
         </PageLoaderLayout>
       )}
 
       {error && (
         <PageLoaderLayout height="70%" width="100%">
-          <Heading as="h3" marginBottom={3} color="red.500">
-            {capitalizeWords(error)}
-          </Heading>
+          <Heading as="h3" marginBottom={3} color="red.500">{capitalizeWords(error)}</Heading>
         </PageLoaderLayout>
       )}
 
-      {questions?.map((q, index) => (
+      {questions.map((q, index) => (
         <QuestionCard
           key={q.id}
           id={q.id}
@@ -717,9 +622,7 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
       ))}
 
       <Box paddingTop={10}>
-        <Button
-          link={`/admin/standalone-exams/questions/?examination=${assessment?.id}`}
-        >
+        <Button link={`/admin/standalone-exams/questions/?examination=${assessment?.id}`}>
           Add New Question
         </Button>
       </Box>
@@ -728,53 +631,22 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
 };
 
 const QuestionCard = ({ questionNumber, question, image, id, ...rest }) => {
-  const { id: courseId, assessmentId } = useParams();
   const isExamination = useQueryParams().get("examination");
-  const questionId = useQueryParams().get("question");
-  const isStandaloneExamination =
-    courseId === "not-set" && assessmentId === "not-set" && isExamination
-      ? true
-      : false;
-  const editLink = getEditQuestionLink(isExamination, questionId);
-
+  const editLink = getEditQuestionLink(isExamination, id);
   const { resource: deleteRequest, handleFetchResource } = useFetch();
   const toast = useToast();
 
   const handleDelete = () => {
-    const ok = window.confirm("Are you sure you want to delete this question?");
-    if (!ok) return;
-    console.log(id);
-
+    if (!window.confirm("Are you sure you want to delete this question?")) return;
     handleFetchResource({
       fetcher: async () => {
-        if (isStandaloneExamination) {
-          const response = await adminDeleteUploadedQuestion(id);
-          if (response?.data?.deletePermission === "Not Allowed") {
-            throw new Error(
-              response?.data?.remarks ||
-                response?.message ||
-                "Deletion not permitted for standalone examination"
-            );
-          }
-        } else if (isExamination) await adminDeleteExaminationQuestion(id);
-        else await adminDeleteAssessmentQuestion(id);
-
-        return "Question Deleted Successfully";
+        await adminDeleteStandaloneExaminationQuestion(id);
+        return "Question deleted successfully";
       },
-      onError: (err) => {
-        toast({
-          description: err.message,
-          position: "top",
-          status: "error",
-        });
-      },
-      onSuccess: (msg) => {
-        toast({
-          description: msg,
-          position: "top",
-          status: "success",
-        });
-      },
+      onError: (err) =>
+        toast({ description: err.message, position: "top", status: "error" }),
+      onSuccess: (msg) =>
+        toast({ description: msg, position: "top", status: "success" }),
     });
   };
 
@@ -782,59 +654,26 @@ const QuestionCard = ({ questionNumber, question, image, id, ...rest }) => {
     <>
       {deleteRequest.loading && (
         <Flex
-          pos="fixed"
-          top="0"
-          left="0"
-          zIndex={100}
-          w="100vw"
-          h="100vh"
-          alignItems="center"
-          justifyContent="center"
-          bg="rgba(255,255,255, .5)"
+          pos="fixed" top="0" left="0" zIndex={100} w="100vw" h="100vh"
+          alignItems="center" justifyContent="center" bg="rgba(255,255,255,.5)"
         >
-          <Flex
-            alignItems="center"
-            bg="rgba(255,255,255)"
-            p={6}
-            shadow="md"
-            rounded="md"
-            w="300px"
-            flexDirection="column"
-          >
-            <Box>
-              <Spinner mb={5} />
-            </Box>
-            Please wait. Deleting this file might take some time.
+          <Flex alignItems="center" bg="white" p={6} shadow="md" rounded="md" w="300px" flexDirection="column">
+            <Box><Spinner mb={5} /></Box>
+            Please wait. Deleting…
           </Flex>
         </Flex>
       )}
 
-      <Flex
-        {...rest}
-        alignItems="stretch"
-        justifyContent="space-between"
-        backgroundColor="white"
-        padding={6}
-      >
+      <Flex {...rest} alignItems="stretch" justifyContent="space-between" backgroundColor="white" padding={6}>
         <Box>
           <Heading fontSize="text.level2">
             <Link href={editLink}>{questionNumber}</Link>
           </Heading>
-
           <RichTextToView paddingTop={2} text={question} />
-
           {image && (
-            <Image
-              mt={5}
-              src={image}
-              alt={"question"}
-              width="100%"
-              height="400px"
-              rounded="md"
-            />
+            <Image mt={5} src={image} alt="question" width="100%" height="400px" rounded="md" />
           )}
         </Box>
-
         <Box transform="translateY(-10px)">
           <MoreIconButton editLink={editLink} onDelete={handleDelete} />
         </Box>
@@ -843,95 +682,53 @@ const QuestionCard = ({ questionNumber, question, image, id, ...rest }) => {
   );
 };
 
-export const MoreIconButton = ({ editLink, onDelete }) => {
+const MoreIconButton = ({ editLink, onDelete }) => {
   const { push } = useHistory();
-
-  const handleViewClick = () => {
-    push(editLink);
-  };
-
-  const handleEditClick = () => {
-    push(editLink + "&edit=true");
-  };
-
   return (
     <Menu placement="bottom-end">
       <MenuButton
         padding={2}
         rounded="full"
-        _hover={{
-          background: "none",
-          color: "others.3",
-        }}
+        _hover={{ background: "none", color: "others.3" }}
         _focus={{ border: "none", background: "white" }}
       >
         <FiMoreHorizontal />
       </MenuButton>
-
       <MenuList position="relative" zIndex={2}>
-        <MenuItem onClick={handleViewClick}>Preview question</MenuItem>
-        <MenuItem onClick={handleEditClick}>Edit question</MenuItem>
+        <MenuItem onClick={() => push(editLink)}>Preview question</MenuItem>
+        <MenuItem onClick={() => push(editLink + "&edit=true")}>Edit question</MenuItem>
         <MenuItem onClick={onDelete} color="red.500">Delete question</MenuItem>
       </MenuList>
     </Menu>
   );
 };
-const getQuestionListingLink = (isExamination, questionId) =>
-  `/admin/standalone-exams/questions/?examination=${isExamination}&question-listing=true`;
 
-// const getQuestionListingLink = (isExamination, questionId) =>
-//   `/admin/standalone-exams/questions/list?question-listing=true/${
-//     isExamination ? `examination=${isExamination}` : ''
-//   }${questionId ? `&question=${questionId}` : ''}`;
+// ── Helpers ──
 
-const getEditQuestionLink = (questionId, isExamination) => {
-  return `/admin/standalone-exams/questions/${isExamination ? `?examination=${isExamination}` : ""
-    }${questionId ? `&question=${questionId}` : ""}`;
-};
+const getQuestionListingLink = (examinationId) =>
+  `/admin/standalone-exams/questions/?examination=${examinationId}&question-listing=true`;
 
-const getEditLink = (
-  questionId,
-  isStandaloneExamination,
-  isExamination,
-  courseId,
-  assessmentId
-) => {
-  return `/admin/standalone-exams/questions/?examination=${isExamination}&question=${questionId}`;
-};
+const getEditQuestionLink = (examinationId, questionId) =>
+  `/admin/standalone-exams/questions/?examination=${examinationId}&question=${questionId}`;
 
 const getQuestionNumber = (index) =>
-  `Question ${index + 1 < 9 ? `0${index + 1}` : index === undefined ? "01" : index + 1
-  }`;
+  `Question ${index + 1 < 9 ? `0${index + 1}` : index === undefined ? "01" : index + 1}`;
 
-const buildOptions = (data, isStandaloneExamination) => {
+const buildOptions = (data) => {
   const options = [];
-
-  for (const item in data) {
-    if (/option/.test(item)) {
-      const name = data[item];
-      const optionIndex = +item.replace("option-", "");
+  for (const key in data) {
+    if (/^option-/.test(key)) {
+      const optionText = data[key];
+      const optionIndex = +key.replace("option-", "");
       const isAnswer = +data.answer === optionIndex;
-
-      const option = {
-        [isStandaloneExamination ? "answer" : "name"]: name,
-        isAnswer,
-        optionIndex,
-      };
-
-      if (isStandaloneExamination)
-        Reflect.deleteProperty(option, "optionIndex");
-
-      if (option.name || option.answer) options.push(option);
+      if (optionText) options.push({ option: optionText, optionIndex, isAnswer });
     }
   }
-  console.log(options, "opt");
   return options;
 };
 
-const QuestionsStandaloneRoute = ({ ...rest }) => {
-  return (
-    <Route {...rest} render={(props) => <QuestionsStandalone {...props} />} />
-  );
-};
+const QuestionsStandaloneRoute = ({ ...rest }) => (
+  <Route {...rest} render={(props) => <QuestionsStandalone {...props} />} />
+);
 
 export default QuestionsStandaloneRoute;

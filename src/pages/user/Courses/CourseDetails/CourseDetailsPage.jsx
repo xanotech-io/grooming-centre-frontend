@@ -111,9 +111,9 @@ const ModuleRow = ({ module, index, courseId }) => {
     if (type === "lesson")
       return `/courses/take/${courseId}/lessons/${item.id}`;
     if (type === "assessment")
-      return `/courses/take/${courseId}/assessment/${item.id}`;
+      return `/courses/take/${courseId}/assessment-take/${item.id}`;
     if (type === "examination")
-      return `/courses/take/${courseId}/assessment/${item.id}?moduleExam=${module.id}`;
+      return `/courses/take/${courseId}/exam/${item.id}`;
     return "#";
   };
 

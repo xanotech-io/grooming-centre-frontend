@@ -28,15 +28,23 @@ import {
   Textarea,
   Select as ChakraSelect,
   Input as ChakraInput,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-  NumberIncrementStepper,
-  NumberDecrementStepper,
   Progress,
-  Collapse,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
 } from "@chakra-ui/react";
-import { FaArrowLeft, FaPlus, FaEdit, FaTrash, FaChevronDown, FaChevronRight } from "react-icons/fa";
+import {
+  FaArrowLeft,
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaChevronDown,
+  FaChevronRight,
+  FaSync,
+  FaDownload,
+  FaSlidersH,
+} from "react-icons/fa";
 import { Button, Heading } from "../../../components";
 import { useFetch } from "../../../hooks";
 import {
@@ -44,11 +52,14 @@ import {
   gradeBookV2AddEntry,
   gradeBookV2UpdateEntry,
   gradeBookV2DeleteEntry,
+  gradeBookV2AdjustEntry,
   gradeBookV2GetAnalytics,
   gradeBookV2GetReport,
   gradeBookV2Finalize,
   gradeBookV2Publish,
   gradeBookV2GetAudit,
+  gradeBookV2Sync,
+  gradeBookV2Export,
 } from "../../../services";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -74,9 +85,9 @@ const Tab = ({ label, active, onClick }) => (
 
 const statusBadge = (status) => {
   const map = {
-    draft:      { bg: "#F7FAFC", color: "#718096", label: "Draft" },
-    finalized:  { bg: "#EBF4FF", color: "#3182CE", label: "Finalized" },
-    published:  { bg: "#E6F4EA", color: "#38A169", label: "Published" },
+    draft:     { bg: "#F7FAFC", color: "#718096", label: "Draft" },
+    finalized: { bg: "#EBF4FF", color: "#3182CE", label: "Finalized" },
+    published: { bg: "#E6F4EA", color: "#38A169", label: "Published" },
   };
   const s = map[String(status).toLowerCase()] || map.draft;
   return (
@@ -87,7 +98,10 @@ const statusBadge = (status) => {
 };
 
 const gradeBadge = (grade) => {
-  const color = grade === "A" ? "#38A169" : grade === "F" ? "#E53E3E" : grade?.startsWith("B") ? "#3182CE" : "#DD6B20";
+  const color =
+    grade === "A" ? "#38A169" :
+    grade === "F" ? "#E53E3E" :
+    grade?.startsWith("B") ? "#3182CE" : "#DD6B20";
   return (
     <Badge bg="transparent" color={color} fontWeight="700" fontSize="14px">{grade || "—"}</Badge>
   );
@@ -98,17 +112,21 @@ const gradeBadge = (grade) => {
 const EntriesTab = ({ gradebookId, categories }) => {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isAdjustOpen, onOpen: onAdjustOpen, onClose: onAdjustClose } = useDisclosure();
+
   const [entries, setEntries] = useState([]);
   const [loadingEntries, setLoadingEntries] = useState(true);
   const [editTarget, setEditTarget] = useState(null);
+  const [adjustTarget, setAdjustTarget] = useState(null);
 
-  // Entry form state
   const [form, setForm] = useState({
     studentId: "", categoryId: "", assessmentName: "",
     assessmentType: "exam", score: "", maxScore: 100, feedback: "",
   });
   const [formOverride, setFormOverride] = useState({ score: "", overrideReason: "" });
+  const [adjustForm, setAdjustForm] = useState({ adjustmentValue: 0, adjustmentReason: "", extraCredit: 0 });
   const [saving, setSaving] = useState(false);
+  const [adjustSaving, setAdjustSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
   const loadEntries = useCallback(async () => {
@@ -150,6 +168,12 @@ const EntriesTab = ({ gradebookId, categories }) => {
     onOpen();
   };
 
+  const openAdjust = (entry) => {
+    setAdjustTarget(entry);
+    setAdjustForm({ adjustmentValue: 0, adjustmentReason: "", extraCredit: 0 });
+    onAdjustOpen();
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -180,6 +204,24 @@ const EntriesTab = ({ gradebookId, categories }) => {
     }
   };
 
+  const handleAdjust = async () => {
+    setAdjustSaving(true);
+    try {
+      await gradeBookV2AdjustEntry(gradebookId, adjustTarget.id, {
+        adjustmentValue: Number(adjustForm.adjustmentValue) || 0,
+        adjustmentReason: adjustForm.adjustmentReason || undefined,
+        extraCredit: Number(adjustForm.extraCredit) || 0,
+      });
+      toast({ title: "Adjustment applied", status: "success", duration: 2000, isClosable: true });
+      onAdjustClose();
+      loadEntries();
+    } catch (err) {
+      toast({ title: err?.response?.data?.message || "Adjustment failed", status: "error", duration: 3000, isClosable: true });
+    } finally {
+      setAdjustSaving(false);
+    }
+  };
+
   const handleDelete = async (entry) => {
     setDeletingId(entry.id);
     try {
@@ -204,47 +246,62 @@ const EntriesTab = ({ gradebookId, categories }) => {
         <Flex justifyContent="center" py="40px"><Spinner size="lg" color="blue.500" /></Flex>
       ) : entries.length === 0 ? (
         <Flex justifyContent="center" py="40px">
-          <Text color="gray.400">No entries yet. Add the first score entry.</Text>
+          <Text color="gray.400">No entries yet. Sync LMS data or add an entry manually.</Text>
         </Flex>
       ) : (
         <TableContainer>
           <Table variant="simple" size="sm">
             <Thead bg="#F7FAFC">
               <Tr>
-                {["Student", "Assessment", "Category", "Score", "Grade", "Status", "Actions"].map((h) => (
+                {["Student", "Assessment", "Category", "Score", "Effective", "Grade", "Status", "Actions"].map((h) => (
                   <Th key={h} py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">{h}</Th>
                 ))}
               </Tr>
             </Thead>
             <Tbody>
-              {entries.map((e) => (
-                <Tr key={e.id} _hover={{ bg: "#F7FAFC" }}>
-                  <Td py="12px" fontSize="13px" fontWeight="500">{e.studentName || e.studentId}</Td>
-                  <Td py="12px" fontSize="13px">{e.assessmentName}</Td>
-                  <Td py="12px" fontSize="13px" color="gray.600">{e.category}</Td>
-                  <Td py="12px" fontSize="13px">{e.score}/{e.maxScore}</Td>
-                  <Td py="12px">{gradeBadge(e.grade)}</Td>
-                  <Td py="12px">
-                    <Badge
-                      bg={e.status === "published" ? "#E6F4EA" : e.status === "finalized" ? "#EBF4FF" : "#F7FAFC"}
-                      color={e.status === "published" ? "#38A169" : e.status === "finalized" ? "#3182CE" : "#718096"}
-                      px="8px" py="3px" borderRadius="10px" textTransform="none" fontSize="11px"
-                    >
-                      {e.status}
-                    </Badge>
-                  </Td>
-                  <Td py="12px">
-                    <Flex gap="4px">
-                      <IconButton aria-label="Edit" icon={<FaEdit />} size="xs" variant="ghost" colorScheme="blue" onClick={() => openEdit(e)} />
-                      <IconButton
-                        aria-label="Delete" icon={<FaTrash />} size="xs" variant="ghost" colorScheme="red"
-                        isLoading={deletingId === e.id}
-                        onClick={() => handleDelete(e)}
-                      />
-                    </Flex>
-                  </Td>
-                </Tr>
-              ))}
+              {entries.map((e) => {
+                const effective = e.effectiveScore ?? e.score;
+                const hasAdjustment = effective !== e.score;
+                return (
+                  <Tr key={e.id} _hover={{ bg: "#F7FAFC" }}>
+                    <Td py="12px" fontSize="13px" fontWeight="500">{e.studentName || e.studentId}</Td>
+                    <Td py="12px" fontSize="13px">{e.assessmentName}</Td>
+                    <Td py="12px" fontSize="13px" color="gray.600">{e.category}</Td>
+                    <Td py="12px" fontSize="13px">{e.score}/{e.maxScore}</Td>
+                    <Td py="12px" fontSize="13px">
+                      <Flex alignItems="center" gap="6px">
+                        <Text fontWeight={hasAdjustment ? "700" : "400"} color={hasAdjustment ? "#6b006b" : undefined}>
+                          {effective}/{e.maxScore}
+                        </Text>
+                        {hasAdjustment && (
+                          <Badge bg="#F0E6FF" color="#6b006b" fontSize="10px" px="5px">adj</Badge>
+                        )}
+                      </Flex>
+                    </Td>
+                    <Td py="12px">{gradeBadge(e.grade)}</Td>
+                    <Td py="12px">
+                      <Badge
+                        bg={e.status === "published" ? "#E6F4EA" : e.status === "finalized" ? "#EBF4FF" : "#F7FAFC"}
+                        color={e.status === "published" ? "#38A169" : e.status === "finalized" ? "#3182CE" : "#718096"}
+                        px="8px" py="3px" borderRadius="10px" textTransform="none" fontSize="11px"
+                      >
+                        {e.status}
+                      </Badge>
+                    </Td>
+                    <Td py="12px">
+                      <Flex gap="2px">
+                        <IconButton aria-label="Edit score" icon={<FaEdit />} size="xs" variant="ghost" colorScheme="blue" onClick={() => openEdit(e)} title="Override score" />
+                        <IconButton aria-label="Adjust" icon={<FaSlidersH />} size="xs" variant="ghost" colorScheme="purple" onClick={() => openAdjust(e)} title="Apply curve / extra credit" />
+                        <IconButton
+                          aria-label="Delete" icon={<FaTrash />} size="xs" variant="ghost" colorScheme="red"
+                          isLoading={deletingId === e.id}
+                          onClick={() => handleDelete(e)}
+                        />
+                      </Flex>
+                    </Td>
+                  </Tr>
+                );
+              })}
             </Tbody>
           </Table>
         </TableContainer>
@@ -254,7 +311,7 @@ const EntriesTab = ({ gradebookId, categories }) => {
       <Modal isOpen={isOpen} onClose={onClose} size="md">
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>{editTarget ? "Update Score" : "Add Score Entry"}</ModalHeader>
+          <ModalHeader>{editTarget ? "Override Score" : "Add Score Entry"}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             {editTarget ? (
@@ -331,6 +388,65 @@ const EntriesTab = ({ gradebookId, categories }) => {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Adjust / Curve modal */}
+      <Modal isOpen={isAdjustOpen} onClose={onAdjustClose} size="sm">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Apply Adjustment</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {adjustTarget && (
+              <Box>
+                <Box mb="6px">
+                  <Text fontSize="13px" color="gray.500">
+                    {adjustTarget.studentName} — {adjustTarget.assessmentName}
+                  </Text>
+                  <Text fontSize="12px" color="gray.400">
+                    Current score: {adjustTarget.score}/{adjustTarget.maxScore}
+                  </Text>
+                </Box>
+                <Box bg="#FFF5EA" border="1px solid #FBD38D" borderRadius="6px" px="12px" py="8px" mb="16px">
+                  <Text fontSize="12px" color="#744210">
+                    effectiveScore = min(score + adjustment + extraCredit, maxScore)
+                  </Text>
+                </Box>
+                <Box mb="14px">
+                  <Text fontSize="13px" fontWeight="600" color="gray.600" mb="6px">
+                    Adjustment Value <Text as="span" fontSize="11px" fontWeight="400" color="gray.400">(positive = curve up, negative = deduction)</Text>
+                  </Text>
+                  <ChakraInput
+                    type="number" size="sm" borderRadius="6px"
+                    value={adjustForm.adjustmentValue}
+                    onChange={(e) => setAdjustForm((p) => ({ ...p, adjustmentValue: e.target.value }))}
+                  />
+                </Box>
+                <Box mb="14px">
+                  <Text fontSize="13px" fontWeight="600" color="gray.600" mb="6px">Extra Credit</Text>
+                  <ChakraInput
+                    type="number" min={0} size="sm" borderRadius="6px"
+                    value={adjustForm.extraCredit}
+                    onChange={(e) => setAdjustForm((p) => ({ ...p, extraCredit: e.target.value }))}
+                  />
+                </Box>
+                <Box>
+                  <Text fontSize="13px" fontWeight="600" color="gray.600" mb="6px">Reason *</Text>
+                  <Textarea
+                    size="sm" borderRadius="6px" rows={2}
+                    placeholder="e.g. Class-wide curve applied"
+                    value={adjustForm.adjustmentReason}
+                    onChange={(e) => setAdjustForm((p) => ({ ...p, adjustmentReason: e.target.value }))}
+                  />
+                </Box>
+              </Box>
+            )}
+          </ModalBody>
+          <ModalFooter gap="8px">
+            <Button secondary onClick={onAdjustClose}>Cancel</Button>
+            <Button isLoading={adjustSaving} onClick={handleAdjust}>Apply</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };
@@ -346,11 +462,7 @@ const AnalyticsTab = ({ gradebookId }) => {
   useEffect(() => { handleFetchResource({ fetcher }); }, [handleFetchResource, fetcher]);
 
   const a = resource.data?.analytics;
-
-  const gradeColors = {
-    A: "#38A169", B: "#3182CE", C: "#718096", D: "#DD6B20", F: "#E53E3E",
-  };
-
+  const gradeColors = { A: "#38A169", B: "#3182CE", C: "#718096", D: "#DD6B20", F: "#E53E3E" };
   const maxDist = a?.gradeDistribution ? Math.max(...Object.values(a.gradeDistribution), 1) : 1;
 
   return (
@@ -359,7 +471,6 @@ const AnalyticsTab = ({ gradebookId }) => {
       {resource.err && <Flex justifyContent="center" py="40px"><Text color="red.500">Failed to load analytics.</Text></Flex>}
       {a && (
         <>
-          {/* KPI Cards */}
           <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(5, 1fr)" }} gap="16px" mb="24px">
             {[
               { label: "Total Students", value: a.totalStudents, color: "#3182CE", bg: "#EBF4FF" },
@@ -376,7 +487,6 @@ const AnalyticsTab = ({ gradebookId }) => {
           </Grid>
 
           <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap="20px">
-            {/* Grade Distribution */}
             <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" p="20px">
               <Text fontSize="14px" fontWeight="600" color="gray.700" mb="16px">Grade Distribution</Text>
               {a.gradeDistribution && Object.entries(a.gradeDistribution).map(([grade, count]) => (
@@ -384,11 +494,8 @@ const AnalyticsTab = ({ gradebookId }) => {
                   <Text fontSize="14px" fontWeight="700" w="24px" color={gradeColors[grade] || "#718096"}>{grade}</Text>
                   <Box flex="1" bg="#F7FAFC" borderRadius="4px" overflow="hidden" h="20px">
                     <Box
-                      h="100%"
-                      w={`${(count / maxDist) * 100}%`}
-                      bg={gradeColors[grade] || "#718096"}
-                      borderRadius="4px"
-                      transition="width 0.3s"
+                      h="100%" w={`${(count / maxDist) * 100}%`}
+                      bg={gradeColors[grade] || "#718096"} borderRadius="4px" transition="width 0.3s"
                     />
                   </Box>
                   <Text fontSize="13px" fontWeight="600" w="24px" textAlign="right">{count}</Text>
@@ -396,7 +503,6 @@ const AnalyticsTab = ({ gradebookId }) => {
               ))}
             </Box>
 
-            {/* Category Breakdown */}
             <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" p="20px">
               <Text fontSize="14px" fontWeight="600" color="gray.700" mb="16px">Category Performance</Text>
               {(a.categoryBreakdown ?? []).map((cat) => (
@@ -423,13 +529,9 @@ const AnalyticsTab = ({ gradebookId }) => {
 
 const StudentReportRow = ({ student }) => {
   const [open, setOpen] = useState(false);
-
   return (
     <>
-      <Tr
-        _hover={{ bg: "#F7FAFC", cursor: "pointer" }}
-        onClick={() => setOpen((o) => !o)}
-      >
+      <Tr _hover={{ bg: "#F7FAFC", cursor: "pointer" }} onClick={() => setOpen((o) => !o)}>
         <Td py="12px" fontSize="14px" fontWeight="500">
           <Flex alignItems="center" gap="8px">
             {open ? <FaChevronDown size="11px" color="#718096" /> : <FaChevronRight size="11px" color="#718096" />}
@@ -479,28 +581,26 @@ const ReportTab = ({ gradebookId }) => {
       {resource.loading && <Flex justifyContent="center" py="40px"><Spinner size="lg" color="blue.500" /></Flex>}
       {resource.err && <Flex justifyContent="center" py="40px"><Text color="red.500">Failed to load report.</Text></Flex>}
       {!resource.loading && !resource.err && (
-        <>
-          {students.length === 0 ? (
-            <Flex justifyContent="center" py="40px"><Text color="gray.400">No student data available.</Text></Flex>
-          ) : (
-            <TableContainer>
-              <Table variant="simple" size="sm">
-                <Thead bg="#F7FAFC">
-                  <Tr>
-                    {["Student", "Email", "Final Score", "Grade", "Status"].map((h) => (
-                      <Th key={h} py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">{h}</Th>
-                    ))}
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {students.map((s) => (
-                    <StudentReportRow key={s.studentId} student={s} />
+        students.length === 0 ? (
+          <Flex justifyContent="center" py="40px"><Text color="gray.400">No student data available.</Text></Flex>
+        ) : (
+          <TableContainer>
+            <Table variant="simple" size="sm">
+              <Thead bg="#F7FAFC">
+                <Tr>
+                  {["Student", "Email", "Final Score", "Grade", "Status"].map((h) => (
+                    <Th key={h} py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">{h}</Th>
                   ))}
-                </Tbody>
-              </Table>
-            </TableContainer>
-          )}
-        </>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {students.map((s) => (
+                  <StudentReportRow key={s.studentId} student={s} />
+                ))}
+              </Tbody>
+            </Table>
+          </TableContainer>
+        )
       )}
     </Box>
   );
@@ -520,11 +620,13 @@ const AuditTab = ({ gradebookId }) => {
 
   const actionBadge = (action) => {
     const map = {
-      created:  { bg: "#E6F4EA", color: "#38A169" },
-      updated:  { bg: "#EBF4FF", color: "#3182CE" },
-      deleted:  { bg: "#FED7D7", color: "#E53E3E" },
-      finalized:{ bg: "#F0E6FF", color: "#6b006b" },
-      published:{ bg: "#EBF8FF", color: "#553C9A" },
+      created:   { bg: "#E6F4EA", color: "#38A169" },
+      updated:   { bg: "#EBF4FF", color: "#3182CE" },
+      adjusted:  { bg: "#F0E6FF", color: "#6b006b" },
+      deleted:   { bg: "#FED7D7", color: "#E53E3E" },
+      finalized: { bg: "#F0E6FF", color: "#6b006b" },
+      published: { bg: "#EBF8FF", color: "#553C9A" },
+      synced:    { bg: "#E6F4EA", color: "#276749" },
     };
     const s = map[String(action).toLowerCase()] || { bg: "#F7FAFC", color: "#718096" };
     return (
@@ -537,49 +639,47 @@ const AuditTab = ({ gradebookId }) => {
       {resource.loading && <Flex justifyContent="center" py="40px"><Spinner size="lg" color="blue.500" /></Flex>}
       {resource.err && <Flex justifyContent="center" py="40px"><Text color="red.500">Failed to load audit log.</Text></Flex>}
       {!resource.loading && !resource.err && (
-        <>
-          {audit.length === 0 ? (
-            <Flex justifyContent="center" py="40px"><Text color="gray.400">No audit records found.</Text></Flex>
-          ) : (
-            <TableContainer>
-              <Table variant="simple" size="sm">
-                <Thead bg="#F7FAFC">
-                  <Tr>
-                    {["Date", "Action", "Performed By", "Changed Fields", "Previous", "New"].map((h) => (
-                      <Th key={h} py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">{h}</Th>
-                    ))}
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {audit.map((log) => (
-                    <Tr key={log.id} _hover={{ bg: "#F7FAFC" }}>
-                      <Td py="12px" fontSize="12px" color="gray.500" whiteSpace="nowrap">
-                        {new Date(log.createdAt).toLocaleString()}
-                      </Td>
-                      <Td py="12px">{actionBadge(log.action)}</Td>
-                      <Td py="12px" fontSize="13px">
-                        {log.performer ? `${log.performer.firstName} ${log.performer.lastName}` : "—"}
-                      </Td>
-                      <Td py="12px" fontSize="12px" color="gray.600">
-                        {(log.changedFields ?? []).join(", ") || "—"}
-                      </Td>
-                      <Td py="12px" fontSize="12px" color="gray.500" maxW="180px">
-                        {log.previousValue ? (
-                          <Text noOfLines={2} fontFamily="mono">{JSON.stringify(log.previousValue)}</Text>
-                        ) : "—"}
-                      </Td>
-                      <Td py="12px" fontSize="12px" color="gray.700" maxW="180px">
-                        {log.newValue ? (
-                          <Text noOfLines={2} fontFamily="mono">{JSON.stringify(log.newValue)}</Text>
-                        ) : "—"}
-                      </Td>
-                    </Tr>
+        audit.length === 0 ? (
+          <Flex justifyContent="center" py="40px"><Text color="gray.400">No audit records found.</Text></Flex>
+        ) : (
+          <TableContainer>
+            <Table variant="simple" size="sm">
+              <Thead bg="#F7FAFC">
+                <Tr>
+                  {["Date", "Action", "Performed By", "Changed Fields", "Previous", "New"].map((h) => (
+                    <Th key={h} py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">{h}</Th>
                   ))}
-                </Tbody>
-              </Table>
-            </TableContainer>
-          )}
-        </>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {audit.map((log) => (
+                  <Tr key={log.id} _hover={{ bg: "#F7FAFC" }}>
+                    <Td py="12px" fontSize="12px" color="gray.500" whiteSpace="nowrap">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </Td>
+                    <Td py="12px">{actionBadge(log.action)}</Td>
+                    <Td py="12px" fontSize="13px">
+                      {log.performer ? `${log.performer.firstName} ${log.performer.lastName}` : "—"}
+                    </Td>
+                    <Td py="12px" fontSize="12px" color="gray.600">
+                      {(log.changedFields ?? []).join(", ") || "—"}
+                    </Td>
+                    <Td py="12px" fontSize="12px" color="gray.500" maxW="180px">
+                      {log.previousValue ? (
+                        <Text noOfLines={2} fontFamily="mono">{JSON.stringify(log.previousValue)}</Text>
+                      ) : "—"}
+                    </Td>
+                    <Td py="12px" fontSize="12px" color="gray.700" maxW="180px">
+                      {log.newValue ? (
+                        <Text noOfLines={2} fontFamily="mono">{JSON.stringify(log.newValue)}</Text>
+                      ) : "—"}
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </TableContainer>
+        )
       )}
     </Box>
   );
@@ -594,6 +694,11 @@ const GradeBookV2DetailsPage = () => {
   const [activeTab, setActiveTab] = useState("entries");
   const [finalizing, setFinalizing] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+  const [exporting, setExporting] = useState(null);
+  const [entriesKey, setEntriesKey] = useState(0);
+  const { isOpen: isSyncOpen, onOpen: onSyncOpen, onClose: onSyncClose } = useDisclosure();
 
   const { resource, handleFetchResource } = useFetch();
   const fetcher = useCallback(async () => {
@@ -619,6 +724,10 @@ const GradeBookV2DetailsPage = () => {
   };
 
   const handlePublish = async () => {
+    if (status !== "finalized") {
+      toast({ title: "Finalize the grade book before publishing", status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
     setPublishing(true);
     try {
       await gradeBookV2Publish(gradebookId);
@@ -628,6 +737,45 @@ const GradeBookV2DetailsPage = () => {
       toast({ title: "Failed to publish", status: "error", duration: 3000, isClosable: true });
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { result } = await gradeBookV2Sync(gradebookId);
+      setSyncResult(result);
+      onSyncOpen();
+      setEntriesKey((k) => k + 1);
+    } catch (err) {
+      toast({
+        title: err?.response?.data?.message || "Sync failed",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleExport = async (format) => {
+    setExporting(format);
+    try {
+      const blob = await gradeBookV2Export(gradebookId, format);
+      const ext = format.toLowerCase() === "excel" ? "xlsx" : format.toLowerCase();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `gradebook-${gradebookId}.${ext}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Export failed", status: "error", duration: 3000, isClosable: true });
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -656,26 +804,81 @@ const GradeBookV2DetailsPage = () => {
                 <Text fontSize="20px" fontWeight="700" color="#1A202C" mb="6px">{gradeBook.title}</Text>
                 <Text fontSize="14px" color="gray.500">{gradeBook.course?.title || gradeBook.courseId}</Text>
               </Box>
-              <Flex gap="10px" alignItems="center" flexWrap="wrap">
+              <Flex gap="8px" alignItems="center" flexWrap="wrap">
                 {statusBadge(gradeBook.status)}
-                <Button
-                  size="sm"
-                  secondary
-                  onClick={() => history.push(`/admin/grade-book-v2/${gradebookId}/edit`)}
-                >
-                  Edit Setup
-                </Button>
-                {status === "draft" && (
-                  <Button size="sm" isLoading={finalizing} onClick={handleFinalize}>
-                    Finalize
-                  </Button>
-                )}
-                {status === "finalized" && (
-                  <Button size="sm" isLoading={publishing} onClick={handlePublish}>
-                    Publish to Students
-                  </Button>
-                )}
               </Flex>
+            </Flex>
+
+            <Divider my="16px" />
+
+            {/* Action bar */}
+            <Flex gap="8px" flexWrap="wrap" alignItems="center">
+              {/* Sync LMS Data */}
+              <Button
+                size="sm"
+                secondary
+                leftIcon={<FaSync />}
+                isLoading={syncing}
+                onClick={handleSync}
+              >
+                Sync LMS Data
+              </Button>
+
+              {/* Export dropdown */}
+              <Menu>
+                <MenuButton
+                  as={Box}
+                  display="inline-flex"
+                  alignItems="center"
+                  gap="6px"
+                  px="12px"
+                  h="32px"
+                  border="1px solid #E2E8F0"
+                  borderRadius="6px"
+                  fontSize="13px"
+                  fontWeight="500"
+                  color="gray.700"
+                  bg="white"
+                  cursor="pointer"
+                  _hover={{ bg: "#F7FAFC" }}
+                >
+                  <FaDownload size="11px" />
+                  <Text>{exporting ? `Exporting ${exporting}…` : "Export"}</Text>
+                  <FaChevronDown size="9px" />
+                </MenuButton>
+                <MenuList minW="140px" shadow="md" zIndex={10}>
+                  <MenuItem fontSize="13px" onClick={() => handleExport("Excel")} isDisabled={!!exporting}>
+                    Excel (.xlsx)
+                  </MenuItem>
+                  <MenuItem fontSize="13px" onClick={() => handleExport("PDF")} isDisabled={!!exporting}>
+                    PDF
+                  </MenuItem>
+                  <MenuItem fontSize="13px" onClick={() => handleExport("CSV")} isDisabled={!!exporting}>
+                    CSV
+                  </MenuItem>
+                </MenuList>
+              </Menu>
+
+              <Box flex={1} />
+
+              <Button
+                size="sm"
+                secondary
+                onClick={() => history.push(`/admin/grade-book-v2/${gradebookId}/edit`)}
+              >
+                Edit Setup
+              </Button>
+
+              {status === "draft" && (
+                <Button size="sm" isLoading={finalizing} onClick={handleFinalize}>
+                  Finalize
+                </Button>
+              )}
+              {status === "finalized" && (
+                <Button size="sm" isLoading={publishing} onClick={handlePublish}>
+                  Publish to Students
+                </Button>
+              )}
             </Flex>
 
             <Divider my="16px" />
@@ -720,7 +923,11 @@ const GradeBookV2DetailsPage = () => {
             </Flex>
 
             {activeTab === "entries" && (
-              <EntriesTab gradebookId={gradebookId} categories={gradeBook.categories ?? []} />
+              <EntriesTab
+                key={entriesKey}
+                gradebookId={gradebookId}
+                categories={gradeBook.categories ?? []}
+              />
             )}
             {activeTab === "analytics" && <AnalyticsTab gradebookId={gradebookId} />}
             {activeTab === "report" && <ReportTab gradebookId={gradebookId} />}
@@ -728,6 +935,34 @@ const GradeBookV2DetailsPage = () => {
           </Box>
         </>
       )}
+
+      {/* Sync result modal */}
+      <Modal isOpen={isSyncOpen} onClose={onSyncClose} size="sm" isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Sync Complete</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb="20px">
+            {syncResult && (
+              <Grid templateColumns="repeat(3, 1fr)" gap="12px">
+                {[
+                  { label: "Students Processed", value: syncResult.studentsProcessed ?? 0, color: "#3182CE", bg: "#EBF4FF" },
+                  { label: "Entries Created", value: syncResult.entriesCreated ?? 0, color: "#38A169", bg: "#E6F4EA" },
+                  { label: "Entries Skipped", value: syncResult.entriesSkipped ?? 0, color: "#718096", bg: "#F7FAFC" },
+                ].map((s) => (
+                  <Box key={s.label} bg={s.bg} borderRadius="8px" p="16px" textAlign="center">
+                    <Text fontSize="26px" fontWeight="800" color={s.color}>{s.value}</Text>
+                    <Text fontSize="11px" color="gray.500" mt="4px">{s.label}</Text>
+                  </Box>
+                ))}
+              </Grid>
+            )}
+            <Text fontSize="12px" color="gray.400" mt="16px" textAlign="center">
+              Entries tab has been refreshed automatically.
+            </Text>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };
