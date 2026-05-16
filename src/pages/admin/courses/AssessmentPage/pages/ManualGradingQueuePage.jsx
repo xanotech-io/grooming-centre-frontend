@@ -12,7 +12,6 @@ import {
   Th,
   Td,
   TableContainer,
-  Progress,
 } from "@chakra-ui/react";
 import { Heading, Text, Button } from "../../../../../components";
 import { getPendingManualGrades } from "../../../../../services";
@@ -39,18 +38,32 @@ const ManualGradingQueuePage = () => {
   useEffect(() => {
     setLoading(true);
     getPendingManualGrades(assessmentId)
-      .then(({ pending: data }) => { setPending(data); setLoading(false); })
-      .catch((err) => { setError(err.message || "Failed to load grading queue"); setLoading(false); });
+      .then(({ pending: data }) => {
+        setPending(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load grading queue");
+        setLoading(false);
+      });
   }, [assessmentId]);
 
   const handleGrade = (studentId) => {
-    push(`/admin/courses/${courseId}/assessment/${assessmentId}/grading/${studentId}`);
+    push(
+      `/admin/courses/${courseId}/assessment/${assessmentId}/grading/${studentId}`,
+    );
   };
 
   return (
     <Box padding={6}>
       {/* Header */}
-      <Flex justifyContent="space-between" alignItems="flex-start" mb={6} flexWrap="wrap" gap={3}>
+      <Flex
+        justifyContent="space-between"
+        alignItems="flex-start"
+        mb={6}
+        flexWrap="wrap"
+        gap={3}
+      >
         <Box>
           <Heading fontSize="heading.h4">Grading Queue</Heading>
           <Text color="gray.500" fontSize="sm" mt={1}>
@@ -59,7 +72,15 @@ const ManualGradingQueuePage = () => {
         </Box>
         {!loading && !error && (
           <Flex gap={3} alignItems="center">
-            <Badge bg="#FFF3CD" color="#B7791F" px={3} py={1} borderRadius="full" fontSize="13px" fontWeight="600">
+            <Badge
+              bg="#FFF3CD"
+              color="#B7791F"
+              px={3}
+              py={1}
+              borderRadius="full"
+              fontSize="13px"
+              fontWeight="600"
+            >
               {pending.length} pending
             </Badge>
             {pending.length > 0 && (
@@ -78,12 +99,23 @@ const ManualGradingQueuePage = () => {
       )}
 
       {!loading && error && (
-        <Box bg="red.50" border="1px solid" borderColor="red.200" borderRadius="md" p={6} textAlign="center">
+        <Box
+          bg="red.50"
+          border="1px solid"
+          borderColor="red.200"
+          borderRadius="md"
+          p={6}
+          textAlign="center"
+        >
           <Flex justifyContent="center" alignItems="center" gap={2} mb={2}>
             <FiAlertCircle color="#C53030" />
-            <Text color="red.600" fontWeight="600">{capitalizeFirstLetter(error)}</Text>
+            <Text color="red.600" fontWeight="600">
+              {capitalizeFirstLetter(error)}
+            </Text>
           </Flex>
-          <Button secondary onClick={() => window.location.reload()} mt={2}>Retry</Button>
+          <Button secondary onClick={() => window.location.reload()} mt={2}>
+            Retry
+          </Button>
         </Box>
       )}
 
@@ -99,7 +131,8 @@ const ManualGradingQueuePage = () => {
           gap={3}
         >
           <Box
-            w="64px" h="64px"
+            w="64px"
+            h="64px"
             bg="#F0FFF4"
             borderRadius="50%"
             display="flex"
@@ -108,11 +141,19 @@ const ManualGradingQueuePage = () => {
           >
             <FiAlertCircle color="#38A169" size={28} />
           </Box>
-          <Heading fontSize="heading.h5" color="#1A202C">All caught up!</Heading>
-          <Text color="gray.500" fontSize="sm">No submissions are pending manual grading.</Text>
+          <Heading fontSize="heading.h5" color="#1A202C">
+            All caught up!
+          </Heading>
+          <Text color="gray.500" fontSize="sm">
+            No submissions are pending manual grading.
+          </Text>
           <Button
             secondary
-            onClick={() => push(`/admin/courses/${courseId}/assessment/${assessmentId}/submissions`)}
+            onClick={() =>
+              push(
+                `/admin/courses/${courseId}/assessment/${assessmentId}/submissions`,
+              )
+            }
             mt={2}
           >
             View All Submissions
@@ -121,24 +162,45 @@ const ManualGradingQueuePage = () => {
       )}
 
       {!loading && !error && pending.length > 0 && (
-        <Box bg="white" border="1px solid #E2E8F0" borderRadius="12px" overflow="hidden">
+        <Box
+          bg="white"
+          border="1px solid #E2E8F0"
+          borderRadius="12px"
+          overflow="hidden"
+        >
           <TableContainer>
             <Table variant="simple" size="sm">
               <Thead bg="#F7F9FC">
                 <Tr>
-                  <Th color="gray.500" fontSize="11px" py={3}>#</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Student</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Submitted</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Questions</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Status</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Action</Th>
+                  <Th color="gray.500" fontSize="11px" py={3}>
+                    #
+                  </Th>
+                  <Th color="gray.500" fontSize="11px" py={3}>
+                    Student
+                  </Th>
+                  <Th color="gray.500" fontSize="11px" py={3}>
+                    Submitted
+                  </Th>
+                  <Th color="gray.500" fontSize="11px" py={3}>
+                    Questions
+                  </Th>
+                  <Th color="gray.500" fontSize="11px" py={3}>
+                    Status
+                  </Th>
+                  <Th color="gray.500" fontSize="11px" py={3}>
+                    Action
+                  </Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {pending.map((row, i) => {
-                  const fullName = [row.student?.firstName, row.student?.lastName]
-                    .filter(Boolean).join(" ") || "—";
-                  const answerCount = Array.isArray(row.answers) ? row.answers.length : 0;
+                  const fullName =
+                    [row.student?.firstName, row.student?.lastName]
+                      .filter(Boolean)
+                      .join(" ") || "—";
+                  const answerCount = Array.isArray(row.answers)
+                    ? row.answers.length
+                    : 0;
                   const uc = urgencyColor(answerCount);
                   const submittedAt = row.submissionTime
                     ? dayjs(row.submissionTime).fromNow()
@@ -147,15 +209,21 @@ const ManualGradingQueuePage = () => {
                     graded: { bg: "#F0FFF4", color: "#276749" },
                     pending: { bg: "#FFFAF0", color: "#C05621" },
                   };
-                  const sc = statusColors[row.status] ?? { bg: "#EDF2F7", color: "#4A5568" };
+                  const sc = statusColors[row.status] ?? {
+                    bg: "#EDF2F7",
+                    color: "#4A5568",
+                  };
 
                   return (
                     <Tr key={row.id} _hover={{ bg: "#F9F0FF" }}>
-                      <Td color="gray.400" fontSize="13px">{i + 1}</Td>
+                      <Td color="gray.400" fontSize="13px">
+                        {i + 1}
+                      </Td>
                       <Td>
                         <Flex alignItems="center" gap={3}>
                           <Box
-                            w="32px" h="32px"
+                            w="32px"
+                            h="32px"
                             bg="#F0E6FF"
                             borderRadius="50%"
                             display="flex"
@@ -166,8 +234,16 @@ const ManualGradingQueuePage = () => {
                             <FiUser color="#6b006b" size={14} />
                           </Box>
                           <Box>
-                            <Text fontSize="13px" fontWeight="600" color="#1A202C">{fullName}</Text>
-                            <Text fontSize="11px" color="gray.400">{row.student?.email || "—"}</Text>
+                            <Text
+                              fontSize="13px"
+                              fontWeight="600"
+                              color="#1A202C"
+                            >
+                              {fullName}
+                            </Text>
+                            <Text fontSize="11px" color="gray.400">
+                              {row.student?.email || "—"}
+                            </Text>
                           </Box>
                         </Flex>
                       </Td>
@@ -181,7 +257,8 @@ const ManualGradingQueuePage = () => {
                         <Badge
                           bg={uc.bg}
                           color={uc.color}
-                          px={2} py="2px"
+                          px={2}
+                          py="2px"
                           borderRadius="8px"
                           fontSize="12px"
                           fontWeight="700"
@@ -190,7 +267,16 @@ const ManualGradingQueuePage = () => {
                         </Badge>
                       </Td>
                       <Td>
-                        <Badge bg={sc.bg} color={sc.color} px={2} py="2px" borderRadius="8px" fontSize="11px" fontWeight="600" textTransform="capitalize">
+                        <Badge
+                          bg={sc.bg}
+                          color={sc.color}
+                          px={2}
+                          py="2px"
+                          borderRadius="8px"
+                          fontSize="11px"
+                          fontWeight="600"
+                          textTransform="capitalize"
+                        >
                           {row.status || "—"}
                         </Badge>
                       </Td>

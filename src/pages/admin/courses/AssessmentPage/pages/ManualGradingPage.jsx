@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import { Box, Flex, Badge, Grid, Progress, Spinner } from "@chakra-ui/react";
 import { Text, Button } from "../../../../../components";
@@ -230,10 +230,9 @@ const ManualGradingPage = () => {
       .finally(() => setLoading(false));
   }, [assessmentId, studentId]);
 
-  const questions = sheet?.questions || [];
+  const questions = useMemo(() => sheet?.questions || [], [sheet]);
   const currentQna = questions[currentQIdx] || null;
   const isManualQ = currentQna?.markingType === "manual";
-  console.log(isManualQ);
   const currentGrade = grades[currentQna?.questionId] || {
     score: "",
     remark: "",

@@ -18,7 +18,7 @@ import {
 import { Heading, Text, Button } from "../../../../../components";
 import { getAllAssessmentResults } from "../../../../../services";
 import { capitalizeFirstLetter } from "../../../../../utils";
-import { FiUser, FiDownload, FiEye } from "react-icons/fi";
+import { FiUser, FiEye } from "react-icons/fi";
 import dayjs from "dayjs";
 
 /* ─── helpers ─────────────────────────────────────── */
@@ -33,8 +33,10 @@ const gradeColor = (grade) => {
 
 const statusColor = (status) => {
   const s = (status || "").toLowerCase();
-  if (s === "graded" || s === "completed") return { bg: "#E6F4EA", color: "#38A169" };
-  if (s === "pending_manual_grade" || s === "in_progress") return { bg: "#FFF3CD", color: "#B7791F" };
+  if (s === "graded" || s === "completed")
+    return { bg: "#E6F4EA", color: "#38A169" };
+  if (s === "pending_manual_grade" || s === "in_progress")
+    return { bg: "#FFF3CD", color: "#B7791F" };
   if (s === "submitted") return { bg: "#EBF4FF", color: "#3182CE" };
   return { bg: "#F7FAFC", color: "#718096" };
 };
@@ -48,11 +50,24 @@ const StatCard = ({ label, value, sub, accent }) => (
     py={4}
     borderTop={accent ? `3px solid ${accent}` : undefined}
   >
-    <Text fontSize="10px" color="gray.400" fontWeight="700" textTransform="uppercase" letterSpacing="wider" mb={1}>
+    <Text
+      fontSize="10px"
+      color="gray.400"
+      fontWeight="700"
+      textTransform="uppercase"
+      letterSpacing="wider"
+      mb={1}
+    >
       {label}
     </Text>
-    <Text fontSize="24px" fontWeight="800" color="#1A202C" lineHeight="1">{value ?? "—"}</Text>
-    {sub && <Text fontSize="11px" color="gray.400" mt={1}>{sub}</Text>}
+    <Text fontSize="24px" fontWeight="800" color="#1A202C" lineHeight="1">
+      {value ?? "—"}
+    </Text>
+    {sub && (
+      <Text fontSize="11px" color="gray.400" mt={1}>
+        {sub}
+      </Text>
+    )}
   </Box>
 );
 
@@ -68,7 +83,9 @@ const ScoreBar = ({ score, max = 100 }) => {
         borderRadius="4px"
         sx={{ "& > div": { background: color } }}
       />
-      <Text fontSize="12px" fontWeight="600" color={color}>{score != null ? `${score}%` : "—"}</Text>
+      <Text fontSize="12px" fontWeight="600" color={color}>
+        {score != null ? `${score}%` : "—"}
+      </Text>
     </Flex>
   );
 };
@@ -87,8 +104,14 @@ const ResultsPage = () => {
   useEffect(() => {
     setLoading(true);
     getAllAssessmentResults(assessmentId)
-      .then(({ results: data }) => { setResults(data); setLoading(false); })
-      .catch((err) => { setError(err.message || "Failed to load results"); setLoading(false); });
+      .then(({ results: data }) => {
+        setResults(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load results");
+        setLoading(false);
+      });
   }, [assessmentId]);
 
   /* ── derived stats ── */
@@ -96,38 +119,74 @@ const ResultsPage = () => {
     const s = (r.status || "").toLowerCase();
     return s === "graded" || s === "completed";
   });
-  const scores = graded.map((r) => parseFloat(r.totalScore ?? 0)).filter((n) => !isNaN(n));
-  const avg = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
+  const scores = graded
+    .map((r) => parseFloat(r.totalScore ?? 0))
+    .filter((n) => !isNaN(n));
+  const avg = scores.length
+    ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)
+    : null;
   const highest = scores.length ? Math.max(...scores).toFixed(1) : null;
   const lowest = scores.length ? Math.min(...scores).toFixed(1) : null;
-  const passing = graded.filter((r) => parseFloat(r.totalScore ?? 0) >= 50).length;
-  const passRate = graded.length ? `${Math.round((passing / graded.length) * 100)}%` : "—";
+  const passing = graded.filter(
+    (r) => parseFloat(r.totalScore ?? 0) >= 50,
+  ).length;
+  const passRate = graded.length
+    ? `${Math.round((passing / graded.length) * 100)}%`
+    : "—";
 
   /* ── filtered rows ── */
   const filtered = results.filter((r) => {
-    const name = [r.student?.firstName, r.student?.lastName].filter(Boolean).join(" ").toLowerCase();
+    const name = [r.student?.firstName, r.student?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
     const email = (r.student?.email || "").toLowerCase();
-    const matchSearch = !search || name.includes(search.toLowerCase()) || email.includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || (r.status || "").toLowerCase().includes(statusFilter);
+    const matchSearch =
+      !search ||
+      name.includes(search.toLowerCase()) ||
+      email.includes(search.toLowerCase());
+    const matchStatus =
+      statusFilter === "all" ||
+      (r.status || "").toLowerCase().includes(statusFilter);
     return matchSearch && matchStatus;
   });
 
   return (
     <Box padding={6}>
       {/* Header */}
-      <Flex justifyContent="space-between" alignItems="flex-start" mb={6} flexWrap="wrap" gap={3}>
+      <Flex
+        justifyContent="space-between"
+        alignItems="flex-start"
+        mb={6}
+        flexWrap="wrap"
+        gap={3}
+      >
         <Box>
           <Heading fontSize="heading.h4">Results</Heading>
-          <Text color="gray.500" fontSize="sm" mt={1}>All student results for this assessment</Text>
+          <Text color="gray.500" fontSize="sm" mt={1}>
+            All student results for this assessment
+          </Text>
         </Box>
         {!loading && !error && results.length > 0 && (
           <Flex gap={2}>
-            <Badge bg="#EBF4FF" color="#3182CE" px={3} py={1} borderRadius="full" fontSize="13px" fontWeight="600">
+            <Badge
+              bg="#EBF4FF"
+              color="#3182CE"
+              px={3}
+              py={1}
+              borderRadius="full"
+              fontSize="13px"
+              fontWeight="600"
+            >
               {results.length} student{results.length !== 1 ? "s" : ""}
             </Badge>
             <Button
               secondary
-              onClick={() => push(`/admin/courses/${courseId}/assessment/${assessmentId}/grading`)}
+              onClick={() =>
+                push(
+                  `/admin/courses/${courseId}/assessment/${assessmentId}/grading`,
+                )
+              }
             >
               Grading Queue
             </Button>
@@ -142,21 +201,52 @@ const ResultsPage = () => {
       )}
 
       {!loading && error && (
-        <Box bg="red.50" border="1px solid" borderColor="red.200" borderRadius="md" p={6} textAlign="center">
+        <Box
+          bg="red.50"
+          border="1px solid"
+          borderColor="red.200"
+          borderRadius="md"
+          p={6}
+          textAlign="center"
+        >
           <Text color="red.600">{capitalizeFirstLetter(error)}</Text>
-          <Button secondary onClick={() => window.location.reload()} mt={3}>Retry</Button>
+          <Button secondary onClick={() => window.location.reload()} mt={3}>
+            Retry
+          </Button>
         </Box>
       )}
 
       {!loading && !error && (
         <>
           {/* Stats band */}
-          <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(5, 1fr)" }} gap={4} mb={6}>
-            <StatCard label="Submitted" value={results.length} accent="#3182CE" />
+          <Grid
+            templateColumns={{ base: "1fr 1fr", md: "repeat(5, 1fr)" }}
+            gap={4}
+            mb={6}
+          >
+            <StatCard
+              label="Submitted"
+              value={results.length}
+              accent="#3182CE"
+            />
             <StatCard label="Graded" value={graded.length} accent="#38A169" />
-            <StatCard label="Avg Score" value={avg != null ? `${avg}%` : "—"} accent="#6b006b" />
-            <StatCard label="Pass Rate" value={passRate} sub="≥ 50%" accent="#DD6B20" />
-            <StatCard label="Highest / Lowest" value={highest != null ? `${highest}%` : "—"} sub={lowest != null ? `Lowest: ${lowest}%` : undefined} accent="#ECC94B" />
+            <StatCard
+              label="Avg Score"
+              value={avg != null ? `${avg}%` : "—"}
+              accent="#6b006b"
+            />
+            <StatCard
+              label="Pass Rate"
+              value={passRate}
+              sub="≥ 50%"
+              accent="#DD6B20"
+            />
+            <StatCard
+              label="Highest / Lowest"
+              value={highest != null ? `${highest}%` : "—"}
+              sub={lowest != null ? `Lowest: ${lowest}%` : undefined}
+              accent="#ECC94B"
+            />
           </Grid>
 
           {/* Filters */}
@@ -194,38 +284,77 @@ const ResultsPage = () => {
           </Flex>
 
           {results.length === 0 && (
-            <Box bg="white" border="1px solid #E2E8F0" borderRadius="md" p={12} textAlign="center">
-              <Text color="gray.500" fontSize="15px">No results yet for this assessment.</Text>
+            <Box
+              bg="white"
+              border="1px solid #E2E8F0"
+              borderRadius="md"
+              p={12}
+              textAlign="center"
+            >
+              <Text color="gray.500" fontSize="15px">
+                No results yet for this assessment.
+              </Text>
             </Box>
           )}
 
           {results.length > 0 && filtered.length === 0 && (
-            <Box bg="white" border="1px solid #E2E8F0" borderRadius="md" p={8} textAlign="center">
+            <Box
+              bg="white"
+              border="1px solid #E2E8F0"
+              borderRadius="md"
+              p={8}
+              textAlign="center"
+            >
               <Text color="gray.500">No results match your filters.</Text>
             </Box>
           )}
 
           {filtered.length > 0 && (
-            <Box bg="white" border="1px solid #E2E8F0" borderRadius="12px" overflow="hidden">
+            <Box
+              bg="white"
+              border="1px solid #E2E8F0"
+              borderRadius="12px"
+              overflow="hidden"
+            >
               <TableContainer>
                 <Table variant="simple" size="sm">
                   <Thead bg="#F7F9FC">
                     <Tr>
-                      <Th color="gray.500" fontSize="11px" py={3}>#</Th>
-                      <Th color="gray.500" fontSize="11px" py={3}>Student</Th>
-                      <Th color="gray.500" fontSize="11px" py={3}>Auto</Th>
-                      <Th color="gray.500" fontSize="11px" py={3}>Manual</Th>
-                      <Th color="gray.500" fontSize="11px" py={3}>Total</Th>
-                      <Th color="gray.500" fontSize="11px" py={3}>Grade</Th>
-                      <Th color="gray.500" fontSize="11px" py={3}>Status</Th>
-                      <Th color="gray.500" fontSize="11px" py={3}>Submitted</Th>
-                      <Th color="gray.500" fontSize="11px" py={3}>Actions</Th>
+                      <Th color="gray.500" fontSize="11px" py={3}>
+                        #
+                      </Th>
+                      <Th color="gray.500" fontSize="11px" py={3}>
+                        Student
+                      </Th>
+                      <Th color="gray.500" fontSize="11px" py={3}>
+                        Auto
+                      </Th>
+                      <Th color="gray.500" fontSize="11px" py={3}>
+                        Manual
+                      </Th>
+                      <Th color="gray.500" fontSize="11px" py={3}>
+                        Total
+                      </Th>
+                      <Th color="gray.500" fontSize="11px" py={3}>
+                        Grade
+                      </Th>
+                      <Th color="gray.500" fontSize="11px" py={3}>
+                        Status
+                      </Th>
+                      <Th color="gray.500" fontSize="11px" py={3}>
+                        Submitted
+                      </Th>
+                      <Th color="gray.500" fontSize="11px" py={3}>
+                        Actions
+                      </Th>
                     </Tr>
                   </Thead>
                   <Tbody>
                     {filtered.map((r, i) => {
-                      const fullName = [r.student?.firstName, r.student?.lastName]
-                        .filter(Boolean).join(" ") || "—";
+                      const fullName =
+                        [r.student?.firstName, r.student?.lastName]
+                          .filter(Boolean)
+                          .join(" ") || "—";
                       const gc = gradeColor(r.grade);
                       const sc = statusColor(r.status);
                       const submittedAt = r.submissionTime
@@ -234,11 +363,14 @@ const ResultsPage = () => {
 
                       return (
                         <Tr key={r.studentId || i} _hover={{ bg: "#F9F0FF" }}>
-                          <Td color="gray.400" fontSize="13px">{i + 1}</Td>
+                          <Td color="gray.400" fontSize="13px">
+                            {i + 1}
+                          </Td>
                           <Td>
                             <Flex alignItems="center" gap={2}>
                               <Box
-                                w="28px" h="28px"
+                                w="28px"
+                                h="28px"
                                 bg="#F0E6FF"
                                 borderRadius="50%"
                                 display="flex"
@@ -249,23 +381,49 @@ const ResultsPage = () => {
                                 <FiUser color="#6b006b" size={12} />
                               </Box>
                               <Box>
-                                <Text fontSize="13px" fontWeight="600" color="#1A202C">{fullName}</Text>
-                                <Text fontSize="11px" color="gray.400">{r.student?.email || "—"}</Text>
+                                <Text
+                                  fontSize="13px"
+                                  fontWeight="600"
+                                  color="#1A202C"
+                                >
+                                  {fullName}
+                                </Text>
+                                <Text fontSize="11px" color="gray.400">
+                                  {r.student?.email || "—"}
+                                </Text>
                               </Box>
                             </Flex>
                           </Td>
                           <Td>
-                            <Text fontSize="13px" color="#3182CE" fontWeight="600">
-                              {r.autoScore != null ? `${parseFloat(r.autoScore).toFixed(1)}` : "—"}
+                            <Text
+                              fontSize="13px"
+                              color="#3182CE"
+                              fontWeight="600"
+                            >
+                              {r.autoScore != null
+                                ? `${parseFloat(r.autoScore).toFixed(1)}`
+                                : "—"}
                             </Text>
                           </Td>
                           <Td>
-                            <Text fontSize="13px" color="#6b006b" fontWeight="600">
-                              {r.manualScore != null ? `${parseFloat(r.manualScore).toFixed(1)}` : "—"}
+                            <Text
+                              fontSize="13px"
+                              color="#6b006b"
+                              fontWeight="600"
+                            >
+                              {r.manualScore != null
+                                ? `${parseFloat(r.manualScore).toFixed(1)}`
+                                : "—"}
                             </Text>
                           </Td>
                           <Td>
-                            <ScoreBar score={r.totalScore != null ? parseFloat(r.totalScore).toFixed(1) : null} />
+                            <ScoreBar
+                              score={
+                                r.totalScore != null
+                                  ? parseFloat(r.totalScore).toFixed(1)
+                                  : null
+                              }
+                            />
                           </Td>
                           <Td>
                             {r.grade ? (
@@ -284,7 +442,9 @@ const ResultsPage = () => {
                                 {r.grade}
                               </Box>
                             ) : (
-                              <Text color="gray.400" fontSize="13px">—</Text>
+                              <Text color="gray.400" fontSize="13px">
+                                —
+                              </Text>
                             )}
                           </Td>
                           <Td>
@@ -301,7 +461,9 @@ const ResultsPage = () => {
                               {(r.status || "—").replace(/_/g, " ")}
                             </Badge>
                           </Td>
-                          <Td fontSize="12px" color="gray.500">{submittedAt}</Td>
+                          <Td fontSize="12px" color="gray.500">
+                            {submittedAt}
+                          </Td>
                           <Td>
                             <Flex gap={2}>
                               <Box
@@ -309,7 +471,7 @@ const ResultsPage = () => {
                                 title="View result"
                                 onClick={() =>
                                   push(
-                                    `/admin/courses/${courseId}/assessment/${assessmentId}/submissions`
+                                    `/admin/courses/${courseId}/assessment/${assessmentId}/submissions`,
                                   )
                                 }
                                 color="#6b006b"
@@ -317,13 +479,15 @@ const ResultsPage = () => {
                               >
                                 <FiEye size={15} />
                               </Box>
-                              {(r.status || "").toLowerCase().includes("pending") && (
+                              {(r.status || "")
+                                .toLowerCase()
+                                .includes("pending") && (
                                 <Box
                                   as="button"
                                   title="Grade"
                                   onClick={() =>
                                     push(
-                                      `/admin/courses/${courseId}/assessment/${assessmentId}/grading/${r.studentId}`
+                                      `/admin/courses/${courseId}/assessment/${assessmentId}/grading/${r.studentId}`,
                                     )
                                   }
                                   color="#B7791F"

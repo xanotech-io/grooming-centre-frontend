@@ -11,17 +11,19 @@ import { FiArrowLeft, FiCheck, FiUser } from "react-icons/fi";
 /* ─── Grading panel ────────────────────────────────────── */
 const GradingPanel = ({ question, examId, studentId, onSaved }) => {
   const toast = useToast();
-
   const alreadyGraded =
-    question.gradingStatus?.toLowerCase() !== "pending" && question.scoreAssigned != null;
-  const [score, setScore] = useState(alreadyGraded ? String(question.scoreAssigned) : "");
+    question.gradingStatus?.toLowerCase() !== "pending" &&
+    question.scoreAssigned != null;
+  const [score, setScore] = useState(
+    alreadyGraded ? String(question.scoreAssigned) : "",
+  );
   const [remark, setRemark] = useState(question.remark ?? "");
   const [gradingStatus, setGradingStatus] = useState(
     alreadyGraded
       ? question.gradingStatus?.toLowerCase() === "completed"
         ? "completed"
         : "in_progress"
-      : "in_progress"
+      : "in_progress",
   );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(alreadyGraded);
@@ -36,7 +38,11 @@ const GradingPanel = ({ question, examId, studentId, onSaved }) => {
 
   const handleSave = async () => {
     if (score === "" || score === null) {
-      toast({ description: "Please enter a score.", status: "warning", position: "top" });
+      toast({
+        description: "Please enter a score.",
+        status: "warning",
+        position: "top",
+      });
       return;
     }
     if (!isNaN(scoreNum) && (scoreNum < 0 || scoreNum > maxScore)) {
@@ -65,7 +71,7 @@ const GradingPanel = ({ question, examId, studentId, onSaved }) => {
     } catch (err) {
       toast({
         description: capitalizeFirstLetter(
-          err?.response?.data?.message || err.message || "Failed to save"
+          err?.response?.data?.message || err.message || "Failed to save",
         ),
         status: "error",
         position: "top",
@@ -242,7 +248,6 @@ const GradingPanel = ({ question, examId, studentId, onSaved }) => {
 const StandaloneStudentGradingPage = () => {
   const { examId, studentId } = useParams();
   const { push } = useHistory();
-  const toast = useToast();
 
   const [loading, setLoading] = useState(true);
   const [sheet, setSheet] = useState(null);
@@ -256,7 +261,7 @@ const StandaloneStudentGradingPage = () => {
       .then(({ sheet: data }) => {
         setSheet(data);
         const firstPending = (data?.questions || []).findIndex(
-          (q) => q.gradingStatus?.toLowerCase() === "pending"
+          (q) => q.gradingStatus?.toLowerCase() === "pending",
         );
         if (firstPending >= 0) setCurrentQIdx(firstPending);
       })
@@ -273,7 +278,8 @@ const StandaloneStudentGradingPage = () => {
 
   const totalQ = questions.length;
   const gradedCount = questions.filter(
-    (q) => q.gradingStatus?.toLowerCase() !== "pending" && q.scoreAssigned != null
+    (q) =>
+      q.gradingStatus?.toLowerCase() !== "pending" && q.scoreAssigned != null,
   ).length;
 
   const handleSaved = () => setRefreshKey((k) => k + 1);
@@ -291,7 +297,10 @@ const StandaloneStudentGradingPage = () => {
         <Text color="red.500" mb={4}>
           {capitalizeFirstLetter(error)}
         </Text>
-        <Button secondary onClick={() => push(`/admin/standalone-exams/view/${examId}`)}>
+        <Button
+          secondary
+          onClick={() => push(`/admin/standalone-exams/view/${examId}`)}
+        >
           Go Back
         </Button>
       </Box>
@@ -299,7 +308,9 @@ const StandaloneStudentGradingPage = () => {
   }
 
   const studentFullName =
-    [sheet?.student?.firstName, sheet?.student?.lastName].filter(Boolean).join(" ") || "—";
+    [sheet?.student?.firstName, sheet?.student?.lastName]
+      .filter(Boolean)
+      .join(" ") || "—";
 
   return (
     <Box minH="calc(100vh - 160px)" display="flex" flexDirection="column">
@@ -378,7 +389,11 @@ const StandaloneStudentGradingPage = () => {
       </Box>
 
       {/* 3-column body */}
-      <Grid templateColumns={{ base: "1fr", lg: "210px 1fr 320px" }} flex={1} minH="0">
+      <Grid
+        templateColumns={{ base: "1fr", lg: "210px 1fr 320px" }}
+        flex={1}
+        minH="0"
+      >
         {/* Left: question nav */}
         <Box
           borderRight="1px solid #E2E8F0"
@@ -399,7 +414,8 @@ const StandaloneStudentGradingPage = () => {
           </Box>
           {questions.map((q, idx) => {
             const isGraded =
-              q.gradingStatus?.toLowerCase() !== "pending" && q.scoreAssigned != null;
+              q.gradingStatus?.toLowerCase() !== "pending" &&
+              q.scoreAssigned != null;
             const isCurrent = idx === currentQIdx;
             return (
               <Box
@@ -410,7 +426,9 @@ const StandaloneStudentGradingPage = () => {
                 px={4}
                 py={3}
                 borderBottom="1px solid #E2E8F0"
-                borderLeft={isCurrent ? "3px solid #6b006b" : "3px solid transparent"}
+                borderLeft={
+                  isCurrent ? "3px solid #6b006b" : "3px solid transparent"
+                }
                 bg={isCurrent ? "#F0E6FF" : "transparent"}
                 _hover={{ bg: isCurrent ? "#F0E6FF" : "#F7F9FC" }}
                 onClick={() => setCurrentQIdx(idx)}
@@ -425,7 +443,12 @@ const StandaloneStudentGradingPage = () => {
                     >
                       Q{idx + 1}
                     </Text>
-                    <Text fontSize="10px" color="gray.400" mt="2px" textTransform="capitalize">
+                    <Text
+                      fontSize="10px"
+                      color="gray.400"
+                      mt="2px"
+                      textTransform="capitalize"
+                    >
                       {q.questionType || "Open"}
                     </Text>
                   </Box>
@@ -443,7 +466,13 @@ const StandaloneStudentGradingPage = () => {
                       <FiCheck color="white" size={10} />
                     </Box>
                   ) : (
-                    <Box w="18px" h="18px" bg="#E2E8F0" borderRadius="50%" flexShrink={0} />
+                    <Box
+                      w="18px"
+                      h="18px"
+                      bg="#E2E8F0"
+                      borderRadius="50%"
+                      flexShrink={0}
+                    />
                   )}
                 </Flex>
               </Box>
@@ -471,19 +500,31 @@ const StandaloneStudentGradingPage = () => {
                     currentQ.gradingStatus?.toLowerCase() === "completed"
                       ? "green"
                       : currentQ.gradingStatus?.toLowerCase() === "in_progress"
-                      ? "orange"
-                      : "gray"
+                        ? "orange"
+                        : "gray"
                   }
                   variant="outline"
                 >
                   {currentQ.gradingStatus || "Pending"}
                 </Badge>
-                <Badge variant="outline" colorScheme="gray" fontSize="11px" px={2}>
-                  {currentQ.maxScore ?? 0} mark{currentQ.maxScore !== 1 ? "s" : ""}
+                <Badge
+                  variant="outline"
+                  colorScheme="gray"
+                  fontSize="11px"
+                  px={2}
+                >
+                  {currentQ.maxScore ?? 0} mark
+                  {currentQ.maxScore !== 1 ? "s" : ""}
                 </Badge>
               </Flex>
 
-              <Box mb={5} p={4} bg="#F7F9FC" borderRadius="8px" borderLeft="3px solid #6b006b">
+              <Box
+                mb={5}
+                p={4}
+                bg="#F7F9FC"
+                borderRadius="8px"
+                borderLeft="3px solid #6b006b"
+              >
                 <Text
                   fontSize="10px"
                   fontWeight="700"
@@ -497,7 +538,13 @@ const StandaloneStudentGradingPage = () => {
                 <RichTextToView text={currentQ.questionText} />
               </Box>
 
-              <Box mb={4} p={4} bg="white" border="1px solid #E2E8F0" borderRadius="8px">
+              <Box
+                mb={4}
+                p={4}
+                bg="white"
+                border="1px solid #E2E8F0"
+                borderRadius="8px"
+              >
                 <Text
                   fontSize="10px"
                   fontWeight="700"
@@ -509,7 +556,12 @@ const StandaloneStudentGradingPage = () => {
                   Student&apos;s Answer
                 </Text>
                 {currentQ.studentAnswer ? (
-                  <Text fontSize="14px" color="#1A202C" whiteSpace="pre-wrap" lineHeight="1.7">
+                  <Text
+                    fontSize="14px"
+                    color="#1A202C"
+                    whiteSpace="pre-wrap"
+                    lineHeight="1.7"
+                  >
                     {currentQ.studentAnswer}
                   </Text>
                 ) : (
@@ -530,7 +582,8 @@ const StandaloneStudentGradingPage = () => {
                     borderRadius="8px"
                   >
                     <Text fontSize="12px" fontWeight="600" color="green.700">
-                      Graded — {currentQ.scoreAssigned} / {currentQ.maxScore ?? 0}
+                      Graded — {currentQ.scoreAssigned} /{" "}
+                      {currentQ.maxScore ?? 0}
                     </Text>
                     {currentQ.remark && (
                       <Text fontSize="12px" color="green.600" mt={1}>
@@ -595,7 +648,10 @@ const StandaloneStudentGradingPage = () => {
 };
 
 export const StandaloneStudentGradingPageRoute = ({ ...rest }) => (
-  <Route {...rest} render={(props) => <StandaloneStudentGradingPage {...props} />} />
+  <Route
+    {...rest}
+    render={(props) => <StandaloneStudentGradingPage {...props} />}
+  />
 );
 
 export default StandaloneStudentGradingPageRoute;

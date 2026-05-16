@@ -11,7 +11,11 @@ import {
 } from "@chakra-ui/react";
 import { FaBook, FaChevronRight } from "react-icons/fa";
 import { Heading } from "../../../components";
-import { userGetCourseListing, gradeBookV2GetByCourse, gradeBookV2GetMyGrades } from "../../../services";
+import {
+  userGetCourseListing,
+  gradeBookV2GetByCourse,
+  gradeBookV2GetMyGrades,
+} from "../../../services";
 
 const gradeColor = (grade) => {
   if (!grade) return { color: "#718096", bg: "#F7FAFC" };
@@ -37,7 +41,10 @@ const MyGradeBooksListPage = () => {
       try {
         const { courses } = await userGetCourseListing();
         if (!courses?.length) {
-          if (!cancelled) { setItems([]); setLoading(false); }
+          if (!cancelled) {
+            setItems([]);
+            setLoading(false);
+          }
           return;
         }
 
@@ -47,7 +54,10 @@ const MyGradeBooksListPage = () => {
             const courseId = course.id || course._id;
             try {
               const { gradeBook } = await gradeBookV2GetByCourse(courseId);
-              if (!gradeBook?.id || String(gradeBook.status).toLowerCase() !== "published") {
+              if (
+                !gradeBook?.id ||
+                String(gradeBook.status).toLowerCase() !== "published"
+              ) {
                 return null;
               }
               // Fetch student's grades for this grade book
@@ -62,7 +72,7 @@ const MyGradeBooksListPage = () => {
             } catch {
               return null;
             }
-          })
+          }),
         );
 
         if (!cancelled) {
@@ -75,7 +85,9 @@ const MyGradeBooksListPage = () => {
     };
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -87,7 +99,9 @@ const MyGradeBooksListPage = () => {
     >
       <Flex justifyContent="space-between" alignItems="center" mb="28px">
         <Box>
-          <Heading fontSize="24px" fontWeight="700" color="#1A202C">My Grade Books</Heading>
+          <Heading fontSize="24px" fontWeight="700" color="#1A202C">
+            My Grade Books
+          </Heading>
           <Text fontSize="14px" color="gray.500" mt="4px">
             Your published grade books across all enrolled courses
           </Text>
@@ -125,18 +139,25 @@ const MyGradeBooksListPage = () => {
             No Grade Books Yet
           </Text>
           <Text fontSize="14px" color="gray.500" maxW="360px" mx="auto">
-            Your instructor hasn't published any grade books for your courses yet. Check back later.
+            Your instructor hasn't published any grade books for your courses
+            yet. Check back later.
           </Text>
         </Box>
       )}
 
       {!loading && items.length > 0 && (
-        <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }} gap="16px">
+        <Grid
+          templateColumns={{
+            base: "1fr",
+            md: "repeat(2, 1fr)",
+            lg: "repeat(3, 1fr)",
+          }}
+          gap="16px"
+        >
           {items.map(({ course, gradeBook, breakdown }) => {
             const finalScore = breakdown?.finalScore;
             const finalGrade = breakdown?.finalGrade;
             const gc = gradeColor(finalGrade);
-            const courseId = course.id || course._id;
 
             return (
               <Box
@@ -155,12 +176,24 @@ const MyGradeBooksListPage = () => {
 
                 <Box p="20px">
                   {/* Course name */}
-                  <Text fontSize="13px" color="gray.400" fontWeight="500" mb="4px" noOfLines={1}>
+                  <Text
+                    fontSize="13px"
+                    color="gray.400"
+                    fontWeight="500"
+                    mb="4px"
+                    noOfLines={1}
+                  >
                     {course.title || course.name}
                   </Text>
 
                   {/* Grade book title */}
-                  <Text fontSize="16px" fontWeight="700" color="#1A202C" mb="14px" noOfLines={2}>
+                  <Text
+                    fontSize="16px"
+                    fontWeight="700"
+                    color="#1A202C"
+                    mb="14px"
+                    noOfLines={2}
+                  >
                     {gradeBook.title}
                   </Text>
 
@@ -177,13 +210,23 @@ const MyGradeBooksListPage = () => {
                           textAlign="center"
                           minW="56px"
                         >
-                          <Text fontSize="24px" fontWeight="800" lineHeight="1">{finalGrade}</Text>
-                          <Text fontSize="10px" fontWeight="500" mt="2px">Grade</Text>
+                          <Text fontSize="24px" fontWeight="800" lineHeight="1">
+                            {finalGrade}
+                          </Text>
+                          <Text fontSize="10px" fontWeight="500" mt="2px">
+                            Grade
+                          </Text>
                         </Box>
                         <Box flex="1">
                           <Flex justifyContent="space-between" mb="4px">
-                            <Text fontSize="12px" color="gray.500">Score</Text>
-                            <Text fontSize="12px" fontWeight="700" color={gc.color}>
+                            <Text fontSize="12px" color="gray.500">
+                              Score
+                            </Text>
+                            <Text
+                              fontSize="12px"
+                              fontWeight="700"
+                              color={gc.color}
+                            >
                               {(finalScore ?? 0).toFixed(1)}%
                             </Text>
                           </Flex>
@@ -198,9 +241,21 @@ const MyGradeBooksListPage = () => {
 
                       {/* Category breakdown mini-bar */}
                       {breakdown?.breakdown?.length > 0 && (
-                        <Flex gap="2px" borderRadius="4px" overflow="hidden" h="6px" mb="14px">
+                        <Flex
+                          gap="2px"
+                          borderRadius="4px"
+                          overflow="hidden"
+                          h="6px"
+                          mb="14px"
+                        >
                           {breakdown.breakdown.map((cat, i) => {
-                            const colors = ["#6b006b", "#3182CE", "#38A169", "#DD6B20", "#E53E3E"];
+                            const colors = [
+                              "#6b006b",
+                              "#3182CE",
+                              "#38A169",
+                              "#DD6B20",
+                              "#E53E3E",
+                            ];
                             return (
                               <Box
                                 key={cat.category}
@@ -255,7 +310,9 @@ const MyGradeBooksListPage = () => {
                       </Badge>
                     </Flex>
                     <Flex alignItems="center" gap="4px" color="#6b006b">
-                      <Text fontSize="12px" fontWeight="600">View</Text>
+                      <Text fontSize="12px" fontWeight="600">
+                        View
+                      </Text>
                       <FaChevronRight size="10px" />
                     </Flex>
                   </Flex>

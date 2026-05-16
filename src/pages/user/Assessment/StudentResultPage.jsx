@@ -1,20 +1,6 @@
 import { useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
-import {
-  Box,
-  Flex,
-  Grid,
-  Badge,
-  Spinner,
-  Progress,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  TableContainer,
-} from "@chakra-ui/react";
+import { Box, Flex, Grid, Badge, Spinner, Progress } from "@chakra-ui/react";
 import { Heading, Text, Button } from "../../../components";
 import { getStudentOwnResult } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
@@ -32,7 +18,13 @@ const gradeColors = {
 
 const getGradeStyle = (grade) => {
   if (!grade) return { color: "#718096", bg: "#F7FAFC", ring: "#CBD5E0" };
-  return gradeColors[grade.charAt(0).toUpperCase()] || { color: "#718096", bg: "#F7FAFC", ring: "#CBD5E0" };
+  return (
+    gradeColors[grade.charAt(0).toUpperCase()] || {
+      color: "#718096",
+      bg: "#F7FAFC",
+      ring: "#CBD5E0",
+    }
+  );
 };
 
 const formatDuration = (secs) => {
@@ -46,7 +38,8 @@ const StatCard = ({ icon: Icon, label, value, iconColor }) => (
   <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" px={4} py={4}>
     <Flex alignItems="center" gap={3} mb={2}>
       <Box
-        w="32px" h="32px"
+        w="32px"
+        h="32px"
         bg={`${iconColor}15`}
         borderRadius="8px"
         display="flex"
@@ -56,11 +49,19 @@ const StatCard = ({ icon: Icon, label, value, iconColor }) => (
       >
         <Icon color={iconColor} size={15} />
       </Box>
-      <Text fontSize="11px" color="gray.400" fontWeight="600" textTransform="uppercase" letterSpacing="wider">
+      <Text
+        fontSize="11px"
+        color="gray.400"
+        fontWeight="600"
+        textTransform="uppercase"
+        letterSpacing="wider"
+      >
         {label}
       </Text>
     </Flex>
-    <Text fontSize="20px" fontWeight="800" color="#1A202C">{value ?? "—"}</Text>
+    <Text fontSize="20px" fontWeight="800" color="#1A202C">
+      {value ?? "—"}
+    </Text>
   </Box>
 );
 
@@ -76,7 +77,14 @@ const ScoreRing = ({ score, grade }) => {
     <Flex direction="column" alignItems="center" justifyContent="center">
       <Box position="relative" w="140px" h="140px">
         <svg width="140" height="140" style={{ transform: "rotate(-90deg)" }}>
-          <circle cx="70" cy="70" r={r} fill="none" stroke="#E2E8F0" strokeWidth="10" />
+          <circle
+            cx="70"
+            cy="70"
+            r={r}
+            fill="none"
+            stroke="#E2E8F0"
+            strokeWidth="10"
+          />
           <circle
             cx="70"
             cy="70"
@@ -134,8 +142,14 @@ const StudentResultPage = () => {
 
   useEffect(() => {
     getStudentOwnResult(assessmentId)
-      .then(({ result: data }) => { setResult(data); setLoading(false); })
-      .catch((err) => { setError(err.message || "Failed to load result"); setLoading(false); });
+      .then(({ result: data }) => {
+        setResult(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load result");
+        setLoading(false);
+      });
   }, [assessmentId]);
 
   if (loading) {
@@ -148,8 +162,16 @@ const StudentResultPage = () => {
 
   if (error || !result) {
     return (
-      <Flex direction="column" alignItems="center" justifyContent="center" minH="60vh" gap={4}>
-        <Text color="red.500" fontSize="15px">{capitalizeFirstLetter(error || "Result not found.")}</Text>
+      <Flex
+        direction="column"
+        alignItems="center"
+        justifyContent="center"
+        minH="60vh"
+        gap={4}
+      >
+        <Text color="red.500" fontSize="15px">
+          {capitalizeFirstLetter(error || "Result not found.")}
+        </Text>
         <Button secondary onClick={() => push(`/courses/details/${courseId}`)}>
           Back to Course
         </Button>
@@ -200,7 +222,14 @@ const StudentResultPage = () => {
             gap={6}
           >
             <Box>
-              <Text fontSize="11px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider" mb={1}>
+              <Text
+                fontSize="11px"
+                fontWeight="700"
+                color="gray.400"
+                textTransform="uppercase"
+                letterSpacing="wider"
+                mb={1}
+              >
                 Assessment Result
               </Text>
               <Heading fontSize="heading.h4" color="#1A202C" mb={2}>
@@ -239,8 +268,12 @@ const StudentResultPage = () => {
           {/* Score breakdown bar */}
           <Box mt={6} pt={5} borderTop="1px solid #E2E8F0">
             <Flex justifyContent="space-between" mb={2}>
-              <Text fontSize="12px" color="gray.500" fontWeight="500">Total Score</Text>
-              <Text fontSize="12px" fontWeight="700" color={gs.color}>{totalScore.toFixed(2)}%</Text>
+              <Text fontSize="12px" color="gray.500" fontWeight="500">
+                Total Score
+              </Text>
+              <Text fontSize="12px" fontWeight="700" color={gs.color}>
+                {totalScore.toFixed(2)}%
+              </Text>
             </Flex>
             <Progress
               value={totalScore}
@@ -250,20 +283,44 @@ const StudentResultPage = () => {
               sx={{ "& > div": { background: gs.ring } }}
             />
             <Grid templateColumns="repeat(2, 1fr)" gap={3}>
-              <Box textAlign="center" bg="#EBF4FF" borderRadius="8px" py={3} px={2}>
-                <Text fontSize="18px" fontWeight="800" color="#3182CE">{autoScore.toFixed(2)}</Text>
-                <Text fontSize="11px" color="gray.500" mt={1}>Auto Score</Text>
+              <Box
+                textAlign="center"
+                bg="#EBF4FF"
+                borderRadius="8px"
+                py={3}
+                px={2}
+              >
+                <Text fontSize="18px" fontWeight="800" color="#3182CE">
+                  {autoScore.toFixed(2)}
+                </Text>
+                <Text fontSize="11px" color="gray.500" mt={1}>
+                  Auto Score
+                </Text>
               </Box>
-              <Box textAlign="center" bg="#F0E6FF" borderRadius="8px" py={3} px={2}>
-                <Text fontSize="18px" fontWeight="800" color="#6b006b">{manualScore.toFixed(2)}</Text>
-                <Text fontSize="11px" color="gray.500" mt={1}>Manual Score</Text>
+              <Box
+                textAlign="center"
+                bg="#F0E6FF"
+                borderRadius="8px"
+                py={3}
+                px={2}
+              >
+                <Text fontSize="18px" fontWeight="800" color="#6b006b">
+                  {manualScore.toFixed(2)}
+                </Text>
+                <Text fontSize="11px" color="gray.500" mt={1}>
+                  Manual Score
+                </Text>
               </Box>
             </Grid>
           </Box>
         </Box>
 
         {/* Stat cards */}
-        <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4, 1fr)" }} gap={4} mb={5}>
+        <Grid
+          templateColumns={{ base: "1fr 1fr", md: "repeat(4, 1fr)" }}
+          gap={4}
+          mb={5}
+        >
           <StatCard
             icon={FiCheck}
             label="Correct"
@@ -291,7 +348,13 @@ const StudentResultPage = () => {
         </Grid>
 
         {/* Assessment details */}
-        <Box bg="white" border="1px solid #E2E8F0" borderRadius="12px" p={5} mb={5}>
+        <Box
+          bg="white"
+          border="1px solid #E2E8F0"
+          borderRadius="12px"
+          p={5}
+          mb={5}
+        >
           <Text
             fontSize="10px"
             fontWeight="700"
@@ -304,13 +367,17 @@ const StudentResultPage = () => {
           </Text>
           <Grid templateColumns={{ base: "1fr", md: "1fr 1fr 1fr" }} gap={4}>
             <Box>
-              <Text fontSize="11px" color="gray.400" mb={1}>Assessment</Text>
+              <Text fontSize="11px" color="gray.400" mb={1}>
+                Assessment
+              </Text>
               <Text fontSize="14px" fontWeight="600" color="#1A202C">
                 {result.assessment?.title || "—"}
               </Text>
             </Box>
             <Box>
-              <Text fontSize="11px" color="gray.400" mb={1}>Submitted</Text>
+              <Text fontSize="11px" color="gray.400" mb={1}>
+                Submitted
+              </Text>
               <Text fontSize="14px" fontWeight="600" color="#1A202C">
                 {result.submissionTime
                   ? dayjs(result.submissionTime).format("DD MMM YYYY, h:mm a")
@@ -318,14 +385,16 @@ const StudentResultPage = () => {
               </Text>
             </Box>
             <Box>
-              <Text fontSize="11px" color="gray.400" mb={1}>Grading Mode</Text>
+              <Text fontSize="11px" color="gray.400" mb={1}>
+                Grading Mode
+              </Text>
               <Badge
                 colorScheme={
                   result.assessment?.markingMode === "manual"
                     ? "purple"
                     : result.assessment?.markingMode === "hybrid"
-                    ? "orange"
-                    : "blue"
+                      ? "orange"
+                      : "blue"
                 }
                 textTransform="capitalize"
                 fontSize="11px"
@@ -338,7 +407,13 @@ const StudentResultPage = () => {
 
         {/* Remark */}
         {result.remark && (
-          <Box bg="white" border="1px solid #E2E8F0" borderRadius="12px" p={5} mb={5}>
+          <Box
+            bg="white"
+            border="1px solid #E2E8F0"
+            borderRadius="12px"
+            p={5}
+            mb={5}
+          >
             <Text
               fontSize="10px"
               fontWeight="700"
@@ -349,13 +424,18 @@ const StudentResultPage = () => {
             >
               Instructor Feedback
             </Text>
-            <Text fontSize="14px" color="#1A202C" lineHeight="1.7">{result.remark}</Text>
+            <Text fontSize="14px" color="#1A202C" lineHeight="1.7">
+              {result.remark}
+            </Text>
           </Box>
         )}
 
         {/* Actions */}
         <Flex gap={3} justifyContent="center" flexWrap="wrap">
-          <Button secondary onClick={() => push(`/courses/details/${courseId}`)}>
+          <Button
+            secondary
+            onClick={() => push(`/courses/details/${courseId}`)}
+          >
             Back to Course
           </Button>
         </Flex>

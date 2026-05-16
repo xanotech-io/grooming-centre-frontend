@@ -18,10 +18,7 @@ import useStandalone from "./standaloneHooks/useStandalone";
 import congratsIcon from "../../../assets/images/congratsIcon.png";
 import { useToast } from "@chakra-ui/toast";
 import { capitalizeFirstLetter } from "../../../utils";
-import {
-  submitSAExamAnswers,
-  getSAExamResult,
-} from "../../../services";
+import { submitSAExamAnswers, getSAExamResult } from "../../../services";
 import { useQueryParams } from "../../../hooks";
 import { useHistory } from "react-router-dom";
 const StandaloneExamsStart = () => {
@@ -48,7 +45,7 @@ const StandaloneExamsStart = () => {
   const toast = useToast();
   const isExamination = useQueryParams().get("exam");
   const [grade, setGrade] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const { push } = useHistory();
   const [modal, setModal] = useState({
@@ -72,11 +69,13 @@ const StandaloneExamsStart = () => {
   const totalSteps = 3;
   const handleExamSubmit = useCallback(async () => {
     try {
-      const answers = Object.entries(selectedAnswers).map(([questionId, answer]) => ({
-        questionId,
-        answer,
-        timeTaken: 0,
-      }));
+      const answers = Object.entries(selectedAnswers).map(
+        ([questionId, answer]) => ({
+          questionId,
+          answer,
+          timeTaken: 0,
+        }),
+      );
       const body = {
         answers,
         submissionTime: new Date().toISOString(),
@@ -87,7 +86,7 @@ const StandaloneExamsStart = () => {
         description: capitalizeFirstLetter(
           exitAttempts === totalSteps
             ? "Examination auto submitted successfully"
-            : "Examination submitted successfully"
+            : "Examination submitted successfully",
         ),
         position: "top",
         status: "success",
@@ -308,7 +307,12 @@ const StandaloneExamsStart = () => {
             maxW="480px"
             w="100%"
           >
-            <img src={congratsIcon} width={"60px"} alt="done" style={{ margin: "0 auto 16px" }} />
+            <img
+              src={congratsIcon}
+              width={"60px"}
+              alt="done"
+              style={{ margin: "0 auto 16px" }}
+            />
             <Heading as="h2" fontSize="heading.h4" mb={3}>
               Already Submitted
             </Heading>
@@ -381,7 +385,7 @@ const StandaloneExamsStart = () => {
                   marginRight={5}
                 >
                   {renderSubHeading(
-                    `Question ${index + 1} of ${pageLength + 1}`
+                    `Question ${index + 1} of ${pageLength + 1}`,
                   )}
                   <Flex
                     flexDirection="column"
@@ -427,7 +431,7 @@ const StandaloneExamsStart = () => {
                             <Radio key={option.id} value={option.id}>
                               <Text>{option.name}</Text>
                             </Radio>
-                          )
+                          ),
                         )}
 
                         <Radio value={"default"} display="none">

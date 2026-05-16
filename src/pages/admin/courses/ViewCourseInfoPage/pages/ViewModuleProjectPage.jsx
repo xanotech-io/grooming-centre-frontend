@@ -1,7 +1,13 @@
 import { Route, useParams, useHistory } from "react-router-dom";
-import { Box, Flex, Grid, Spinner, Progress } from "@chakra-ui/react";
+import { Box, Flex, Grid, Spinner } from "@chakra-ui/react";
 import { Badge, BreadcrumbItem } from "@chakra-ui/react";
-import { Breadcrumb, Button, Heading, Link, Text } from "../../../../../components";
+import {
+  Breadcrumb,
+  Button,
+  Heading,
+  Link,
+  Text,
+} from "../../../../../components";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import { getProjectById, getProjectSubmissions } from "../../../../../services";
 import dayjs from "dayjs";
@@ -47,8 +53,12 @@ const Tab = ({ label, active, count, onClick }) => (
 /* ─── Shared helpers ───────────────────────────────────── */
 const InfoRow = ({ label, value, fullWidth }) => (
   <Box gridColumn={fullWidth ? { md: "1 / -1" } : undefined}>
-    <Text fontWeight="bold" color="gray.500" fontSize="text.level3" mb={1}>{label}</Text>
-    <Text fontSize="text.level2" whiteSpace="pre-wrap">{value ?? "—"}</Text>
+    <Text fontWeight="bold" color="gray.500" fontSize="text.level3" mb={1}>
+      {label}
+    </Text>
+    <Text fontSize="text.level2" whiteSpace="pre-wrap">
+      {value ?? "—"}
+    </Text>
   </Box>
 );
 
@@ -63,7 +73,9 @@ const OverviewTab = ({ project, courseId, moduleId, projectId }) => {
         <Button
           size="sm"
           onClick={() =>
-            push(`/admin/courses/${courseId}/module/${moduleId}/projects/${projectId}/edit`)
+            push(
+              `/admin/courses/${courseId}/module/${moduleId}/projects/${projectId}/edit`,
+            )
           }
         >
           Edit Project
@@ -74,7 +86,14 @@ const OverviewTab = ({ project, courseId, moduleId, projectId }) => {
         <InfoRow label="Title" value={project.title} />
 
         <Box>
-          <Text fontWeight="bold" color="gray.500" fontSize="text.level3" mb={1}>Status</Text>
+          <Text
+            fontWeight="bold"
+            color="gray.500"
+            fontSize="text.level3"
+            mb={1}
+          >
+            Status
+          </Text>
           <Badge
             borderRadius="full"
             px="10px"
@@ -91,7 +110,11 @@ const OverviewTab = ({ project, courseId, moduleId, projectId }) => {
 
         <InfoRow
           label="Due Date"
-          value={project.dueDate ? dayjs(project.dueDate).format("MMM D, YYYY h:mm a") : null}
+          value={
+            project.dueDate
+              ? dayjs(project.dueDate).format("MMM D, YYYY h:mm a")
+              : null
+          }
         />
         <InfoRow label="Max Grade" value={project.maxGrade} />
 
@@ -99,11 +122,21 @@ const OverviewTab = ({ project, courseId, moduleId, projectId }) => {
           <InfoRow label="Description" value={project.description} fullWidth />
         )}
         {project.instructions && (
-          <InfoRow label="Instructions" value={project.instructions} fullWidth />
+          <InfoRow
+            label="Instructions"
+            value={project.instructions}
+            fullWidth
+          />
         )}
 
-        <InfoRow label="Created At" value={dayjs(project.createdAt).format("MMM D, YYYY h:mm a")} />
-        <InfoRow label="Last Updated" value={dayjs(project.updatedAt).format("MMM D, YYYY h:mm a")} />
+        <InfoRow
+          label="Created At"
+          value={dayjs(project.createdAt).format("MMM D, YYYY h:mm a")}
+        />
+        <InfoRow
+          label="Last Updated"
+          value={dayjs(project.updatedAt).format("MMM D, YYYY h:mm a")}
+        />
       </Grid>
     </>
   );
@@ -125,32 +158,73 @@ const SubmissionsTab = ({ projectId, courseId, moduleId }) => {
       .finally(() => setLoading(false));
   }, [projectId]);
 
-  if (loading) return <Flex justifyContent="center" py="60px"><Spinner size="xl" color="#6b006b" /></Flex>;
+  if (loading)
+    return (
+      <Flex justifyContent="center" py="60px">
+        <Spinner size="xl" color="#6b006b" />
+      </Flex>
+    );
 
-  if (error) return (
-    <Flex justifyContent="center" py="60px">
-      <Text color="red.500">{error}</Text>
-    </Flex>
-  );
+  if (error)
+    return (
+      <Flex justifyContent="center" py="60px">
+        <Text color="red.500">{error}</Text>
+      </Flex>
+    );
 
   if (!submissions.length) {
     return (
-      <Flex direction="column" alignItems="center" justifyContent="center" py="60px" gap={3}>
-        <Box w="56px" h="56px" bg="#F0E6FF" borderRadius="50%" display="flex" alignItems="center" justifyContent="center">
+      <Flex
+        direction="column"
+        alignItems="center"
+        justifyContent="center"
+        py="60px"
+        gap={3}
+      >
+        <Box
+          w="56px"
+          h="56px"
+          bg="#F0E6FF"
+          borderRadius="50%"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+        >
           <Icon as={FaInbox} color="#6b006b" fontSize="22px" />
         </Box>
-        <Text fontSize="16px" fontWeight="600" color="#1A202C">No submissions yet</Text>
-        <Text fontSize="14px" color="gray.500">Students haven't submitted this project yet.</Text>
+        <Text fontSize="16px" fontWeight="600" color="#1A202C">
+          No submissions yet
+        </Text>
+        <Text fontSize="14px" color="gray.500">
+          Students haven't submitted this project yet.
+        </Text>
       </Flex>
     );
   }
 
   return (
     <Box>
-      <Flex px={5} py={4} borderBottom="1px solid #E2E8F0" alignItems="center" justifyContent="space-between">
-        <Text fontSize="14px" fontWeight="600" color="gray.700">Student Submissions</Text>
-        <Badge bg="#E6F0FF" color="#2B6CB0" px={3} py={1} borderRadius="full" fontSize="13px" fontWeight="600">
-          {submissions.length} {submissions.length === 1 ? "submission" : "submissions"}
+      <Flex
+        px={5}
+        py={4}
+        borderBottom="1px solid #E2E8F0"
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        <Text fontSize="14px" fontWeight="600" color="gray.700">
+          Student Submissions
+        </Text>
+        <Badge
+          bg="#E6F0FF"
+          color="#2B6CB0"
+          px={3}
+          py={1}
+          borderRadius="full"
+          fontSize="13px"
+          fontWeight="600"
+        >
+          {submissions.length}{" "}
+          {submissions.length === 1 ? "submission" : "submissions"}
         </Badge>
       </Flex>
 
@@ -158,19 +232,54 @@ const SubmissionsTab = ({ projectId, courseId, moduleId }) => {
         <Box as="table" w="100%" fontSize="sm">
           <Box as="thead" bg="#F7FAFC">
             <Box as="tr">
-              {["Student ID", "Submitted At", "Status", "File", "Action"].map((h) => (
-                <Box key={h} as="th" textAlign="left" py="14px" px={4} color="gray.500" fontSize="12px" fontWeight="600" whiteSpace="nowrap">{h}</Box>
-              ))}
+              {["Student ID", "Submitted At", "Status", "File", "Action"].map(
+                (h) => (
+                  <Box
+                    key={h}
+                    as="th"
+                    textAlign="left"
+                    py="14px"
+                    px={4}
+                    color="gray.500"
+                    fontSize="12px"
+                    fontWeight="600"
+                    whiteSpace="nowrap"
+                  >
+                    {h}
+                  </Box>
+                ),
+              )}
             </Box>
           </Box>
           <Box as="tbody">
             {submissions.map((sub) => (
-              <Box as="tr" key={sub.id} borderTop="1px solid #E2E8F0" _hover={{ bg: "#F9F0FF" }}>
-                <Box as="td" py="14px" px={4} fontSize="13px" color="gray.600" maxW="200px">
+              <Box
+                as="tr"
+                key={sub.id}
+                borderTop="1px solid #E2E8F0"
+                _hover={{ bg: "#F9F0FF" }}
+              >
+                <Box
+                  as="td"
+                  py="14px"
+                  px={4}
+                  fontSize="13px"
+                  color="gray.600"
+                  maxW="200px"
+                >
                   <Text isTruncated>{sub.userId}</Text>
                 </Box>
-                <Box as="td" py="14px" px={4} fontSize="13px" color="gray.500" whiteSpace="nowrap">
-                  {sub.submittedAt ? dayjs(sub.submittedAt).format("MMM D, YYYY · h:mm A") : "—"}
+                <Box
+                  as="td"
+                  py="14px"
+                  px={4}
+                  fontSize="13px"
+                  color="gray.500"
+                  whiteSpace="nowrap"
+                >
+                  {sub.submittedAt
+                    ? dayjs(sub.submittedAt).format("MMM D, YYYY · h:mm A")
+                    : "—"}
                 </Box>
                 <Box as="td" py="14px" px={4}>
                   <Badge
@@ -201,14 +310,18 @@ const SubmissionsTab = ({ projectId, courseId, moduleId }) => {
                       View file <Icon as={FaExternalLinkAlt} fontSize="11px" />
                     </Box>
                   ) : (
-                    <Text fontSize="sm" color="gray.400">—</Text>
+                    <Text fontSize="sm" color="gray.400">
+                      —
+                    </Text>
                   )}
                 </Box>
                 <Box as="td" py="14px" px={4}>
                   <Button
                     size="sm"
                     onClick={() =>
-                      push(`/admin/courses/${courseId}/module/${moduleId}/projects/${projectId}/submissions/${sub.id}`)
+                      push(
+                        `/admin/courses/${courseId}/module/${moduleId}/projects/${projectId}/submissions/${sub.id}`,
+                      )
                     }
                   >
                     {sub.status === "reviewed" ? "View Review" : "Review"}
@@ -250,7 +363,9 @@ const ViewModuleProjectPage = () => {
     }
   }, [projectId]);
 
-  useEffect(() => { fetchSubmissionCount(); }, [fetchSubmissionCount]);
+  useEffect(() => {
+    fetchSubmissionCount();
+  }, [fetchSubmissionCount]);
 
   if (isLoading) {
     return (
@@ -278,10 +393,32 @@ const ViewModuleProjectPage = () => {
   return (
     <AdminMainAreaWrapper>
       <Breadcrumb
-        item2={<BreadcrumbItem><Link href="/admin/courses">Courses</Link></BreadcrumbItem>}
-        item3={<BreadcrumbItem><Link href={`/admin/courses/details/${courseId}/modules`}>Modules</Link></BreadcrumbItem>}
-        item4={<BreadcrumbItem><Link href={`/admin/courses/${courseId}/module/${moduleId}/projects`}>Projects</Link></BreadcrumbItem>}
-        item5={<BreadcrumbItem isCurrentPage><Link href="#">{project.title}</Link></BreadcrumbItem>}
+        item2={
+          <BreadcrumbItem>
+            <Link href="/admin/courses">Courses</Link>
+          </BreadcrumbItem>
+        }
+        item3={
+          <BreadcrumbItem>
+            <Link href={`/admin/courses/details/${courseId}/modules`}>
+              Modules
+            </Link>
+          </BreadcrumbItem>
+        }
+        item4={
+          <BreadcrumbItem>
+            <Link
+              href={`/admin/courses/${courseId}/module/${moduleId}/projects`}
+            >
+              Projects
+            </Link>
+          </BreadcrumbItem>
+        }
+        item5={
+          <BreadcrumbItem isCurrentPage>
+            <Link href="#">{project.title}</Link>
+          </BreadcrumbItem>
+        }
       />
 
       {/* Header */}
@@ -294,11 +431,16 @@ const ViewModuleProjectPage = () => {
         gap={3}
       >
         <Box>
-          <Heading as="h1" fontSize="heading.h3" mb={2}>{project.title}</Heading>
+          <Heading as="h1" fontSize="heading.h3" mb={2}>
+            {project.title}
+          </Heading>
           <Flex gap={2} flexWrap="wrap">
             <Badge
               colorScheme={project.status === "published" ? "green" : "gray"}
-              px={3} py={1} fontSize="xs" textTransform="capitalize"
+              px={3}
+              py={1}
+              fontSize="xs"
+              textTransform="capitalize"
             >
               {project.status}
             </Badge>
@@ -321,7 +463,14 @@ const ViewModuleProjectPage = () => {
       </Flex>
 
       {/* Tab container */}
-      <Box bg="white" borderRadius="md" border="1px solid" borderColor="gray.200" mt={4} overflow="hidden">
+      <Box
+        bg="white"
+        borderRadius="md"
+        border="1px solid"
+        borderColor="gray.200"
+        mt={4}
+        overflow="hidden"
+      >
         {/* Tab nav */}
         <Flex borderBottom="1px solid #E2E8F0" px={2} bg="white">
           {tabs.map((tab) => (
