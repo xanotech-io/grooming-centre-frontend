@@ -11,8 +11,13 @@ import {
   Input,
   Select,
   Text,
+  WorkflowReviewSection,
 } from "../../../../../components";
-import { useDateTimePicker, useGoBack } from "../../../../../hooks";
+import {
+  useDateTimePicker,
+  useGoBack,
+  useWorkflowReview,
+} from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
   adminCreateExamination,
@@ -133,6 +138,16 @@ const CreateModuleExaminationPage = () => {
   } = useForm();
 
   const startTimeManager = useDateTimePicker();
+  const {
+    requestReview,
+    setRequestReview,
+    selectedSupervisorId,
+    setSelectedSupervisorId,
+    supervisors,
+    supervisorsLoading,
+    supervisorsError,
+    submitWorkflowIfRequested,
+  } = useWorkflowReview();
 
   const onSubmit = async (data) => {
     try {
@@ -162,6 +177,14 @@ const CreateModuleExaminationPage = () => {
 
       const { message, examination } = await adminCreateExamination(body);
       setAssessment(examination);
+
+      await submitWorkflowIfRequested({
+        contentId: examination.id,
+        contentTitle: data.title,
+        requestType: "Exam",
+        description: `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
+      });
+
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",
@@ -266,6 +289,24 @@ const CreateModuleExaminationPage = () => {
                 Section-locked — finish section before moving on
               </option>
             </ChakraSelect>
+          </Box>
+          <WorkflowReviewSection
+            requestReview={requestReview}
+            onToggle={() => { setRequestReview((p) => !p); setSelectedSupervisorId(""); }}
+            selectedSupervisorId={selectedSupervisorId}
+            onSupervisorChange={setSelectedSupervisorId}
+            supervisors={supervisors}
+            supervisorsLoading={supervisorsLoading}
+            supervisorsError={supervisorsError}
+          />
+
+          <Box display="flex" gap={4} justifyContent="flex-end" marginTop={8}>
+            <Button secondary onClick={handleCancel} type="button">
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={isSubmitting}>
+              Create Examination
+            </Button>
           </Box>
 
           <Box borderTop="1px solid" borderColor="gray.100" pt={4}>

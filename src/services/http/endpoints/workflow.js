@@ -1,315 +1,129 @@
-// import { http } from '../http';
+import { http } from '../http';
 
-// ---------------------------------------------------------------------------
-// MOCK DATA - remove when wiring to real API endpoints
-// ---------------------------------------------------------------------------
+const normalize = (w) => ({
+  workflowId: w.workflow_id ?? w.workflowId,
+  requestType: w.request_type ?? w.requestType,
+  contentId: w.content_id ?? w.contentId,
+  contentTitle: w.content_title ?? w.contentTitle,
+  submittedBy: w.submitted_by ?? w.submittedBy,
+  supervisorId: w.supervisor_id ?? w.supervisorId,
+  submissionDate: w.submission_date ?? w.submissionDate,
+  description: w.description,
+  attachmentUrl: w.attachment_url ?? w.attachmentUrl,
+  approvalStatus: w.approval_status ?? w.approvalStatus,
+  approverRole: w.approver_role ?? w.approverRole,
+  actionDate: w.action_date ?? w.actionDate,
+  remarks: w.remarks,
+  resolutionTime: w.resolution_time ?? w.resolutionTime,
+  notificationStatus: w.notification_status ?? w.notificationStatus,
+});
 
-const MOCK_WORKFLOWS = [
-  {
-    workflowId: "WF-0234",
-    requestType: "Course Registrationsss",
-    submittedBy: "Samuel Oke",
-    approverRole: "Academic Admin",
-    approvalStatus: "Approved",
-    actionDate: "2025-10-17T14:30:00Z",
-    remarks: "Request validated and approved",
-    resolutionTime: 2.5,
-  },
-  {
-    workflowId: "WF-0235",
-    requestType: "Content Submission",
-    submittedBy: "Jane Ibrahim",
-    approverRole: "Supervisor",
-    approvalStatus: "Pending",
-    actionDate: null,
-    remarks: "Awaiting review",
-    resolutionTime: null,
-  },
-  {
-    workflowId: "WF-0236",
-    requestType: "Profile Update",
-    submittedBy: "Musa Bello",
-    approverRole: "System Admin",
-    approvalStatus: "Rejected",
-    actionDate: "2025-10-17T16:00:00Z",
-    remarks: "Incomplete documentation",
-    resolutionTime: 1.2,
-  },
-  {
-    workflowId: "WF-0237",
-    requestType: "Access Request",
-    submittedBy: "Amaka Obi",
-    approverRole: "Admin",
-    approvalStatus: "Pending",
-    actionDate: null,
-    remarks: "Awaiting review",
-    resolutionTime: null,
-  },
-  {
-    workflowId: "WF-0238",
-    requestType: "Course Registration",
-    submittedBy: "Tobi Adeyemi",
-    approverRole: "Instructor",
-    approvalStatus: "Rejected",
-    actionDate: "2025-10-18T09:00:00Z",
-    remarks: null,
-    resolutionTime: 3.1,
-  },
-  {
-    workflowId: "WF-0239",
-    requestType: "Course Content",
-    submittedBy: "Ngozi Peters",
-    approverRole: "Supervisor",
-    approvalStatus: "Escalated",
-    actionDate: "2025-10-18T11:00:00Z",
-    remarks: "Requires higher authority review",
-    resolutionTime: null,
-  },
-];
-
-const MOCK_SUPERVISOR_MAPPINGS = [
-  {
-    mappingId: "map-001",
-    instructorId: "inst-001",
-    instructorName: "Dr. Tunde Bello",
-    supervisorId: "sup-001",
-    supervisorName: "Prof. A. Smith",
-    departmentId: "dept-science",
-    departmentName: "Faculty of Science",
-    isActive: true,
-  },
-  {
-    mappingId: "map-002",
-    instructorId: "inst-002",
-    instructorName: "Mrs. Ada Johnson",
-    supervisorId: "sup-001",
-    supervisorName: "Prof. A. Smith",
-    departmentId: "dept-science",
-    departmentName: "Faculty of Science",
-    isActive: true,
-  },
-];
-
-// ---------------------------------------------------------------------------
-// 1.1 Submit Workflow Request
-// POST /api/v2/workflows
-// ---------------------------------------------------------------------------
-
-/**
- * Submit a new workflow request
- * @param {{ requestType: string, contentId: string, remarks: string }} body
- * @returns {Promise<{ message: string, workflow: object }>}
- */
+// POST /api/v1/workflows/submit
 export const adminSubmitWorkflow = async (body) => {
-  // TODO: replace mock with real call
-  // const { data: { message, data } } = await http.post('/v2/workflows', body);
-  // return { message, workflow: data };
-
-  return {
-    message: "Workflow submitted successfully",
-    workflow: {
-      workflowId: "wf-uuid-123",
-      requestType: body.requestType,
-      approvalStatus: "PENDING",
-      submittedBy: "user-uuid",
-      submissionDate: new Date().toISOString(),
-      approverRole: "SUPERVISOR",
-    },
-  };
+  const { data } = await http.post('/v1/workflows/submit', body);
+  return { message: data.message, workflow: data.data };
 };
 
-// ---------------------------------------------------------------------------
-// 1.2 Get Pending Approvals for Supervisor
-// GET /api/v2/workflows/pending
-// ---------------------------------------------------------------------------
-
-/**
- * Get all pending (and other) workflow approvals
- * @param {object} params - optional query params (page, limit, status, etc.)
- * @returns {Promise<{ workflows: Array, totalDocumentsCount: number }>}
- */
-export const adminGetPendingApprovals = async (params) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get('/v2/workflows/pending', { params });
-  // return {
-  //   workflows: data.map((w) => ({
-  //     workflowId: w.workflowId,
-  //     requestType: w.requestType,
-  //     submittedBy: w.submittedBy,
-  //     approverRole: w.approverRole,
-  //     approvalStatus: w.approvalStatus,
-  //     actionDate: w.actionDate,
-  //     remarks: w.remarks,
-  //     resolutionTime: w.resolutionTime,
-  //   })),
-  //   totalDocumentsCount: data.length,
-  // };
-
-  return {
-    workflows: MOCK_WORKFLOWS,
-    totalDocumentsCount: MOCK_WORKFLOWS.length,
-  };
+// GET /api/v1/workflows/supervisors
+export const adminGetWorkflowSupervisors = async () => {
+  const { data } = await http.get('/v1/workflows/supervisors');
+  return { supervisors: data.data ?? [] };
 };
 
-// ---------------------------------------------------------------------------
-// Get Workflow By ID (derived endpoint - not explicit in spec)
-// GET /api/v2/workflows/:workflowId
-// ---------------------------------------------------------------------------
-
-/**
- * Get a single workflow by its ID
- * @param {string} workflowId
- * @returns {Promise<{ workflow: object }>}
- */
-export const adminGetWorkflowById = async (workflowId) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get(`/v2/workflows/${workflowId}`);
-  // return { workflow: data };
-
-  const found =
-    MOCK_WORKFLOWS.find((w) => w.workflowId === workflowId) ||
-    MOCK_WORKFLOWS[1];
-  return { workflow: found };
+// GET /api/v1/workflows/pending/{supervisor_id}
+export const adminGetPendingApprovals = async (supervisorId) => {
+  const { data } = await http.get(`/v1/workflows/pending/${supervisorId}`);
+  const workflows = (data.data ?? []).map(normalize);
+  return { workflows, totalDocumentsCount: workflows.length };
 };
 
-// ---------------------------------------------------------------------------
-// 1.3 Approve Workflow Request
-// PATCH /api/v2/workflows/:workflowId/approve
-// ---------------------------------------------------------------------------
-
-/**
- * Approve a workflow request
- * @param {string} workflowId
- * @param {{ remarks: string }} body
- * @returns {Promise<{ message: string, workflow: object }>}
- */
-export const adminApproveWorkflow = async (workflowId, body) => {
-  // TODO: replace mock with real call
-  // const { data: { message, data } } = await http.patch(`/v2/workflows/${workflowId}/approve`, body);
-  // return { message, workflow: data };
-
-  return {
-    message: "Workflow approved successfully",
-    workflow: {
-      workflowId,
-      approvalStatus: "APPROVED",
-      actionDate: new Date().toISOString(),
-      approverRole: "SUPERVISOR",
-      resolutionTime: 4.2,
-    },
-  };
+// POST /api/v1/workflows/review  (approve, reject, or escalate)
+export const adminApproveWorkflow = async (workflowId, { approverId, remarks }) => {
+  const { data } = await http.post('/v1/workflows/review', {
+    workflow_id: workflowId,
+    approver_id: approverId,
+    approval_status: 'Approved',
+    remarks,
+  });
+  return { message: data.message };
 };
 
-// ---------------------------------------------------------------------------
-// 1.4 Reject Workflow Request
-// PATCH /api/v2/workflows/:workflowId/reject
-// ---------------------------------------------------------------------------
-
-/**
- * Reject a workflow request
- * @param {string} workflowId
- * @param {{ remarks: string }} body - rejection reason is required
- * @returns {Promise<{ message: string, workflow: object }>}
- */
-export const adminRejectWorkflow = async (workflowId, body) => {
-  // TODO: replace mock with real call
-  // const { data: { message, data } } = await http.patch(`/v2/workflows/${workflowId}/reject`, body);
-  // return { message, workflow: data };
-
-  return {
-    message: "Workflow rejected successfully",
-    workflow: {
-      workflowId,
-      approvalStatus: "Rejected",
-      actionDate: new Date().toISOString(),
-      approverRole: "SystemAdmin",
-      resolutionTime: 1.2,
-    },
-  };
+export const adminRejectWorkflow = async (workflowId, { approverId, remarks }) => {
+  const { data } = await http.post('/v1/workflows/review', {
+    workflow_id: workflowId,
+    approver_id: approverId,
+    approval_status: 'Rejected',
+    remarks,
+  });
+  return { message: data.message };
 };
 
-// ---------------------------------------------------------------------------
-// 1.5 Escalate Workflow
-// POST /api/v2/workflows/:workflowId/escalate
-// ---------------------------------------------------------------------------
-
-/**
- * Escalate a workflow to a higher approver role
- * @param {string} workflowId
- * @param {{ newApproverRole: string, remarks: string }} body
- * @returns {Promise<{ message: string, workflow: object }>}
- */
-export const adminEscalateWorkflow = async (workflowId, body) => {
-  // TODO: replace mock with real call
-  // const { data: { message, data } } = await http.post(`/v2/workflows/${workflowId}/escalate`, body);
-  // return { message, workflow: data };
-
-  return {
-    message: "Workflow escalated successfully",
-    workflow: {
-      workflowId,
-      previousApproverRole: "SUPERVISOR",
-      newApproverRole: body.newApproverRole,
-      approvalStatus: "ESCALATED",
-      escalationDate: new Date().toISOString(),
-    },
-  };
+export const adminEscalateWorkflow = async (workflowId, { approverId, remarks }) => {
+  const { data } = await http.post('/v1/workflows/review', {
+    workflow_id: workflowId,
+    approver_id: approverId,
+    approval_status: 'Escalated',
+    remarks,
+  });
+  return { message: data.message };
 };
 
-// ---------------------------------------------------------------------------
-// 1.6 Instructor-Supervisor Mapping
-// POST /api/v2/instructors/:instructorId/supervisor
-// ---------------------------------------------------------------------------
+// POST /api/v1/workflows/publish
+export const adminPublishWorkflow = async ({ workflowId, publishedBy }) => {
+  const { data } = await http.post('/v1/workflows/publish', {
+    workflow_id: workflowId,
+    published_by: publishedBy,
+  });
+  return { message: data.message };
+};
 
-/**
- * Map a supervisor to an instructor
- * @param {string} instructorId
- * @param {{ supervisorId: string, departmentId: string }} body
- * @returns {Promise<{ message: string, mapping: object }>}
- */
+const normalizeTracked = (w) => ({
+  id: w.id,
+  requestType: w.request_type ?? "—",
+  contentTitle: w.content_title ?? "—",
+  status: w.status ?? "—",
+  submissionDate: w.submission_date ?? null,
+  actionDate: w.action_date ?? null,
+  remarks: w.remarks ?? "—",
+  resolutionTimeHours: w.resolution_time_hours ?? null,
+  notificationStatus: w.notification_status ?? "—",
+  submitterName: w.submitter
+    ? `${w.submitter.firstName ?? ""} ${w.submitter.lastName ?? ""}`.trim() || "—"
+    : "—",
+  submitterEmail: w.submitter?.email ?? "—",
+  supervisorName: w.supervisor
+    ? `${w.supervisor.firstName ?? ""} ${w.supervisor.lastName ?? ""}`.trim() || "—"
+    : "—",
+  supervisorEmail: w.supervisor?.email ?? "—",
+  supervisorRole: w.supervisor?.role ?? "—",
+  supervisorId: w.supervisor?.id ?? null,
+});
+
+// GET /api/v1/workflows/track  (admin only)
+export const adminTrackWorkflows = async (params = {}) => {
+  const { data } = await http.get('/v1/workflows/track', { params });
+  return { workflows: (data.data ?? []).map(normalizeTracked), message: data.message };
+};
+
+// GET /api/v1/workflows/report  (admin only)
+export const adminGetWorkflowReport = async () => {
+  const { data } = await http.get('/v1/workflows/report');
+  return { report: data.data, message: data.message };
+};
+
+// GET /api/v1/workflows/audit/{workflow_id}
+export const adminGetWorkflowAuditLog = async (workflowId) => {
+  const { data } = await http.get(`/v1/workflows/audit/${workflowId}`);
+  return { auditLog: data.data ?? [], message: data.message };
+};
+
+// Instructor-Supervisor Mapping (v2 endpoints)
 export const adminMapInstructorSupervisor = async (instructorId, body) => {
-  // TODO: replace mock with real call
-  // const { data: { message, data } } = await http.post(`/v2/instructors/${instructorId}/supervisor`, body);
-  // return { message, mapping: data };
-
-  return {
-    message: "Supervisor mapped successfully",
-    mapping: {
-      mappingId: "map-uuid-123",
-      instructorId,
-      supervisorId: body.supervisorId,
-      departmentId: body.departmentId,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    },
-  };
+  const { data } = await http.post(`/v2/instructors/${instructorId}/supervisor`, body);
+  return { message: data.message, mapping: data.data };
 };
 
-// ---------------------------------------------------------------------------
-// 1.7 Get All Supervisor Mappings (Admin)
-// GET /api/v2/instructors/supervisor-mappings
-// ---------------------------------------------------------------------------
-
-/**
- * Get all instructor-supervisor mappings
- * @param {{ instructorId?: string, supervisorId?: string, departmentId?: string, isActive?: boolean }} params
- * @returns {Promise<{ mappings: Array, pagination: object }>}
- */
 export const adminGetSupervisorMappings = async (params) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get('/v2/instructors/supervisor-mappings', { params });
-  // return {
-  //   mappings: data.mappings,
-  //   pagination: data.pagination,
-  // };
-
-  return {
-    mappings: MOCK_SUPERVISOR_MAPPINGS,
-    pagination: {
-      page: 1,
-      limit: 10,
-      totalItems: MOCK_SUPERVISOR_MAPPINGS.length,
-      totalPages: 1,
-    },
-  };
+  const { data } = await http.get('/v2/instructors/supervisor-mappings', { params });
+  return { mappings: data.mappings, pagination: data.pagination };
 };

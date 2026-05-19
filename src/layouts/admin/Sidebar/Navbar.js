@@ -56,6 +56,11 @@ export const SidebarContent = ({ onClose, ...rest }) => {
   const isSettingsPage = /settings/i.test(window.location.pathname);
   const role = getOneMetadata("userRoles", state.user?.userRoleId);
   const isSuperAdmin = /super admin/i.test(role?.name);
+
+  const visibleLinks = links.filter((link) => {
+    if (!link.roles) return true;
+    return link.roles.some((r) => new RegExp(r, "i").test(role?.name));
+  });
   return (
     <Box
       transition="2s ease"
@@ -113,7 +118,7 @@ export const SidebarContent = ({ onClose, ...rest }) => {
                 : settingsLinks.map((link) => (
                   <SidebarLink key={link.text} link={link} />
                 ))
-              : links.map((link) => (
+              : visibleLinks.map((link) => (
                 <SidebarLink key={link.text} link={link} onClick={onClose} />
               ))}
           </Stack>

@@ -44,6 +44,22 @@ const links = [
     text: "Exams",
   },
   {
+    href: "/transcript",
+    text: "Transcript",
+  },
+  {
+    href: "/assessment-results",
+    text: "My Results",
+  },
+  {
+    href: "/my-progress",
+    text: "My Progress",
+  },
+  {
+    href: "/my-analytics",
+    text: "My Analytics",
+  },
+  {
     href: "/profile",
     text: "Profile",
   },

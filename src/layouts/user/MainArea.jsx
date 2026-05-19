@@ -24,11 +24,16 @@ import {
   MyBadgesPageRoute,
   BadgeProgressPageRoute,
   MyProgressPageRoute,
+  StudentProgressReportPageRoute,
+  StudentCourseProgressPageRoute,
+  StudentVisualAnalyticsPageRoute,
 } from "../../pages/user";
 import { PollsPageRoute } from "../../pages/user/PollsPage/PollsPage";
 import { StandalonePreAssessmentRoute } from "../../pages/user/StandaloneExamDetails/StandalonePreAssessment";
 import { ExampleRoute } from "../../pages/user/tabby";
 import { PollsVotePageRoute } from "../../pages/user/PollsVotePage/PollsVotePage";
+import { TranscriptRequestPageRoute } from "../../pages/user/Transcript/TranscriptRequestPage";
+import { MyAssessmentResultsPageRoute } from "../../pages/user/AssessmentResults/MyAssessmentResultsPage";
 
 const MainArea = () => {
   return (
@@ -52,6 +57,11 @@ const MainArea = () => {
         <AwaitingGradePageRoute exact path="/courses/take/:courseId/assessment/:assessmentId/awaiting" />
         <CoursesPagesRoute path="/courses" />
         <PollsPageRoute exact path="/polls" />
+        <TranscriptRequestPageRoute exact path="/transcript" />
+        <MyAssessmentResultsPageRoute exact path="/assessment-results" />
+        <StudentCourseProgressPageRoute exact path="/my-progress/course/:courseId" />
+        <StudentProgressReportPageRoute exact path="/my-progress" />
+        <StudentVisualAnalyticsPageRoute exact path="/my-analytics" />
         <ProfilePageRoute exact path="/profile" />
         <StandalonePagesRoute exact path="/standalone-exams" />
         <StandalonePreAssessmentRoute exact path="/standalone-exams/take" />

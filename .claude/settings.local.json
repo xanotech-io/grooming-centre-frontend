@@ -25,7 +25,9 @@
       "Bash(npm run *)",
       "Bash(cat .eslintrc.js)",
       "Bash(cat .eslintrc.json)",
-      "Bash(cat .eslintrc)"
+      "Bash(cat .eslintrc)",
+      "Bash(grep -E \"\\\\.\\(js|jsx\\)$\")",
+      "Bash(node -e ' *)"
     ]
   }
 }

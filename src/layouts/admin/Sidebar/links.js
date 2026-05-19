@@ -107,9 +107,17 @@ export const links = [
     icon: <AiOutlineAudit />,
     href: "/admin/report/studentReport",
     links: [
+      // {
+      //   href: "/admin/report/studentReport",
+      //   text: "Student Report",
+      // },
       {
-        href: "/admin/report/studentReport",
-        text: "Student Report",
+        href: "/admin/report/student-progress",
+        text: "Student Progress Report",
+      },
+      {
+        href: "/admin/report/studentTranscripts",
+        text: "Student Transcripts",
       },
       {
         href: "/admin/report/managementReport",
@@ -131,12 +139,47 @@ export const links = [
         href: "/admin/mis-reports",
         text: "MIS Reports",
       },
+      {
+        href: "/admin/report/participation-monitoring",
+        text: "Participation Monitoring",
+      },
+      {
+        href: "/admin/report/report-builder",
+        text: "Report Builder",
+      },
+      {
+        href: "/admin/report/course-assessment",
+        text: "Assessment Reports",
+      },
+      {
+        href: "/admin/report/system-utilization",
+        text: "System Utilization",
+      },
+      {
+        href: "/admin/report/performance-filters",
+        text: "Performance Filters",
+      },
+      {
+        href: "/admin/report/visual-analytics",
+        text: "Visual Analytics",
+      },
+      {
+        href: "/admin/report/proctoring-audit",
+        text: "Proctoring & Audit",
+      },
     ],
   },
   {
     href: "/admin/workflow",
     text: "Approval Workflow",
     icon: <FaSitemap />,
+    roles: ["supervisor"],
+  },
+  {
+    href: "/admin/workflow/track",
+    text: "Workflow Tracking",
+    icon: <FaSitemap />,
+    roles: ["super admin"],
   },
   {
     href: "/admin/examination-marking",

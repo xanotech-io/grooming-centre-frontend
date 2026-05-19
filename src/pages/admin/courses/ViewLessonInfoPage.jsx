@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Route, useParams } from "react-router-dom";
 import { Box, Flex, Grid, GridItem } from "@chakra-ui/layout";
 import { BreadcrumbItem, Badge } from "@chakra-ui/react";
@@ -9,8 +10,9 @@ import {
   Link,
   SkeletonText,
   RichTextToView,
+  WorkflowSubmitModal,
 } from "../../../components";
-import { FaEdit, FaDownload, FaFilePowerpoint } from "react-icons/fa";
+import { FaEdit, FaDownload, FaFilePowerpoint, FaSitemap } from "react-icons/fa";
 import useViewLessonInfo from "./hooks/useViewLessonInfo";
 import { Skeleton } from "@chakra-ui/skeleton";
 import dayjs from "dayjs";
@@ -18,6 +20,7 @@ import dayjs from "dayjs";
 const ViewLessonInfoPage = () => {
   const manager = useViewLessonInfo();
   const { courseId } = useParams();
+  const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
 
   const { lesson, isLoading } = manager;
 
@@ -69,16 +72,28 @@ const ViewLessonInfoPage = () => {
           flexDirection="row"
         >
           <Heading fontSize="heading.h3">Lesson details</Heading>
-          <Button
-            disabled={!lesson}
-            paddingLeft={2}
-            sizes="small"
-            rightIcon={<FaEdit />}
-            secondary
-            link={`/admin/courses/${lesson?.courseId}/lessons/edit/${lesson?.id}`}
-          >
-            Edit
-          </Button>
+          <Flex gap={3}>
+            <Button
+              disabled={!lesson}
+              paddingLeft={2}
+              sizes="small"
+              rightIcon={<FaSitemap />}
+              secondary
+              onClick={() => setIsWorkflowModalOpen(true)}
+            >
+              Submit for Approval
+            </Button>
+            <Button
+              disabled={!lesson}
+              paddingLeft={2}
+              sizes="small"
+              rightIcon={<FaEdit />}
+              secondary
+              link={`/admin/courses/${lesson?.courseId}/lessons/edit/${lesson?.id}`}
+            >
+              Edit
+            </Button>
+          </Flex>
         </Flex>
 
         <Box backgroundColor="white" paddingX={10} paddingY={12} shadow="md">
@@ -235,6 +250,14 @@ const ViewLessonInfoPage = () => {
           </Box>
         </Box>
       </Box>
+
+      <WorkflowSubmitModal
+        isOpen={isWorkflowModalOpen}
+        onClose={() => setIsWorkflowModalOpen(false)}
+        contentId={lesson?.id}
+        contentTitle={lesson?.title}
+        requestType="Lesson Content"
+      />
     </Box>
   );
 };
