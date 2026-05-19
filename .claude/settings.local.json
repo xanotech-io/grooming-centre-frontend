@@ -12,7 +12,14 @@
       "Bash(xargs grep -l \"adminEditExamination\")",
       "WebFetch(domain:gclms.xanotech.org)",
       "Bash(npm install *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Dell\\\\Work\\\\grooming-centre-frontend\\\\src\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(xargs grep -l \"ExaminationPageRoute\\\\|ExaminationDetailPageRoute\")",
+      "Bash(Get-ChildItem \"c:\\\\Users\\\\Dell\\\\Work\\\\grooming-centre-frontend\" -MaxDepth 1 -Filter \"*.md\")",
+      "Bash(Select-Object Name)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\Dell\\\\Work\\\\grooming-centre-frontend\" | Select-Object Name, PSIsContainer | Where-Object { !$_.PSIsContainer })",
+      "PowerShell(dir \"c:\\\\Users\\\\Dell\\\\Work\\\\grooming-centre-frontend\" | where { !$_.PSIsContainer } | ft Name)"
     ]
   }
 }

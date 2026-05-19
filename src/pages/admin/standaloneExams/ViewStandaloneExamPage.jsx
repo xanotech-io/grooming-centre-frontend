@@ -448,7 +448,18 @@ const ViewStandaloneExamPage = () => {
             )}
           </Flex>
         </Box>
-        <Button secondary size="sm" onClick={() => history.goBack()}>← Back</Button>
+        <Flex gap="8px">
+          <Button secondary size="sm" onClick={() => history.push(`/admin/batch-import/${examId}`)}>
+            Batch Import
+          </Button>
+          <Button secondary size="sm" onClick={() => history.push(`/admin/exam-paper-config/${examId}`)}>
+            Configure Paper
+          </Button>
+          <Button secondary size="sm" onClick={() => history.push(`/admin/multimedia-questions/${examId}`)}>
+            Multimedia Questions
+          </Button>
+          <Button secondary size="sm" onClick={() => history.goBack()}>← Back</Button>
+        </Flex>
       </Flex>
 
       <Box bg="white" borderRadius="md" border="1px solid" borderColor="gray.200" mt={4} overflow="hidden">

@@ -19,6 +19,11 @@ import {
   MyGradeBooksListPageRoute,
   StudentResultPageRoute,
   AwaitingGradePageRoute,
+  BadgeListPageRoute,
+  BadgeDetailPageRoute,
+  MyBadgesPageRoute,
+  BadgeProgressPageRoute,
+  MyProgressPageRoute,
 } from "../../pages/user";
 import { PollsPageRoute } from "../../pages/user/PollsPage/PollsPage";
 import { StandalonePreAssessmentRoute } from "../../pages/user/StandaloneExamDetails/StandalonePreAssessment";
@@ -51,6 +56,11 @@ const MainArea = () => {
         <StandalonePagesRoute exact path="/standalone-exams" />
         <StandalonePreAssessmentRoute exact path="/standalone-exams/take" />
         <StandaloneExamsStartRoute exact path="/standalone-exams/start" />
+        <MyBadgesPageRoute exact path="/badges/my-badges" />
+        <BadgeProgressPageRoute exact path="/badges/:badgeId/progress" />
+        <BadgeDetailPageRoute exact path="/badges/:badgeId" />
+        <MyProgressPageRoute exact path="/my-progress" />
+        <BadgeListPageRoute exact path="/badges" />
         <ExampleRoute path="/example" />
         <Route render={(props) => <NotFoundPageRoute />} />
       </Switch>

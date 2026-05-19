@@ -1,322 +1,230 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import {
   Button,
-  Table,
   Text,
   Spinner,
   Breadcrumb,
   Link,
 } from "../../../../components";
-import { EmptyState } from "../../../../layouts";
 import { Flex, Box } from "@chakra-ui/layout";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { DashboardMetricCard } from "../../../../components";
 import dayjs from "dayjs";
-import { Tag } from "@chakra-ui/tag";
-import { useTableRows } from "../../../../hooks";
+import {
+  Badge,
+  Table as ChakraTable,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  TableContainer,
+  Progress,
+} from "@chakra-ui/react";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import {
-  adminGetStudentProgress,
-  adminGetStudentProgressSummary,
+  adminGetStudentProgressV2,
+  adminGetStudentKpisV2,
+  adminGetStudentActivityV2,
 } from "../../../../services";
+
+const statusScheme = (status) => {
+  const s = String(status || "").toLowerCase();
+  if (s === "completed") return "green";
+  if (s === "in progress") return "blue";
+  return "gray";
+};
 
 const ProgressReport = () => {
   const { studentId } = useParams();
   const history = useHistory();
-  const safeStudentId =
-    !studentId || studentId === "undefined" ? "mock_student_1" : studentId;
 
-  const [loading, setLoading] = useState(false);
-  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [summary, setSummary] = useState(null);
+  const [progress, setProgress] = useState(null);
+  const [kpis, setKpis] = useState(null);
+  const [activity, setActivity] = useState(null);
 
-  useEffect(() => {
-    if (!studentId || studentId === "undefined") {
-      history.replace(`/admin/report/studentReport/${safeStudentId}/progress`);
-    }
-  }, [history, studentId, safeStudentId]);
-
-  const mapReportToRow = (report) => ({
-    id: report?.reportId,
-    studentId: report?.studentId,
-    studentName: report?.studentName,
-    courseId: report?.courseId,
-    courseTitle: report?.courseTitle,
-    enrollmentDate: report?.enrollmentDate,
-    modulesCompleted: `${report?.modulesCompleted || 0}/${report?.totalModules || 0}`,
-    completionPercentage:
-      report?.completionPercentage != null ? `${report.completionPercentage}%` : "—",
-    score:
-      report?.cumulativeAverageScore != null
-        ? `${Number(report.cumulativeAverageScore).toFixed(1)}%`
-        : "—",
-    status: report?.completionStatus,
-    certificate: Boolean(report?.certificatesEarned?.length),
-    lastAccess: report?.lastAccessDate,
-  });
-
-  const fetchReports = async (studentIdValue, params = {}) => {
+  const load = useCallback(async () => {
+    if (!studentId) return;
     setLoading(true);
     setError(null);
-
     try {
-      const [progressResponse, summaryResponse] = await Promise.all([
-        adminGetStudentProgress(studentIdValue, params),
-        adminGetStudentProgressSummary(studentIdValue),
+      const [prog, kpi, act] = await Promise.all([
+        adminGetStudentProgressV2(studentId).catch(() => null),
+        adminGetStudentKpisV2(studentId).catch(() => null),
+        adminGetStudentActivityV2(studentId).catch(() => null),
       ]);
-
-      const rows =
-        progressResponse.rows?.map((report) => mapReportToRow(report)) || [];
-
-      setSummary(summaryResponse);
-      setTotalCount(progressResponse.count || rows.length);
-
-      return {
-        rows,
-        showingDocumentsCount: progressResponse.count || rows.length,
-        totalDocumentsCount: progressResponse.count || rows.length,
-        currentPage: progressResponse.page || 1,
-        totalPages: progressResponse.totalPages || 1,
-      };
-    } catch (requestError) {
-      setError(requestError.message || "Unable to fetch student progress");
-      return {
-        rows: [],
-        showingDocumentsCount: 0,
-        totalDocumentsCount: 0,
-        currentPage: 1,
-        totalPages: 1,
-      };
+      setProgress(prog);
+      setKpis(kpi);
+      setActivity(act);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to load progress data.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [studentId]);
 
-  // Setup Table
-  const tableProps = {
-    searchKey: "search",
-    filterControls: [
-      {
-        triggerText: "Filter",
-        queryKey: "status",
-        width: "180px",
-        body: {
-          checks: [
-            { label: "Completed", queryValue: "COMPLETED" },
-            { label: "In Progress", queryValue: "IN_PROGRESS" },
-            { label: "Not Started", queryValue: "NOT_STARTED" },
-          ],
-        },
-      },
-    ],
+  useEffect(() => { load(); }, [load]);
 
-    columns: [
-      {
-        id: "studentId",
-        key: "studentId",
-        text: "Student ID",
-        fraction: "130px",
-      },
-
-      {
-        id: "courseTitle",
-        key: "courseTitle",
-        text: "Course Title",
-        fraction: "220px",
-      },
-
-      {
-        id: "enrollmentDate",
-        key: "enrollmentDate",
-        text: "Enrollment Date",
-        fraction: "130px",
-        renderContent: (date) => (
-          <Box>
-            <Text fontSize="sm">{dayjs(date).format("DD/MM/YYYY")}</Text>
-            <Text fontSize="xs" color="gray.500">
-              {dayjs(date).format("h:mm A")}
-            </Text>
-          </Box>
-        ),
-      },
-
-      {
-        id: "modulesCompleted",
-        key: "modulesCompleted",
-        text: "Modules Completed",
-        fraction: "150px",
-      },
-
-      {
-        id: "completionPercentage",
-        key: "completionPercentage",
-        text: "Completion",
-        fraction: "120px",
-      },
-
-      {
-        id: "score",
-        key: "score",
-        text: "Score (%)",
-        fraction: "100px",
-      },
-
-      {
-        id: "status",
-        key: "status",
-        text: "Status",
-        fraction: "150px",
-        renderContent: (status) => (
-          <Tag
-            size="sm"
-            borderRadius="full"
-            colorScheme={
-              status === "Completed"
-                ? "green"
-                : status === "In Progress"
-                  ? "yellow"
-                  : "red"
-            }
-          >
-            {status}
-          </Tag>
-        ),
-      },
-
-      {
-        id: "certificate",
-        key: "certificate",
-        text: "Certificate",
-        fraction: "100px",
-        renderContent: (value) => <Text>{value ? "Yes" : "No"}</Text>,
-      },
-      {
-        id: "lastAccess",
-        key: "lastAccess",
-        text: "Last Access",
-        fraction: "180px",
-        renderContent: (date) => (
-          <Box>
-            <Text fontSize="sm">{dayjs(date).format("DD/MM/YYYY")}</Text>
-            <Text fontSize="xs" color="gray.500">
-              {dayjs(date).format("h:mm A")}
-            </Text>
-          </Box>
-        ),
-      },
-    ],
-
-    options: {
-      action: [
-        {
-          text: "Archive Report",
-          link: (row) => `/archiveReport/${row.id}/archive`,
-        },
-      ],
-      selection: true,
-      pagination: true,
-    },
-  };
-
-  const fetcher = (props) => async () => {
-    return await fetchReports(safeStudentId, props?.params);
-  };
-
-  const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+  const courses = progress?.courses ?? [];
+  const studentName = progress?.studentName ?? "Student";
 
   return (
-    <>
-      <AdminMainAreaWrapper>
-        <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
-          <Breadcrumb
-            item2={
-              <BreadcrumbItem>
-                <Link href="/admin/report/studentReport">Learners</Link>
-              </BreadcrumbItem>
-            }
-            item3={
-              <BreadcrumbItem>
-                <Link href={`/admin/report/studentReport/${safeStudentId}/details`}>
-                  Report Details
-                </Link>
-              </BreadcrumbItem>
-            }
-            item4={
-              <BreadcrumbItem isCurrentPage>
-                <Link href="#">Progress Report</Link>
-              </BreadcrumbItem>
-            }
-          />
-          <Button secondary onClick={fetchRowItems}>
+    <AdminMainAreaWrapper>
+      <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/report/studentReport">Learners</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem>
+              <Link href={`/admin/report/studentReport/${studentId}/details`}>
+                Report Details
+              </Link>
+            </BreadcrumbItem>
+          }
+          item4={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Progress Report</Link>
+            </BreadcrumbItem>
+          }
+        />
+        <Flex gap="8px">
+          <Button secondary onClick={() => history.push(`/admin/student-progress/${studentId}`)}>
+            Full Training Report
+          </Button>
+          <Button secondary onClick={load}>
             Refresh
           </Button>
-        </Box>
+        </Flex>
+      </Box>
 
-        <Box
-          display={"flex"}
-          justifyContent="space-between"
-          gridGap={4}
-          mb={10}
-        >
-          <DashboardMetricCard
-            title="Overall Completion"
-            value={`${summary?.overallCompletionRate ?? 0}%`}
-            change={`${summary?.completedCourses ?? 0} completed courses`}
-            changeColor="#1A8F3A"
-          />
+      {loading ? (
+        <Flex h="400px" justifyContent="center" alignItems="center" flexDirection="column">
+          <Spinner size="xl" />
+          <Text mt={4}>Loading student progress...</Text>
+        </Flex>
+      ) : error ? (
+        <Flex h="400px" justifyContent="center" alignItems="center" flexDirection="column" gap="12px">
+          <Text color="red.500">{error}</Text>
+          <Button onClick={load}>Try Again</Button>
+        </Flex>
+      ) : (
+        <>
+          {/* Student name */}
+          {studentName && (
+            <Text fontSize="18px" fontWeight="700" color="#1A202C" mb={6}>
+              {studentName}
+              {progress?.email && (
+                <Text as="span" fontSize="14px" fontWeight="400" color="gray.500" ml="10px">
+                  {progress.email}
+                </Text>
+              )}
+            </Text>
+          )}
 
-          <DashboardMetricCard
-            title="Average Assessment Score"
-            value={`${summary?.averageScore ?? 0}%`}
-            change={`${summary?.totalCourses ?? 0} tracked courses`}
-            changeColor="#1A8F3A"
-          />
-          <DashboardMetricCard
-            title="Average Time Spent"
-            value={`${summary?.totalTimeSpentHours ?? 0} hrs`}
-            change="per learner"
-            changeColor="#1A8F3A"
-          />
+          {/* Summary cards */}
+          <Box display="flex" justifyContent="space-between" gridGap={4} mb={10} flexWrap="wrap">
+            <DashboardMetricCard
+              title="Overall Completion"
+              value={`${kpis?.completionPercentage ?? 0}%`}
+              change={`${kpis?.completedCourses ?? 0} of ${kpis?.totalCourses ?? 0} courses`}
+              changeColor="#1A8F3A"
+            />
+            <DashboardMetricCard
+              title="Average Score"
+              value={`${kpis?.averageScore ?? 0}%`}
+              change={`${kpis?.totalCourses ?? 0} tracked courses`}
+              changeColor="#1A8F3A"
+            />
+            <DashboardMetricCard
+              title="Time Spent"
+              value={`${activity?.totalTimeSpentHours ?? "—"} hrs`}
+              change={`${activity?.totalSessionCount ?? 0} sessions`}
+              changeColor="#1A8F3A"
+            />
+            <DashboardMetricCard
+              title="Weekly Activity"
+              value={`${activity?.weeklyLogins ?? "—"}`}
+              change="logins this week"
+              changeColor="#1A8F3A"
+            />
+          </Box>
 
-          <DashboardMetricCard
-            title="Weekly Activity Rate"
-            value={`${summary?.averageWeeklyLogins ?? 0}`}
-            change="logins/week"
-            changeColor="#1A8F3A"
-          />
-        </Box>
-
-        {loading && rows.length === 0 ? (
-          <Flex
-            h="400px"
-            justifyContent="center"
-            alignItems="center"
-            flexDirection="column"
-          >
-            <Spinner size="xl" />
-            <Text mt={4}>Loading student progress...</Text>
-          </Flex>
-        ) : error ? (
-          <EmptyState
-            heading="Failed to load student progress"
-            description={error}
-            cta={<Button onClick={fetchRowItems}>Try Again</Button>}
-          />
-        ) : (
-          <Table
-            {...tableProps}
-            rows={rows}
-            setRows={setRows}
-            handleFetch={fetchRowItems}
-            isLoading={loading}
-            placeholder="Search by student, course, or status"
-            totalCount={totalCount}
-          />
-        )}
-      </AdminMainAreaWrapper>
-    </>
+          {/* Courses table */}
+          {courses.length === 0 ? (
+            <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" p="48px" textAlign="center">
+              <Text color="gray.400">No course progress data found for this student.</Text>
+            </Box>
+          ) : (
+            <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" overflow="hidden">
+              <TableContainer>
+                <ChakraTable variant="simple" size="sm">
+                  <Thead bg="#F7FAFC">
+                    <Tr>
+                      {["Course", "Modules", "Completion", "Assessment", "Exam", "Latest Score", "Certificate", "Status", "Last Access"].map((h) => (
+                        <Th key={h} py="12px" fontSize="11px" color="gray.500" fontWeight="600" textTransform="none">{h}</Th>
+                      ))}
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {courses.map((c, i) => (
+                      <Tr key={c.courseId || i} _hover={{ bg: "#F7FAFC" }}>
+                        <Td py="12px" maxW="220px">
+                          <Text fontSize="13px" fontWeight="500" noOfLines={2}>{c.courseTitle}</Text>
+                        </Td>
+                        <Td py="12px" fontSize="12px" color="gray.600">
+                          {c.modulesCompleted ?? "—"}
+                        </Td>
+                        <Td py="12px" minW="120px">
+                          <Flex justifyContent="space-between" mb="4px">
+                            <Text fontSize="11px" color="gray.500">Progress</Text>
+                            <Text fontSize="11px" fontWeight="700" color="#6b006b">
+                              {c.completionPercentage != null ? `${c.completionPercentage}%` : "—"}
+                            </Text>
+                          </Flex>
+                          <Progress value={c.completionPercentage ?? 0} size="xs" colorScheme="purple" borderRadius="4px" />
+                        </Td>
+                        <Td py="12px" fontSize="12px">
+                          {c.assessmentScore != null ? `${c.assessmentScore}%` : "—"}
+                        </Td>
+                        <Td py="12px" fontSize="12px">
+                          {c.courseExamScore != null ? `${c.courseExamScore}%` : "—"}
+                        </Td>
+                        <Td py="12px" fontSize="13px" fontWeight="700" color="#6b006b">
+                          {c.latestScore != null ? `${c.latestScore}%` : "—"}
+                        </Td>
+                        <Td py="12px">
+                          <Badge
+                            colorScheme={c.certificateEarned === "Yes" ? "green" : "gray"}
+                            variant="subtle"
+                            fontSize="11px"
+                          >
+                            {c.certificateEarned === "Yes" ? "✓ Earned" : "Not Yet"}
+                          </Badge>
+                        </Td>
+                        <Td py="12px">
+                          <Badge colorScheme={statusScheme(c.completionStatus)} variant="subtle" fontSize="11px">
+                            {c.completionStatus || "Not Started"}
+                          </Badge>
+                        </Td>
+                        <Td py="12px" fontSize="12px" color="gray.500" whiteSpace="nowrap">
+                          {c.lastAccessDate ? dayjs(c.lastAccessDate).format("DD/MM/YYYY") : "—"}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </ChakraTable>
+              </TableContainer>
+            </Box>
+          )}
+        </>
+      )}
+    </AdminMainAreaWrapper>
   );
 };
 

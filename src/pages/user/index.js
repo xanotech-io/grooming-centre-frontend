@@ -29,3 +29,8 @@ export * from './GradeBook/MyGradeBookPage';
 export * from './GradeBook/MyGradeBooksListPage';
 export * from './Assessment/StudentResultPage';
 export * from './Assessment/AwaitingGradePage';
+export * from './Badges/BadgeListPage';
+export * from './Badges/BadgeDetailPage';
+export * from './Badges/MyBadgesPage';
+export * from './Badges/BadgeProgressPage';
+export * from './Progress/MyProgressPage';

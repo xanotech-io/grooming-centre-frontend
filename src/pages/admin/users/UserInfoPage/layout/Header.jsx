@@ -23,6 +23,10 @@ const links = [
     href: (userId) => `/admin/users/details/${userId}/grade-history`,
     text: "Grade History",
   },
+  {
+    href: (userId) => `/admin/student-progress/${userId}`,
+    text: "Training Report",
+  },
 ];
 
 const Header = () => {

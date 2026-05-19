@@ -85,9 +85,23 @@ import {
   ViewStandaloneExamPageRoute,
   StandaloneStudentGradingPageRoute,
   MISReportsPageRoute,
+  QuestionBankPageRoute,
+  QuestionEditorPageRoute,
+  QuestionPreviewPageRoute,
+  MediaManagerPageRoute,
+  MultimediaStatsPageRoute,
+  ExamPaperConfigPageRoute,
+  ExamConfigKPIPageRoute,
+  BatchImportPageRoute,
+  BatchHistoryPageRoute,
+  ImportResultPageRoute,
+  ImportReportPageRoute,
 } from "../../../pages/admin";
 import { ModuleLessonsPageRoute } from "../../../pages/admin/courses/ViewCourseInfoPage/pages/ModuleLessonsPage";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
+import { BadgeKPIPageRoute } from "../../../pages/admin/badge/BadgeKPIPage";
+import { BadgeReportPageRoute } from "../../../pages/admin/badge/BadgeReportPage";
+import { PendingApprovalsPageRoute } from "../../../pages/admin/badge/PendingApprovalsPage";
 import { ManagementReportRoute } from "../../../pages/admin/report/managementReport/managementReport";
 import { InstructorReportRoute } from "../../../pages/admin/report/instructorReport/instructorReport";
 import { InstructorReportDetailsRoute } from "../../../pages/admin/report/instructorReport/InstructorReportDetails";
@@ -114,6 +128,7 @@ import { AnnouncementListingRoute } from "../../../pages/admin/Annoncement/Annou
 import { CreateAnnouncementRoute } from "../../../pages/admin/Annoncement/CreateAnnouncement";
 import { AcademicMetricsDashboardRoute } from "../../../pages/admin/dashboard/AcademicMetricsDashboard";
 import { InteractiveDashboardRoute } from "../../../pages/admin/dashboard/InteractiveDashboard";
+import { StudentTrainingReportPageRoute } from "../../../pages/admin/studentProgress/StudentTrainingReportPage";
 
 const MainArea = () => {
   return (
@@ -320,9 +335,26 @@ const MainArea = () => {
         <QuestionBankTemplatesPageRoute exact path="/admin/question-bank-templates" />
         <QuestionBankTemplateDetailsPageRoute exact path="/admin/question-bank-templates/:templateId" />
         <DataOperationsPageRoute exact path="/admin/data-operations" />
+        <QuestionBankPageRoute exact path="/admin/multimedia-questions/:examinationId" />
+        <QuestionEditorPageRoute exact path="/admin/multimedia-questions/:examinationId/new" />
+        <MultimediaStatsPageRoute exact path="/admin/multimedia-questions/:examinationId/stats" />
+        <QuestionEditorPageRoute exact path="/admin/multimedia-questions/:examinationId/:questionId/edit" />
+        <QuestionPreviewPageRoute exact path="/admin/multimedia-questions/:examinationId/:questionId/preview" />
+        <MediaManagerPageRoute exact path="/admin/multimedia-questions/:examinationId/:questionId/media" />
+        <ExamPaperConfigPageRoute exact path="/admin/exam-paper-config/:examinationId" />
+        <ExamConfigKPIPageRoute exact path="/admin/exam-config/kpis" />
+        <ImportReportPageRoute exact path="/admin/batch-import/:examinationId/result/:uploadId/report" />
+        <ImportResultPageRoute exact path="/admin/batch-import/:examinationId/result/:uploadId" />
+        <BatchHistoryPageRoute exact path="/admin/batch-import/:examinationId/history" />
+        <BatchImportPageRoute exact path="/admin/batch-import/:examinationId" />
+        <BatchHistoryPageRoute exact path="/admin/question-imports" />
         <BadgeSupportPageRoute exact path="/admin/badge-support" />
+        <BadgeKPIPageRoute exact path="/admin/badges/kpis" />
+        <BadgeReportPageRoute exact path="/admin/badges/report" />
+        <PendingApprovalsPageRoute exact path="/admin/badges/pending-approvals" />
         <AcademicMetricsDashboardRoute exact path="/admin/dashboard/academic" />
         <InteractiveDashboardRoute exact path="/admin/dashboard/interactive" />
+        <StudentTrainingReportPageRoute exact path="/admin/student-progress/:studentId" />
 
         <SecurityPageRoute path="/admin/settings/security" />
         <GradeCriteriaPageRoute path="/admin/settings/grade-criteria" />

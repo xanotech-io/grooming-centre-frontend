@@ -8,7 +8,7 @@ import { VscLibrary } from "react-icons/vsc";
 import { TiPen } from "react-icons/ti";
 import { MdOutlineAnnouncement } from "react-icons/md";
 import { FaFolderOpen, FaSitemap, FaClone, FaDownload, FaDatabase } from "react-icons/fa";
-import { FiAward } from "react-icons/fi";
+import { FiAward, FiTrendingUp } from "react-icons/fi";
 
 export const links = [
   {
@@ -192,6 +192,11 @@ export const links = [
     href: "/admin/badge-support",
     text: "Badge Support",
     icon: <FiAward />,
+  },
+  {
+    href: "/admin/report/studentReport",
+    text: "Student Progress",
+    icon: <FiTrendingUp />,
   },
 ];
 

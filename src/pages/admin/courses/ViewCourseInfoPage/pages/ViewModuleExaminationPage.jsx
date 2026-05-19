@@ -390,13 +390,29 @@ const ViewModuleExaminationPage = () => {
           </Flex>
         </Box>
 
-        <Button
-          secondary
-          size="sm"
-          onClick={() => history.goBack()}
-        >
-          ← Back
-        </Button>
+        <Flex gap="8px">
+          <Button
+            secondary
+            size="sm"
+            onClick={() => history.push(`/admin/batch-import/${examinationId}`)}
+          >
+            Batch Import
+          </Button>
+          <Button
+            secondary
+            size="sm"
+            onClick={() => history.push(`/admin/exam-paper-config/${examinationId}`)}
+          >
+            Configure Paper
+          </Button>
+          <Button
+            secondary
+            size="sm"
+            onClick={() => history.goBack()}
+          >
+            ← Back
+          </Button>
+        </Flex>
       </Flex>
 
       {/* ── Tab container ── */}

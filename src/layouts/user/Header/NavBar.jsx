@@ -36,6 +36,10 @@ const links = [
     text: "Grade Books",
   },
   {
+    href: "/my-progress",
+    text: "My Progress",
+  },
+  {
     href: "/standalone-exams",
     text: "Exams",
   },

@@ -5,7 +5,7 @@ import { Select } from "@chakra-ui/react";
 import { Button, Heading, Breadcrumb, Link, Text } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { BreadcrumbItem } from "@chakra-ui/react";
-import { adminGetStudentProgress } from "../../../../services";
+import { adminGetStudentProgressV2 } from "../../../../services";
 
 const StudentReportDetails = () => {
   const { studentId } = useParams();
@@ -14,50 +14,31 @@ const StudentReportDetails = () => {
   const [selectedCourse, setSelectedCourse] = useState("");
   const [courseOptions, setCourseOptions] = useState([]);
 
-  const safeStudentId =
-    !studentId || studentId === "undefined" ? "mock_student_1" : studentId;
+  const safeStudentId = studentId && studentId !== "undefined" ? studentId : null;
 
   useEffect(() => {
+    if (!safeStudentId) return;
     let mounted = true;
 
     const fetchCourseOptions = async () => {
       try {
-        const response = await adminGetStudentProgress(safeStudentId, {
-          page: 1,
-          limit: 100,
-        });
-
-        const uniqueCourses = [];
-        const seen = new Set();
-
-        (response?.rows || []).forEach((item) => {
-          if (!item?.courseId || seen.has(item.courseId)) return;
-          seen.add(item.courseId);
-          uniqueCourses.push({
-            id: item.courseId,
-            title: item.courseTitle || item.courseId,
-          });
-        });
-
-        if (mounted) {
-          setCourseOptions(uniqueCourses);
-        }
+        const response = await adminGetStudentProgressV2(safeStudentId);
+        const courses = (response?.courses ?? []).map((c) => ({
+          id: c.courseId,
+          title: c.courseTitle || c.courseId,
+        }));
+        if (mounted) setCourseOptions(courses);
       } catch {
-        if (mounted) {
-          setCourseOptions([]);
-        }
+        if (mounted) setCourseOptions([]);
       }
     };
 
     fetchCourseOptions();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [safeStudentId]);
 
   const handleGenerateReport = () => {
-    if (!selectedReportType) return;
+    if (!selectedReportType || !safeStudentId) return;
 
     const queryParams = new URLSearchParams();
     if (selectedReportType === "progress" && selectedCourse) {
@@ -138,7 +119,10 @@ const StudentReportDetails = () => {
           )}
         </VStack>
 
-        <Flex justify="flex-end" mt={10}>
+        <Flex justify="flex-end" gap="10px" mt={10}>
+          <Button secondary onClick={() => history.push(`/admin/student-progress/${safeStudentId}`)}>
+            Full Training Report (TC09)
+          </Button>
           <Button onClick={handleGenerateReport}>Generate report</Button>
         </Flex>
       </Box>

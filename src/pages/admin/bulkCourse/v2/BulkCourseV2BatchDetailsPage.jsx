@@ -1,6 +1,12 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import {
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogOverlay,
   Box,
   Flex,
   Grid,
@@ -17,6 +23,7 @@ import {
   Progress,
   Divider,
   IconButton,
+  useDisclosure,
   useToast,
   Tooltip,
 } from "@chakra-ui/react";
@@ -57,6 +64,9 @@ const BulkCourseV2BatchDetailsPage = () => {
   const { resource, handleFetchResource } = useFetch();
   const [retrying, setRetrying] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [itemFilter, setItemFilter] = useState("all");
+  const { isOpen: isPublishOpen, onOpen: onPublishOpen, onClose: onPublishClose } = useDisclosure();
+  const cancelPublishRef = useRef();
 
   const fetcher = useCallback(async () => {
     const { batch } = await adminGetBulkCourseV2BatchDetails(batchId);
@@ -117,6 +127,7 @@ const BulkCourseV2BatchDetailsPage = () => {
   const batchStatus = batch ? String(batch.status).toLowerCase() : "";
   const progressPct = parseFloat(batch?.progressPercentage) || 0;
   const items = batch?.items ?? [];
+  const filteredItems = itemFilter === "all" ? items : items.filter((item) => item.status === itemFilter);
 
   return (
     <Box marginX="22px" marginY="20px">
@@ -140,6 +151,33 @@ const BulkCourseV2BatchDetailsPage = () => {
         </Flex>
       )}
 
+      <AlertDialog
+        isOpen={isPublishOpen}
+        leastDestructiveRef={cancelPublishRef}
+        onClose={onPublishClose}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="16px" fontWeight="600">Publish Courses</AlertDialogHeader>
+            <AlertDialogBody fontSize="14px">
+              This will publish {batch?.successfulCount ?? 0} course{(batch?.successfulCount ?? 0) !== 1 ? "s" : ""} and make them visible to students. This action cannot be undone via this module. Continue?
+            </AlertDialogBody>
+            <AlertDialogFooter gap="8px">
+              <Button secondary ref={cancelPublishRef} onClick={onPublishClose}>Cancel</Button>
+              <Button
+                isLoading={publishing}
+                onClick={() => {
+                  onPublishClose();
+                  handlePublish();
+                }}
+              >
+                Confirm Publish
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
       {!resource.loading && !resource.err && batch && (
         <>
           {/* Batch Info */}
@@ -151,14 +189,14 @@ const BulkCourseV2BatchDetailsPage = () => {
               </Box>
               <Flex gap="12px" alignItems="center" flexWrap="wrap">
                 {getStatusBadge(batch.status)}
-                {(batchStatus === "error" || batchStatus === "failed") && (
+                {batch.failedCount > 0 && (
                   <Button size="sm" leftIcon={<FaRedo />} isLoading={retrying} onClick={handleRetry}>
-                    Retry Batch
+                    Retry Failed ({batch.failedCount})
                   </Button>
                 )}
-                {(batch.successfulCount > 0 || batchStatus === "completed") && (
-                  <Button size="sm" leftIcon={<FaGlobe />} isLoading={publishing} onClick={handlePublish}>
-                    Publish Batch
+                {batch.successfulCount > 0 && (
+                  <Button size="sm" leftIcon={<FaGlobe />} isLoading={publishing} onClick={onPublishOpen}>
+                    Publish All ({batch.successfulCount})
                   </Button>
                 )}
               </Flex>
@@ -232,25 +270,50 @@ const BulkCourseV2BatchDetailsPage = () => {
 
           {/* Items Table */}
           <Box bg="white" borderRadius="8px" border="1px solid #E2E8F0" overflow="hidden">
-            <Flex px="20px" py="16px" borderBottom="1px solid #E2E8F0">
-              <Text fontSize="16px" fontWeight="600" color="gray.700">
+            <Flex px="20px" pt="16px" pb="0" borderBottom="1px solid #E2E8F0" alignItems="center" gap="24px">
+              <Text fontSize="16px" fontWeight="600" color="gray.700" pb="16px">
                 Course Items ({items.length})
               </Text>
+              <Flex gap="0">
+                {[
+                  { key: "all", label: `All (${items.length})` },
+                  { key: "created", label: `Created (${items.filter((i) => i.status === "created").length})` },
+                  { key: "failed", label: `Failed (${items.filter((i) => i.status === "failed").length})` },
+                ].map((tab) => (
+                  <Box
+                    key={tab.key}
+                    px="16px"
+                    pb="12px"
+                    fontSize="13px"
+                    fontWeight="600"
+                    color={itemFilter === tab.key ? "#6b006b" : "gray.500"}
+                    borderBottom={itemFilter === tab.key ? "2px solid #6b006b" : "2px solid transparent"}
+                    cursor="pointer"
+                    onClick={() => setItemFilter(tab.key)}
+                  >
+                    {tab.label}
+                  </Box>
+                ))}
+              </Flex>
             </Flex>
 
-            {items.length > 0 ? (
+            {filteredItems.length > 0 ? (
               <TableContainer>
                 <Table variant="simple" size="sm">
                   <Thead bg="#F7FAFC">
                     <Tr>
-                      {["Course Title", "Instructor", "Status", "Error Reason", "Created At"].map((h) => (
+                      {["Course Title", "Instructor", "Status", "Course ID", "Error Reason"].map((h) => (
                         <Th key={h} py="14px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">{h}</Th>
                       ))}
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {items.map((item) => (
-                      <Tr key={item.id} _hover={{ bg: "#F7FAFC" }}>
+                    {filteredItems.map((item) => (
+                      <Tr
+                        key={item.id}
+                        _hover={{ bg: "#F7FAFC" }}
+                        bg={item.status === "created" ? "#F0FFF4" : item.status === "failed" ? "#FFF5F5" : "white"}
+                      >
                         <Td py="14px" fontSize="14px" fontWeight="500">{item.courseTitle || "—"}</Td>
                         <Td py="14px" fontSize="13px" color="gray.600">
                           {item.instructor
@@ -258,15 +321,17 @@ const BulkCourseV2BatchDetailsPage = () => {
                             : "—"}
                         </Td>
                         <Td py="14px">{getStatusBadge(item.status)}</Td>
-                        <Td py="14px" fontSize="13px" color="red.500" maxW="300px">
+                        <Td py="14px" fontSize="12px" color="gray.500" maxW="200px">
+                          {item.courseId ? (
+                            <Text noOfLines={1} fontFamily="mono">{item.courseId}</Text>
+                          ) : "—"}
+                        </Td>
+                        <Td py="14px" fontSize="13px" color="red.500" maxW="280px">
                           {item.errorReason ? (
                             <Tooltip label={item.errorReason} placement="top">
                               <Text noOfLines={1} cursor="help">{item.errorReason}</Text>
                             </Tooltip>
                           ) : "—"}
-                        </Td>
-                        <Td py="14px" fontSize="13px" color="gray.500">
-                          {item.createdAt ? new Date(item.createdAt).toLocaleString() : "—"}
                         </Td>
                       </Tr>
                     ))}
@@ -275,7 +340,9 @@ const BulkCourseV2BatchDetailsPage = () => {
               </TableContainer>
             ) : (
               <Flex justifyContent="center" py="40px">
-                <Text color="gray.400">No items available.</Text>
+                <Text color="gray.400">
+                  {items.length === 0 ? "No items available." : `No ${itemFilter} items.`}
+                </Text>
               </Flex>
             )}
           </Box>

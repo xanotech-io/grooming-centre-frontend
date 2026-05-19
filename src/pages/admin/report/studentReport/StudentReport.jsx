@@ -1,5 +1,5 @@
 import { Flex, Box } from "@chakra-ui/layout";
-import { Route } from "react-router-dom";
+import { Route, useHistory } from "react-router-dom";
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { Badge } from "@chakra-ui/react";
 import {
@@ -12,44 +12,13 @@ import {
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { useTableRows } from "../../../../hooks";
-
-const MOCK_STUDENTS = [
-  {
-    id: "mock_student_1",
-    firstName: "John",
-    lastName: "Doe",
-    displayId: "STU-001",
-    email: "john.doe@example.com",
-    active: true,
-  },
-  {
-    id: "mock_student_2",
-    firstName: "Jane",
-    lastName: "Smith",
-    displayId: "STU-002",
-    email: "jane.smith@example.com",
-    active: false,
-  },
-  {
-    id: "mock_student_3",
-    firstName: "Alice",
-    lastName: "Johnson",
-    displayId: "STU-003",
-    email: "alice.j@example.com",
-    active: true,
-  },
-  {
-    id: "mock_student_4",
-    firstName: "Robert",
-    lastName: "Downey",
-    displayId: "STU-004",
-    email: "robert.d@example.com",
-    active: true,
-  },
-];
+import { adminGetUserListing } from "../../../../services";
 
 const StudentReport = () => {
+  const history = useHistory();
+
   const tableProps = {
+    searchKey: "search",
     filterControls: [
       {
         triggerText: "Sort",
@@ -59,16 +28,8 @@ const StudentReport = () => {
         position: "right-bottom",
         body: {
           radios: [
-            {
-              label: "Alphabetically: ascending",
-              queryValue: "asc",
-              additionalParams: { date: false },
-            },
-            {
-              label: "Alphabetically: descending",
-              queryValue: "desc",
-              additionalParams: { date: false },
-            },
+            { label: "Alphabetically: ascending", queryValue: "asc", additionalParams: { date: false } },
+            { label: "Alphabetically: descending", queryValue: "desc", additionalParams: { date: false } },
           ],
         },
       },
@@ -100,14 +61,11 @@ const StudentReport = () => {
         key: "status",
         text: "Status",
         fraction: "120px",
-        renderContent: (data) => {
-          const isActive = data.active;
-          return (
-            <Badge colorScheme={isActive ? "green" : "orange"} variant="solid">
-              {isActive ? "Active" : "Inactive"}
-            </Badge>
-          );
-        },
+        renderContent: (data) => (
+          <Badge colorScheme={data.active ? "green" : "orange"} variant="solid">
+            {data.active ? "Active" : "Inactive"}
+          </Badge>
+        ),
       },
     ],
 
@@ -117,6 +75,10 @@ const StudentReport = () => {
           text: "View Report",
           link: (user) => `/admin/report/studentReport/${user.id}/details`,
         },
+        {
+          text: "Training Report",
+          link: (user) => `/admin/student-progress/${user.id}`,
+        },
       ],
       selection: false,
       pagination: true,
@@ -125,23 +87,19 @@ const StudentReport = () => {
 
   const mapUserToRow = (user) => ({
     ...user,
-    fullName: {
-      text: `${user.firstName} ${user.lastName}`,
-      userId: user.id,
-    },
-    userId: {
-      text: user.displayId,
-      userId: user.id,
-    },
-    status: {
-      active: user.active,
-      text: user.active ? "Active" : "Inactive",
-    },
+    fullName: { text: `${user.firstName} ${user.lastName}`, userId: user.id },
+    userId: { text: user.displayId, userId: user.id },
+    status: { active: user.active, text: user.active ? "Active" : "Inactive" },
   });
 
-  const fetcher = () => async () => {
-    const rows = MOCK_STUDENTS.map(mapUserToRow);
-    return { rows, showingDocumentsCount: rows.length, totalDocumentsCount: rows.length };
+  const fetcher = (props) => async () => {
+    const result = await adminGetUserListing(props?.params);
+    const rows = (result.users ?? []).map(mapUserToRow);
+    return {
+      rows,
+      showingDocumentsCount: result.showingDocumentsCount ?? rows.length,
+      totalDocumentsCount: result.totalDocumentsCount ?? rows.length,
+    };
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);

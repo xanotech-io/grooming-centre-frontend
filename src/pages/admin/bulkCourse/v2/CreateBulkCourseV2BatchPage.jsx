@@ -20,7 +20,7 @@ import {
   TabPanel,
   Code,
 } from "@chakra-ui/react";
-import { FaPlus, FaTrash, FaArrowLeft, FaUpload } from "react-icons/fa";
+import { FaPlus, FaTrash, FaArrowLeft, FaUpload, FaDownload } from "react-icons/fa";
 import { Button, Heading } from "../../../../components";
 import {
   adminGetBulkCourseV2Templates,
@@ -60,7 +60,19 @@ const CreateBulkCourseV2BatchPage = () => {
   const [csvDepartmentId, setCsvDepartmentId] = useState("");
   const [csvTemplateId, setCsvTemplateId] = useState("");
   const [csvTerm, setCsvTerm] = useState("");
+  const [csvRemark, setCsvRemark] = useState("");
   const [csvSubmitting, setCsvSubmitting] = useState(false);
+
+  const downloadSampleCsv = () => {
+    const csv = "title,description,instructor_id\nIntroduction to Programming,Foundational programming concepts,\nData Structures,,\nAlgorithms and Complexity,Advanced algorithmic thinking,\n";
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bulk-course-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const fetchMeta = useCallback(async () => {
     try {
@@ -107,9 +119,9 @@ const CreateBulkCourseV2BatchPage = () => {
 
     setSubmitting(true);
     try {
-      const { message } = await adminCreateBulkCourseV2Batch(payload);
+      const { message, batch } = await adminCreateBulkCourseV2Batch(payload);
       toast({ title: message || "Batch created successfully", status: "success", duration: 3000, isClosable: true });
-      history.push("/admin/bulk-courses");
+      history.push(`/admin/bulk-courses/${batch.id}`);
     } catch {
       toast({ title: "Failed to create batch", status: "error", duration: 3000, isClosable: true });
     } finally {
@@ -133,12 +145,13 @@ const CreateBulkCourseV2BatchPage = () => {
     formData.append("departmentId", csvDepartmentId);
     if (csvTemplateId) formData.append("templateId", csvTemplateId);
     if (csvTerm.trim()) formData.append("term", csvTerm.trim());
+    if (csvRemark.trim()) formData.append("remark", csvRemark.trim());
 
     setCsvSubmitting(true);
     try {
-      const { message } = await adminUploadBulkCourseV2BatchFile(formData);
+      const { message, batch } = await adminUploadBulkCourseV2BatchFile(formData);
       toast({ title: message || "Batch created from file", status: "success", duration: 3000, isClosable: true });
-      history.push("/admin/bulk-courses");
+      history.push(`/admin/bulk-courses/${batch.id}`);
     } catch {
       toast({ title: "Failed to upload file", status: "error", duration: 3000, isClosable: true });
     } finally {
@@ -350,7 +363,23 @@ const CreateBulkCourseV2BatchPage = () => {
               </FormControl>
 
               <FormControl isRequired mb="16px">
-                <FormLabel fontSize="14px" fontWeight="500" color="gray.600">CSV / Excel File</FormLabel>
+                <Flex justifyContent="space-between" alignItems="center" mb="6px">
+                  <FormLabel fontSize="14px" fontWeight="500" color="gray.600" mb="0">CSV / Excel File</FormLabel>
+                  <Flex
+                    as="button"
+                    type="button"
+                    alignItems="center"
+                    gap="4px"
+                    fontSize="12px"
+                    color="#3182CE"
+                    fontWeight="600"
+                    onClick={downloadSampleCsv}
+                    _hover={{ opacity: 0.8 }}
+                  >
+                    <FaDownload size={11} />
+                    Download Sample CSV
+                  </Flex>
+                </Flex>
                 <Box
                   border="2px dashed #CBD5E0"
                   borderRadius="8px"
@@ -364,21 +393,47 @@ const CreateBulkCourseV2BatchPage = () => {
                   <Text fontSize="14px" color="gray.500">
                     {csvFile ? csvFile.name : "Click to select a file"}
                   </Text>
-                  <Text fontSize="12px" color="gray.400" mt="4px">.csv or .xlsx files</Text>
+                  {csvFile ? (
+                    <Text fontSize="12px" color="gray.400" mt="4px">
+                      {(csvFile.size / 1024).toFixed(1)} KB
+                    </Text>
+                  ) : (
+                    <Text fontSize="12px" color="gray.400" mt="4px">.csv or .xlsx files · max 5 MB</Text>
+                  )}
                 </Box>
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept=".csv,.xlsx,.xls"
                   style={{ display: "none" }}
-                  onChange={(e) => setCsvFile(e.target.files[0] || null)}
+                  onChange={(e) => {
+                    const file = e.target.files[0] || null;
+                    if (file && file.size > 5 * 1024 * 1024) {
+                      toast({ title: "File must be 5 MB or smaller", status: "warning", duration: 3000, isClosable: true });
+                      e.target.value = "";
+                      return;
+                    }
+                    setCsvFile(file);
+                  }}
+                />
+              </FormControl>
+
+              <FormControl mb="16px">
+                <FormLabel fontSize="14px" fontWeight="500" color="gray.600">Remark (optional)</FormLabel>
+                <Textarea
+                  size="sm"
+                  borderRadius="6px"
+                  placeholder="Any notes about this upload batch"
+                  rows={2}
+                  value={csvRemark}
+                  onChange={(e) => setCsvRemark(e.target.value)}
                 />
               </FormControl>
 
               <Box bg="#F7FAFC" border="1px solid #E2E8F0" borderRadius="6px" p="12px" mb="20px">
                 <Text fontSize="13px" fontWeight="600" color="gray.600" mb="6px">Expected columns:</Text>
                 <Code fontSize="12px" display="block" whiteSpace="pre" bg="transparent">
-                  {`title, description (optional), instructorId (optional)`}
+                  {`title (or course_title), description (optional), instructor_id (optional)`}
                 </Code>
               </Box>
 
