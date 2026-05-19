@@ -59,3 +59,4 @@ export * from "./http/endpoints/exportReportsV2";
 export * from "./http/endpoints/student";
 export * from "./http/endpoints/compliance";
 export * from "./http/endpoints/document";
+export * from "./http/endpoints/markingSchemeV2";

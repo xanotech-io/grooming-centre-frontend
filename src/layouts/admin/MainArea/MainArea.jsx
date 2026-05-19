@@ -102,6 +102,11 @@ import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPa
 import { BadgeKPIPageRoute } from "../../../pages/admin/badge/BadgeKPIPage";
 import { BadgeReportPageRoute } from "../../../pages/admin/badge/BadgeReportPage";
 import { PendingApprovalsPageRoute } from "../../../pages/admin/badge/PendingApprovalsPage";
+import { MarkingSchemesListPageRoute } from "../../../pages/admin/markingSchemes/MarkingSchemesListPage";
+import { MarkingSchemeFormPageRoute } from "../../../pages/admin/markingSchemes/MarkingSchemeFormPage";
+import { MarkingSchemeDetailPageRoute } from "../../../pages/admin/markingSchemes/MarkingSchemeDetailPage";
+import { GradeDistributionPageRoute } from "../../../pages/admin/markingSchemes/GradeDistributionPage";
+import { MarkingSchemeKPIPageRoute } from "../../../pages/admin/markingSchemes/MarkingSchemeKPIPage";
 import { ManagementReportRoute } from "../../../pages/admin/report/managementReport/managementReport";
 import { InstructorReportRoute } from "../../../pages/admin/report/instructorReport/instructorReport";
 import { InstructorReportDetailsRoute } from "../../../pages/admin/report/instructorReport/InstructorReportDetails";
@@ -437,6 +442,11 @@ const MainArea = () => {
           exact
           path="/admin/badges/pending-approvals"
         />
+        <MarkingSchemeFormPageRoute exact path="/admin/marking-schemes/new" />
+        <MarkingSchemeKPIPageRoute exact path="/admin/marking-schemes/kpis" />
+        <GradeDistributionPageRoute exact path="/admin/marking-schemes/distribution/:examinationId" />
+        <MarkingSchemeDetailPageRoute exact path="/admin/marking-schemes/:schemeId" />
+        <MarkingSchemesListPageRoute exact path="/admin/marking-schemes" />
         <AcademicMetricsDashboardRoute exact path="/admin/dashboard/academic" />
         <InteractiveDashboardRoute exact path="/admin/dashboard/interactive" />
         <StudentTrainingReportPageRoute

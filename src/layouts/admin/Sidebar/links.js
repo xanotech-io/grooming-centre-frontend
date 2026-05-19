@@ -149,6 +149,11 @@ export const links = [
     icon: <TiPen />,
   },
   {
+    href: "/admin/marking-schemes",
+    text: "Marking Schemes",
+    icon: <TiPen />,
+  },
+  {
     href: "/admin/feedback-markup",
     text: "Feedback Markup",
     icon: <TiPen />,
