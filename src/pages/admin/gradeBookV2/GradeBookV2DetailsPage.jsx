@@ -23,6 +23,12 @@ import {
   ModalBody,
   ModalFooter,
   ModalCloseButton,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
   useDisclosure,
   IconButton,
   Textarea,
@@ -486,7 +492,7 @@ const AnalyticsTab = ({ gradebookId }) => {
             ))}
           </Grid>
 
-          <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap="20px">
+          <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap="20px" mb="20px">
             <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" p="20px">
               <Text fontSize="14px" fontWeight="600" color="gray.700" mb="16px">Grade Distribution</Text>
               {a.gradeDistribution && Object.entries(a.gradeDistribution).map(([grade, count]) => (
@@ -519,6 +525,39 @@ const AnalyticsTab = ({ gradebookId }) => {
               ))}
             </Box>
           </Grid>
+
+          {/* Pass / Fail ratio */}
+          <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" p="20px">
+            <Text fontSize="14px" fontWeight="600" color="gray.700" mb="16px">Pass / Fail Ratio</Text>
+            {(() => {
+              const total = a.totalStudents || 0;
+              const passCount = Math.round(((a.passRate ?? 0) / 100) * total);
+              const failCount = total - passCount;
+              const passWidth = total > 0 ? (passCount / total) * 100 : 0;
+              return (
+                <Box>
+                  <Flex h="32px" borderRadius="8px" overflow="hidden" mb="12px">
+                    <Box flex={passWidth} bg="#38A169" minW={passWidth > 0 ? "4px" : "0"} />
+                    <Box flex={100 - passWidth} bg="#E53E3E" minW={100 - passWidth > 0 ? "4px" : "0"} />
+                  </Flex>
+                  <Flex gap="24px">
+                    <Flex alignItems="center" gap="8px">
+                      <Box w="12px" h="12px" borderRadius="2px" bg="#38A169" flexShrink={0} />
+                      <Text fontSize="13px" color="gray.600">
+                        Pass — <Text as="span" fontWeight="700" color="#38A169">{passCount}</Text> students ({passWidth.toFixed(1)}%)
+                      </Text>
+                    </Flex>
+                    <Flex alignItems="center" gap="8px">
+                      <Box w="12px" h="12px" borderRadius="2px" bg="#E53E3E" flexShrink={0} />
+                      <Text fontSize="13px" color="gray.600">
+                        Fail — <Text as="span" fontWeight="700" color="#E53E3E">{failCount}</Text> students ({(100 - passWidth).toFixed(1)}%)
+                      </Text>
+                    </Flex>
+                  </Flex>
+                </Box>
+              );
+            })()}
+          </Box>
         </>
       )}
     </Box>
@@ -699,6 +738,10 @@ const GradeBookV2DetailsPage = () => {
   const [exporting, setExporting] = useState(null);
   const [entriesKey, setEntriesKey] = useState(0);
   const { isOpen: isSyncOpen, onOpen: onSyncOpen, onClose: onSyncClose } = useDisclosure();
+  const { isOpen: isFinalizeOpen, onOpen: onFinalizeOpen, onClose: onFinalizeClose } = useDisclosure();
+  const { isOpen: isPublishOpen, onOpen: onPublishOpen, onClose: onPublishClose } = useDisclosure();
+  const finalizeRef = React.useRef();
+  const publishRef = React.useRef();
 
   const { resource, handleFetchResource } = useFetch();
   const fetcher = useCallback(async () => {
@@ -711,6 +754,7 @@ const GradeBookV2DetailsPage = () => {
   const status = String(gradeBook?.status || "draft").toLowerCase();
 
   const handleFinalize = async () => {
+    onFinalizeClose();
     setFinalizing(true);
     try {
       await gradeBookV2Finalize(gradebookId);
@@ -724,10 +768,7 @@ const GradeBookV2DetailsPage = () => {
   };
 
   const handlePublish = async () => {
-    if (status !== "finalized") {
-      toast({ title: "Finalize the grade book before publishing", status: "warning", duration: 3000, isClosable: true });
-      return;
-    }
+    onPublishClose();
     setPublishing(true);
     try {
       await gradeBookV2Publish(gradebookId);
@@ -870,12 +911,12 @@ const GradeBookV2DetailsPage = () => {
               </Button>
 
               {status === "draft" && (
-                <Button size="sm" isLoading={finalizing} onClick={handleFinalize}>
+                <Button size="sm" isLoading={finalizing} onClick={onFinalizeOpen}>
                   Finalize
                 </Button>
               )}
               {status === "finalized" && (
-                <Button size="sm" isLoading={publishing} onClick={handlePublish}>
+                <Button size="sm" isLoading={publishing} onClick={onPublishOpen}>
                   Publish to Students
                 </Button>
               )}
@@ -963,6 +1004,38 @@ const GradeBookV2DetailsPage = () => {
           </ModalBody>
         </ModalContent>
       </Modal>
+
+      {/* Finalize confirmation */}
+      <AlertDialog isOpen={isFinalizeOpen} leastDestructiveRef={finalizeRef} onClose={onFinalizeClose} isCentered>
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="16px" fontWeight="600">Finalize Grade Book?</AlertDialogHeader>
+            <AlertDialogBody fontSize="14px" color="gray.600">
+              This will lock all entries and set the status to <strong>Finalized</strong>. Students cannot view grades yet, but entries will no longer be editable. This action cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter gap="8px">
+              <Button secondary ref={finalizeRef} onClick={onFinalizeClose}>Cancel</Button>
+              <Button isLoading={finalizing} onClick={handleFinalize}>Finalize</Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      {/* Publish confirmation */}
+      <AlertDialog isOpen={isPublishOpen} leastDestructiveRef={publishRef} onClose={onPublishClose} isCentered>
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="16px" fontWeight="600">Publish Grades?</AlertDialogHeader>
+            <AlertDialogBody fontSize="14px" color="gray.600">
+              Students will be able to view their grades immediately after publishing. Notifications will be sent. This action cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter gap="8px">
+              <Button secondary ref={publishRef} onClick={onPublishClose}>Cancel</Button>
+              <Button isLoading={publishing} onClick={handlePublish}>Publish</Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Box>
   );
 };

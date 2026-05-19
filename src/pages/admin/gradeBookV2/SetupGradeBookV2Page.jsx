@@ -118,6 +118,12 @@ const SetupGradeBookV2Page = () => {
       toast({ title: "All categories must have a name", status: "warning", duration: 2000, isClosable: true });
       return;
     }
+    const names = categories.map((c) => c.name.trim().toLowerCase());
+    const hasDuplicates = names.length !== new Set(names).size;
+    if (hasDuplicates) {
+      toast({ title: "Category names must be unique", status: "warning", duration: 2000, isClosable: true });
+      return;
+    }
 
     const scaleObj = {};
     gradingScale.forEach((s) => { if (s.grade && s.range) scaleObj[s.grade] = s.range; });
