@@ -42,7 +42,9 @@ const CourseCompletion = () => {
         params,
       );
 
-      const rows = (response.rows || []).map((report) => mapReportToRow(report));
+      const rows = (response.rows || []).map((report) =>
+        mapReportToRow(report),
+      );
       setSummary(response.aggregateStats || null);
       setTotalCount(response.totalDocumentsCount || rows.length);
 
@@ -167,18 +169,26 @@ const CourseCompletion = () => {
 
   return (
     <AdminMainAreaWrapper>
-      <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        my={4}
+      >
         <Breadcrumb
-          item2={<BreadcrumbItem><Link href="/admin/report/instructorReport">Instructors</Link></BreadcrumbItem>}
-          item3={<BreadcrumbItem isCurrentPage><Link href="#">Course Completion</Link></BreadcrumbItem>}
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/report/instructorReport">Instructors</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Course Completion</Link>
+            </BreadcrumbItem>
+          }
         />
       </Box>
-      <Box
-        display={"flex"}
-        justifyContent="space-between"
-        gridGap={4}
-        mb={10}
-      >
+      <Box display={"flex"} justifyContent="space-between" gridGap={4} mb={10}>
         <DashboardMetricCard
           title="Completion Rate"
           value={`${summary?.overallCompletionRate ?? 0}%`}
@@ -240,7 +250,9 @@ const CourseCompletion = () => {
 };
 
 export const CourseCompletionRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <CourseCompletion {...props} />} />;
+  return (
+    <Route {...rest} render={(props) => <CourseCompletion {...props} />} />
+  );
 };
 
 export default CourseCompletion;

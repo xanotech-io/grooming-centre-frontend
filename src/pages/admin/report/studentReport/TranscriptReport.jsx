@@ -259,7 +259,6 @@ const TranscriptReport = () => {
   const fetchReports = async (studentIdValue, params = {}) => {
     setLoading(true);
     setError(null);
-
     try {
       const apiResponse = await adminGetStudentTranscript(
         studentIdValue,
@@ -353,6 +352,8 @@ const TranscriptReport = () => {
     searchKey: "search",
     filterControls: [
       {
+        triggerText: "Academic Year",
+        queryKey: "academicYear",
         triggerText: "Academic Year",
         queryKey: "academicYear",
         width: "180px",
@@ -569,4 +570,5 @@ export const TranscriptReportRoute = ({ ...rest }) => {
   );
 };
 
+export default TranscriptReport;
 export default TranscriptReport;

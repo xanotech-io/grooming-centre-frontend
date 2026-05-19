@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 import { Route, useParams, useHistory } from "react-router-dom";
 import { Box, Flex, VStack } from "@chakra-ui/layout";
 import { Select } from "@chakra-ui/react";
-import { Button, Heading, Breadcrumb, Link, Text } from "../../../../components";
+import {
+  Button,
+  Heading,
+  Breadcrumb,
+  Link,
+  Text,
+} from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { adminGetStudentProgressV2 } from "../../../../services";
@@ -14,7 +20,8 @@ const StudentReportDetails = () => {
   const [selectedCourse, setSelectedCourse] = useState("");
   const [courseOptions, setCourseOptions] = useState([]);
 
-  const safeStudentId = studentId && studentId !== "undefined" ? studentId : null;
+  const safeStudentId =
+    studentId && studentId !== "undefined" ? studentId : null;
 
   useEffect(() => {
     if (!safeStudentId) return;
@@ -34,7 +41,9 @@ const StudentReportDetails = () => {
     };
 
     fetchCourseOptions();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [safeStudentId]);
 
   const handleGenerateReport = () => {
@@ -55,7 +64,12 @@ const StudentReportDetails = () => {
 
   return (
     <AdminMainAreaWrapper>
-      <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        my={4}
+      >
         <Breadcrumb
           item2={
             <BreadcrumbItem>
@@ -120,7 +134,12 @@ const StudentReportDetails = () => {
         </VStack>
 
         <Flex justify="flex-end" gap="10px" mt={10}>
-          <Button secondary onClick={() => history.push(`/admin/student-progress/${safeStudentId}`)}>
+          <Button
+            secondary
+            onClick={() =>
+              history.push(`/admin/student-progress/${safeStudentId}`)
+            }
+          >
             Full Training Report (TC09)
           </Button>
           <Button onClick={handleGenerateReport}>Generate report</Button>
@@ -131,7 +150,9 @@ const StudentReportDetails = () => {
 };
 
 export const StudentReportDetailsRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <StudentReportDetails {...props} />} />;
+  return (
+    <Route {...rest} render={(props) => <StudentReportDetails {...props} />} />
+  );
 };
 
 export default StudentReportDetails;

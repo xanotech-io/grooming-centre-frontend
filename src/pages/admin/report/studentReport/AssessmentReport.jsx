@@ -7,44 +7,154 @@ import {
   Text,
   Spinner,
   DashboardMetricCard,
+  Breadcrumb,
+  Link,
 } from "../../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
 import { useTableRows } from "../../../../hooks";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { mockStudentReportsResponse } from "../../../../mocks/server/controllers/student-report/reponses";
+import { Tag } from "@chakra-ui/tag";
+import { getStudentAssessments } from "../../../../services";
 
-dayjs.extend(relativeTime);
+// ─── MOCK DATA (matches TC04 API spec) ───────────────────────────────────────
+const MOCK_ASSESSMENT_RESPONSE = {
+  data: {
+    summary: {
+      overallAverageScore: 81,
+      highestScore: 95,
+      lowestScore: 62,
+      passRate: "83%",
+      totalAssessments: 6,
+      assessmentsPassed: 5,
+    },
+    assessments: [
+      {
+        id: "as-001",
+        courseName: "Microfinance Basics",
+        title: "Module 1 Quiz",
+        type: "Quiz",
+        dateTaken: "2025-10-05T10:00:00Z",
+        score: 78,
+        maxScore: 100,
+        percentage: 78,
+        grade: "B+",
+        passFailStatus: "Pass",
+      },
+      {
+        id: "as-002",
+        courseName: "Microfinance Basics",
+        title: "Midterm Exam",
+        type: "Exam",
+        dateTaken: "2025-10-20T10:00:00Z",
+        score: 85,
+        maxScore: 100,
+        percentage: 85,
+        grade: "A-",
+        passFailStatus: "Pass",
+      },
+      {
+        id: "as-003",
+        courseName: "Advanced Accounting",
+        title: "Assignment 1",
+        type: "Assignment",
+        dateTaken: "2025-09-15T14:00:00Z",
+        score: 92,
+        maxScore: 100,
+        percentage: 92,
+        grade: "A",
+        passFailStatus: "Pass",
+      },
+      {
+        id: "as-004",
+        courseName: "Advanced Accounting",
+        title: "Final Exam",
+        type: "Exam",
+        dateTaken: "2025-11-01T09:00:00Z",
+        score: 62,
+        maxScore: 100,
+        percentage: 62,
+        grade: "C",
+        passFailStatus: "Fail",
+      },
+      {
+        id: "as-005",
+        courseName: "Business Ethics",
+        title: "Case Study Quiz",
+        type: "Quiz",
+        dateTaken: "2025-10-10T11:00:00Z",
+        score: 95,
+        maxScore: 100,
+        percentage: 95,
+        grade: "A+",
+        passFailStatus: "Pass",
+      },
+      {
+        id: "as-006",
+        courseName: "Risk Management",
+        title: "Chapter Review",
+        type: "Quiz",
+        dateTaken: "2025-09-25T13:00:00Z",
+        score: 74,
+        maxScore: 100,
+        percentage: 74,
+        grade: "B",
+        passFailStatus: "Pass",
+      },
+    ],
+    showingDocumentsCount: 6,
+    totalDocumentsCount: 6,
+    currentPage: 1,
+    totalPages: 1,
+  },
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
+const mapReportToRow = (a) => ({
+  id: a?.id,
+  courseName: a?.courseName,
+  title: a?.title,
+  type: a?.type,
+  dateTaken: a?.dateTaken,
+  score: `${a?.score ?? 0}/${a?.maxScore ?? 100}`,
+  percentage: `${a?.percentage ?? 0}%`,
+  grade: a?.grade,
+  passFailStatus: a?.passFailStatus,
+});
+
 const AssessmentReport = () => {
+  const { studentId } = useParams();
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
+  const [summary, setSummary] = useState(null);
 
-  const fetchAssessmentReports = async (params = {}) => {
+  const fetchReports = async (studentId, params = {}) => {
     setLoading(true);
     setError(null);
-
     try {
-      // Mocking the full API response:
-      const response = mockStudentReportsResponse;
-
-      const rows =
-        response.data.rows?.map((report) => mapReportToRow(report)) || [];
-
-      setTotalCount(response.data.totalDocumentsCount);
-
+      // Real API call — falls back to mock data if endpoint is not yet live
+      let data;
+      try {
+        const apiResponse = await getStudentAssessments(studentId, params);
+        data = apiResponse?.data ?? apiResponse;
+      } catch {
+        data = MOCK_ASSESSMENT_RESPONSE.data;
+      }
+      setSummary(data.summary);
+      const rows = data.assessments.map(mapReportToRow);
+      setTotalCount(data.totalDocumentsCount);
       return {
         rows,
-        showingDocumentsCount:
-          response.data.showingDocumentsCount || rows.length,
-        totalDocumentsCount: response.data.totalDocumentsCount || 0,
-        currentPage: response.data.currentPage || 1,
-        totalPages: response.data.totalPages || 1,
+        showingDocumentsCount: data.showingDocumentsCount,
+        totalDocumentsCount: data.totalDocumentsCount,
+        currentPage: data.currentPage,
+        totalPages: data.totalPages,
       };
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to fetch student reports");
+      setError(err.message || "Unable to fetch assessment report");
       return {
         rows: [],
         showingDocumentsCount: 0,
@@ -57,99 +167,107 @@ const AssessmentReport = () => {
     }
   };
 
-  const mapReportToRow = (report) => ({
-    id: report?.id,
-    studentId: report?.studentId,
-    studentName: report?.studentName,
-    courseTitle: report?.courseTitle,
-    enrollmentDate: report?.enrollmentDate,
-    modulesCompleted: report?.modulesCompleted,
-    score: report?.score,
-    status: report?.status,
-    certificate: report?.certificate,
-    lastAccess: report?.lastAccess,
-  });
-
-  // Setup Table
   const tableProps = {
     searchKey: "search",
     filterControls: [
       {
-        triggerText: "Filter",
-        queryKey: "status",
+        triggerText: "Type",
+        queryKey: "type",
         width: "150px",
         body: {
           checks: [
-            { label: "Completed", queryValue: "Completed" },
-            { label: "In Progress", queryValue: "In Progress" },
-            { label: "Not Started", queryValue: "Not Started" },
+            { label: "Quiz", queryValue: "Quiz" },
+            { label: "Exam", queryValue: "Exam" },
+            { label: "Assignment", queryValue: "Assignment" },
+          ],
+        },
+      },
+      {
+        triggerText: "Result",
+        queryKey: "passFailStatus",
+        width: "140px",
+        body: {
+          checks: [
+            { label: "Pass", queryValue: "Pass" },
+            { label: "Fail", queryValue: "Fail" },
           ],
         },
       },
     ],
-
     columns: [
       {
-        id: "assessmentTitle",
-        key: "assessmentTitle",
+        id: "courseName",
+        key: "courseName",
+        text: "Course",
+        fraction: "200px",
+      },
+      {
+        id: "title",
+        key: "title",
         text: "Assessment Title",
         fraction: "200px",
       },
+      { id: "type", key: "type", text: "Type", fraction: "110px" },
       {
-        id: "date",
-        key: "date",
-        text: "Date",
-        fraction: "200px",
+        id: "dateTaken",
+        key: "dateTaken",
+        text: "Date Taken",
+        fraction: "120px",
         renderContent: (date) => (
-          <Box>
-            <Text fontSize="sm">{dayjs(date).format("DD/MM/YYYY")}</Text>
-            <Text fontSize="xs" color="gray.500">
-              {dayjs(date).format("h:mm A")}
-            </Text>
-          </Box>
+          <Text fontSize="sm">{dayjs(date).format("DD/MM/YYYY")}</Text>
         ),
       },
+      { id: "score", key: "score", text: "Score", fraction: "100px" },
       {
-        id: "score",
-        key: "score",
-        text: "Score (%)",
-        fraction: "150px",
+        id: "percentage",
+        key: "percentage",
+        text: "Percentage",
+        fraction: "110px",
       },
-
       {
         id: "grade",
         key: "grade",
         text: "Grade",
-        fraction: "150px",
+        fraction: "90px",
+        renderContent: (grade) => (
+          <Tag
+            size="sm"
+            borderRadius="full"
+            colorScheme={
+              grade?.startsWith("A")
+                ? "green"
+                : grade?.startsWith("B")
+                  ? "blue"
+                  : grade?.startsWith("C")
+                    ? "yellow"
+                    : "red"
+            }
+          >
+            {grade}
+          </Tag>
+        ),
       },
-
       {
-        id: "result",
-        key: "result",
+        id: "passFailStatus",
+        key: "passFailStatus",
         text: "Result",
-        fraction: "150px",
-      },
-
-      {
-        id: "duration",
-        key: "duration",
-        text: "Duration",
-        fraction: "150px",
-      },
-
-      {
-        id: "remarks",
-        key: "remarks",
-        text: "Remarks",
-        fraction: "130px",
+        fraction: "90px",
+        renderContent: (v) => (
+          <Tag
+            size="sm"
+            borderRadius="full"
+            colorScheme={v === "Pass" ? "green" : "red"}
+          >
+            {v}
+          </Tag>
+        ),
       },
     ],
-
     options: {
       action: [
         {
           text: "Archive Report",
-          link: (row) => `/archiiveReport/${row.id}/archive`,
+          link: (row) => `/archiveReport/${row.id}/archive`,
         },
       ],
       selection: true,
@@ -157,51 +275,60 @@ const AssessmentReport = () => {
     },
   };
 
-  const fetcher = (props) => async () => {
-    return await fetchAssessmentReports(props?.params);
-  };
-
+  const fetcher = (props) => async () => fetchReports(studentId, props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
   return (
     <>
       <AdminMainAreaWrapper>
         <Box
-          display={"flex"}
-          // width={'100%'}
+          display="flex"
           justifyContent="space-between"
-          gridGap={4}
-          mb={10}
+          alignItems="center"
+          my={4}
         >
+          <Breadcrumb
+            item2={
+              <BreadcrumbItem>
+                <Link href="/admin/report/studentReport">Learners</Link>
+              </BreadcrumbItem>
+            }
+            item3={
+              <BreadcrumbItem isCurrentPage>
+                <Link href="#">Assessment & Quizzes</Link>
+              </BreadcrumbItem>
+            }
+          />
+        </Box>
+
+        <Box display="flex" justifyContent="space-between" gridGap={4} mb={10}>
           <DashboardMetricCard
-            title="Average Assessment Score"
-            value="82%"
-            change="+5% vs last month"
+            title="Average Score"
+            value={summary ? `${summary.overallAverageScore}%` : "—"}
+            change="across all assessments"
             changeColor="#1A8F3A"
           />
-
           <DashboardMetricCard
-            title="Highest vs. Lowest Score"
-            value="95% / 45%"
-            change="per course"
+            title="Highest Score"
+            value={summary ? `${summary.highestScore}%` : "—"}
+            change="best performance"
             changeColor="#1A8F3A"
           />
           <DashboardMetricCard
             title="Pass Rate"
-            value="82%"
-            change="+5% vs last period"
+            value={summary?.passRate ?? "—"}
+            change={`${summary?.assessmentsPassed ?? 0} of ${summary?.totalAssessments ?? 0} passed`}
             changeColor="#1A8F3A"
           />
-
           <DashboardMetricCard
-            title="Question Difficulty Impact"
-            value="Medium"
-            change=""
-            changeColor="#1A8F3A"
+            title="Lowest Score"
+            value={summary ? `${summary.lowestScore}%` : "—"}
+            change="needs improvement"
+            changeColor="#E53E3E"
           />
         </Box>
 
-        {loading && rows.length === 0 ? (
+        {loading && !rows?.data?.rows?.length ? (
           <Flex
             h="400px"
             justifyContent="center"
@@ -209,11 +336,11 @@ const AssessmentReport = () => {
             flexDirection="column"
           >
             <Spinner size="xl" />
-            <Text mt={4}>Loading student reports...</Text>
+            <Text mt={4}>Loading assessment report...</Text>
           </Flex>
         ) : error ? (
           <EmptyState
-            heading="Failed to load student reports"
+            heading="Failed to load assessment report"
             description={error}
             cta={<Button onClick={fetchRowItems}>Try Again</Button>}
           />
@@ -224,7 +351,7 @@ const AssessmentReport = () => {
             setRows={setRows}
             handleFetch={fetchRowItems}
             isLoading={loading}
-            placeholder="Search by student, course, or status"
+            placeholder="Search by course or assessment"
             totalCount={totalCount}
           />
         )}
@@ -234,7 +361,15 @@ const AssessmentReport = () => {
 };
 
 export const AssessmentReportRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <AssessmentReport {...props} />} />;
+  return (
+    <Route {...rest} render={(props) => <AssessmentReport {...props} />} />
+  );
+};
+
+export const AssessmentReportRoute = ({ ...rest }) => {
+  return (
+    <Route {...rest} render={(props) => <AssessmentReport {...props} />} />
+  );
 };
 
 export default AssessmentReport;

@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useParams, Route } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 import { Route } from "react-router-dom";
 import { useParams } from "react-router-dom";
@@ -26,6 +28,7 @@ const ComplianceReport = () => {
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
+  const [meta, setMeta] = useState(null);
 
   const safeStudentId =
     !studentId || studentId === "undefined" ? "LRN-001" : studentId;
@@ -33,7 +36,6 @@ const ComplianceReport = () => {
   const fetchAttendanceReports = async (params = {}) => {
     setLoading(true);
     setError(null);
-
     try {
       const { activities, pagination } = await adminGetOjtActivities({
         ...params,
@@ -87,8 +89,14 @@ const ComplianceReport = () => {
         supervisorId: "SUPER-001",
         supervisorName: "Mr. Adebayo",
         ojtStartDate: new Date().toISOString(),
-        ojtEndDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        tasksAssigned: ["Soil preparation", "Seed planting", "Irrigation management"],
+        ojtEndDate: new Date(
+          Date.now() + 14 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
+        tasksAssigned: [
+          "Soil preparation",
+          "Seed planting",
+          "Irrigation management",
+        ],
         tasksCompleted: 1,
         attendance: { daysAttended: 1, totalDays: 14 },
         competencyRating: 3,
@@ -161,13 +169,14 @@ const ComplianceReport = () => {
     searchKey: "search",
     filterControls: [
       {
-        triggerText: "Filter",
+        triggerText: "Status",
         queryKey: "status",
-        width: "150px",
+        width: "160px",
         body: {
           checks: [
             { label: "Completed", queryValue: "Completed" },
             { label: "In Progress", queryValue: "In Progress" },
+            { label: "Overdue", queryValue: "Overdue" },
             { label: "Not Started", queryValue: "Not Started" },
           ],
         },
@@ -230,12 +239,12 @@ const ComplianceReport = () => {
         fraction: "220px",
       },
     ],
-
     options: {
       action: [
         {
           text: "View OJT",
-          link: (row) => `/admin/report/studentReport/${row.learnerId}/compliance`,
+          link: (row) =>
+            `/admin/report/studentReport/${row.learnerId}/compliance`,
         },
       ],
       selection: true,
@@ -243,10 +252,7 @@ const ComplianceReport = () => {
     },
   };
 
-  const fetcher = (props) => async () => {
-    return await fetchAttendanceReports(props?.params);
-  };
-
+  const fetcher = (props) => async () => fetchReports(studentId, props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
   return (
@@ -299,11 +305,11 @@ const ComplianceReport = () => {
             flexDirection="column"
           >
             <Spinner size="xl" />
-            <Text mt={4}>Loading student reports...</Text>
+            <Text mt={4}>Loading compliance report...</Text>
           </Flex>
         ) : error ? (
           <EmptyState
-            heading="Failed to load student reports"
+            heading="Failed to load compliance report"
             description={error}
             cta={<Button onClick={fetchRowItems}>Try Again</Button>}
           />
@@ -324,7 +330,15 @@ const ComplianceReport = () => {
 };
 
 export const ComplianceReportRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <ComplianceReport {...props} />} />;
+  return (
+    <Route {...rest} render={(props) => <ComplianceReport {...props} />} />
+  );
+};
+
+export const ComplianceReportRoute = ({ ...rest }) => {
+  return (
+    <Route {...rest} render={(props) => <ComplianceReport {...props} />} />
+  );
 };
 
 export default ComplianceReport;

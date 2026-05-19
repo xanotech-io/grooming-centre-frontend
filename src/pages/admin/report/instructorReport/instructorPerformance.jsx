@@ -149,18 +149,26 @@ const InstructorPerformance = () => {
 
   return (
     <AdminMainAreaWrapper>
-      <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        my={4}
+      >
         <Breadcrumb
-          item2={<BreadcrumbItem><Link href="/admin/report/instructorReport">Instructors</Link></BreadcrumbItem>}
-          item3={<BreadcrumbItem isCurrentPage><Link href="#">Instructor Performance</Link></BreadcrumbItem>}
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/report/instructorReport">Instructors</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Instructor Performance</Link>
+            </BreadcrumbItem>
+          }
         />
       </Box>
-      <Box
-        display={"flex"}
-        justifyContent="space-between"
-        gridGap={4}
-        mb={10}
-      >
+      <Box display={"flex"} justifyContent="space-between" gridGap={4} mb={10}>
         <DashboardMetricCard
           title="Learner Satisfaction Rating"
           value={`${summary?.averageStudentSatisfaction ?? 0}/5`}
@@ -222,7 +230,9 @@ const InstructorPerformance = () => {
 };
 
 export const InstructorPerformanceRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <InstructorPerformance {...props} />} />;
+  return (
+    <Route {...rest} render={(props) => <InstructorPerformance {...props} />} />
+  );
 };
 
 export default InstructorPerformance;

@@ -118,6 +118,7 @@ import { AssessmentReportRoute } from "../../../pages/admin/report/studentReport
 import { ComplianceReportRoute } from "../../../pages/admin/report/studentReport/ComplianceReport";
 import { ArchivedReportsPageRoute } from "../../../pages/admin/report/ArchivedReportsPage";
 import { ComplianceSecurityReportPageRoute } from "../../../pages/admin/report/ComplianceSecurityReportPage";
+
 import PollsListingPageRoute from "../../../pages/admin/polls/PollsPage";
 import { CreatePollsPageRoute } from "../../../pages/admin/polls/CreatePollsPage";
 import { ViewPollsInfoPageRoute } from "../../../pages/admin/polls/layout/ViewPollsInfoPage";
@@ -309,55 +310,139 @@ const MainArea = () => {
           path="/admin/examination-marking/jobs/:jobId"
         />
         <ExamTemplatesPageRoute exact path="/admin/marking-templates" />
-        <CreateExamTemplatePageRoute exact path="/admin/marking-templates/create" />
-        <CreateQuestionBankPageRoute exact path="/admin/marking-templates/question-banks/create" />
-        <ExamTemplateDetailsPageRoute exact path="/admin/marking-templates/:templateId" />
+        <CreateExamTemplatePageRoute
+          exact
+          path="/admin/marking-templates/create"
+        />
+        <CreateQuestionBankPageRoute
+          exact
+          path="/admin/marking-templates/question-banks/create"
+        />
+        <ExamTemplateDetailsPageRoute
+          exact
+          path="/admin/marking-templates/:templateId"
+        />
         <FeedbackMarkupPageRoute exact path="/admin/feedback-markup" />
-        <SubmissionReviewPageRoute exact path="/admin/feedback-markup/review/:documentId" />
+        <SubmissionReviewPageRoute
+          exact
+          path="/admin/feedback-markup/review/:documentId"
+        />
         <GradeBookListingPageRoute exact path="/admin/grade-book" />
         <CreateGradeBookPageRoute exact path="/admin/grade-book/create" />
-        <GradeBookDetailsPageRoute exact path="/admin/grade-book/:gradeBookId" />
+        <GradeBookDetailsPageRoute
+          exact
+          path="/admin/grade-book/:gradeBookId"
+        />
         <GradeBookV2ListingPageRoute exact path="/admin/grade-book-v2" />
         <SetupGradeBookV2PageRoute exact path="/admin/grade-book-v2/create" />
-        <SetupGradeBookV2PageRoute exact path="/admin/grade-book-v2/:gradebookId/edit" />
-        <GradeBookV2DetailsPageRoute exact path="/admin/grade-book-v2/:gradebookId" />
+        <SetupGradeBookV2PageRoute
+          exact
+          path="/admin/grade-book-v2/:gradebookId/edit"
+        />
+        <GradeBookV2DetailsPageRoute
+          exact
+          path="/admin/grade-book-v2/:gradebookId"
+        />
         <ManualMarkingExamsPageRoute exact path="/admin/manual-marking" />
-        <ManualMarkingStudentsPageRoute exact path="/admin/manual-marking/:examId/students" />
-        <StudentMarkingPageRoute exact path="/admin/manual-marking/:examId/student/:studentId" />
+        <ManualMarkingStudentsPageRoute
+          exact
+          path="/admin/manual-marking/:examId/students"
+        />
+        <StudentMarkingPageRoute
+          exact
+          path="/admin/manual-marking/:examId/student/:studentId"
+        />
         <BulkCourseV2ListingPageRoute exact path="/admin/bulk-courses" />
-        <CreateBulkCourseV2BatchPageRoute exact path="/admin/bulk-courses/create" />
+        <CreateBulkCourseV2BatchPageRoute
+          exact
+          path="/admin/bulk-courses/create"
+        />
         <TemplatesListingPageRoute exact path="/admin/bulk-courses/templates" />
-        <TemplateFormPageRoute exact path="/admin/bulk-courses/templates/create" />
-        <TemplateFormPageRoute exact path="/admin/bulk-courses/templates/:templateId/edit" />
-        <BulkCourseV2BatchDetailsPageRoute exact path="/admin/bulk-courses/:batchId" />
+        <TemplateFormPageRoute
+          exact
+          path="/admin/bulk-courses/templates/create"
+        />
+        <TemplateFormPageRoute
+          exact
+          path="/admin/bulk-courses/templates/:templateId/edit"
+        />
+        <BulkCourseV2BatchDetailsPageRoute
+          exact
+          path="/admin/bulk-courses/:batchId"
+        />
         <UserDocumentsPageRoute exact path="/admin/user-documents" />
-        <UserDocumentDetailsPageRoute exact path="/admin/user-documents/:userId/:uploadId" />
+        <UserDocumentDetailsPageRoute
+          exact
+          path="/admin/user-documents/:userId/:uploadId"
+        />
         <ReportExportPageRoute exact path="/admin/report-export" />
         <QuestionImportPageRoute exact path="/admin/question-import" />
         <UploadDetailsPageRoute exact path="/admin/question-import/:uploadId" />
-        <QuestionBankTemplatesPageRoute exact path="/admin/question-bank-templates" />
-        <QuestionBankTemplateDetailsPageRoute exact path="/admin/question-bank-templates/:templateId" />
+        <QuestionBankTemplatesPageRoute
+          exact
+          path="/admin/question-bank-templates"
+        />
+        <QuestionBankTemplateDetailsPageRoute
+          exact
+          path="/admin/question-bank-templates/:templateId"
+        />
         <DataOperationsPageRoute exact path="/admin/data-operations" />
-        <QuestionBankPageRoute exact path="/admin/multimedia-questions/:examinationId" />
-        <QuestionEditorPageRoute exact path="/admin/multimedia-questions/:examinationId/new" />
-        <MultimediaStatsPageRoute exact path="/admin/multimedia-questions/:examinationId/stats" />
-        <QuestionEditorPageRoute exact path="/admin/multimedia-questions/:examinationId/:questionId/edit" />
-        <QuestionPreviewPageRoute exact path="/admin/multimedia-questions/:examinationId/:questionId/preview" />
-        <MediaManagerPageRoute exact path="/admin/multimedia-questions/:examinationId/:questionId/media" />
-        <ExamPaperConfigPageRoute exact path="/admin/exam-paper-config/:examinationId" />
+        <QuestionBankPageRoute
+          exact
+          path="/admin/multimedia-questions/:examinationId"
+        />
+        <QuestionEditorPageRoute
+          exact
+          path="/admin/multimedia-questions/:examinationId/new"
+        />
+        <MultimediaStatsPageRoute
+          exact
+          path="/admin/multimedia-questions/:examinationId/stats"
+        />
+        <QuestionEditorPageRoute
+          exact
+          path="/admin/multimedia-questions/:examinationId/:questionId/edit"
+        />
+        <QuestionPreviewPageRoute
+          exact
+          path="/admin/multimedia-questions/:examinationId/:questionId/preview"
+        />
+        <MediaManagerPageRoute
+          exact
+          path="/admin/multimedia-questions/:examinationId/:questionId/media"
+        />
+        <ExamPaperConfigPageRoute
+          exact
+          path="/admin/exam-paper-config/:examinationId"
+        />
         <ExamConfigKPIPageRoute exact path="/admin/exam-config/kpis" />
-        <ImportReportPageRoute exact path="/admin/batch-import/:examinationId/result/:uploadId/report" />
-        <ImportResultPageRoute exact path="/admin/batch-import/:examinationId/result/:uploadId" />
-        <BatchHistoryPageRoute exact path="/admin/batch-import/:examinationId/history" />
+        <ImportReportPageRoute
+          exact
+          path="/admin/batch-import/:examinationId/result/:uploadId/report"
+        />
+        <ImportResultPageRoute
+          exact
+          path="/admin/batch-import/:examinationId/result/:uploadId"
+        />
+        <BatchHistoryPageRoute
+          exact
+          path="/admin/batch-import/:examinationId/history"
+        />
         <BatchImportPageRoute exact path="/admin/batch-import/:examinationId" />
         <BatchHistoryPageRoute exact path="/admin/question-imports" />
         <BadgeSupportPageRoute exact path="/admin/badge-support" />
         <BadgeKPIPageRoute exact path="/admin/badges/kpis" />
         <BadgeReportPageRoute exact path="/admin/badges/report" />
-        <PendingApprovalsPageRoute exact path="/admin/badges/pending-approvals" />
+        <PendingApprovalsPageRoute
+          exact
+          path="/admin/badges/pending-approvals"
+        />
         <AcademicMetricsDashboardRoute exact path="/admin/dashboard/academic" />
         <InteractiveDashboardRoute exact path="/admin/dashboard/interactive" />
-        <StudentTrainingReportPageRoute exact path="/admin/student-progress/:studentId" />
+        <StudentTrainingReportPageRoute
+          exact
+          path="/admin/student-progress/:studentId"
+        />
 
         <SecurityPageRoute path="/admin/settings/security" />
         <GradeCriteriaPageRoute path="/admin/settings/grade-criteria" />
@@ -370,19 +455,73 @@ const MainArea = () => {
         <DataImportExportPageRoute exact path="/admin/data-import-export" />
         <ViewAuditRoute exact path="/admin/audit" />
         <ManagementReportRoute exact path="/admin/report/managementReport" />
+        <InstructorReportRoute exact path="/admin/report/instructorReport" />
+        <InstructorReportDetailsRoute
+          exact
+          path="/admin/report/instructorReport/:instructorId/details"
+        />
+        <CourseCompletionRoute
+          exact
+          path="/admin/report/instructorReport/:instructorId/courseCompletion"
+        />
+        <InstructorPerformanceRoute
+          exact
+          path="/admin/report/instructorReport/:instructorId/instructorPerformance"
+        />
+        <AssignmentGradingRoute
+          exact
+          path="/admin/report/instructorReport/:instructorId/assignmentGrading"
+        />
+        <AssignmentAnalysisRoute
+          exact
+          path="/admin/report/instructorReport/:instructorId/assignmentAnalysis"
+        />
         <StudentReportRoute exact path="/admin/report/studentReport" />
         <InstructorReportRoute exact path="/admin/report/instructorReport" />
-        <InstructorReportDetailsRoute exact path="/admin/report/instructorReport/:instructorId/details" />
-        <CourseCompletionRoute exact path="/admin/report/instructorReport/:instructorId/courseCompletion" />
-        <InstructorPerformanceRoute exact path="/admin/report/instructorReport/:instructorId/instructorPerformance" />
-        <AssignmentGradingRoute exact path="/admin/report/instructorReport/:instructorId/assignmentGrading" />
-        <AssignmentAnalysisRoute exact path="/admin/report/instructorReport/:instructorId/assignmentAnalysis" />
-        <StudentReportDetailsRoute exact path="/admin/report/studentReport/:studentId/details" />
-        <ProgressReportRoute exact path="/admin/report/studentReport/:studentId/progress" />
-        <TranscriptReportRoute exact path="/admin/report/studentReport/:studentId/transcript" />
-        <AttendanceReportRoute exact path="/admin/report/studentReport/:studentId/attendance" />
-        <AssessmentReportRoute exact path="/admin/report/studentReport/:studentId/assessment" />
-        <ComplianceReportRoute exact path="/admin/report/studentReport/:studentId/compliance" />
+        <InstructorReportDetailsRoute
+          exact
+          path="/admin/report/instructorReport/:instructorId/details"
+        />
+        <CourseCompletionRoute
+          exact
+          path="/admin/report/instructorReport/:instructorId/courseCompletion"
+        />
+        <InstructorPerformanceRoute
+          exact
+          path="/admin/report/instructorReport/:instructorId/instructorPerformance"
+        />
+        <AssignmentGradingRoute
+          exact
+          path="/admin/report/instructorReport/:instructorId/assignmentGrading"
+        />
+        <AssignmentAnalysisRoute
+          exact
+          path="/admin/report/instructorReport/:instructorId/assignmentAnalysis"
+        />
+        <StudentReportDetailsRoute
+          exact
+          path="/admin/report/studentReport/:studentId/details"
+        />
+        <ProgressReportRoute
+          exact
+          path="/admin/report/studentReport/:studentId/progress"
+        />
+        <TranscriptReportRoute
+          exact
+          path="/admin/report/studentReport/:studentId/transcript"
+        />
+        <AttendanceReportRoute
+          exact
+          path="/admin/report/studentReport/:studentId/attendance"
+        />
+        <AssessmentReportRoute
+          exact
+          path="/admin/report/studentReport/:studentId/assessment"
+        />
+        <ComplianceReportRoute
+          exact
+          path="/admin/report/studentReport/:studentId/compliance"
+        />
         <ArchivedReportsPageRoute exact path="/admin/report/archived" />
         <ComplianceSecurityReportPageRoute
           exact

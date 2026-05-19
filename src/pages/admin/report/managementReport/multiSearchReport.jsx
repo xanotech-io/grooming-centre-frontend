@@ -7,7 +7,7 @@ import {
   Table,
   Text,
   Spinner,
-  DashboardMetricCard,
+  // DashboardMetricCard,
   Checkbox,
   Input,
   Select
@@ -17,19 +17,138 @@ import dayjs from "dayjs";
 import { useTableRows } from "../../../../hooks";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { mockMultiSearchReportsResponse } from "../../../../mocks/server/controllers/management-report/reponses";
-import { FiPlus } from "react-icons/fi";
+// import { FiPlus } from "react-icons/fi";
 
 dayjs.extend(relativeTime);
+
+const ReportSettingsPanel = () => {
+  const [status, setStatus] = useState("draft");
+  const [accessLevel, setAccessLevel] = useState("Admin");
+  const [shareWith, setShareWith] = useState("@username");
+  const [selectedExport, setSelectedExport] = useState("excel");
+
+  const exportOptions = [
+    { label: "Excel", value: "excel" },
+    { label: "PDF", value: "pdf" },
+    { label: "CSV", value: "csv" },
+    { label: "JSON", value: "json" },
+  ];
+
+  return (
+    <Box
+      bg="white"
+      border="1px solid"
+      borderColor="#E2E8F0"
+      borderRadius="10px"
+      p={5}
+      h="fit-content"
+    >
+      <Text fontSize="md" fontWeight="700" mb={4}>
+        Report Settings
+      </Text>
+
+      <Box mb={5}>
+        <Text fontSize="sm" fontWeight="600" mb={2} color="#1A202C">
+          Status
+        </Text>
+        <Flex align="center" gap={2}>
+          <Checkbox
+            label="Draft"
+            isChecked={status === "draft"}
+            onChange={() => setStatus("draft")}
+          />
+          <Text fontSize="xs" color="gray.500">
+            Last saved: 2 min ago
+          </Text>
+        </Flex>
+      </Box>
+
+      <Box mb={5}>
+        <Text fontSize="sm" fontWeight="600" mb={2} color="#1A202C">
+          Access level
+        </Text>
+        <Select
+          value={accessLevel}
+          onChange={(e) => setAccessLevel(e.target.value)}
+          options={[
+            { label: "Admin", value: "Admin" },
+            { label: "HR", value: "HR" },
+            { label: "Admin 2", value: "Admin 2" },
+          ]}
+        />
+        <Box mt={3}>
+          <VStack align="start" spacing={2}>
+            <Checkbox
+              label="Admin"
+              isChecked={accessLevel === "Admin"}
+              onChange={() => setAccessLevel("Admin")}
+            />
+            <Checkbox
+              label="HR"
+              isChecked={accessLevel === "HR"}
+              onChange={() => setAccessLevel("HR")}
+            />
+            <Checkbox
+              label="Admin 2"
+              isChecked={accessLevel === "Admin 2"}
+              onChange={() => setAccessLevel("Admin 2")}
+            />
+          </VStack>
+        </Box>
+      </Box>
+
+      <Box mb={5}>
+        <Text fontSize="sm" fontWeight="600" mb={2} color="#1A202C">
+          Export format
+        </Text>
+        <Grid templateColumns="repeat(2, 1fr)" gap={3}>
+          {exportOptions.map((opt) => (
+            <Button
+              key={opt.value}
+              variant={selectedExport === opt.value ? "solid" : "outline"}
+              onClick={() => setSelectedExport(opt.value)}
+              style={{
+                backgroundColor:
+                  selectedExport === opt.value ? "#6b006b" : "white",
+                color: selectedExport === opt.value ? "white" : "#1A202C",
+                borderColor: "#E2E8F0",
+              }}
+              _hover={{
+                bg: selectedExport === opt.value ? "#520052" : "#F7FAFC",
+              }}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </Grid>
+      </Box>
+
+      <Box>
+        <Text fontSize="sm" fontWeight="600" mb={2} color="#1A202C">
+          Share with
+        </Text>
+        <Input
+          value={shareWith}
+          onChange={(e) => setShareWith(e.target.value)}
+          placeholder="@username"
+          bg="#F9FAFB"
+          border="1px solid"
+          borderColor="#E2E8F0"
+        />
+      </Box>
+    </Box>
+  );
+};
 
 const MultiSearchReport = () => {
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
-  const [filters, setFilters] = useState([
-    { id: 1, field: "", value: "" },
-    { id: 2, field: "", value: "" },
-    { id: 3, field: "", value: "" }
-  ]);
+  // const [filters, setFilters] = useState([
+  //   { id: 1, field: "", value: "" },
+  //   { id: 2, field: "", value: "" },
+  //   { id: 3, field: "", value: "" }
+  // ]);
 
   const fetchReports = async (params = {}) => {
     setLoading(true);
@@ -111,19 +230,22 @@ const MultiSearchReport = () => {
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
-  const addNewFilter = () => {
-    setFilters([...filters, { id: filters.length + 1, field: "", value: "" }]);
-  };
+  // const addNewFilter = () => {
+  //   setFilters([...filters, { id: filters.length + 1, field: "", value: "" }]);
+  // };
 
   return (
     <AdminMainAreaWrapper>
+     
+
       <Box
         display={"grid"}
         gridTemplateColumns="repeat(3, 1fr)"
         gridGap={4}
         mb={10}
+        width="100%"
       >
-        <DashboardMetricCard
+        {/* <DashboardMetricCard
           title="Report Generation Time (seconds)"
           value="140sec"
           change="+5% vs last period"
@@ -142,10 +264,21 @@ const MultiSearchReport = () => {
           value="150secs"
           change="Stable"
           changeColor="#1A8F3A"
-        />
+        /> */}
+
+         <Grid templateColumns="1fr 1fr" gap={6} mb={4}>
+            <Box>
+              <Text mb={2} fontSize="sm" color="gray.600">Report name</Text>
+              <Input placeholder="Enter Report Name" bg="#F9FAFB" border="none" />
+            </Box>
+            <Box>
+              <Text mb={2} fontSize="sm" color="gray.600">Description</Text>
+              <Input className= "w-[300px] "   placeholder="Enter Description" bg="#F9FAFB" border="none" />
+            </Box>
+          </Grid>
       </Box>
 
-      <Grid templateColumns="300px 1fr" gap={8} mb={10}>
+      <Grid templateColumns="200px 1fr 340px" gap={3} mb={10} alignItems="start">
         {/* Select Field Section */}
         <Box>
           <Text fontSize="lg" fontWeight="bold" mb={4}>Select field</Text>
@@ -213,16 +346,16 @@ const MultiSearchReport = () => {
 
           <Grid templateColumns="1fr 1fr" gap={6} mb={4}>
             <Box>
-              <Text mb={2} fontSize="sm" color="gray.600">Filter field</Text>
-              <Select placeholder="Name" />
+              <Text mb={2} fontSize="sm" color="gray.600">Department</Text>
+              <Select placeholder="Select Department" />
             </Box>
             <Box>
-              <Text mb={2} fontSize="sm" color="gray.600">Name</Text>
-              <Input placeholder="Enter the name" bg="#F9FAFB" border="none" />
+              <Text mb={2} fontSize="sm" color="gray.600">Course</Text>
+              <Select placeholder="Select Course" />
             </Box>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={6} mb={4}>
+          {/* <Grid templateColumns="1fr 1fr" gap={6} mb={4}>
             <Box>
               <Text mb={2} fontSize="sm" color="gray.600">Filter field</Text>
               <Select placeholder="Course name" />
@@ -231,20 +364,20 @@ const MultiSearchReport = () => {
               <Text mb={2} fontSize="sm" color="gray.600">Value</Text>
               <Input placeholder="Enter course name" bg="#F9FAFB" border="none" />
             </Box>
-          </Grid>
+          </Grid> */}
 
           <Grid templateColumns="1fr 1fr" gap={6} mb={4}>
             <Box>
-              <Text mb={2} fontSize="sm" color="gray.600">Filter field</Text>
-              <Select placeholder="Enrollment date" />
+              <Text mb={2} fontSize="sm" color="gray.600">Start Date</Text>
+              <Input placeholder="dd/mm/yy - dd/mm/yy" type="date" bg="#F9FAFB" border="none" />
             </Box>
             <Box>
-              <Text mb={2} fontSize="sm" color="gray.600">Value</Text>
+              <Text mb={2} fontSize="sm" color="gray.600">End Date</Text>
               <Input placeholder="dd/mm/yy - dd/mm/yy" type="date" bg="#F9FAFB" border="none" />
             </Box>
           </Grid>
 
-          <Button
+          {/* <Button
             variant="ghost"
             leftIcon={<FiPlus />}
             color="primary.base"
@@ -254,7 +387,7 @@ const MultiSearchReport = () => {
             mb={6}
           >
             Add new filter
-          </Button>
+          </Button> */}
 
           <Flex justify="flex-end" gap={4}>
             <Button variant="outline" borderColor="primary.base" color="primary.base">
@@ -265,7 +398,12 @@ const MultiSearchReport = () => {
             </Button>
           </Flex>
         </Box>
+
+        {/* Report Settings */}
+        <ReportSettingsPanel />
       </Grid>
+
+      
 
       {/* Results Table */}
       {loading && rows.length === 0 ? (

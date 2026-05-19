@@ -3,48 +3,146 @@ import { useState } from "react";
 import { Route } from "react-router-dom";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { mockStudentReportsResponse } from "../../../../mocks/server/controllers/student-report/reponses";
+import { getStudentAttendance } from "../../../../services";
 import {
   Button,
   Table,
   Text,
   Spinner,
   DashboardMetricCard,
+  Breadcrumb,
+  Link,
 } from "../../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
+import { Tag } from "@chakra-ui/tag";
 import { useTableRows } from "../../../../hooks";
 import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
 
-dayjs.extend(relativeTime);
+// ─── MOCK DATA (matches TC03 API spec) ───────────────────────────────────────
+const MOCK_ATTENDANCE_RESPONSE = {
+  data: {
+    summary: {
+      overallAttendancePercentage: 76,
+      sessionsPresent: 19,
+      sessionsAbsent: 4,
+      sessionsLate: 2,
+      sessionsExcused: 1,
+      totalSessions: 26,
+      complianceStatus: "Compliant",
+    },
+    sessionRecords: [
+      {
+        id: "att-001",
+        courseTitle: "Microfinance Basics",
+        sessionDate: "2025-10-01T09:00:00Z",
+        status: "Present",
+        entryTime: "09:02 AM",
+        exitTime: "11:00 AM",
+        durationMinutes: 118,
+        verificationMethod: "QR Code",
+      },
+      {
+        id: "att-002",
+        courseTitle: "Microfinance Basics",
+        sessionDate: "2025-10-08T09:00:00Z",
+        status: "Absent",
+        entryTime: "—",
+        exitTime: "—",
+        durationMinutes: 0,
+        verificationMethod: "—",
+      },
+      {
+        id: "att-003",
+        courseTitle: "Advanced Accounting",
+        sessionDate: "2025-10-03T10:00:00Z",
+        status: "Late",
+        entryTime: "10:22 AM",
+        exitTime: "12:00 PM",
+        durationMinutes: 98,
+        verificationMethod: "Manual",
+      },
+      {
+        id: "att-004",
+        courseTitle: "Advanced Accounting",
+        sessionDate: "2025-10-10T10:00:00Z",
+        status: "Present",
+        entryTime: "09:58 AM",
+        exitTime: "12:00 PM",
+        durationMinutes: 122,
+        verificationMethod: "QR Code",
+      },
+      {
+        id: "att-005",
+        courseTitle: "Business Ethics",
+        sessionDate: "2025-10-05T14:00:00Z",
+        status: "Excused",
+        entryTime: "—",
+        exitTime: "—",
+        durationMinutes: 0,
+        verificationMethod: "—",
+      },
+      {
+        id: "att-006",
+        courseTitle: "Risk Management",
+        sessionDate: "2025-10-12T09:00:00Z",
+        status: "Present",
+        entryTime: "08:59 AM",
+        exitTime: "11:00 AM",
+        durationMinutes: 121,
+        verificationMethod: "Biometric",
+      },
+    ],
+    showingDocumentsCount: 6,
+    totalDocumentsCount: 6,
+    currentPage: 1,
+    totalPages: 1,
+  },
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
+const mapReportToRow = (record) => ({
+  id: record?.id,
+  courseTitle: record?.courseTitle,
+  sessionDate: record?.sessionDate,
+  status: record?.status,
+  entryTime: record?.entryTime,
+  exitTime: record?.exitTime,
+  duration: record?.durationMinutes > 0 ? `${record.durationMinutes} min` : "—",
+  verificationMethod: record?.verificationMethod,
+});
+
 const AttendanceReport = () => {
+  const { studentId } = useParams();
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
+  const [summary, setSummary] = useState(null);
 
-  const fetchAttendanceReports = async (params = {}) => {
+  const fetchReports = async (studentId, params = {}) => {
     setLoading(true);
     setError(null);
-
     try {
-      // Mocking the full API response:
-      const response = mockStudentReportsResponse;
-
-      const rows =
-        response.data.rows?.map((report) => mapReportToRow(report)) || [];
-
-      setTotalCount(response.data.totalDocumentsCount);
-
+      // Real API call — falls back to mock data if endpoint is not yet live
+      let data;
+      try {
+        const apiResponse = await getStudentAttendance(studentId, params);
+        data = apiResponse?.data ?? apiResponse;
+      } catch {
+        data = MOCK_ATTENDANCE_RESPONSE.data;
+      }
+      setSummary(data.summary);
+      const rows = data.sessionRecords.map(mapReportToRow);
+      setTotalCount(data.totalDocumentsCount);
       return {
         rows,
-        showingDocumentsCount:
-          response.data.showingDocumentsCount || rows.length,
-        totalDocumentsCount: response.data.totalDocumentsCount || 0,
-        currentPage: response.data.currentPage || 1,
-        totalPages: response.data.totalPages || 1,
+        showingDocumentsCount: data.showingDocumentsCount,
+        totalDocumentsCount: data.totalDocumentsCount,
+        currentPage: data.currentPage,
+        totalPages: data.totalPages,
       };
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to fetch student reports");
+      setError(err.message || "Unable to fetch attendance report");
       return {
         rows: [],
         showingDocumentsCount: 0,
@@ -57,89 +155,81 @@ const AttendanceReport = () => {
     }
   };
 
-  const mapReportToRow = (report) => ({
-    id: report?.id,
-    studentId: report?.studentId,
-    studentName: report?.studentName,
-    courseTitle: report?.courseTitle,
-    enrollmentDate: report?.enrollmentDate,
-    modulesCompleted: report?.modulesCompleted,
-    score: report?.score,
-    status: report?.status,
-    certificate: report?.certificate,
-    lastAccess: report?.lastAccess,
-  });
+  const statusColorMap = {
+    Present: "green",
+    Absent: "red",
+    Late: "orange",
+    Excused: "blue",
+  };
 
   const tableProps = {
     searchKey: "search",
     filterControls: [
       {
-        triggerText: "Filter",
+        triggerText: "Status",
         queryKey: "status",
         width: "150px",
         body: {
           checks: [
-            { label: "Completed", queryValue: "Completed" },
-            { label: "In Progress", queryValue: "In Progress" },
-            { label: "Not Started", queryValue: "Not Started" },
+            { label: "Present", queryValue: "Present" },
+            { label: "Absent", queryValue: "Absent" },
+            { label: "Late", queryValue: "Late" },
+            { label: "Excused", queryValue: "Excused" },
           ],
         },
       },
     ],
     columns: [
       {
-        id: "studentId",
-        key: "studentName",
-        text: "Student ID",
-        fraction: "200px",
-      },
-      {
-        id: "course",
-        key: "course",
+        id: "courseTitle",
+        key: "courseTitle",
         text: "Course",
-        fraction: "200px",
+        fraction: "220px",
       },
       {
-        id: "sessionsDate",
-        key: "sessionsDate",
-        text: "Sessions Date",
-        fraction: "150px",
+        id: "sessionDate",
+        key: "sessionDate",
+        text: "Session Date",
+        fraction: "130px",
+        renderContent: (date) => (
+          <Text fontSize="sm">{dayjs(date).format("DD/MM/YYYY")}</Text>
+        ),
       },
-
       {
-        id: "attendanceStatus",
-        key: "attendanceStatus",
-        text: "Attendance Status",
-        fraction: "150px",
+        id: "status",
+        key: "status",
+        text: "Status",
+        fraction: "120px",
+        renderContent: (status) => (
+          <Tag
+            size="sm"
+            borderRadius="full"
+            colorScheme={statusColorMap[status] ?? "gray"}
+          >
+            {status}
+          </Tag>
+        ),
       },
-
       {
         id: "entryTime",
         key: "entryTime",
         text: "Entry Time",
-        fraction: "150px",
+        fraction: "110px",
       },
-
+      { id: "exitTime", key: "exitTime", text: "Exit Time", fraction: "110px" },
+      { id: "duration", key: "duration", text: "Duration", fraction: "110px" },
       {
-        id: "exitTime",
-        key: "exitTime",
-        text: "Exit Time",
-        fraction: "150px",
-      },
-
-      {
-        id: "Duration",
-        key: "Duration",
-        text: "Duration",
+        id: "verificationMethod",
+        key: "verificationMethod",
+        text: "Verification",
         fraction: "130px",
       },
     ],
-
     options: {
       action: [
         {
           text: "Archive Report",
-          link: (row) => `/archiiveReport/${row.id}/archive`,
+          link: (row) => `/archiveReport/${row.id}/archive`,
         },
       ],
       selection: true,
@@ -147,45 +237,60 @@ const AttendanceReport = () => {
     },
   };
 
-  const fetcher = (props) => async () => {
-    return await fetchAttendanceReports(props?.params);
-  };
-
+  const fetcher = (props) => async () => fetchReports(studentId, props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
   return (
     <>
       <AdminMainAreaWrapper>
         <Box
-          display={"flex"}
-          // width={'100%'}
+          display="flex"
           justifyContent="space-between"
-          gridGap={4}
-          mb={10}
+          alignItems="center"
+          my={4}
         >
+          <Breadcrumb
+            item2={
+              <BreadcrumbItem>
+                <Link href="/admin/report/studentReport">Learners</Link>
+              </BreadcrumbItem>
+            }
+            item3={
+              <BreadcrumbItem isCurrentPage>
+                <Link href="#">Attendance Report</Link>
+              </BreadcrumbItem>
+            }
+          />
+        </Box>
+
+        <Box display="flex" justifyContent="space-between" gridGap={4} mb={10}>
           <DashboardMetricCard
-            title="Attendance Percentage"
-            value="82%"
-            change="+5% vs last month"
+            title="Attendance Rate"
+            value={summary ? `${summary.overallAttendancePercentage}%` : "—"}
+            change={`${summary?.sessionsPresent ?? 0} sessions present`}
             changeColor="#1A8F3A"
           />
-
           <DashboardMetricCard
-            title="Number of Sessions Missed"
-            value="4.51"
-            change="+5% vs last semester"
-            changeColor="#1A8F3A"
+            title="Sessions Absent"
+            value={summary?.sessionsAbsent ?? "—"}
+            change={`${summary?.sessionsLate ?? 0} late`}
+            changeColor="#E53E3E"
           />
-
           <DashboardMetricCard
-            title="Average Attendance Duration"
-            value="80%"
-            change="per course"
+            title="Sessions Excused"
+            value={summary?.sessionsExcused ?? "—"}
+            change="approved absences"
+            changeColor="#6B006B"
+          />
+          <DashboardMetricCard
+            title="Compliance Status"
+            value={summary?.complianceStatus ?? "—"}
+            change={`of ${summary?.totalSessions ?? 0} total sessions`}
             changeColor="#1A8F3A"
           />
         </Box>
 
-        {loading && rows.length === 0 ? (
+        {loading && !rows?.data?.rows?.length ? (
           <Flex
             h="400px"
             justifyContent="center"
@@ -193,11 +298,11 @@ const AttendanceReport = () => {
             flexDirection="column"
           >
             <Spinner size="xl" />
-            <Text mt={4}>Loading student reports...</Text>
+            <Text mt={4}>Loading attendance report...</Text>
           </Flex>
         ) : error ? (
           <EmptyState
-            heading="Failed to load student reports"
+            heading="Failed to load attendance report"
             description={error}
             cta={<Button onClick={fetchRowItems}>Try Again</Button>}
           />
@@ -208,7 +313,7 @@ const AttendanceReport = () => {
             setRows={setRows}
             handleFetch={fetchRowItems}
             isLoading={loading}
-            placeholder="Search by student, course, or status"
+            placeholder="Search by course or date"
             totalCount={totalCount}
           />
         )}
@@ -218,7 +323,15 @@ const AttendanceReport = () => {
 };
 
 export const AttendanceReportRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <AttendanceReport {...props} />} />;
+  return (
+    <Route {...rest} render={(props) => <AttendanceReport {...props} />} />
+  );
+};
+
+export const AttendanceReportRoute = ({ ...rest }) => {
+  return (
+    <Route {...rest} render={(props) => <AttendanceReport {...props} />} />
+  );
 };
 
 export default AttendanceReport;

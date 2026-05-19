@@ -2,13 +2,7 @@ import { Flex, Box } from "@chakra-ui/layout";
 import { Route, useHistory } from "react-router-dom";
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { Badge } from "@chakra-ui/react";
-import {
-  Heading,
-  Table,
-  Breadcrumb,
-  Link,
-  Text,
-} from "../../../../components";
+import { Heading, Table, Breadcrumb, Link, Text } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { useTableRows } from "../../../../hooks";
@@ -28,8 +22,16 @@ const StudentReport = () => {
         position: "right-bottom",
         body: {
           radios: [
-            { label: "Alphabetically: ascending", queryValue: "asc", additionalParams: { date: false } },
-            { label: "Alphabetically: descending", queryValue: "desc", additionalParams: { date: false } },
+            {
+              label: "Alphabetically: ascending",
+              queryValue: "asc",
+              additionalParams: { date: false },
+            },
+            {
+              label: "Alphabetically: descending",
+              queryValue: "desc",
+              additionalParams: { date: false },
+            },
           ],
         },
       },
@@ -106,7 +108,12 @@ const StudentReport = () => {
 
   return (
     <AdminMainAreaWrapper>
-      <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        my={4}
+      >
         <Breadcrumb
           item2={
             <BreadcrumbItem isCurrentPage>
@@ -138,11 +145,34 @@ const StudentReport = () => {
         setRows={setRows}
         handleFetch={fetchRowItems}
       />
+      <Flex
+        justifyContent="space-between"
+        flexDirection={{ lg: "row", base: "column", md: "column" }}
+        alignItems={{ base: "flex-start", md: "flex-start" }}
+        rowGap={6}
+        borderBottom="1px"
+        borderColor="accent.2"
+        paddingBottom={5}
+        marginBottom={5}
+      >
+        <Heading as="h1" fontSize="heading.h3">
+          Learners Report
+        </Heading>
+      </Flex>
+
+      <Table
+        {...tableProps}
+        placeholder="Search by student name or ID..."
+        rows={rows}
+        setRows={setRows}
+        handleFetch={fetchRowItems}
+      />
     </AdminMainAreaWrapper>
   );
 };
 
 export const StudentReportRoute = ({ ...rest }) => {
+  return <Route {...rest} render={(props) => <StudentReport {...props} />} />;
   return <Route {...rest} render={(props) => <StudentReport {...props} />} />;
 };
 

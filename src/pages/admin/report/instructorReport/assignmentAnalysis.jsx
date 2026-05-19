@@ -45,12 +45,17 @@ const AssignmentAnalysis = () => {
     setError(null);
 
     try {
-      const response = await adminGetAssessmentItemAnalysisReport(assessmentId, {
-        ...params,
-        instructorId: safeInstructorId,
-      });
+      const response = await adminGetAssessmentItemAnalysisReport(
+        assessmentId,
+        {
+          ...params,
+          instructorId: safeInstructorId,
+        },
+      );
 
-      const rows = (response.rows || []).map((report) => mapReportToRow(report));
+      const rows = (response.rows || []).map((report) =>
+        mapReportToRow(report),
+      );
       setSummary(response.overallStatistics || null);
       setTotalCount(response.totalDocumentsCount || rows.length);
 
@@ -183,14 +188,16 @@ const AssignmentAnalysis = () => {
   const handleBulkFlagQuestions = async () => {
     const difficultRows = (rows || []).filter((item) => {
       const lowAccuracy = Number(item.correctPercentage || 0) < 55;
-      const hardDifficulty = (item.difficulty || "").toString().toLowerCase() === "hard";
+      const hardDifficulty =
+        (item.difficulty || "").toString().toLowerCase() === "hard";
       return lowAccuracy || hardDifficulty;
     });
 
     if (!difficultRows.length) {
       toast({
         title: "No candidates to bulk flag",
-        description: "No hard or low-accuracy questions were found on this page.",
+        description:
+          "No hard or low-accuracy questions were found on this page.",
         status: "info",
         duration: 2500,
         isClosable: true,
@@ -217,19 +224,29 @@ const AssignmentAnalysis = () => {
 
   return (
     <AdminMainAreaWrapper>
-      <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
-        <Breadcrumb
-          item2={<BreadcrumbItem><Link href="/admin/report/instructorReport">Instructors</Link></BreadcrumbItem>}
-          item3={<BreadcrumbItem isCurrentPage><Link href="#">Assignment Analysis</Link></BreadcrumbItem>}
-        />
-        <Button secondary onClick={handleBulkFlagQuestions}>Bulk Flag Questions</Button>
-      </Box>
       <Box
-        display={"flex"}
+        display="flex"
         justifyContent="space-between"
-        gridGap={4}
-        mb={10}
+        alignItems="center"
+        my={4}
       >
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/report/instructorReport">Instructors</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Assignment Analysis</Link>
+            </BreadcrumbItem>
+          }
+        />
+        <Button secondary onClick={handleBulkFlagQuestions}>
+          Bulk Flag Questions
+        </Button>
+      </Box>
+      <Box display={"flex"} justifyContent="space-between" gridGap={4} mb={10}>
         <DashboardMetricCard
           title="Avg. Question Success"
           value={`${summary?.averageScore ?? 0}%`}
@@ -288,7 +305,9 @@ const AssignmentAnalysis = () => {
 };
 
 export const AssignmentAnalysisRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <AssignmentAnalysis {...props} />} />;
+  return (
+    <Route {...rest} render={(props) => <AssignmentAnalysis {...props} />} />
+  );
 };
 
 export default AssignmentAnalysis;

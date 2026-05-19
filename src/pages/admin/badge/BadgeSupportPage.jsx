@@ -1,224 +1,114 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Route, useHistory } from "react-router-dom";
+import React, { useState, useRef } from 'react';
+import { Route } from 'react-router-dom';
 import {
-  Box,
-  Flex,
-  Text,
-  Badge,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  TableContainer,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
-  FormControl,
-  FormLabel,
-  Input as ChakraInput,
-  Select as ChakraSelect,
-  Textarea,
-  Drawer,
-  DrawerOverlay,
-  DrawerContent,
-  DrawerHeader,
-  DrawerBody,
-  DrawerFooter,
-  DrawerCloseButton,
-  Checkbox,
-  Spinner,
-  useDisclosure,
-  useToast,
-} from "@chakra-ui/react";
-import { Button, Heading } from "../../../components";
-import {
-  adminGetBadges,
-  adminCreateBadge,
-  adminUpdateBadge,
-  adminDeactivateBadge,
-  adminAddBadgeCourses,
-  adminRemoveBadgeCourses,
-} from "../../../services";
-import { userGetCourseListing } from "../../../services";
-import { capitalizeFirstLetter } from "../../../utils";
-import { FaPlus, FaMedal } from "react-icons/fa";
+    Box,
+    Flex,
+    Grid,
+    Text,
+    InputGroup,
+    InputLeftElement,
+    Input,
+    Table,
+    Thead,
+    Tbody,
+    Tr,
+    Th,
+    Td,
+    TableContainer,
+    IconButton,
+    Menu,
+    MenuButton,
+    MenuList,
+    MenuItem,
+    Badge,
+    Modal,
+    ModalOverlay,
+    ModalContent,
+    ModalBody,
+    FormControl,
+    FormLabel,
+    Select as ChakraSelect,
+    NumberInput,
+    NumberInputField,
+    Divider,
+} from '@chakra-ui/react';
+import { FaSearch, FaFilter, FaChevronLeft, FaChevronRight, FaRegCalendarAlt, FaCloudUploadAlt } from "react-icons/fa";
+import { MdClose } from "react-icons/md";
+import { FiMoreVertical } from "react-icons/fi";
+import { Button, Heading, Select } from '../../../components';
+import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
 
-const BADGE_TYPES = ["Open Badge", "Mozilla Badge", "Custom Badge"];
-const VALIDATION_METHODS = ["automatic", "manual"];
+const MOCK_BADGES = [
+    { id: 'BGD-001', title: 'Agriculture Fundamentals Badge', reqCourses: '5', courseCount: '3', status: 'In-progress', remark: 'User has 2 courses left' },
+    { id: 'BGD-001', title: 'Safety Compliance Badge', reqCourses: '3', courseCount: '3', status: 'Earned', remark: 'All required courses completed' },
+    { id: 'BGD-001', title: 'Engineering Skill Level 1', reqCourses: '5', courseCount: '2', status: 'In-progress', remark: 'GC can see remaining 3 courses' },
+    { id: 'BGD-001', title: 'Digital Literacy Starter Badge', reqCourses: '1', courseCount: '0', status: 'Not Started', remark: 'Requirement clearly displayed' },
+    { id: 'BGD-001', title: 'Agriculture Fundamentals Badge', reqCourses: '7', courseCount: '5', status: 'In-progress', remark: 'User has 2 courses left' },
+    { id: 'BGD-001', title: 'Safety Compliance Badge', reqCourses: '4', courseCount: '4', status: 'Earned', remark: 'All required courses completed' },
+];
 
-const statusBadge = (status) => {
-  const active = (status || "").toLowerCase() === "active";
-  return (
-    <Badge
-      bg={active ? "#E6F4EA" : "#FED7D7"}
-      color={active ? "#38A169" : "#E53E3E"}
-      px="10px"
-      py="3px"
-      borderRadius="10px"
-      textTransform="none"
-      fontWeight="500"
-      fontSize="11px"
-    >
-      {active ? "Active" : "Inactive"}
-    </Badge>
-  );
+const getStatusBadge = (status) => {
+    switch (status) {
+        case 'Earned':
+            return <Badge bg="#E6F4EA" color="#38A169" px="12px" py="4px" borderRadius="12px" textTransform="none" fontWeight="500">{status}</Badge>;
+        case 'In-progress':
+            return <Badge bg="#FFF5EA" color="#DD6B20" px="12px" py="4px" borderRadius="12px" textTransform="none" fontWeight="500">{status}</Badge>;
+        case 'Not Started':
+            return <Badge bg="#FED7D7" color="#E53E3E" px="12px" py="4px" borderRadius="12px" textTransform="none" fontWeight="500">{status}</Badge>;
+        default:
+            return <Badge>{status}</Badge>;
+    }
 };
 
-/* ─── Create / Edit Modal ─────────────────────────────────────── */
-const BadgeFormModal = ({ isOpen, onClose, onSuccess, badge = null }) => {
-  const toast = useToast();
-  const [saving, setSaving] = useState(false);
-  const [courses, setCourses] = useState([]);
-  const [courseSearch, setCourseSearch] = useState("");
-  const [form, setForm] = useState({
-    title: "",
-    badgeType: "Open Badge",
-    description: "",
-    issuingAuthority: "",
-    validationMethod: "automatic",
-    badgeFile: "",
-    courseIds: [],
-  });
+const CreateBadgeModal = ({ isOpen, onClose }) => {
+    const fileInputRef = useRef(null);
+    const [fileName, setFileName] = useState('');
 
-  const isEdit = !!badge;
+    const handleFileChange = (e) => {
+        if (e.target.files[0]) setFileName(e.target.files[0].name);
+    };
 
-  useEffect(() => {
-    if (isOpen) {
-      if (badge) {
-        setForm({
-          title: badge.title || "",
-          badgeType: badge.badgeType || "Open Badge",
-          description: badge.description || "",
-          issuingAuthority: badge.issuingAuthority || "",
-          validationMethod: badge.validationMethod || "automatic",
-          badgeFile: badge.badgeFile || "",
-          courseIds: (badge.requiredCourseList || []).map((c) => c.id),
-        });
-      } else {
-        setForm({
-          title: "",
-          badgeType: "Open Badge",
-          description: "",
-          issuingAuthority: "",
-          validationMethod: "automatic",
-          badgeFile: "",
-          courseIds: [],
-        });
-      }
-      setCourseSearch("");
-      userGetCourseListing()
-        .then(({ courses: list }) => setCourses(list || []))
-        .catch(() => setCourses([]));
-    }
-  }, [isOpen, badge]);
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} isCentered size="md">
+            <ModalOverlay bg="blackAlpha.400" />
+            <ModalContent borderRadius="12px" mx={4}>
+                <ModalBody p={0}>
+                    {/* Modal Header */}
+                    <Flex
+                        justifyContent="space-between"
+                        alignItems="center"
+                        px={6}
+                        py={4}
+                        borderBottom="1px solid #E2E8F0"
+                    >
+                        <Text fontSize="18px" fontWeight="700" color="#1A202C">
+                            Create New Badge
+                        </Text>
+                        <Box
+                            as="button"
+                            onClick={onClose}
+                            color="#4A5568"
+                            _hover={{ color: '#1A202C' }}
+                        >
+                            <MdClose size={22} />
+                        </Box>
+                    </Flex>
 
-  const set = (field, value) => setForm((f) => ({ ...f, [field]: value }));
-
-  const toggleCourse = (id) =>
-    set(
-      "courseIds",
-      form.courseIds.includes(id)
-        ? form.courseIds.filter((c) => c !== id)
-        : [...form.courseIds, id],
-    );
-
-  const handleSubmit = async () => {
-    if (!form.title.trim()) {
-      toast({ title: "Title is required", status: "warning", duration: 2000 });
-      return;
-    }
-    if (!form.description.trim()) {
-      toast({
-        title: "Description is required",
-        status: "warning",
-        duration: 2000,
-      });
-      return;
-    }
-    if (!form.issuingAuthority.trim()) {
-      toast({
-        title: "Issuing authority is required",
-        status: "warning",
-        duration: 2000,
-      });
-      return;
-    }
-    if (form.courseIds.length === 0) {
-      toast({
-        title: "Select at least one course",
-        status: "warning",
-        duration: 2000,
-      });
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const body = {
-        title: form.title.trim(),
-        badgeType: form.badgeType,
-        description: form.description.trim(),
-        issuingAuthority: form.issuingAuthority.trim(),
-        validationMethod: form.validationMethod,
-        badgeFile: form.badgeFile.trim() || undefined,
-        courseIds: form.courseIds,
-      };
-      if (isEdit) {
-        await adminUpdateBadge(badge.id, body);
-        toast({
-          title: "Badge updated",
-          status: "success",
-          duration: 2000,
-        });
-      } else {
-        await adminCreateBadge(body);
-        toast({ title: "Badge created", status: "success", duration: 2000 });
-      }
-      onSuccess();
-      onClose();
-    } catch (err) {
-      toast({
-        title: capitalizeFirstLetter(
-          err?.response?.data?.message || err.message || "Failed to save badge",
-        ),
-        status: "error",
-        duration: 3000,
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const filteredCourses = courses.filter((c) => {
-    if (!courseSearch.trim()) return true;
-    return (c.title || c.name || "")
-      .toLowerCase()
-      .includes(courseSearch.toLowerCase());
-  });
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} isCentered size="xl">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>{isEdit ? "Edit Badge" : "Create Badge"}</ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          <Flex direction="column" gap="14px">
-            <FormControl isRequired>
-              <FormLabel fontSize="sm">Title</FormLabel>
-              <ChakraInput
-                value={form.title}
-                onChange={(e) => set("title", e.target.value)}
-                placeholder="e.g. Course Champion"
-                size="sm"
-              />
-            </FormControl>
+                    {/* Modal Form */}
+                    <Box px={6} py={5}>
+                        {/* Badge Title */}
+                        <FormControl mb={4}>
+                            <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={1}>
+                                Badge Title
+                            </FormLabel>
+                            <Input
+                                placeholder="Enter badge title"
+                                fontSize="14px"
+                                borderRadius="6px"
+                                borderColor="#E2E8F0"
+                                _focus={{ borderColor: '#6b006b', boxShadow: 'none' }}
+                            />
+                        </FormControl>
 
             <Flex gap="12px">
               <FormControl isRequired flex={1}>
@@ -272,15 +162,21 @@ const BadgeFormModal = ({ isOpen, onClose, onSuccess, badge = null }) => {
               />
             </FormControl>
 
-            <FormControl>
-              <FormLabel fontSize="sm">Badge Image URL</FormLabel>
-              <ChakraInput
-                value={form.badgeFile}
-                onChange={(e) => set("badgeFile", e.target.value)}
-                placeholder="https://cdn.example.com/badge.png"
-                size="sm"
-              />
-            </FormControl>
+                        {/* Required Course Count */}
+                        <FormControl mb={4}>
+                            <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={1}>
+                                Required Course Count
+                            </FormLabel>
+                            <NumberInput min={1}>
+                                <NumberInputField
+                                    placeholder="Enter number of required course count"
+                                    fontSize="14px"
+                                    borderRadius="6px"
+                                    borderColor="#E2E8F0"
+                                    _focus={{ borderColor: '#6b006b', boxShadow: 'none' }}
+                                />
+                            </NumberInput>
+                        </FormControl>
 
             <FormControl isRequired>
               <FormLabel fontSize="sm">
@@ -468,495 +364,212 @@ const CourseAssignmentDrawer = ({ isOpen, onClose, badge, onDone }) => {
 
           <Box h="1px" bg="#E2E8F0" my="16px" />
 
-          {/* Add new courses */}
-          <Text fontSize="12px" fontWeight="700" color="gray.500" mb="8px" textTransform="uppercase">
-            Add Courses
-          </Text>
-          <ChakraInput
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search courses…"
-            size="sm"
-            mb="8px"
-          />
-          <Box maxH="260px" overflowY="auto">
-            {addable.map((c) => {
-              const id = c.id || c._id;
-              return (
-                <Checkbox
-                  key={id}
-                  isChecked={selected.includes(id)}
-                  onChange={() => toggle(id)}
-                  size="sm"
-                  display="flex"
-                  mb="6px"
-                  colorScheme="purple"
-                >
-                  <Text fontSize="13px">{c.title || c.name}</Text>
-                </Checkbox>
-              );
-            })}
-            {addable.length === 0 && (
-              <Text fontSize="12px" color="gray.400">
-                No courses to add.
-              </Text>
-            )}
-          </Box>
-        </DrawerBody>
-        <DrawerFooter borderTopWidth="1px" gap="10px">
-          <Button secondary onClick={onClose}>
-            Close
-          </Button>
-          <Button
-            isLoading={saving}
-            onClick={handleAdd}
-            disabled={!selected.length}
-          >
-            Add Selected ({selected.length})
-          </Button>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
-  );
-};
+                        <Divider mb={4} />
 
-/* ─── Deactivate Confirm Modal ─────────────────────────────────── */
-const DeactivateModal = ({ isOpen, onClose, badge, onSuccess }) => {
-  const toast = useToast();
-  const [saving, setSaving] = useState(false);
-
-  const handleConfirm = async () => {
-    setSaving(true);
-    try {
-      await adminDeactivateBadge(badge.id);
-      toast({ title: "Badge deactivated", status: "success", duration: 2000 });
-      onSuccess();
-      onClose();
-    } catch (err) {
-      toast({
-        title: capitalizeFirstLetter(
-          err?.response?.data?.message || err.message || "Failed",
-        ),
-        status: "error",
-        duration: 3000,
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} isCentered size="sm">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Deactivate Badge</ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          <Text fontSize="14px" color="gray.600">
-            This will deactivate <strong>{badge?.title}</strong>. Existing
-            awards will not be affected.
-          </Text>
-        </ModalBody>
-        <ModalFooter gap="10px">
-          <Button secondary onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button
-            isLoading={saving}
-            onClick={handleConfirm}
-            style={{ background: "#E53E3E" }}
-          >
-            Deactivate
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  );
+                        {/* Action Buttons */}
+                        <Flex gap={3}>
+                            <Box
+                                as="button"
+                                onClick={onClose}
+                                flex={1}
+                                border="1px solid #E2E8F0"
+                                borderRadius="8px"
+                                py={3}
+                                fontSize="14px"
+                                fontWeight="600"
+                                color="#E53E3E"
+                                bg="white"
+                                _hover={{ bg: '#FFF5F5' }}
+                            >
+                                Cancel
+                            </Box>
+                            <Box
+                                as="button"
+                                flex={1}
+                                borderRadius="8px"
+                                py={3}
+                                fontSize="14px"
+                                fontWeight="600"
+                                color="white"
+                                bg="#6b006b"
+                                _hover={{ bg: '#520052' }}
+                            >
+                                Save and publish badge
+                            </Box>
+                        </Flex>
+                    </Box>
+                </ModalBody>
+            </ModalContent>
+        </Modal>
+    );
 };
 
 /* ─── Main page ────────────────────────────────────────────────── */
 const BadgeSupportPage = () => {
-  const history = useHistory();
-  const toast = useToast();
-  const createModal = useDisclosure();
-  const editModal = useDisclosure();
-  const courseDrawer = useDisclosure();
-  const deactivateModal = useDisclosure();
-
-  const [loading, setLoading] = useState(true);
-  const [badges, setBadges] = useState([]);
-  const [activeTab, setActiveTab] = useState("all");
-  const [selectedBadge, setSelectedBadge] = useState(null);
-
-  const fetchBadges = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await adminGetBadges();
-      setBadges(res?.data || res?.badges || []);
-    } catch (err) {
-      toast({
-        title: capitalizeFirstLetter(
-          err?.response?.data?.message || err.message || "Failed to load badges",
-        ),
-        status: "error",
-        duration: 3000,
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    fetchBadges();
-  }, [fetchBadges]);
-
-  const openEdit = (badge) => {
-    setSelectedBadge(badge);
-    editModal.onOpen();
-  };
-
-  const openCourses = (badge) => {
-    setSelectedBadge(badge);
-    courseDrawer.onOpen();
-  };
-
-  const openDeactivate = (badge) => {
-    setSelectedBadge(badge);
-    deactivateModal.onOpen();
-  };
-
-  const filtered =
-    activeTab === "all"
-      ? badges
-      : badges.filter((b) =>
-          activeTab === "active"
-            ? (b.status || "").toLowerCase() === "active"
-            : (b.status || "").toLowerCase() === "inactive",
-        );
-
-  const tabs = [
-    { key: "all", label: `All (${badges.length})` },
-    {
-      key: "active",
-      label: `Active (${badges.filter((b) => (b.status || "").toLowerCase() === "active").length})`,
-    },
-    {
-      key: "inactive",
-      label: `Inactive (${badges.filter((b) => (b.status || "").toLowerCase() === "inactive").length})`,
-    },
-  ];
-
-  return (
-    <>
-      <BadgeFormModal
-        isOpen={createModal.isOpen}
-        onClose={createModal.onClose}
-        onSuccess={fetchBadges}
-      />
-      <BadgeFormModal
-        isOpen={editModal.isOpen}
-        onClose={editModal.onClose}
-        onSuccess={fetchBadges}
-        badge={selectedBadge}
-      />
-      <CourseAssignmentDrawer
-        isOpen={courseDrawer.isOpen}
-        onClose={courseDrawer.onClose}
-        badge={selectedBadge}
-        onDone={fetchBadges}
-      />
-      {selectedBadge && (
-        <DeactivateModal
-          isOpen={deactivateModal.isOpen}
-          onClose={deactivateModal.onClose}
-          badge={selectedBadge}
-          onSuccess={fetchBadges}
-        />
-      )}
-
-      <Box marginX="22px" marginY="20px">
-        {/* Header */}
-        <Flex justifyContent="space-between" alignItems="center" mb="24px">
-          <Box>
-            <Heading fontSize="22px" fontWeight="600">
-              Badge Management
-            </Heading>
-            <Text fontSize="13px" color="gray.500" mt="2px">
-              Create, manage and track digital badges
-            </Text>
-          </Box>
-          <Flex gap="10px">
-            <Button
-              secondary
-              onClick={() => history.push("/admin/badges/pending-approvals")}
-            >
-              Pending Approvals
-            </Button>
-            <Button
-              secondary
-              onClick={() => history.push("/admin/badges/kpis")}
-            >
-              KPI Dashboard
-            </Button>
-            <Button
-              secondary
-              onClick={() => history.push("/admin/badges/report")}
-            >
-              Report
-            </Button>
-            <Button leftIcon={<FaPlus />} onClick={createModal.onOpen}>
-              Create Badge
-            </Button>
-          </Flex>
-        </Flex>
-
-        {/* Tabs */}
-        <Flex mb="20px" gap="4px" borderBottom="2px solid #E2E8F0" pb="0">
-          {tabs.map((tab) => (
-            <Box
-              key={tab.key}
-              as="button"
-              px="16px"
-              py="10px"
-              fontSize="13px"
-              fontWeight={activeTab === tab.key ? "700" : "500"}
-              color={activeTab === tab.key ? "#6b006b" : "gray.500"}
-              borderBottom={activeTab === tab.key ? "2px solid #6b006b" : "2px solid transparent"}
-              mb="-2px"
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </Box>
-          ))}
-        </Flex>
-
-        {/* Table */}
-        <Box
-          bg="white"
-          border="1px solid #E2E8F0"
-          borderRadius="8px"
-          overflow="hidden"
-        >
-          {loading ? (
-            <Flex justifyContent="center" alignItems="center" py="60px">
-              <Spinner size="xl" color="#6b006b" />
-            </Flex>
-          ) : filtered.length === 0 ? (
-            <Flex
-              direction="column"
-              alignItems="center"
-              justifyContent="center"
-              py="60px"
-              gap="12px"
-            >
-              <Box
-                w="56px"
-                h="56px"
-                bg="#F0E6FF"
-                borderRadius="50%"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-              >
-                <FaMedal color="#6b006b" size="22px" />
-              </Box>
-              <Text fontSize="15px" fontWeight="600" color="#1A202C">
-                No badges found
-              </Text>
-              <Text fontSize="13px" color="gray.500">
-                Create your first badge to get started.
-              </Text>
-            </Flex>
-          ) : (
-            <TableContainer>
-              <Table variant="simple" size="sm">
-                <Thead bg="#F7FAFC">
-                  <Tr>
-                    <Th
-                      textTransform="none"
-                      fontSize="12px"
-                      fontWeight="600"
-                      color="#4A5568"
-                    >
-                      Title
-                    </Th>
-                    <Th
-                      textTransform="none"
-                      fontSize="12px"
-                      fontWeight="600"
-                      color="#4A5568"
-                    >
-                      Type
-                    </Th>
-                    <Th
-                      textTransform="none"
-                      fontSize="12px"
-                      fontWeight="600"
-                      color="#4A5568"
-                      isNumeric
-                    >
-                      Required Courses
-                    </Th>
-                    <Th
-                      textTransform="none"
-                      fontSize="12px"
-                      fontWeight="600"
-                      color="#4A5568"
-                    >
-                      Validation
-                    </Th>
-                    <Th
-                      textTransform="none"
-                      fontSize="12px"
-                      fontWeight="600"
-                      color="#4A5568"
-                    >
-                      Status
-                    </Th>
-                    <Th
-                      textTransform="none"
-                      fontSize="12px"
-                      fontWeight="600"
-                      color="#4A5568"
-                    >
-                      Actions
-                    </Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {filtered.map((badge) => (
-                    <Tr key={badge.id} _hover={{ bg: "#FAFAFA" }}>
-                      <Td>
-                        <Flex alignItems="center" gap="10px">
-                          {badge.badgeFile && (
-                            <Box
-                              w="32px"
-                              h="32px"
-                              borderRadius="6px"
-                              overflow="hidden"
-                              flexShrink={0}
-                            >
-                              <img
-                                src={badge.badgeFile}
-                                alt={badge.title}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                }}
-                              />
-                            </Box>
-                          )}
-                          <Box>
-                            <Text
-                              fontSize="13px"
-                              fontWeight="600"
-                              color="#1A202C"
-                            >
-                              {badge.title}
-                            </Text>
-                            <Text
-                              fontSize="11px"
-                              color="gray.400"
-                              noOfLines={1}
-                              maxW="200px"
-                            >
-                              {badge.description}
-                            </Text>
-                          </Box>
-                        </Flex>
-                      </Td>
-                      <Td>
-                        <Badge
-                          bg="#F0E6FF"
-                          color="#6b006b"
-                          px="8px"
-                          py="2px"
-                          borderRadius="8px"
-                          textTransform="none"
-                          fontSize="11px"
-                          fontWeight="500"
-                        >
-                          {badge.badgeType}
-                        </Badge>
-                      </Td>
-                      <Td isNumeric>
-                        <Text
-                          fontSize="13px"
-                          fontWeight="700"
-                          color="#6b006b"
-                        >
-                          {badge.requiredCoursesCount ?? 0}
-                        </Text>
-                      </Td>
-                      <Td>
-                        <Text
-                          fontSize="12px"
-                          color="gray.600"
-                          textTransform="capitalize"
-                        >
-                          {badge.validationMethod}
-                        </Text>
-                      </Td>
-                      <Td>{statusBadge(badge.status)}</Td>
-                      <Td>
-                        <Flex gap="6px">
-                          <Box
-                            as="button"
-                            px="10px"
-                            py="4px"
-                            fontSize="11px"
-                            fontWeight="600"
-                            bg="#F0E6FF"
-                            color="#6b006b"
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    return (
+        <>
+            <CreateBadgeModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+            <AdminMainAreaWrapper>
+                <Box marginX="22px" marginY="30px">
+                    {/* Header Section */}
+                    <Flex justifyContent="space-between" alignItems="center" marginBottom="30px">
+                        <Heading as="h2" fontSize="24px" fontWeight="600" color="#1A202C">
+                            Badge Support
+                        </Heading>
+                        <Button
+                            style={{ backgroundColor: "#6b006b", color: "white" }}
+                            _hover={{ bg: "#520052" }}
                             borderRadius="6px"
-                            _hover={{ bg: "#e0c9e0" }}
-                            onClick={() => openEdit(badge)}
-                          >
-                            Edit
-                          </Box>
-                          <Box
-                            as="button"
-                            px="10px"
-                            py="4px"
-                            fontSize="11px"
-                            fontWeight="600"
-                            bg="#EBF4FF"
-                            color="#3182CE"
-                            borderRadius="6px"
-                            _hover={{ bg: "#d0e8ff" }}
-                            onClick={() => openCourses(badge)}
-                          >
-                            Courses
-                          </Box>
-                          {(badge.status || "").toLowerCase() === "active" && (
-                            <Box
-                              as="button"
-                              px="10px"
-                              py="4px"
-                              fontSize="11px"
-                              fontWeight="600"
-                              bg="#FED7D7"
-                              color="#E53E3E"
-                              borderRadius="6px"
-                              _hover={{ bg: "#feb2b2" }}
-                              onClick={() => openDeactivate(badge)}
-                            >
-                              Deactivate
-                            </Box>
-                          )}
+                            fontWeight="500"
+                            px={6}
+                            onClick={() => setIsModalOpen(true)}
+                        >
+                            Create new badge
+                        </Button>
+                    </Flex>
+
+                    {/* Stats Cards Section */}
+                    <Grid templateColumns="repeat(3, 1fr)" gap="24px" marginBottom="30px">
+                        <Box backgroundColor="white" padding="24px" borderRadius="10px" shadow="sm">
+                            <Text fontSize="14px" fontWeight="600" color="#1A202C" mb="12px">Badge Completion Rate</Text>
+                            <Text fontSize="28px" fontWeight="700" color="#1A202C" mb="12px">80%</Text>
+                            <Text fontSize="14px" fontWeight="500" color="#38A169">+5% vs last period</Text>
+                        </Box>
+                        <Box backgroundColor="white" padding="24px" borderRadius="10px" shadow="sm">
+                            <Text fontSize="14px" fontWeight="600" color="#1A202C" mb="12px">Requirement Clarity</Text>
+                            <Text fontSize="28px" fontWeight="700" color="#1A202C" mb="12px">89%</Text>
+                            <Text fontSize="14px" fontWeight="500" color="#4A5568">Badges with clear milestones</Text>
+                        </Box>
+                        <Box backgroundColor="white" padding="24px" borderRadius="10px" shadow="sm">
+                            <Text fontSize="14px" fontWeight="600" color="#1A202C" mb="12px">Average Earning Time</Text>
+                            <Text fontSize="28px" fontWeight="700" color="#1A202C" mb="12px">10 days</Text>
+                            <Text fontSize="14px" fontWeight="500" color="#38A169">+1 day improvement</Text>
+                        </Box>
+                    </Grid>
+
+                    {/* Table Section */}
+                    <Box backgroundColor="white" borderRadius="10px" shadow="sm" border="1px solid #E2E8F0">
+                        <Flex justifyContent="space-between" alignItems="center" padding="16px 24px" borderBottom="1px solid #E2E8F0 flexWrap='wrap' gap={4}">
+                            {/* Left Toolbar */}
+                            <Flex gap="16px" flex="1">
+                                <InputGroup maxWidth="300px">
+                                    <InputLeftElement pointerEvents='none'>
+                                        <FaSearch color='#A0AEC0' />
+                                    </InputLeftElement>
+                                    <Input
+                                        type='text'
+                                        placeholder='Search here...'
+                                        fontSize="14px"
+                                        borderRadius="6px"
+                                        borderColor="#E2E8F0"
+                                        _focus={{ borderColor: "#6b006b", boxShadow: "none" }}
+                                    />
+                                </InputGroup>
+
+                                <Button
+                                    variant="outline"
+                                    leftIcon={<FaFilter color="#4A5568" />}
+                                    borderColor="#E2E8F0"
+                                    color="#4A5568"
+                                    fontSize="14px"
+                                    fontWeight="500"
+                                    bg="white"
+                                >
+                                    Filter
+                                </Button>
+                            </Flex>
+
+                            {/* Right Toolbar */}
+                            <Flex>
+                                <Button
+                                    variant="outline"
+                                    leftIcon={<FaRegCalendarAlt color="#4A5568" />}
+                                    borderColor="#E2E8F0"
+                                    color="#4A5568"
+                                    fontSize="14px"
+                                    fontWeight="500"
+                                    bg="white"
+                                >
+                                    Select dates
+                                </Button>
+                            </Flex>
                         </Flex>
-                      </Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            </TableContainer>
-          )}
-        </Box>
-      </Box>
-    </>
-  );
+
+                        <TableContainer>
+                            <Table variant='simple'>
+                                <Thead bg="#F7FAFC">
+                                    <Tr>
+                                        <Th width="40px" pl={6} py={4}>
+                                            <input type="checkbox" style={{ accentColor: "#6B006B" }} />
+                                        </Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Badge ID</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Badge Title</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Required Courses Count</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Courses Completed</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Status</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" borderBottom="1px solid #E2E8F0">Remark</Th>
+                                        <Th textTransform="none" fontSize="13px" fontWeight="600" color="#4A5568" width="80px" textAlign="center" borderBottom="1px solid #E2E8F0">Action</Th>
+                                    </Tr>
+                                </Thead>
+                                <Tbody>
+                                    {MOCK_BADGES.map((row, idx) => (
+                                        <Tr key={idx} _hover={{ bg: "#F8FAFC" }}>
+                                            <Td pl={6} py={4} borderBottom="1px solid #E2E8F0">
+                                                <input type="checkbox" style={{ accentColor: "#6B006B" }} />
+                                            </Td>
+                                            <Td color="#4A5568" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.id}</Td>
+                                            <Td color="#1A202C" fontSize="14px" fontWeight="500" borderBottom="1px solid #E2E8F0" maxW="200px" whiteSpace="normal">{row.title}</Td>
+                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.reqCourses}</Td>
+                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0">{row.courseCount}</Td>
+                                            <Td borderBottom="1px solid #E2E8F0">{getStatusBadge(row.status)}</Td>
+                                            <Td color="#1A202C" fontSize="14px" borderBottom="1px solid #E2E8F0" maxW="200px" whiteSpace="normal">{row.remark}</Td>
+                                            <Td textAlign="center" borderBottom="1px solid #E2E8F0">
+                                                <Menu placement="bottom-end">
+                                                    <MenuButton
+                                                        as={IconButton}
+                                                        aria-label="Options"
+                                                        icon={<FiMoreVertical color="#A0AEC0" />}
+                                                        variant="outline"
+                                                        size="sm"
+                                                        borderRadius="6px"
+                                                        borderColor="#E2E8F0"
+                                                    />
+                                                    <MenuList minWidth="120px">
+                                                        <MenuItem fontSize="14px" color="#1A202C">Edit Badge</MenuItem>
+                                                        <MenuItem fontSize="14px" color="red.500">Delete Badge</MenuItem>
+                                                    </MenuList>
+                                                </Menu>
+                                            </Td>
+                                        </Tr>
+                                    ))}
+                                </Tbody>
+                            </Table>
+                        </TableContainer>
+
+                        {/* Pagination Section */}
+                        <Flex justifyContent="flex-end" alignItems="center" padding="16px 24px" gap="24px">
+                            <Flex alignItems="center" gap="10px">
+                                <Text fontSize="14px" color="#4A5568" fontWeight="500">Rows per page</Text>
+                                <Box width="70px">
+                                    <Select defaultValue="08" id="rows" options={[{ label: "08", value: "08" }]} />
+                                </Box>
+                            </Flex>
+                            <Text fontSize="14px" fontWeight="600" color="#1A202C">
+                                Showing 10 out iof 100 items
+                            </Text>
+                            <Flex gap="4px">
+                                <IconButton variant="ghost" size="sm" icon={<FaChevronLeft />} aria-label="Previous page" color="#A0AEC0" />
+                                <Text fontSize="14px" color="#6B006B" fontWeight="600" alignSelf="center" px={2}>1</Text>
+                                <IconButton variant="ghost" size="sm" icon={<FaChevronRight />} aria-label="Next page" color="#1A202C" />
+                            </Flex>
+                        </Flex>
+
+                    </Box>
+                </Box>
+            </AdminMainAreaWrapper>
+        </>
+    );
 };
 
 export const BadgeSupportPageRoute = ({ ...rest }) => (

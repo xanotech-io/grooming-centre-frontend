@@ -169,10 +169,23 @@ const AssignmentGrading = () => {
 
   return (
     <AdminMainAreaWrapper>
-      <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        my={4}
+      >
         <Breadcrumb
-          item2={<BreadcrumbItem><Link href="/admin/report/instructorReport">Instructors</Link></BreadcrumbItem>}
-          item3={<BreadcrumbItem isCurrentPage><Link href="#">Assignment Grading</Link></BreadcrumbItem>}
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/report/instructorReport">Instructors</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Assignment Grading</Link>
+            </BreadcrumbItem>
+          }
         />
       </Box>
       <Box display={"flex"} justifyContent="space-between" mb={10} gap={4}>
@@ -228,7 +241,9 @@ const AssignmentGrading = () => {
 };
 
 export const AssignmentGradingRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <AssignmentGrading {...props} />} />;
+  return (
+    <Route {...rest} render={(props) => <AssignmentGrading {...props} />} />
+  );
 };
 
 export default AssignmentGrading;

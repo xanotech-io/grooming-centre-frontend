@@ -94,7 +94,9 @@ const InstructorReport = () => {
   const fetcher = (props) => async () => {
     setLoading(true);
     try {
-      const response = await adminGetInstructorReportDirectory(props?.params || {});
+      const response = await adminGetInstructorReportDirectory(
+        props?.params || {},
+      );
       const rows = (response.rows || []).map(mapInstructorToRow);
       setTotalCount(response.totalDocumentsCount || rows.length);
       return {
@@ -113,7 +115,12 @@ const InstructorReport = () => {
 
   return (
     <AdminMainAreaWrapper>
-      <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        my={4}
+      >
         <Breadcrumb
           item2={
             <BreadcrumbItem isCurrentPage>
@@ -122,8 +129,10 @@ const InstructorReport = () => {
           }
         />
         <Box display="flex" gap="8px">
-          <Button secondary onClick={() => { }}>Schedule report</Button>
-          <Button onClick={() => { }}>Export Dashboard</Button>
+          <Button secondary onClick={() => {}}>
+            Schedule report
+          </Button>
+          <Button onClick={() => {}}>Export Dashboard</Button>
         </Box>
       </Box>
 
@@ -141,7 +150,9 @@ const InstructorReport = () => {
 };
 
 export const InstructorReportRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <InstructorReport {...props} />} />;
+  return (
+    <Route {...rest} render={(props) => <InstructorReport {...props} />} />
+  );
 };
 
 export default InstructorReportRoute;
