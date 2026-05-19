@@ -34,3 +34,6 @@ export * from './Badges/BadgeDetailPage';
 export * from './Badges/MyBadgesPage';
 export * from './Badges/BadgeProgressPage';
 export * from './Progress/MyProgressPage';
+export * from './ProgressReport/StudentProgressReportPage';
+export * from './ProgressReport/StudentCourseProgressPage';
+export { StudentVisualAnalyticsPageRoute } from './VisualAnalytics/StudentVisualAnalyticsPage';

@@ -35,3 +35,5 @@ export * from './Calendar/DaySchedule';
 export * from './Calendar/MonthSchedule';
 export * from './Participants/Participants';
 export * from './Pagination/CoursesPagination';
+
+export * from './WorkflowReviewSection';

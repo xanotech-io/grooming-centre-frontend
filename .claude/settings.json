@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(yarn lint *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(node -e \"require\\('/home/cyberbot/grooming-centre-frontend/node_modules/zustand'\\)\")",
+      "Bash(yarn add *)",
+      "Bash(yarn install *)"
+    ]
+  }
+}

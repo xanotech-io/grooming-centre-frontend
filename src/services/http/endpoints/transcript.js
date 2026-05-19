@@ -1,4 +1,4 @@
-// import { http } from "../http";
+import { http } from "../http";
 
 // ---------------------------------------------------------------------------
 // MOCK DATA - remove when wiring to real API endpoints
@@ -274,5 +274,73 @@ export const adminPostCompletionToTranscript = async (studentId, body) => {
       datePosted: new Date().toISOString(),
       remarks: body.remarks || "Posted via admin transcript module",
     },
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Student - Request Transcript
+// POST /api/v1/student-transcript-v2
+// ---------------------------------------------------------------------------
+
+/**
+ * Request a transcript (student action)
+ * @param {{ transcriptType: 'Official' | 'Unofficial' }} body
+ * @returns {Promise<{ success: boolean, message: string, data: { transcript: object, summary: object } }>}
+ */
+export const studentRequestTranscript = async (body) => {
+  const { data } = await http.post('/v1/student-transcript-v2', body);
+  return { success: data.success, message: data.message, data: data.data };
+};
+
+// ---------------------------------------------------------------------------
+// Admin - Review Transcript (Approve or Return)
+// PATCH /api/v1/student-transcript-v2/{transcriptId}/review
+// ---------------------------------------------------------------------------
+
+/**
+ * Approve or return an Official transcript that is in Pending Review status
+ * @param {string} transcriptId
+ * @param {{ decision: 'Approved' | 'Returned', reviewRemarks?: string }} body
+ * @returns {Promise<{ success: boolean, message: string, data: { transcript: object, summary: object } }>}
+ */
+export const adminReviewTranscript = async (transcriptId, body) => {
+  const { data } = await http.patch(`/v1/student-transcript-v2/${transcriptId}/review`, body);
+  return { success: data.success, message: data.message, data: data.data };
+};
+
+// ---------------------------------------------------------------------------
+// Admin - Get Single Transcript
+// GET /api/v1/student-transcript-v2/{transcriptId}
+// ---------------------------------------------------------------------------
+
+/**
+ * Get a single transcript with all course rows and summary metrics (admin view)
+ * @param {string} transcriptId UUID of the transcript request
+ * @returns {Promise<{ success: boolean, message: string, data: { transcript: object, summary: object } }>}
+ */
+export const adminGetSingleTranscript = async (transcriptId) => {
+  const { data } = await http.get(`/v1/student-transcript-v2/${transcriptId}`);
+  return { success: data.success, message: data.message, data: data.data };
+};
+
+// ---------------------------------------------------------------------------
+// Admin - Get All Student Transcripts
+// GET /api/v1/student-transcript
+// ---------------------------------------------------------------------------
+
+/**
+ * Get paginated list of all transcript requests across all students (admin view)
+ * @param {{ status?: string, transcriptType?: string, page?: number, limit?: number }} params
+ * @returns {Promise<{ success: boolean, message: string, rows: object[], totalDocumentsCount: number, showingDocumentsCount: number }>}
+ */
+export const adminGetAllStudentTranscripts = async (params = {}) => {
+  const { data } = await http.get('/v1/student-transcript-v2', { params });
+  const rows = data.data ?? [];
+  return {
+    success: data.success,
+    message: data.message,
+    rows,
+    showingDocumentsCount: rows.length,
+    totalDocumentsCount: rows.length,
   };
 };

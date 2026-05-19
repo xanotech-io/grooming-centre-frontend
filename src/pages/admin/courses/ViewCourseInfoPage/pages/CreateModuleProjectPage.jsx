@@ -6,10 +6,11 @@ import {
   Button,
   DateTimePicker,
   Input,
+  RichText,
   Select,
-  Textarea,
+  WorkflowReviewSection,
 } from "../../../../../components";
-import { useDateTimePicker, useGoBack } from "../../../../../hooks";
+import { useDateTimePicker, useGoBack, useRichText, useWorkflowReview } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import { createModuleProject } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
@@ -32,21 +33,46 @@ const CreateModuleProjectPage = () => {
   } = useForm({ defaultValues: { status: "draft", maxGrade: 100 } });
 
   const dueDateManager = useDateTimePicker();
+  const descriptionManager = useRichText();
+  const instructionsManager = useRichText();
+  const {
+    requestReview,
+    setRequestReview,
+    selectedSupervisorId,
+    setSelectedSupervisorId,
+    supervisors,
+    supervisorsLoading,
+    supervisorsError,
+    submitWorkflowIfRequested,
+  } = useWorkflowReview();
 
   const onSubmit = async (data) => {
     try {
       const dueDate = dueDateManager.handleGetValueAndValidate("Due Date");
+      const description = descriptionManager.data.raw
+        ? descriptionManager.handleGetValueAndValidate("Description")
+        : undefined;
+      const instructions = instructionsManager.data.raw
+        ? instructionsManager.handleGetValueAndValidate("Instructions")
+        : undefined;
 
       const body = {
         title: data.title,
-        description: data.description,
-        instructions: data.instructions,
+        description,
+        instructions,
         dueDate: formatDateToISO(dueDate),
         maxGrade: Number(data.maxGrade),
         status: data.status || "draft",
       };
 
-      const { message } = await createModuleProject(moduleId, body);
+      const { message, project } = await createModuleProject(moduleId, body);
+
+      await submitWorkflowIfRequested({
+        contentId: project?.id ?? moduleId,
+        contentTitle: data.title,
+        requestType: "Project",
+        description: description ?? "",
+      });
 
       toast({
         description: capitalizeFirstLetter(message),
@@ -79,22 +105,22 @@ const CreateModuleProjectPage = () => {
             {...register("title", { required: "Title is required" })}
           />
 
-          <Textarea
+          <RichText
+            id="description"
             label="Description"
             placeholder="Brief description of the project"
-            error={errors.description?.message}
+            defaultValue={descriptionManager.data.default}
+            onChange={descriptionManager.handleChange}
             mb={6}
-            rows={3}
-            {...register("description")}
           />
 
-          <Textarea
+          <RichText
+            id="instructions"
             label="Instructions"
             placeholder="Step-by-step instructions for completing the project"
-            error={errors.instructions?.message}
+            defaultValue={instructionsManager.data.default}
+            onChange={instructionsManager.handleChange}
             mb={6}
-            rows={5}
-            {...register("instructions")}
           />
 
           <DateTimePicker
@@ -124,6 +150,16 @@ const CreateModuleProjectPage = () => {
             options={STATUS_OPTIONS}
             mb={6}
             {...register("status")}
+          />
+
+          <WorkflowReviewSection
+            requestReview={requestReview}
+            onToggle={() => { setRequestReview((p) => !p); setSelectedSupervisorId(""); }}
+            selectedSupervisorId={selectedSupervisorId}
+            onSupervisorChange={setSelectedSupervisorId}
+            supervisors={supervisors}
+            supervisorsLoading={supervisorsLoading}
+            supervisorsError={supervisorsError}
           />
 
           <Box display="flex" gap={4} justifyContent="flex-end" marginTop={8}>

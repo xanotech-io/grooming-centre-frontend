@@ -198,6 +198,7 @@ const CreateLessonPage = () => {
 
       if (isEditMode) handleDelete(lesson.id);
 
+
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",
@@ -398,6 +399,7 @@ const CreateLessonPage = () => {
             )}
           </GridItem>
         </Grid>
+
       </CreatePageLayout>
     </>
   );

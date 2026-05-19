@@ -239,8 +239,7 @@ const TranscriptReport = () => {
   const { studentId } = useParams();
   const history = useHistory();
   const toast = useToast();
-  const safeStudentId =
-    !studentId || studentId === "undefined" ? "mock_student_1" : studentId;
+  const safeStudentId = studentId;
 
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);

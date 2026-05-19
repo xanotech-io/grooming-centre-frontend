@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { Route } from "react-router-dom";
 import {
   Input,
-  Textarea,
+  RichText,
   Select,
   Breadcrumb,
   Link,
@@ -28,7 +28,7 @@ import {
   adminEditCourse,
   adminGetCoursesByDepartment,
 } from "../../../services";
-import { useUpload } from "../../../hooks";
+import { useUpload, useRichText } from "../../../hooks";
 import useCourseDetails from "../../user/Courses/CourseDetails/hooks/useCourseDetails";
 import { useEffect, useMemo } from "react";
 
@@ -45,6 +45,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
   } = useForm();
   const thumbnailUpload = useUpload();
   const certificateUpload = useUpload();
+  const descriptionManager = useRichText();
 
   const { push } = useHistory();
   const appManager = useApp();
@@ -62,6 +63,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
         throw new Error("Please select a department");
       }
 
+      const description = descriptionManager.handleGetValueAndValidate("Course Description");
       const courseThumbnail =
         thumbnailUpload.handleGetFileAndValidate("Course Image");
       const certificate =
@@ -69,6 +71,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
 
       data = {
         ...data,
+        description,
         departmentId: selectedDepartmentId,
         courseThumbnail,
         certificate,
@@ -167,7 +170,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
 
   useEffect(() => {
     if (courseDetailsData) {
-      setValue("description", courseDetailsData.description);
+      descriptionManager.handleInitData(courseDetailsData.description);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseDetailsData]);
@@ -271,15 +274,12 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
         </Box>
         {/* Row 3 */}
         <Grid marginBottom={10}>
-          <Textarea
-            minHeight="150px"
-            label="Course description"
+          <RichText
             id="description"
+            label="Course description"
             isRequired
-            {...register("description", {
-              required: "Please add a description",
-            })}
-            error={errors.description?.message}
+            defaultValue={descriptionManager.data.default}
+            onChange={descriptionManager.handleChange}
           />
         </Grid>
         {/* Row 4 */}
@@ -319,6 +319,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
             />
           </GridItem>
         </Grid>
+
       </CreatePageLayout>
     </>
   );
