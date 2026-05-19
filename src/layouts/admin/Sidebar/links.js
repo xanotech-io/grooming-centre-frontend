@@ -8,7 +8,7 @@ import { VscLibrary } from "react-icons/vsc";
 import { TiPen } from "react-icons/ti";
 import { MdOutlineAnnouncement } from "react-icons/md";
 import { FaFolderOpen, FaSitemap, FaClone, FaDownload, FaDatabase } from "react-icons/fa";
-import { FiAward, FiTrendingUp } from "react-icons/fi";
+import { FiAward, FiTrendingUp, FiMail, FiArchive } from "react-icons/fi";
 
 export const links = [
   {
@@ -81,6 +81,16 @@ export const links = [
     href: "/admin/announcement",
     text: "announcements",
     icon: <MdOutlineAnnouncement />,
+  },
+  {
+    href: "/admin/reminders",
+    text: "Email Reminders",
+    icon: <FiMail />,
+  },
+  {
+    href: "/admin/data-import-export",
+    text: "Data Import & Export",
+    icon: <FiArchive />,
   },
   {
     href: "/admin/audit",

@@ -54,3 +54,5 @@ export * from "./http/endpoints/saExamMarking";
 export * from "./http/endpoints/multimediaQuestion";
 export * from "./http/endpoints/examPaperConfig";
 export * from "./http/endpoints/questionBatchImport";
+export * from "./http/endpoints/emailReminder";
+export * from "./http/endpoints/exportReportsV2";

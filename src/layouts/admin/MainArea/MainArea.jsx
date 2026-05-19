@@ -127,6 +127,9 @@ import { TemplateLibraryPageRoute } from "../../../pages/admin/standaloneExams/T
 import { AnnouncementListingRoute } from "../../../pages/admin/Annoncement/AnnouncementListing";
 import { CreateAnnouncementRoute } from "../../../pages/admin/Annoncement/CreateAnnouncement";
 import { AcademicMetricsDashboardRoute } from "../../../pages/admin/dashboard/AcademicMetricsDashboard";
+import { RemindersListingPageRoute } from "../../../pages/admin/emailReminders/RemindersListingPage";
+import { CreateReminderPageRoute } from "../../../pages/admin/emailReminders/CreateReminderPage";
+import { DataImportExportPageRoute } from "../../../pages/admin/dataImportExport/DataImportExportPage";
 import { InteractiveDashboardRoute } from "../../../pages/admin/dashboard/InteractiveDashboard";
 import { StudentTrainingReportPageRoute } from "../../../pages/admin/studentProgress/StudentTrainingReportPage";
 
@@ -361,6 +364,10 @@ const MainArea = () => {
         <SettingsPageRoute path="/admin/settings" />
         <AnnouncementListingRoute exact path="/admin/announcement" />
         <CreateAnnouncementRoute exact path="/admin/announcement/edit" />
+        <RemindersListingPageRoute exact path="/admin/reminders" />
+        <CreateReminderPageRoute exact path="/admin/reminders/create" />
+        <CreateReminderPageRoute exact path="/admin/reminders/edit" />
+        <DataImportExportPageRoute exact path="/admin/data-import-export" />
         <ViewAuditRoute exact path="/admin/audit" />
         <ManagementReportRoute exact path="/admin/report/managementReport" />
         <StudentReportRoute exact path="/admin/report/studentReport" />
