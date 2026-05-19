@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Route } from "react-router-dom";
+import { Route, useParams } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 import {
   Button,
@@ -357,12 +357,6 @@ const AssessmentReport = () => {
         )}
       </AdminMainAreaWrapper>
     </>
-  );
-};
-
-export const AssessmentReportRoute = ({ ...rest }) => {
-  return (
-    <Route {...rest} render={(props) => <AssessmentReport {...props} />} />
   );
 };
 

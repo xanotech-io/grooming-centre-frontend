@@ -451,7 +451,7 @@ const QuestionEditorPage = () => {
   const history = useHistory();
   const toast = useToast();
   const isEdit = Boolean(questionId);
-  const [examType, setExamType] = useState("standalone_examination");
+  const [examType] = useState("standalone_examination");
 
   const { isOpen: isAddMediaOpen, onOpen: onAddMediaOpen, onClose: onAddMediaClose } = useDisclosure();
 

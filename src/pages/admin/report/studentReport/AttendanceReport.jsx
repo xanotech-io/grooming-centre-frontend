@@ -1,6 +1,6 @@
 import { Box, Flex } from "@chakra-ui/layout";
 import { useState } from "react";
-import { Route } from "react-router-dom";
+import { Route, useParams } from "react-router-dom";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { getStudentAttendance } from "../../../../services";
@@ -319,12 +319,6 @@ const AttendanceReport = () => {
         )}
       </AdminMainAreaWrapper>
     </>
-  );
-};
-
-export const AttendanceReportRoute = ({ ...rest }) => {
-  return (
-    <Route {...rest} render={(props) => <AttendanceReport {...props} />} />
   );
 };
 

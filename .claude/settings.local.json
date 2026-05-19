@@ -21,7 +21,11 @@
       "PowerShell(Get-ChildItem \"c:\\\\Users\\\\Dell\\\\Work\\\\grooming-centre-frontend\" | Select-Object Name, PSIsContainer | Where-Object { !$_.PSIsContainer })",
       "PowerShell(dir \"c:\\\\Users\\\\Dell\\\\Work\\\\grooming-centre-frontend\" | where { !$_.PSIsContainer } | ft Name)",
       "Bash(for f *)",
-      "Read(//c/Users/Dell/Work/**)"
+      "Read(//c/Users/Dell/Work/**)",
+      "Bash(npm run *)",
+      "Bash(cat .eslintrc.js)",
+      "Bash(cat .eslintrc.json)",
+      "Bash(cat .eslintrc)"
     ]
   }
 }

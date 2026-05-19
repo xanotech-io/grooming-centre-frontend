@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Route } from 'react-router-dom';
 import {
     Box,
@@ -25,18 +25,29 @@ import {
     ModalOverlay,
     ModalContent,
     ModalBody,
+    ModalFooter,
     FormControl,
     FormLabel,
     Select as ChakraSelect,
+    Textarea,
+    Checkbox,
     NumberInput,
     NumberInputField,
     Divider,
+    useToast,
+    Drawer,
+    DrawerOverlay,
+    DrawerContent,
+    DrawerCloseButton,
+    DrawerHeader,
+    DrawerBody,
 } from '@chakra-ui/react';
-import { FaSearch, FaFilter, FaChevronLeft, FaChevronRight, FaRegCalendarAlt, FaCloudUploadAlt } from "react-icons/fa";
+import { FaSearch, FaFilter, FaChevronLeft, FaChevronRight, FaRegCalendarAlt } from "react-icons/fa";
 import { MdClose } from "react-icons/md";
 import { FiMoreVertical } from "react-icons/fi";
 import { Button, Heading, Select } from '../../../components';
 import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
+import { userGetCourseListing, adminRemoveBadgeCourses } from '../../../services';
 
 const MOCK_BADGES = [
     { id: 'BGD-001', title: 'Agriculture Fundamentals Badge', reqCourses: '5', courseCount: '3', status: 'In-progress', remark: 'User has 2 courses left' },
@@ -60,13 +71,19 @@ const getStatusBadge = (status) => {
     }
 };
 
-const CreateBadgeModal = ({ isOpen, onClose }) => {
-    const fileInputRef = useRef(null);
-    const [fileName, setFileName] = useState('');
+const BADGE_TYPES = ['Academic', 'Professional', 'Skills', 'Compliance'];
+const VALIDATION_METHODS = ['automatic', 'manual', 'peer'];
+const capitalizeFirstLetter = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
 
-    const handleFileChange = (e) => {
-        if (e.target.files[0]) setFileName(e.target.files[0].name);
-    };
+const CreateBadgeModal = ({ isOpen, onClose }) => {
+    const [form, setForm] = useState({ badgeType: '', validationMethod: '', description: '', issuingAuthority: '', courseIds: [] });
+    const [saving, setSaving] = useState(false);
+    const [courseSearch, setCourseSearch] = useState('');
+    const isEdit = false;
+    const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
+    const toggleCourse = (id) => setForm(prev => ({ ...prev, courseIds: prev.courseIds.includes(id) ? prev.courseIds.filter(x => x !== id) : [...prev.courseIds, id] }));
+    const filteredCourses = [];
+    const handleSubmit = () => { setSaving(false); onClose(); };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} isCentered size="md">
@@ -154,7 +171,7 @@ const CreateBadgeModal = ({ isOpen, onClose }) => {
 
             <FormControl isRequired>
               <FormLabel fontSize="sm">Issuing Authority</FormLabel>
-              <ChakraInput
+              <Input
                 value={form.issuingAuthority}
                 onChange={(e) => set("issuingAuthority", e.target.value)}
                 placeholder="e.g. Automated System"
@@ -196,7 +213,7 @@ const CreateBadgeModal = ({ isOpen, onClose }) => {
                   {form.courseIds.length})
                 </Box>
               </FormLabel>
-              <ChakraInput
+              <Input
                 value={courseSearch}
                 onChange={(e) => setCourseSearch(e.target.value)}
                 placeholder="Search courses…"
@@ -233,7 +250,7 @@ const CreateBadgeModal = ({ isOpen, onClose }) => {
                 })}
               </Box>
             </FormControl>
-          </Flex>
+          </Box>
         </ModalBody>
         <ModalFooter gap="10px">
           <Button secondary onClick={onClose} disabled={saving}>
@@ -254,45 +271,17 @@ const CourseAssignmentDrawer = ({ isOpen, onClose, badge, onDone }) => {
   const [courses, setCourses] = useState([]);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
-  const [selected, setSelected] = useState([]);
 
   const currentIds = (badge?.requiredCourseList || []).map((c) => c.id);
 
   useEffect(() => {
     if (isOpen) {
-      setSelected([]);
       setSearch("");
       userGetCourseListing()
         .then(({ courses: list }) => setCourses(list || []))
         .catch(() => setCourses([]));
     }
   }, [isOpen]);
-
-  const toggle = (id) =>
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-
-  const handleAdd = async () => {
-    if (!selected.length) return;
-    setSaving(true);
-    try {
-      await adminAddBadgeCourses(badge.id, { courseIds: selected });
-      toast({ title: "Courses added", status: "success", duration: 2000 });
-      setSelected([]);
-      onDone();
-    } catch (err) {
-      toast({
-        title: capitalizeFirstLetter(
-          err?.response?.data?.message || err.message || "Failed",
-        ),
-        status: "error",
-        duration: 3000,
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleRemove = async (courseId) => {
     setSaving(true);
@@ -364,7 +353,23 @@ const CourseAssignmentDrawer = ({ isOpen, onClose, badge, onDone }) => {
 
           <Box h="1px" bg="#E2E8F0" my="16px" />
 
-                        <Divider mb={4} />
+          <Text fontSize="12px" fontWeight="700" color="gray.500" mb="8px" textTransform="uppercase">
+            Add Courses ({addable.length} available)
+          </Text>
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search courses…"
+            size="sm"
+            mb="8px"
+          />
+          {addable.map((c) => (
+            <Flex key={c.id || c._id} justifyContent="space-between" alignItems="center" p="10px 12px" mb="6px" bg="#F7F9FC" borderRadius="6px" border="1px solid #E2E8F0">
+              <Text fontSize="13px" fontWeight="500">{c.title || c.name}</Text>
+            </Flex>
+          ))}
+
+          <Divider mb={4} />
 
                         {/* Action Buttons */}
                         <Flex gap={3}>
@@ -397,19 +402,20 @@ const CourseAssignmentDrawer = ({ isOpen, onClose, badge, onDone }) => {
                                 Save and publish badge
                             </Box>
                         </Flex>
-                    </Box>
-                </ModalBody>
-            </ModalContent>
-        </Modal>
-    );
+        </DrawerBody>
+      </DrawerContent>
+    </Drawer>
+  );
 };
 
 /* ─── Main page ────────────────────────────────────────────────── */
 const BadgeSupportPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [drawerBadge, setDrawerBadge] = useState(null);
     return (
         <>
             <CreateBadgeModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+            <CourseAssignmentDrawer isOpen={!!drawerBadge} onClose={() => setDrawerBadge(null)} badge={drawerBadge} onDone={() => setDrawerBadge(null)} />
             <AdminMainAreaWrapper>
                 <Box marginX="22px" marginY="30px">
                     {/* Header Section */}

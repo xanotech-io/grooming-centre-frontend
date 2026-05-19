@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useParams, Route } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
-import { Route } from "react-router-dom";
-import { useParams } from "react-router-dom";
 import {
   Button,
   Table,
@@ -11,7 +9,6 @@ import {
   DashboardMetricCard,
 } from "../../../../components";
 import { useTableRows } from "../../../../hooks";
-import { useState } from "react";
 import { useToast } from "@chakra-ui/react";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
@@ -28,8 +25,6 @@ const ComplianceReport = () => {
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
-  const [meta, setMeta] = useState(null);
-
   const safeStudentId =
     !studentId || studentId === "undefined" ? "LRN-001" : studentId;
 
@@ -252,7 +247,7 @@ const ComplianceReport = () => {
     },
   };
 
-  const fetcher = (props) => async () => fetchReports(studentId, props?.params);
+  const fetcher = (props) => async () => fetchAttendanceReports(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
   return (
@@ -326,12 +321,6 @@ const ComplianceReport = () => {
         )}
       </AdminMainAreaWrapper>
     </>
-  );
-};
-
-export const ComplianceReportRoute = ({ ...rest }) => {
-  return (
-    <Route {...rest} render={(props) => <ComplianceReport {...props} />} />
   );
 };
 

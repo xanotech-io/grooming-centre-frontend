@@ -6,6 +6,7 @@ import {
   Spinner,
   Breadcrumb,
   Link,
+  DashboardMetricCard,
 } from "../../../../components";
 import { Flex, Box } from "@chakra-ui/layout";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
@@ -329,10 +330,6 @@ const ProgressReport = () => {
       )}
     </AdminMainAreaWrapper>
   );
-};
-
-export const ProgressReportRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <ProgressReport {...props} />} />;
 };
 
 export const ProgressReportRoute = ({ ...rest }) => {

@@ -354,8 +354,6 @@ const TranscriptReport = () => {
       {
         triggerText: "Academic Year",
         queryKey: "academicYear",
-        triggerText: "Academic Year",
-        queryKey: "academicYear",
         width: "180px",
         body: {
           checks: [
@@ -570,5 +568,4 @@ export const TranscriptReportRoute = ({ ...rest }) => {
   );
 };
 
-export default TranscriptReport;
 export default TranscriptReport;

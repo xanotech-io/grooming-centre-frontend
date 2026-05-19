@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Route, useHistory } from "react-router-dom";
+import { Route } from "react-router-dom";
 import {
   Box,
   Flex,
@@ -8,7 +8,6 @@ import {
   Badge,
   Spinner,
   Progress,
-  Divider,
   Table,
   Thead,
   Tbody,
@@ -22,7 +21,6 @@ import {
   FiActivity,
   FiBarChart2,
   FiBookOpen,
-  FiAward,
 } from "react-icons/fi";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { Button } from "../../../components";
@@ -84,7 +82,6 @@ const KpiCard = ({ label, value, color, bg }) => (
 
 const CourseRow = ({ course }) => {
   const [open, setOpen] = useState(false);
-  const sc = statusColor(course.completionStatus);
 
   return (
     <>
@@ -375,7 +372,6 @@ const KpisTab = () => {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 const MyProgressPage = () => {
-  const history = useHistory();
   const [activeTab, setActiveTab] = useState("progress");
 
   return (

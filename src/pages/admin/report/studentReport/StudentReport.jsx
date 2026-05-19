@@ -1,5 +1,5 @@
 import { Flex, Box } from "@chakra-ui/layout";
-import { Route, useHistory } from "react-router-dom";
+import { Route } from "react-router-dom";
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { Badge } from "@chakra-ui/react";
 import { Heading, Table, Breadcrumb, Link, Text } from "../../../../components";
@@ -9,8 +9,6 @@ import { useTableRows } from "../../../../hooks";
 import { adminGetUserListing } from "../../../../services";
 
 const StudentReport = () => {
-  const history = useHistory();
-
   const tableProps = {
     searchKey: "search",
     filterControls: [
@@ -172,7 +170,6 @@ const StudentReport = () => {
 };
 
 export const StudentReportRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <StudentReport {...props} />} />;
   return <Route {...rest} render={(props) => <StudentReport {...props} />} />;
 };
 
