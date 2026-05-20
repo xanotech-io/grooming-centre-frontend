@@ -171,6 +171,10 @@ export const links = [
         href: "/admin/report/project-grading",
         text: "Project Grading",
       },
+      {
+        href: "/admin/report/exam-integrity",
+        text: "Exam Integrity",
+      },
     ],
   },
   {

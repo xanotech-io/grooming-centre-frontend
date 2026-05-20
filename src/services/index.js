@@ -66,6 +66,7 @@ export * from "./http/endpoints/systemUtilization";
 export * from "./http/endpoints/studentProgressReport";
 export * from "./http/endpoints/performanceFilters";
 export * from "./http/endpoints/projectGradingReport";
+export * from "./http/endpoints/examIntegrity";
 export * from "./http/endpoints/visualAnalytics";
 export * from "./http/endpoints/proctoring";
 export * from "./http/endpoints/markingSchemeV2";
