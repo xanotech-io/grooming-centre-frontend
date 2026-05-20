@@ -167,6 +167,15 @@ export const links = [
         href: "/admin/report/proctoring-audit",
         text: "Proctoring & Audit",
       },
+      {
+        href: "/admin/report/enrollment-status",
+        text: "Enrollment Status Report",
+      },
+      {
+        href: "/admin/report/audit-trail",
+        text: "Audit Trail Report",
+        roles: ["admin"],
+      },
     ],
   },
   {

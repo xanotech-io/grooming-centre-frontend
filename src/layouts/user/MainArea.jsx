@@ -27,6 +27,8 @@ import {
   StudentProgressReportPageRoute,
   StudentCourseProgressPageRoute,
   StudentVisualAnalyticsPageRoute,
+  StudentExamResultAnalysisPageRoute,
+  MyCertificatesPageRoute,
 } from "../../pages/user";
 import { PollsPageRoute } from "../../pages/user/PollsPage/PollsPage";
 import { StandalonePreAssessmentRoute } from "../../pages/user/StandaloneExamDetails/StandalonePreAssessment";
@@ -51,6 +53,7 @@ const MainArea = () => {
         <MyGradeBooksListPageRoute exact path="/grade-books" />
         <MyGradeBookPageRoute exact path="/grade-book/:gradebookId" />
 
+        <MyCertificatesPageRoute exact path="/my-certificates" />
         <CertificatePageRoute path="/courses/:course_id/certificate" />
         <PollsVotePageRoute path="/polls/:id/vote" />
         <StudentResultPageRoute exact path="/courses/take/:courseId/assessment/:assessmentId/result" />
@@ -62,6 +65,7 @@ const MainArea = () => {
         <StudentCourseProgressPageRoute exact path="/my-progress/course/:courseId" />
         <StudentProgressReportPageRoute exact path="/my-progress" />
         <StudentVisualAnalyticsPageRoute exact path="/my-analytics" />
+        <StudentExamResultAnalysisPageRoute exact path="/exam-result-analysis/:examId" />
         <ProfilePageRoute exact path="/profile" />
         <StandalonePagesRoute exact path="/standalone-exams" />
         <StandalonePreAssessmentRoute exact path="/standalone-exams/take" />
