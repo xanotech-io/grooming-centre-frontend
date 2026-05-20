@@ -167,6 +167,10 @@ export const links = [
         href: "/admin/report/proctoring-audit",
         text: "Proctoring & Audit",
       },
+      {
+        href: "/admin/report/project-grading",
+        text: "Project Grading",
+      },
     ],
   },
   {
