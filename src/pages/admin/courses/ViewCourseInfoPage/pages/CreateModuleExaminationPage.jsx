@@ -1,8 +1,8 @@
 import { Route, useParams, useHistory } from "react-router-dom";
-import { Box, Flex } from "@chakra-ui/layout";
+import { Box, Flex, Alert, AlertIcon } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Switch } from "@chakra-ui/switch";
 import { Select as ChakraSelect } from "@chakra-ui/select";
 import {
@@ -21,6 +21,8 @@ import {
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
   adminCreateExamination,
+  adminEditExamination,
+  adminGetExaminationById,
   adminGetMarkingTemplates,
 } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
@@ -78,7 +80,8 @@ const BoolRow = ({ label, description, checked, onChange }) => (
 );
 
 const CreateModuleExaminationPage = () => {
-  const { courseId, moduleId } = useParams();
+  const { courseId, moduleId, examinationId } = useParams();
+  const isEditMode = useMemo(() => examinationId && examinationId !== "new", [examinationId]);
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
@@ -86,6 +89,8 @@ const CreateModuleExaminationPage = () => {
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
+  const [isPublished, setIsPublished] = useState(false);
+  const [loadingExam, setLoadingExam] = useState(false);
 
   // Navigation
   const [navigationMode, setNavigationMode] = useState("free");
@@ -134,10 +139,41 @@ const CreateModuleExaminationPage = () => {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm();
 
   const startTimeManager = useDateTimePicker();
+
+  // Load existing exam data when in edit mode
+  useEffect(() => {
+    if (!isEditMode) return;
+    setLoadingExam(true);
+    adminGetExaminationById(examinationId)
+      .then(({ examination: exam }) => {
+        setValue("title", exam.title);
+        setValue("duration", exam.duration);
+        setValue("amountOfQuestions", exam.amountOfQuestions);
+        if (exam.startTime) startTimeManager.handleChange(new Date(exam.startTime));
+        if (exam.markingTemplateId) setMarkingTemplateId(exam.markingTemplateId);
+        if (exam.navigationMode) setNavigationMode(exam.navigationMode);
+        if (exam.randomizationConfig) setRandomization(exam.randomizationConfig);
+        if (exam.uiSettings) setUiSettings(exam.uiSettings);
+        if (exam.toolsEnabled) setTools(exam.toolsEnabled);
+        if (exam.accessibilitySettings) setAccessibility(exam.accessibilitySettings);
+        if (exam.submissionSettings) setSubmission(exam.submissionSettings);
+        setIsPublished(exam.active === true || exam.isPublished === true);
+      })
+      .catch((err) => {
+        toast({
+          description: capitalizeFirstLetter(err?.response?.data?.message || "Failed to load examination data."),
+          position: "top",
+          status: "error",
+        });
+      })
+      .finally(() => setLoadingExam(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, examinationId]);
   const {
     requestReview,
     setRequestReview,
@@ -156,7 +192,7 @@ const CreateModuleExaminationPage = () => {
 
       if (!markingTemplateId)
         throw new Error(
-          "A marking template must be selected before creating an examination.",
+          "A marking template must be selected before saving an examination.",
         );
 
       const body = {
@@ -175,24 +211,34 @@ const CreateModuleExaminationPage = () => {
         submissionSettings: submission,
       };
 
-      const { message, examination } = await adminCreateExamination(body);
-      setAssessment(examination);
+      if (isEditMode) {
+        const { message } = await adminEditExamination(examinationId, body);
+        toast({
+          description: capitalizeFirstLetter(message || "Examination updated successfully."),
+          position: "top",
+          status: "success",
+        });
+        push(`/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`);
+      } else {
+        const { message, examination } = await adminCreateExamination(body);
+        setAssessment(examination);
 
-      await submitWorkflowIfRequested({
-        contentId: examination.id,
-        contentTitle: data.title,
-        requestType: "Exam",
-        description: `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
-      });
+        await submitWorkflowIfRequested({
+          contentId: examination.id,
+          contentTitle: data.title,
+          requestType: "Exam",
+          description: `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
+        });
 
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
-      push(
-        `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`,
-      );
+        toast({
+          description: capitalizeFirstLetter(message),
+          position: "top",
+          status: "success",
+        });
+        push(
+          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`,
+        );
+      }
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(
@@ -207,6 +253,12 @@ const CreateModuleExaminationPage = () => {
   return (
     <AdminMainAreaWrapper>
       <Box as="form" onSubmit={handleSubmit(onSubmit)} marginY={14} marginX={6}>
+        {isPublished && (
+          <Alert status="warning" mb={6} borderRadius="md">
+            <AlertIcon />
+            This exam is published. Settings are locked. Unpublish the exam first to make changes.
+          </Alert>
+        )}
         {/* ── Basic Info ── */}
         <SectionCard title="Basic Information">
           <Input
@@ -304,8 +356,8 @@ const CreateModuleExaminationPage = () => {
             <Button secondary onClick={handleCancel} type="button">
               Cancel
             </Button>
-            <Button type="submit" isLoading={isSubmitting}>
-              Create Examination
+            <Button type="submit" isLoading={isSubmitting} isDisabled={isPublished}>
+              {isEditMode ? "Save Changes" : "Create Examination"}
             </Button>
           </Box>
 
@@ -495,8 +547,8 @@ const CreateModuleExaminationPage = () => {
           <Button secondary onClick={handleCancel} type="button">
             Cancel
           </Button>
-          <Button type="submit" isLoading={isSubmitting}>
-            Create Examination
+          <Button type="submit" isLoading={isSubmitting || loadingExam} isDisabled={isPublished}>
+            {isEditMode ? "Save Changes" : "Create Examination"}
           </Button>
         </Flex>
       </Box>

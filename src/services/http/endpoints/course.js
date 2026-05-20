@@ -245,3 +245,16 @@ export const adminUnpublishCourse = async (id) => {
 
   await http.patch(path);
 };
+
+/**
+ * Load full course details for the admin edit form
+ * @param {string} courseId
+ * @returns {Promise<{ courseDetails: object }>}
+ */
+export const adminGetCourseAdminDetails = async (courseId) => {
+  const {
+    data: { data },
+  } = await http.get(`/v1/course/admin/details/${courseId}`);
+
+  return { courseDetails: data };
+};

@@ -186,6 +186,14 @@ export const links = [
         href: "/admin/report/question-bank-usage",
         text: "Question Bank Usage",
       },
+      {
+        href: "/admin/exam-notifications",
+        text: "Exam Notifications",
+      },
+      {
+        href: "/admin/compliance",
+        text: "Compliance Monitor",
+      },
     ],
   },
   {

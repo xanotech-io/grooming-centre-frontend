@@ -110,6 +110,11 @@ const ModuleExaminationsPage = () => {
             `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examination.id}`,
         },
         {
+          text: "Edit",
+          link: (examination) =>
+            `/admin/courses/${courseId}/module/${moduleId}/examinations/edit/${examination.id}`,
+        },
+        {
           isDelete: true,
         },
       ],

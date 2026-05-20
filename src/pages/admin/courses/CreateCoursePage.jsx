@@ -144,10 +144,12 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseDetailsData]);
 
-  // set title for edit
+  // set title, duration, timeline for edit
   useEffect(() => {
     if (courseDetailsData) {
       setValue("title", courseDetailsData.title);
+      if (courseDetailsData.duration != null) setValue("duration", courseDetailsData.duration);
+      if (courseDetailsData.timeline != null) setValue("timeline", courseDetailsData.timeline);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseDetailsData]);
@@ -270,6 +272,36 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
             isLoading={prerequisiteLoading}
             {...register("preRequisiteId")}
             error={errors.preRequisiteId?.message}
+          />
+        </Box>
+        <Box
+          as="div"
+          display={{ lg: "grid", base: "flex", md: "flex" }}
+          flexDirection={{ base: "column", md: "column" }}
+          gridTemplateColumns="1fr 1fr"
+          gap={10}
+          marginBottom={10}
+        >
+          {/* Row 2b — Duration & Timeline */}
+          <Input
+            label="Duration (days)"
+            id="duration"
+            type="number"
+            placeholder="e.g. 30"
+            {...register("duration", {
+              min: { value: 1, message: "Duration must be at least 1" },
+            })}
+            error={errors.duration?.message}
+          />
+          <Input
+            label="Timeline"
+            id="timeline"
+            type="number"
+            placeholder="e.g. 12"
+            {...register("timeline", {
+              min: { value: 1, message: "Timeline must be at least 1" },
+            })}
+            error={errors.timeline?.message}
           />
         </Box>
         {/* Row 3 */}

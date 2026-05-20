@@ -27,7 +27,8 @@
       "Bash(cat .eslintrc.json)",
       "Bash(cat .eslintrc)",
       "Bash(grep -E \"\\\\.\\(js|jsx\\)$\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Dell\\\\Work\\\\grooming-centre-frontend\\\\src\\\\pages\\\\admin\\\\courses\\\\ViewCourseInfoPage\\\\\" -Recurse | Select-Object FullName)"
     ]
   }
 }

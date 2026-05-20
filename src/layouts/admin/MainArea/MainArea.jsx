@@ -161,6 +161,8 @@ import { VisualAnalyticsDashboardPageRoute } from "../../../pages/admin/report/v
 import { ProctoringAuditReportPageRoute } from "../../../pages/admin/report/proctoring/ProctoringAuditReportPage";
 import { ExamSessionAuditPageRoute } from "../../../pages/admin/report/proctoring/ExamSessionAuditPage";
 import { ProctoringKpiSummaryPageRoute } from "../../../pages/admin/report/proctoring/ProctoringKpiSummaryPage";
+import { ExamNotificationsPageRoute } from "../../../pages/admin/examNotifications/ExamNotificationsPage";
+import { ExamCompliancePageRoute } from "../../../pages/admin/compliance/ExamCompliancePage";
 
 const MainArea = () => {
   return (
@@ -557,6 +559,8 @@ const MainArea = () => {
         <ProctoringKpiSummaryPageRoute exact path="/admin/report/proctoring-audit/kpi-summary" />
         <ExamSessionAuditPageRoute exact path="/admin/report/proctoring-audit/exam/:examId" />
         <ProctoringAuditReportPageRoute exact path="/admin/report/proctoring-audit" />
+        <ExamNotificationsPageRoute exact path="/admin/exam-notifications" />
+        <ExamCompliancePageRoute exact path="/admin/compliance" />
 
         <NotFoundPageRoute />
       </Switch>
