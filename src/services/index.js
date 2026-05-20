@@ -70,3 +70,6 @@ export * from "./http/endpoints/examIntegrity";
 export * from "./http/endpoints/visualAnalytics";
 export * from "./http/endpoints/proctoring";
 export * from "./http/endpoints/markingSchemeV2";
+export * from "./http/endpoints/examResultAnalysis";
+export * from "./http/endpoints/enrollmentStatusReport";
+export * from "./http/endpoints/auditTrailV2";

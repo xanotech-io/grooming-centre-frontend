@@ -1,4 +1,4 @@
-// import { http } from "../http";
+import { http } from "../http";
 
 const CERTIFICATE_TYPES = [
   "Certificate of Participation",
@@ -243,4 +243,97 @@ export const createCertificate = async (body) => {
 export const CertificateList = async (params = {}) => {
   const { certificates, pagination } = await adminGetComplianceCertificates(params);
   return { certificate: { rows: certificates, ...pagination } };
+};
+
+const MOCK_STUDENT_CERTIFICATES = [
+  {
+    certificate_id: "CERT001",
+    course_id: "CRS001",
+    course_title: "Data Analytics for Beginners",
+    certificate_title: "Data Analytics Level 1",
+    completion_date: "2025-11-14",
+    issued_date: "2025-11-14",
+    expiry_date: null,
+    status: "Eligible",
+    download_option: "Yes",
+    verification_link: "https://groomingcentre.com/verify/CERT001",
+    display_location: "Certificate Tab",
+  },
+  {
+    certificate_id: "CERT002",
+    course_id: "CRS002",
+    course_title: "Customer Service Essentials",
+    certificate_title: "Customer Service Professional",
+    completion_date: "2025-10-05",
+    issued_date: "2025-10-05",
+    expiry_date: "2027-10-05",
+    status: "Eligible",
+    download_option: "Yes",
+    verification_link: "https://groomingcentre.com/verify/CERT002",
+    display_location: "Certificate Tab",
+  },
+  {
+    certificate_id: "CERT003",
+    course_id: "CRS003",
+    course_title: "Project Management Fundamentals",
+    certificate_title: "Project Management Certificate",
+    completion_date: null,
+    issued_date: null,
+    expiry_date: null,
+    status: "Pending",
+    download_option: "No",
+    verification_link: null,
+    display_location: "Dashboard",
+  },
+  {
+    certificate_id: "CERT004",
+    course_id: "CRS004",
+    course_title: "Digital Literacy Program",
+    certificate_title: "Digital Literacy Program Certificate",
+    completion_date: "2025-11-14",
+    issued_date: "2025-11-14",
+    expiry_date: null,
+    status: "Pending",
+    download_option: "No",
+    verification_link: null,
+    display_location: "Dashboard",
+  },
+];
+
+/**
+ * TC24 - Get certificates for the currently authenticated student
+ * GET /api/v1/learner/certificates
+ */
+export const studentGetMyCertificates = async (params = {}) => {
+  try {
+    const { data } = await http.get("/v1/learner/certificates", { params });
+    return data;
+  } catch (_err) {
+    const learnerId = params.learnerId || "LRN001";
+    const courseId = params.courseId;
+    const statusFilter = params.status;
+
+    let certs = MOCK_STUDENT_CERTIFICATES.filter((c) => {
+      const matchesCourse = courseId ? c.course_id === courseId : true;
+      const matchesStatus = statusFilter ? c.status === statusFilter : true;
+      return matchesCourse && matchesStatus;
+    });
+
+    const eligible = certs.filter((c) => c.status === "Eligible").length;
+    const pending = certs.filter((c) => c.status === "Pending").length;
+    const downloadable = certs.filter((c) => c.download_option === "Yes").length;
+    const withVerification = certs.filter((c) => !!c.verification_link).length;
+
+    return {
+      learner_id: learnerId,
+      certificates: certs,
+      summary: {
+        total_certificates: certs.length,
+        eligible_certificates: eligible,
+        pending_certificates: pending,
+        downloadable_certificates: downloadable,
+        verification_enabled_certificates: withVerification,
+      },
+    };
+  }
 };

@@ -37,3 +37,5 @@ export * from './Progress/MyProgressPage';
 export * from './ProgressReport/StudentProgressReportPage';
 export * from './ProgressReport/StudentCourseProgressPage';
 export { StudentVisualAnalyticsPageRoute } from './VisualAnalytics/StudentVisualAnalyticsPage';
+export { StudentExamResultAnalysisPageRoute } from './ExamResultAnalysis/StudentExamResultAnalysisPage';
+export { MyCertificatesPageRoute } from './Certificates/MyCertificatesPage';

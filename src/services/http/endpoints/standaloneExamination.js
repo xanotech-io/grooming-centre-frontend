@@ -284,3 +284,63 @@ export const adminEditStandaloneExaminationQuestion = async (body) => {
   return { message };
 };
 
+const FALLBACK_ACCESS_RECORDS = [
+  {
+    accessId: "EXL-001",
+    studentId: "STU-001",
+    examId: "EXM-AGR101",
+    accessLink: "https://exam.link/abc123",
+    sentBy: "System",
+    status: "Accessed",
+    sentDate: "2025-11-01T08:00:00Z",
+  },
+  {
+    accessId: "EXL-002",
+    studentId: "STU-002",
+    examId: "EXM-ENG201",
+    accessLink: "https://exam.link/xyz456",
+    sentBy: "System",
+    status: "Sent",
+    sentDate: "2025-11-02T09:30:00Z",
+  },
+  {
+    accessId: "EXL-003",
+    studentId: "STU-003",
+    examId: "EXM-ENG201",
+    accessLink: "https://exam.link/def789",
+    sentBy: "Admin",
+    status: "Sent",
+    sentDate: "2025-11-02T10:00:00Z",
+  },
+];
+
+const normaliseRecord = (r) => ({
+  accessId: r.access_id ?? r.accessId,
+  studentId: r.student_id ?? r.studentId,
+  examId: r.exam_id ?? r.examId,
+  accessLink: r.access_link ?? r.accessLink,
+  sentBy: r.sent_by ?? r.sentBy ?? "System",
+  status: r.status,
+  sentDate: r.sent_date ?? r.sentDate,
+});
+
+export const getStandaloneExamAccessRecords = async (examId) => {
+  const path = `/v1/stand-alone-examination/access-records/${examId}`;
+
+  try {
+    const {
+      data: { data },
+    } = await http.get(path);
+
+    const rows = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.exam_access_records)
+      ? data.exam_access_records
+      : [];
+
+    return { records: rows.map(normaliseRecord), isMock: false };
+  } catch {
+    return { records: FALLBACK_ACCESS_RECORDS, isMock: true };
+  }
+};
+

@@ -98,6 +98,7 @@ import {
   ImportResultPageRoute,
   ImportReportPageRoute,
   PerformanceFiltersPageRoute,
+  AdminExamResultAnalysisPageRoute,
 } from "../../../pages/admin";
 import { ModuleLessonsPageRoute } from "../../../pages/admin/courses/ViewCourseInfoPage/pages/ModuleLessonsPage";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
@@ -160,6 +161,8 @@ import { VisualAnalyticsDashboardPageRoute } from "../../../pages/admin/report/v
 import { ProctoringAuditReportPageRoute } from "../../../pages/admin/report/proctoring/ProctoringAuditReportPage";
 import { ExamSessionAuditPageRoute } from "../../../pages/admin/report/proctoring/ExamSessionAuditPage";
 import { ProctoringKpiSummaryPageRoute } from "../../../pages/admin/report/proctoring/ProctoringKpiSummaryPage";
+import { EnrollmentStatusReportPageRoute } from "../../../pages/admin/report/enrollmentStatusReport/EnrollmentStatusReportPage";
+import { AuditTrailReportPageRoute } from "../../../pages/admin/report/auditTrail/AuditTrailReportPage";
 
 const MainArea = () => {
   return (
@@ -555,6 +558,10 @@ const MainArea = () => {
         <ProctoringKpiSummaryPageRoute exact path="/admin/report/proctoring-audit/kpi-summary" />
         <ExamSessionAuditPageRoute exact path="/admin/report/proctoring-audit/exam/:examId" />
         <ProctoringAuditReportPageRoute exact path="/admin/report/proctoring-audit" />
+        <EnrollmentStatusReportPageRoute exact path="/admin/report/enrollment-status" />
+        <AuditTrailReportPageRoute exact path="/admin/report/audit-trail" />
+
+        <AdminExamResultAnalysisPageRoute exact path="/admin/exam-result-analysis/:examId" />
 
         <NotFoundPageRoute />
       </Switch>

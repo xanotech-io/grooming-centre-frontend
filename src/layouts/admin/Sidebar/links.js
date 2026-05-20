@@ -175,6 +175,14 @@ export const links = [
         href: "/admin/report/exam-integrity",
         text: "Exam Integrity",
       },
+      {
+        href: "/admin/report/enrollment-status",
+        text: "Enrollment Status Report",
+      },
+      {
+        href: "/admin/report/audit-trail",
+        text: "Audit Trail Report",
+      },
     ],
   },
   {
