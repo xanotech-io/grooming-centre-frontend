@@ -163,6 +163,7 @@ import { ExamSessionAuditPageRoute } from "../../../pages/admin/report/proctorin
 import { ProctoringKpiSummaryPageRoute } from "../../../pages/admin/report/proctoring/ProctoringKpiSummaryPage";
 import { ExamNotificationsPageRoute } from "../../../pages/admin/examNotifications/ExamNotificationsPage";
 import { ExamCompliancePageRoute } from "../../../pages/admin/compliance/ExamCompliancePage";
+import { ExportReportsPageRoute } from "../../../pages/admin/exportReports/ExportReportsPage";
 
 const MainArea = () => {
   return (
@@ -561,6 +562,7 @@ const MainArea = () => {
         <ProctoringAuditReportPageRoute exact path="/admin/report/proctoring-audit" />
         <ExamNotificationsPageRoute exact path="/admin/exam-notifications" />
         <ExamCompliancePageRoute exact path="/admin/compliance" />
+        <ExportReportsPageRoute exact path="/admin/export-reports" />
 
         <NotFoundPageRoute />
       </Switch>

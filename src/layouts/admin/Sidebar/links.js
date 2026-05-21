@@ -194,6 +194,10 @@ export const links = [
         href: "/admin/compliance",
         text: "Compliance Monitor",
       },
+      {
+        href: "/admin/export-reports",
+        text: "Export Reports",
+      },
     ],
   },
   {
