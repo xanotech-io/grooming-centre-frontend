@@ -51,6 +51,7 @@ import {
   GradeBookDetailsPageRoute,
   UserDocumentsPageRoute,
   UserDocumentDetailsPageRoute,
+  CertificateUploadPageRoute,
   ReportExportPageRoute,
   QuestionImportPageRoute,
   UploadDetailsPageRoute,
@@ -163,6 +164,8 @@ import { ExamSessionAuditPageRoute } from "../../../pages/admin/report/proctorin
 import { ProctoringKpiSummaryPageRoute } from "../../../pages/admin/report/proctoring/ProctoringKpiSummaryPage";
 import { EnrollmentStatusReportPageRoute } from "../../../pages/admin/report/enrollmentStatusReport/EnrollmentStatusReportPage";
 import { AuditTrailReportPageRoute } from "../../../pages/admin/report/auditTrail/AuditTrailReportPage";
+import { ScheduledReportingPageRoute } from "../../../pages/admin/report/scheduledReporting/ScheduledReportingPage";
+import { StudentReportingModulePageRoute } from "../../../pages/admin/report/studentReportingModule";
 
 const MainArea = () => {
   return (
@@ -401,6 +404,7 @@ const MainArea = () => {
           exact
           path="/admin/bulk-courses/:batchId"
         />
+        <CertificateUploadPageRoute exact path="/admin/certificates" />
         <UserDocumentsPageRoute exact path="/admin/user-documents" />
         <UserDocumentDetailsPageRoute
           exact
@@ -560,6 +564,8 @@ const MainArea = () => {
         <ProctoringAuditReportPageRoute exact path="/admin/report/proctoring-audit" />
         <EnrollmentStatusReportPageRoute exact path="/admin/report/enrollment-status" />
         <AuditTrailReportPageRoute exact path="/admin/report/audit-trail" />
+        <ScheduledReportingPageRoute exact path="/admin/report/scheduled-reporting" />
+        <StudentReportingModulePageRoute exact path="/admin/report/student-reporting" />
 
         <AdminExamResultAnalysisPageRoute exact path="/admin/exam-result-analysis/:examId" />
 

@@ -61,6 +61,7 @@ export * from "./gradeBook/CreateGradeBookPage";
 export * from "./gradeBook/GradeBookDetailsPage";
 export * from "./userDocuments/UserDocumentsPage";
 export * from "./userDocuments/UserDocumentDetailsPage";
+export * from "./certificates/CertificateUploadPage/CertificateUploadPage";
 export * from "./reportExport/ReportExportPage";
 export * from "./questionImport/QuestionImportPage";
 export * from "./questionImport/UploadDetailsPage";
@@ -114,3 +115,4 @@ export { ProctoringKpiSummaryPageRoute } from "./report/proctoring/ProctoringKpi
 export { AdminExamResultAnalysisPageRoute } from "./examResultAnalysis/AdminExamResultAnalysisPage";
 export { EnrollmentStatusReportPageRoute } from "./report/enrollmentStatusReport/EnrollmentStatusReportPage";
 export { AuditTrailReportPageRoute } from "./report/auditTrail/AuditTrailReportPage";
+export { ScheduledReportingPageRoute } from "./report/scheduledReporting/ScheduledReportingPage";

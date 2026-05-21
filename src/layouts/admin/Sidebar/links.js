@@ -183,6 +183,14 @@ export const links = [
         href: "/admin/report/audit-trail",
         text: "Audit Trail Report",
       },
+      {
+        href: "/admin/report/scheduled-reporting",
+        text: "Scheduled Reporting",
+      },
+      {
+        href: "/admin/report/student-reporting",
+        text: "Student Reporting & Participation",
+      },
     ],
   },
   {
@@ -236,6 +244,11 @@ export const links = [
     href: "/admin/grade-book-v2",
     text: "Advanced Grade Book",
     icon: <TiPen />,
+  },
+  {
+    href: "/admin/certificates",
+    text: "Certificate Upload",
+    icon: <FiArchive />,
   },
   {
     href: "/admin/user-documents",
