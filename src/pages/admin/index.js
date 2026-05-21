@@ -70,6 +70,7 @@ export * from "./questionBankTemplate/QuestionBankTemplateDetailsPage";
 export * from "./courseContent/CourseContentEditorPage";
 export * from "./courses/CreateModulePage";
 export * from "./dataOperations/DataOperationsPage";
+export * from "./courseRoster/CourseRosterPage/CourseRosterPage";
 export { ModuleAssessmentsPageRoute } from "./courses/ViewCourseInfoPage/pages/ModuleAssessmentsPage";
 export { CreateModuleAssessmentPageRoute } from "./courses/ViewCourseInfoPage/pages/CreateModuleAssessmentPage";
 export { ModuleExaminationsPageRoute } from "./courses/ViewCourseInfoPage/pages/ModuleExaminationsPage";
