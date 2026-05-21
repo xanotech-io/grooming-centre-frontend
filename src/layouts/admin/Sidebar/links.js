@@ -148,6 +148,10 @@ export const links = [
         text: "Instructor Report",
       },
       {
+        href: "/admin/report/instructor-performance",
+        text: "Instructor Performance",
+      },
+      {
         href: "/admin/mis-reports",
         text: "MIS Reports",
       },

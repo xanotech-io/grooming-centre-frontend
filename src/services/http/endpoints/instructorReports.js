@@ -1,4 +1,4 @@
-// import { http } from "../http";
+import { http } from "../http";
 
 const paginate = (rows, params = {}) => {
   const page = Number(params.page) || 1;
@@ -385,3 +385,17 @@ export const flagAssessmentQuestion = adminFlagAssessmentQuestionForReview;
 export const bulkFlagAssessmentQuestions =
   adminBulkFlagAssessmentQuestionsForReview;
 export const getInstructorReportDirectory = adminGetInstructorReportDirectory;
+
+// ─── V2 Instructor Performance ─────────────────────────────────────────────────
+
+const BASE_V2 = "/api/v1/instructor-performance-v2";
+
+export const getInstructorPerformanceReportV2 = async (params) => {
+  const { data } = await http.get(`${BASE_V2}/report`, { params });
+  return data;
+};
+
+export const getInstructorPerformanceDrillDown = async (instructorId, params) => {
+  const { data } = await http.get(`${BASE_V2}/report/${instructorId}`, { params });
+  return data;
+};
