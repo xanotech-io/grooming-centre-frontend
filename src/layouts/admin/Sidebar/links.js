@@ -168,6 +168,10 @@ export const links = [
         text: "Assessment Reports",
       },
       {
+        href: "/admin/report/assessment-analytics",
+        text: "Assessment Analytics",
+      },
+      {
         href: "/admin/report/system-utilization",
         text: "System Utilization",
       },

@@ -388,7 +388,7 @@ export const getInstructorReportDirectory = adminGetInstructorReportDirectory;
 
 // ─── V2 Instructor Performance ─────────────────────────────────────────────────
 
-const BASE_V2 = "/api/v1/instructor-performance-v2";
+const BASE_V2 = "/v1/instructor-performance-v2";
 
 export const getInstructorPerformanceReportV2 = async (params) => {
   const { data } = await http.get(`${BASE_V2}/report`, { params });

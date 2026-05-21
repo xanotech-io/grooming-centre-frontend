@@ -12,7 +12,7 @@ export const getComplianceEmployees = async (employeeId, params) => {
 // ─── TC15 – Compliance Notifications ─────────────────────────────────────────
 
 const BASE_NOTIF = "/compliance-notifications";
-const BASE_TRAINING = "/api/v1/compliance-training";
+const BASE_TRAINING = "/v1/compliance-training";
 
 export const getComplianceNotificationKpis = async () => {
   const { data } = await http.get(`${BASE_NOTIF}/kpis`);
