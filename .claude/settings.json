@@ -6,7 +6,11 @@
       "Bash(git add *)",
       "Bash(node -e \"require\\('/home/cyberbot/grooming-centre-frontend/node_modules/zustand'\\)\")",
       "Bash(yarn add *)",
-      "Bash(yarn install *)"
+      "Bash(yarn install *)",
+      "Bash(xargs ls -la)",
+      "Bash(npx react-scripts *)",
+      "Bash(xargs basename -a)",
+      "Bash(node_modules/.bin/eslint src/pages/admin/report/ArchivedReportsPage.jsx src/pages/admin/report/archiveReports/components/*.jsx src/services/http/endpoints/reportArchive.js --max-warnings=0)"
     ]
   }
 }

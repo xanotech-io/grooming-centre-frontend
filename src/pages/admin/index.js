@@ -111,3 +111,6 @@ export { VisualAnalyticsDashboardPageRoute } from "./report/visualAnalytics/Visu
 export { ProctoringAuditReportPageRoute } from "./report/proctoring/ProctoringAuditReportPage";
 export { ExamSessionAuditPageRoute } from "./report/proctoring/ExamSessionAuditPage";
 export { ProctoringKpiSummaryPageRoute } from "./report/proctoring/ProctoringKpiSummaryPage";
+export { AdminExamResultAnalysisPageRoute } from "./examResultAnalysis/AdminExamResultAnalysisPage";
+export { EnrollmentStatusReportPageRoute } from "./report/enrollmentStatusReport/EnrollmentStatusReportPage";
+export { AuditTrailReportPageRoute } from "./report/auditTrail/AuditTrailReportPage";

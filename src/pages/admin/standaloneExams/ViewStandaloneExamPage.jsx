@@ -8,6 +8,7 @@ import {
   getSAExamSubmissions,
   getSAExamAllResults,
   getSAExamPendingGrades,
+  getStandaloneExamAccessRecords,
 } from "../../../services";
 import { getDuration } from "../../../utils";
 import dayjs from "dayjs";
@@ -371,6 +372,126 @@ const GradingTab = ({ examId }) => {
   );
 };
 
+/* ─── Access Links tab ─────────────────────────────────── */
+const statusColour = {
+  Accessed: { bg: "#E6F4EA", color: "#276749" },
+  Sent:     { bg: "#EBF8FF", color: "#2C5282" },
+};
+
+const AccessLinksTab = ({ examId }) => {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isMock, setIsMock] = useState(false);
+
+  useEffect(() => {
+    getStandaloneExamAccessRecords(examId)
+      .then(({ records: data, isMock: mock }) => {
+        setRecords(data);
+        setIsMock(mock);
+      })
+      .finally(() => setLoading(false));
+  }, [examId]);
+
+  if (loading) return <Flex justifyContent="center" py="60px"><Spinner size="xl" color="#6b006b" /></Flex>;
+
+  const totalSent = records.length;
+  const totalAccessed = records.filter((r) => r.status === "Accessed").length;
+  const successRate = totalSent > 0 ? Math.round((totalAccessed / totalSent) * 100) : 0;
+
+  return (
+    <Box>
+      {isMock && (
+        <Box bg="yellow.50" border="1px solid" borderColor="yellow.300" borderRadius="md" px={4} py={2} mb={4} mx={5} mt={4}>
+          <Text fontSize="13px" color="yellow.800">
+            Live data unavailable — showing sample data. The endpoint was called but returned an error.
+          </Text>
+        </Box>
+      )}
+
+      {/* KPI strip */}
+      <Flex gap={4} px={5} pt={5} pb={4} flexWrap="wrap">
+        {[
+          { label: "Links Sent", value: totalSent, bg: "#EBF8FF", color: "#2C5282" },
+          { label: "Accessed", value: totalAccessed, bg: "#E6F4EA", color: "#276749" },
+          { label: "Success Rate", value: `${successRate}%`, bg: "#F0E6FF", color: "#6b006b" },
+        ].map(({ label, value, bg, color }) => (
+          <Box key={label} bg={bg} borderRadius="md" px={5} py={3} minW="130px">
+            <Text fontSize="11px" fontWeight="600" color={color} textTransform="uppercase" letterSpacing="wider" mb={1}>{label}</Text>
+            <Text fontSize="22px" fontWeight="700" color={color}>{value}</Text>
+          </Box>
+        ))}
+      </Flex>
+
+      <Box borderTop="1px solid #E2E8F0" />
+
+      {records.length === 0 ? (
+        <Flex direction="column" alignItems="center" justifyContent="center" py="60px" gap={3}>
+          <Text fontSize="16px" fontWeight="600" color="#1A202C">No access records found</Text>
+          <Text fontSize="14px" color="gray.500">Exam links appear here once distributed via mail or group.</Text>
+        </Flex>
+      ) : (
+        <Box overflowX="auto">
+          <Box as="table" w="100%" fontSize="sm">
+            <Box as="thead" bg="#F7FAFC">
+              <Box as="tr">
+                {["Access ID", "Student ID", "Exam ID", "Access Link", "Sent By", "Status", "Sent Date"].map((h) => (
+                  <Box key={h} as="th" textAlign="left" py="14px" px={4} color="gray.500" fontSize="12px" fontWeight="600" whiteSpace="nowrap">{h}</Box>
+                ))}
+              </Box>
+            </Box>
+            <Box as="tbody">
+              {records.map((r) => {
+                const colours = statusColour[r.status] ?? { bg: "#F7FAFC", color: "#4A5568" };
+                return (
+                  <Box as="tr" key={r.accessId} borderTop="1px solid #E2E8F0" _hover={{ bg: "#F9F0FF" }}>
+                    <Box as="td" py="14px" px={4} fontWeight="500" color="#1A202C" whiteSpace="nowrap">{r.accessId}</Box>
+                    <Box as="td" py="14px" px={4} color="gray.600" whiteSpace="nowrap">{r.studentId}</Box>
+                    <Box as="td" py="14px" px={4} color="gray.600" whiteSpace="nowrap">{r.examId}</Box>
+                    <Box as="td" py="14px" px={4} maxW="220px">
+                      <Box
+                        as="a"
+                        href={r.accessLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        color="#6b006b"
+                        fontWeight="500"
+                        fontSize="13px"
+                        display="block"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        whiteSpace="nowrap"
+                        _hover={{ textDecoration: "underline" }}
+                      >
+                        {r.accessLink}
+                      </Box>
+                    </Box>
+                    <Box as="td" py="14px" px={4} color="gray.600">{r.sentBy}</Box>
+                    <Box as="td" py="14px" px={4}>
+                      <Badge
+                        bg={colours.bg}
+                        color={colours.color}
+                        px="10px" py="4px"
+                        borderRadius="12px"
+                        fontWeight="500"
+                        fontSize="12px"
+                      >
+                        {r.status}
+                      </Badge>
+                    </Box>
+                    <Box as="td" py="14px" px={4} color="gray.500" whiteSpace="nowrap">
+                      {r.sentDate ? dayjs(r.sentDate).format("DD/MM/YYYY h:mm A") : "—"}
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 /* ─── Page ─────────────────────────────────────────────── */
 const ViewStandaloneExamPage = () => {
   const history = useHistory();
@@ -423,9 +544,10 @@ const ViewStandaloneExamPage = () => {
     { key: "submissions", label: "Submissions", count: submissionCount },
     { key: "results", label: "Results" },
     { key: "grading", label: "Manual Grading", count: pendingCount },
+    { key: "access-links", label: "Access Links" },
   ];
 
-  const paddedTabs = new Set(["submissions", "results", "grading"]);
+  const paddedTabs = new Set(["submissions", "results", "grading", "access-links"]);
 
   return (
     <AdminMainAreaWrapper>
@@ -475,6 +597,7 @@ const ViewStandaloneExamPage = () => {
           {activeTab === "submissions" && <SubmissionsTab examId={examId} />}
           {activeTab === "results" && <ResultsTab examId={examId} />}
           {activeTab === "grading" && <GradingTab examId={examId} />}
+          {activeTab === "access-links" && <AccessLinksTab examId={examId} />}
         </Box>
       </Box>
     </AdminMainAreaWrapper>

@@ -7,8 +7,20 @@ import { AiOutlineUsergroupDelete, AiOutlineAudit } from "react-icons/ai";
 import { VscLibrary } from "react-icons/vsc";
 import { TiPen } from "react-icons/ti";
 import { MdOutlineAnnouncement } from "react-icons/md";
-import { FaFolderOpen, FaSitemap, FaClone, FaDownload, FaDatabase } from "react-icons/fa";
-import { FiAward, FiTrendingUp, FiMail, FiArchive, FiBarChart2 } from "react-icons/fi";
+import {
+  FaFolderOpen,
+  FaSitemap,
+  FaClone,
+  FaDownload,
+  FaDatabase,
+} from "react-icons/fa";
+import {
+  FiAward,
+  FiTrendingUp,
+  FiMail,
+  FiArchive,
+  FiBarChart2,
+} from "react-icons/fi";
 
 export const links = [
   {
@@ -197,6 +209,14 @@ export const links = [
       {
         href: "/admin/export-reports",
         text: "Export Reports",
+      },
+      {
+        href: "/admin/report/enrollment-status",
+        text: "Enrollment Status Report",
+      },
+      {
+        href: "/admin/report/audit-trail",
+        text: "Audit Trail Report",
       },
     ],
   },
