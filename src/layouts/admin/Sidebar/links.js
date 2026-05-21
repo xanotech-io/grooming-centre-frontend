@@ -80,6 +80,11 @@ export const links = [
     icon: <AiOutlineUsergroupDelete />,
   },
   {
+    href: "/admin/custom-fields",
+    text: "Custom Fields",
+    icon: <TiPen />,
+  },
+  {
     href: "/admin/library",
     text: "library",
     icon: <VscLibrary />,

@@ -169,6 +169,7 @@ import { ProctoringKpiSummaryPageRoute } from "../../../pages/admin/report/proct
 import { ExamNotificationsPageRoute } from "../../../pages/admin/examNotifications/ExamNotificationsPage";
 import { ExamCompliancePageRoute } from "../../../pages/admin/compliance/ExamCompliancePage";
 import { ExportReportsPageRoute } from "../../../pages/admin/exportReports/ExportReportsPage";
+import { CustomFieldsPageRoute } from "../../../pages/admin/customFields/CustomFieldsPage";
 
 const MainArea = () => {
   return (
@@ -679,6 +680,7 @@ const MainArea = () => {
         <ExamNotificationsPageRoute exact path="/admin/exam-notifications" />
         <ExamCompliancePageRoute exact path="/admin/compliance" />
         <ExportReportsPageRoute exact path="/admin/export-reports" />
+        <CustomFieldsPageRoute exact path="/admin/custom-fields" />
 
         <NotFoundPageRoute />
       </Switch>
