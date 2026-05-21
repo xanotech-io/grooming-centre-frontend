@@ -151,7 +151,14 @@ const MOCK_DOCUMENT_DETAIL = {
  */
 export const adminUploadUserDocument = async (userId, body) => {
   // TODO: replace mock with real call
-  // const { data: { message, data } } = await http.post(`/v2/users/${userId}/documents`, body);
+  // const formData = new FormData();
+  // formData.append('file', body.file);
+  // formData.append('documentType', body.documentType);
+  // formData.append('fileFormat', body.fileFormat);
+  // formData.append('fileName', body.fileName);
+  // if (body.courseId) formData.append('courseId', body.courseId);
+  // if (body.expiryDate) formData.append('expiryDate', body.expiryDate);
+  // const { data: { message, data } } = await http.post(`/v2/users/${userId}/documents`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
   // return { message, document: data };
 
   return {
