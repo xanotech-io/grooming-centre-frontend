@@ -100,6 +100,7 @@ import {
   ImportReportPageRoute,
   PerformanceFiltersPageRoute,
   AdminExamResultAnalysisPageRoute,
+  CourseMaterialUploadPageRoute,
 } from "../../../pages/admin";
 import { ModuleLessonsPageRoute } from "../../../pages/admin/courses/ViewCourseInfoPage/pages/ModuleLessonsPage";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
@@ -405,6 +406,7 @@ const MainArea = () => {
           path="/admin/bulk-courses/:batchId"
         />
         <CertificateUploadPageRoute exact path="/admin/certificates" />
+        <CourseMaterialUploadPageRoute exact path="/admin/course-materials" />
         <UserDocumentsPageRoute exact path="/admin/user-documents" />
         <UserDocumentDetailsPageRoute
           exact

@@ -116,3 +116,4 @@ export { AdminExamResultAnalysisPageRoute } from "./examResultAnalysis/AdminExam
 export { EnrollmentStatusReportPageRoute } from "./report/enrollmentStatusReport/EnrollmentStatusReportPage";
 export { AuditTrailReportPageRoute } from "./report/auditTrail/AuditTrailReportPage";
 export { ScheduledReportingPageRoute } from "./report/scheduledReporting/ScheduledReportingPage";
+export { CourseMaterialUploadPageRoute } from "./courseMaterialUpload/CourseMaterialUploadPage/CourseMaterialUploadPage";
