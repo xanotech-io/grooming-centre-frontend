@@ -79,3 +79,5 @@ export * from "./http/endpoints/studentReportingModule";
 export * from "./http/endpoints/examNotifications";
 export * from "./http/endpoints/assessmentAnalytics";
 export * from "./http/endpoints/customFields";
+export * from "./http/endpoints/ipPolicy";
+export * from "./http/endpoints/studentTranscriptV2";

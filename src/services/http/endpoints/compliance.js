@@ -11,7 +11,7 @@ export const getComplianceEmployees = async (employeeId, params) => {
 
 // ─── TC15 – Compliance Notifications ─────────────────────────────────────────
 
-const BASE_NOTIF = "/compliance-notifications";
+const BASE_NOTIF = "/v1/compliance-notifications";
 const BASE_TRAINING = "/v1/compliance-training";
 
 export const getComplianceNotificationKpis = async () => {

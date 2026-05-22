@@ -85,6 +85,11 @@ export const links = [
     icon: <TiPen />,
   },
   {
+    href: "/admin/ip-policy",
+    text: "IP Auth Policy",
+    icon: <FiSettings />,
+  },
+  {
     href: "/admin/library",
     text: "library",
     icon: <VscLibrary />,
@@ -131,6 +136,10 @@ export const links = [
       {
         href: "/admin/report/student-progress",
         text: "Student Progress Report",
+      },
+      {
+        href: "/admin/student-transcript-v2",
+        text: "Transcript Posting",
       },
       {
         href: "/admin/report/studentTranscripts",

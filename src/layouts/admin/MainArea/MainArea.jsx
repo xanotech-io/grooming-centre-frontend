@@ -173,6 +173,8 @@ import { ExamNotificationsPageRoute } from "../../../pages/admin/examNotificatio
 import { ExamCompliancePageRoute } from "../../../pages/admin/compliance/ExamCompliancePage";
 import { ExportReportsPageRoute } from "../../../pages/admin/exportReports/ExportReportsPage";
 import { CustomFieldsPageRoute } from "../../../pages/admin/customFields/CustomFieldsPage";
+import { IpPolicyPageRoute } from "../../../pages/admin/ipPolicy/IpPolicyPage";
+import { StudentTranscriptV2PageRoute } from "../../../pages/admin/studentTranscript/StudentTranscriptV2Page";
 
 const MainArea = () => {
   return (
@@ -693,6 +695,8 @@ const MainArea = () => {
         <ExamCompliancePageRoute exact path="/admin/compliance" />
         <ExportReportsPageRoute exact path="/admin/export-reports" />
         <CustomFieldsPageRoute exact path="/admin/custom-fields" />
+        <IpPolicyPageRoute exact path="/admin/ip-policy" />
+        <StudentTranscriptV2PageRoute exact path="/admin/student-transcript-v2" />
 
         <NotFoundPageRoute />
       </Switch>

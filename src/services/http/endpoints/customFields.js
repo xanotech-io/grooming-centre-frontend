@@ -1,6 +1,6 @@
 import { http } from "../http";
 
-const BASE = "/custom-fields-v2";
+const BASE = "/v1/custom-fields-v2";
 
 export const getCustomFieldsKpis = async () => {
   const { data } = await http.get(`${BASE}/kpis`);
