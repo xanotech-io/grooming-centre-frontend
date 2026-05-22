@@ -248,6 +248,10 @@ export const links = [
         href: "/admin/report/student-reporting",
         text: "Student Reporting & Participation",
       },
+      {
+        href: "/admin/performance-drill-down",
+        text: "Performance Drill-Down",
+      },
     ],
   },
   {

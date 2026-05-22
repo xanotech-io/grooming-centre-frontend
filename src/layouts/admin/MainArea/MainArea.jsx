@@ -175,6 +175,7 @@ import { ExportReportsPageRoute } from "../../../pages/admin/exportReports/Expor
 import { CustomFieldsPageRoute } from "../../../pages/admin/customFields/CustomFieldsPage";
 import { IpPolicyPageRoute } from "../../../pages/admin/ipPolicy/IpPolicyPage";
 import { StudentTranscriptV2PageRoute } from "../../../pages/admin/studentTranscript/StudentTranscriptV2Page";
+import { PerformanceDrillDownPageRoute } from "../../../pages/admin/performanceDrillDown/PerformanceDrillDownPage";
 
 const MainArea = () => {
   return (
@@ -697,6 +698,7 @@ const MainArea = () => {
         <CustomFieldsPageRoute exact path="/admin/custom-fields" />
         <IpPolicyPageRoute exact path="/admin/ip-policy" />
         <StudentTranscriptV2PageRoute exact path="/admin/student-transcript-v2" />
+        <PerformanceDrillDownPageRoute exact path="/admin/performance-drill-down" />
 
         <NotFoundPageRoute />
       </Switch>
