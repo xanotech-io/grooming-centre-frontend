@@ -18,7 +18,7 @@ import {
   FaTimesCircle,
 } from "react-icons/fa";
 import { Heading } from "../../../components";
-import { studentGetMyCertificates } from "../../../services";
+import { studentGetMyCertificates, certV2DownloadCertificate } from "../../../services";
 import { useApp } from "../../../contexts";
 
 const statusConfig = {
@@ -62,6 +62,21 @@ const SummaryCard = ({ label, value, color }) => (
     </Text>
   </Box>
 );
+
+const handleDownload = async (cert) => {
+  try {
+    const svgContent = await certV2DownloadCertificate(cert.certificate_id);
+    const blob = new Blob([svgContent], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${cert.certificate_title || "certificate"}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch {}
+};
 
 const CertificateCard = ({ cert }) => {
   const config = statusConfig[cert.status] || statusConfig["Not Eligible"];
@@ -162,13 +177,7 @@ const CertificateCard = ({ cert }) => {
         {/* Actions */}
         <Flex gap="8px">
           {cert.download_option === "Yes" && cert.status === "Eligible" && (
-            <Box
-              as="a"
-              href={cert.verification_link || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              flex={1}
-            >
+            <Box flex={1} onClick={() => handleDownload(cert)} cursor="pointer">
               <Flex
                 justifyContent="center"
                 alignItems="center"
@@ -181,7 +190,6 @@ const CertificateCard = ({ cert }) => {
                 fontSize="12px"
                 fontWeight="600"
                 _hover={{ bg: "#c6e8d1" }}
-                cursor="pointer"
               >
                 <FaDownload size={11} />
                 Download

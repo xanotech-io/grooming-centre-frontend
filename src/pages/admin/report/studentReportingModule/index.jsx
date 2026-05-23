@@ -27,7 +27,7 @@ const StudentReportingModulePage = () => {
     const loadKpis = async () => {
       try {
         const res = await tc0804GetModuleKPIs();
-        setKpis(res?.data ?? null);
+        setKpis(res?.kpis ?? null);
       } catch (err) {
         toast({ status: "error", description: "Failed to load KPIs", duration: 3000, isClosable: true });
       }

@@ -28,8 +28,8 @@ const AdminSummaryTab = () => {
           tc0804GetParticipationSummary(),
           tc0804GetModuleKPIs(),
         ]);
-        setSummary(summaryRes?.data ?? null);
-        setKpis(kpisRes?.data ?? null);
+        setSummary(summaryRes?.summary ?? null);
+        setKpis(kpisRes?.kpis ?? null);
       } catch (err) {
         toast({ status: "error", description: err.message || "Failed to load summary", duration: 3000, isClosable: true });
       } finally {
@@ -41,6 +41,18 @@ const AdminSummaryTab = () => {
 
   const data = summary ?? kpis ?? {};
 
+  const totalEngaged =
+    (data.totalActiveStudents ?? 0) +
+    (data.totalInactiveStudents ?? 0) +
+    (data.totalIrregularStudents ?? 0);
+
+  const toPct = (n) =>
+    totalEngaged > 0 ? Math.round((n / totalEngaged) * 100) : 0;
+
+  const activePct = toPct(data.totalActiveStudents ?? 0);
+  const irregularPct = toPct(data.totalIrregularStudents ?? 0);
+  const inactivePct = toPct(data.totalInactiveStudents ?? 0);
+
   return (
     <Box>
       <Text fontWeight="600" fontSize="md" mb={4}>
@@ -50,50 +62,50 @@ const AdminSummaryTab = () => {
       <SimpleGrid columns={{ base: 2, md: 3, lg: 4 }} spacing={4} mb={6}>
         <SummaryCard
           label="Total Students"
-          value={loading ? "—" : data.total_students ?? 0}
+          value={loading ? "—" : totalEngaged || "—"}
           helpText="enrolled learners"
           color="#660066"
         />
         <SummaryCard
           label="Active"
-          value={loading ? "—" : data.active_students ?? 0}
-          helpText={`${data.active_percentage ?? 0}% of total`}
+          value={loading ? "—" : data.totalActiveStudents ?? 0}
+          helpText={`${activePct}% of total`}
           color="#1A8F3A"
         />
         <SummaryCard
           label="Irregular"
-          value={loading ? "—" : data.irregular_students ?? 0}
-          helpText={`${data.irregular_percentage ?? 0}% of total`}
+          value={loading ? "—" : data.totalIrregularStudents ?? 0}
+          helpText={`${irregularPct}% of total`}
           color="#B7791F"
         />
         <SummaryCard
           label="Inactive"
-          value={loading ? "—" : data.inactive_students ?? 0}
-          helpText={`${data.inactive_percentage ?? 0}% of total`}
+          value={loading ? "—" : data.totalInactiveStudents ?? 0}
+          helpText={`${inactivePct}% of total`}
           color="#C53030"
         />
         <SummaryCard
           label="Avg. Participation"
-          value={loading ? "—" : `${data.average_participation_rate ?? 0}%`}
+          value={loading ? "—" : data.avgParticipationRate != null ? `${data.avgParticipationRate}%` : "—"}
           helpText="across all students"
           color="#2C5282"
         />
         <SummaryCard
           label="Alerts Triggered"
-          value={loading ? "—" : data.alerts_triggered ?? 0}
-          helpText={`${data.alerts_triggered_percentage ?? 0}% flagged`}
+          value={loading ? "—" : data.alertsTriggered ?? 0}
+          helpText="flagged students"
           color="#C53030"
         />
         <SummaryCard
-          label="Total Reports"
-          value={loading ? "—" : data.total_reports ?? 0}
-          helpText={`${data.reports_this_month ?? 0} this month`}
+          label="Reports This Month"
+          value={loading ? "—" : data.reportsGeneratedThisMonth ?? 0}
+          helpText="generated reports"
           color="#660066"
         />
         <SummaryCard
-          label="Avg. Frequency"
-          value={loading ? "—" : `${data.average_frequency ?? 0}x`}
-          helpText="logins per period"
+          label="Report Accuracy"
+          value={loading ? "—" : data.reportAccuracyRate != null ? `${data.reportAccuracyRate}%` : "—"}
+          helpText="data quality score"
           color="#2C5282"
         />
       </SimpleGrid>
@@ -103,25 +115,19 @@ const AdminSummaryTab = () => {
       <Box>
         <Text fontWeight="600" fontSize="md" mb={3}>Engagement Distribution</Text>
         <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-          {["Active", "Irregular", "Inactive"].map((status) => {
-            const pct =
-              status === "Active"
-                ? data.active_percentage ?? 0
-                : status === "Irregular"
-                ? data.irregular_percentage ?? 0
-                : data.inactive_percentage ?? 0;
-            const color =
-              status === "Active" ? "#1A8F3A" : status === "Irregular" ? "#B7791F" : "#C53030";
-            return (
-              <Box key={status} p={4} borderRadius="lg" border="1px solid" borderColor="gray.100">
-                <Text fontSize="sm" color="gray.500" mb={1}>{status}</Text>
-                <Box h="8px" borderRadius="full" bg="gray.100" overflow="hidden">
-                  <Box h="100%" w={`${pct}%`} bg={color} borderRadius="full" transition="width 0.6s ease" />
-                </Box>
-                <Text fontSize="sm" fontWeight="600" mt={1} color={color}>{pct}%</Text>
+          {[
+            { status: "Active", pct: activePct, color: "#1A8F3A" },
+            { status: "Irregular", pct: irregularPct, color: "#B7791F" },
+            { status: "Inactive", pct: inactivePct, color: "#C53030" },
+          ].map(({ status, pct, color }) => (
+            <Box key={status} p={4} borderRadius="lg" border="1px solid" borderColor="gray.100">
+              <Text fontSize="sm" color="gray.500" mb={1}>{status}</Text>
+              <Box h="8px" borderRadius="full" bg="gray.100" overflow="hidden">
+                <Box h="100%" w={`${pct}%`} bg={color} borderRadius="full" transition="width 0.6s ease" />
               </Box>
-            );
-          })}
+              <Text fontSize="sm" fontWeight="600" mt={1} color={color}>{pct}%</Text>
+            </Box>
+          ))}
         </SimpleGrid>
       </Box>
     </Box>

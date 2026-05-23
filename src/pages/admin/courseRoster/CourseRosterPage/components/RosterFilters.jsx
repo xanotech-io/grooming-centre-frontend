@@ -10,13 +10,6 @@ import {
 } from "@chakra-ui/react";
 import { FiSearch, FiX } from "react-icons/fi";
 
-const COURSE_OPTIONS = [
-  { value: "AGR101", label: "Agriculture Fundamentals (AGR101)" },
-  { value: "CS101",  label: "Computer Science Basics (CS101)" },
-  { value: "BUS201", label: "Business Management 201 (BUS201)" },
-  { value: "DAT301", label: "Data Analytics 301 (DAT301)" },
-];
-
 const STATUS_OPTIONS = [
   { value: "",           label: "All Statuses" },
   { value: "Enrolled",   label: "Enrolled" },
@@ -28,6 +21,8 @@ const STATUS_OPTIONS = [
 const RosterFilters = ({
   courseId,
   onCourseChange,
+  courses,
+  coursesLoading,
   search,
   onSearchChange,
   status,
@@ -40,7 +35,7 @@ const RosterFilters = ({
     <Box px="16px" py="14px" borderBottom="1px solid #E2E8F0" bg="gray.50">
       <Flex gap="12px" flexWrap="wrap" alignItems="center">
         <Select
-          placeholder="Select a course…"
+          placeholder={coursesLoading ? "Loading courses…" : "Select a course…"}
           value={courseId}
           onChange={(e) => onCourseChange(e.target.value)}
           maxW="300px"
@@ -48,10 +43,11 @@ const RosterFilters = ({
           fontSize="13px"
           size="sm"
           borderRadius="6px"
+          isDisabled={coursesLoading}
         >
-          {COURSE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+          {(courses || []).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.title}{c.displayId ? ` (${c.displayId})` : ""}
             </option>
           ))}
         </Select>

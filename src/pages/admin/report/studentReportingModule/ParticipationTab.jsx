@@ -5,6 +5,7 @@ import { useTableRows } from "../../../../hooks";
 import { tc0804GetParticipationRecords } from "../../../../services";
 
 const engagementColorMap = { Active: "green", Irregular: "yellow", Inactive: "red" };
+const levelToStatus = { high: "Active", medium: "Irregular", low: "Inactive" };
 
 const mapToRow = (item) => ({
   id: item.userId ?? item.studentId,
@@ -15,11 +16,14 @@ const mapToRow = (item) => ({
   participationScore: item.participationScore ?? 0,
   activityType: Array.isArray(item.activityType) ? item.activityType.join(" / ") : item.activityType ?? "None",
   frequencyOfAccess: item.frequencyOfAccess ?? 0,
-  lastActiveDate: item.lastActiveDate ? new Date(item.lastActiveDate).toLocaleDateString() : "—",
+  lastActiveDate: item.lastLoginAt ?? item.lastActiveDate
+    ? new Date(item.lastLoginAt ?? item.lastActiveDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+    : "—",
   daysSinceActive: item.daysSinceActive ?? "—",
-  engagementStatus: item.engagementStatus ?? "—",
+  engagementStatus: levelToStatus[item.engagementLevel] ?? item.engagementStatus ?? "—",
   alertTriggered: item.alertTriggered ?? false,
   remarks: item.remarks ?? "—",
+  instructorRemarks: item.instructorRemarks ?? "—",
 });
 
 const ParticipationTab = () => {
@@ -29,9 +33,8 @@ const ParticipationTab = () => {
   const fetchRecords = async (params = {}) => {
     try {
       const result = await tc0804GetParticipationRecords(params);
-      const data = result?.data ?? {};
-      const items = (data.data ?? data.records ?? []).map(mapToRow);
-      const total = data.total ?? items.length;
+      const items = (result?.records ?? []).map(mapToRow);
+      const total = result?.total ?? items.length;
       const page = Number(params.page) || 1;
       const limit = Number(params.limit) || 50;
 
@@ -130,7 +133,8 @@ const ParticipationTab = () => {
           </Tag>
         ),
       },
-      { id: "remarks", key: "remarks", text: "Remarks", fraction: "200px" },
+      { id: "remarks", key: "remarks", text: "Remarks", fraction: "180px" },
+      { id: "instructorRemarks", key: "instructorRemarks", text: "Instructor Remarks", fraction: "200px" },
     ],
   };
 

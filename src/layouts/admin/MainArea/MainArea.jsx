@@ -52,6 +52,7 @@ import {
   UserDocumentsPageRoute,
   UserDocumentDetailsPageRoute,
   CertificateUploadPageRoute,
+  CertificateManagementPageRoute,
   ReportExportPageRoute,
   QuestionImportPageRoute,
   UploadDetailsPageRoute,
@@ -407,6 +408,7 @@ const MainArea = () => {
           path="/admin/bulk-courses/:batchId"
         />
         <CertificateUploadPageRoute exact path="/admin/certificates" />
+        <CertificateManagementPageRoute exact path="/admin/certificate-management" />
         <CourseMaterialUploadPageRoute exact path="/admin/course-materials" />
         <CourseRosterPageRoute exact path="/admin/course-roster" />
         <UserDocumentsPageRoute exact path="/admin/user-documents" />

@@ -5,6 +5,7 @@ import { useFetch } from "../../../../hooks";
 import {
   adminGetCourseRoster,
   adminExportCourseRoster,
+  adminGetCourseListing,
 } from "../../../../services";
 
 import RosterHeader from "./components/RosterHeader";
@@ -32,6 +33,16 @@ const CourseRosterPage = () => {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
+  const [courses, setCourses] = useState([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+
+  useEffect(() => {
+    setCoursesLoading(true);
+    adminGetCourseListing({ limit: 200 })
+      .then(({ courses: list }) => setCourses(list))
+      .catch(() => setCourses([]))
+      .finally(() => setCoursesLoading(false));
+  }, []);
 
   const fetcher = useCallback(async () => {
     if (!courseId) return { roster: null, pagination: {} };
@@ -112,6 +123,8 @@ const CourseRosterPage = () => {
         <RosterFilters
           courseId={courseId}
           onCourseChange={handleCourseChange}
+          courses={courses}
+          coursesLoading={coursesLoading}
           search={search}
           onSearchChange={handleSearchChange}
           status={status}

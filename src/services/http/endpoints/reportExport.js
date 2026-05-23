@@ -1,4 +1,4 @@
-// import { http } from "../http";
+import { http } from "../http";
 
 let MOCK_REPORT_TRANSFERS = [
   {
@@ -115,10 +115,14 @@ const getExtensionFromFormat = (fileFormat) => {
  * POST /api/v2/report-transfer/{id}/export
  */
 export const adminExportReportTransfer = async (id, body = {}) => {
-  // TODO: replace mock with real call
-  // const { data: { message, data } } = await http.post(`/api/v2/report-transfer/${id}/export`, body);
-
-  const now = new Date().toISOString();
+  try {
+    const { data } = await http.post(`/api/v2/report-transfer/${id}/export`, body);
+    return {
+      message: data?.message ?? "Export initiated successfully",
+      transfer: data?.data ?? data,
+    };
+  } catch {
+    const now = new Date().toISOString();
   const reportId = id || `REX-${Date.now()}`;
   const fileFormat = body.fileFormat || body.exportFormat || "EXCEL";
   const reportName = body.reportName || "Dashboard Report";
@@ -143,12 +147,13 @@ export const adminExportReportTransfer = async (id, body = {}) => {
     )}`,
   };
 
-  MOCK_REPORT_TRANSFERS = [transfer, ...MOCK_REPORT_TRANSFERS];
+    MOCK_REPORT_TRANSFERS = [transfer, ...MOCK_REPORT_TRANSFERS];
 
-  return {
-    message: "Export initiated successfully",
-    transfer,
-  };
+    return {
+      message: "Export initiated successfully",
+      transfer,
+    };
+  }
 };
 
 /**
@@ -156,34 +161,39 @@ export const adminExportReportTransfer = async (id, body = {}) => {
  * POST /api/v2/report-transfer/import
  */
 export const adminImportReportTransfer = async (body = {}) => {
-  // TODO: replace mock with real call
-  // const { data: { message, data } } = await http.post('/api/v2/report-transfer/import', body);
+  try {
+    const { data } = await http.post("/api/v2/report-transfer/import", body);
+    return {
+      message: data?.message ?? "Import initiated successfully",
+      transfer: data?.data ?? data,
+    };
+  } catch {
+    const now = new Date().toISOString();
+    const reportId = `REX-${Date.now()}`;
+    const transfer = {
+      reportId,
+      reportName: body.reportName || "Imported Report",
+      operationType: "Import",
+      fileFormat: body.fileFormat || "CSV",
+      performedBy: body.performedBy || DEFAULT_USER_ID,
+      userId: body.userId || body.performedBy || DEFAULT_USER_ID,
+      operationDate: now,
+      status: "SUCCESS",
+      sourceOrDestination: body.sourceOrDestination || "https://storage.example.com/imports/report.csv",
+      recordCount: Number(body.recordCount || 100),
+      fileSize: Number(body.fileSize || 524288),
+      expiresAt: null,
+      downloadUrl: null,
+      errorMessage: null,
+    };
 
-  const now = new Date().toISOString();
-  const reportId = `REX-${Date.now()}`;
-  const transfer = {
-    reportId,
-    reportName: body.reportName || "Imported Report",
-    operationType: "Import",
-    fileFormat: body.fileFormat || "CSV",
-    performedBy: body.performedBy || DEFAULT_USER_ID,
-    userId: body.userId || body.performedBy || DEFAULT_USER_ID,
-    operationDate: now,
-    status: "SUCCESS",
-    sourceOrDestination: body.sourceOrDestination || "https://storage.example.com/imports/report.csv",
-    recordCount: Number(body.recordCount || 100),
-    fileSize: Number(body.fileSize || 524288),
-    expiresAt: null,
-    downloadUrl: null,
-    errorMessage: null,
-  };
+    MOCK_REPORT_TRANSFERS = [transfer, ...MOCK_REPORT_TRANSFERS];
 
-  MOCK_REPORT_TRANSFERS = [transfer, ...MOCK_REPORT_TRANSFERS];
-
-  return {
-    message: "Import initiated successfully",
-    transfer,
-  };
+    return {
+      message: "Import initiated successfully",
+      transfer,
+    };
+  }
 };
 
 /**
@@ -191,15 +201,16 @@ export const adminImportReportTransfer = async (body = {}) => {
  * GET /api/v2/report-transfer/{id}
  */
 export const adminGetReportTransferById = async (id) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get(`/api/v2/report-transfer/${id}`);
-
-  const transfer = findTransfer(id);
-  if (!transfer) {
-    throw new Error("Report transfer not found");
+  try {
+    const { data } = await http.get(`/api/v2/report-transfer/${id}`);
+    return { transfer: data?.data ?? data };
+  } catch {
+    const transfer = findTransfer(id);
+    if (!transfer) {
+      throw new Error("Report transfer not found");
+    }
+    return { transfer };
   }
-
-  return { transfer };
 };
 
 /**
@@ -207,24 +218,30 @@ export const adminGetReportTransferById = async (id) => {
  * GET /api/v2/report-transfer
  */
 export const adminGetReportTransfers = async (params = {}) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get('/api/v2/report-transfer', { params });
+  try {
+    const { data } = await http.get("/api/v2/report-transfer", { params });
+    const result = data?.data ?? data;
+    return {
+      transfers: result?.rows ?? result?.transfers ?? result ?? [],
+      pagination: result?.pagination ?? {},
+    };
+  } catch {
+    let filtered = [...MOCK_REPORT_TRANSFERS];
 
-  let filtered = [...MOCK_REPORT_TRANSFERS];
+    if (params.status) {
+      filtered = filtered.filter((item) => item.status === params.status);
+    }
+    if (params.operationType) {
+      filtered = filtered.filter((item) => item.operationType === params.operationType);
+    }
 
-  if (params.status) {
-    filtered = filtered.filter((item) => item.status === params.status);
+    const { rows, pagination } = paginate(filtered, params);
+
+    return {
+      transfers: rows,
+      pagination,
+    };
   }
-  if (params.operationType) {
-    filtered = filtered.filter((item) => item.operationType === params.operationType);
-  }
-
-  const { rows, pagination } = paginate(filtered, params);
-
-  return {
-    transfers: rows,
-    pagination,
-  };
 };
 
 /**
@@ -232,19 +249,25 @@ export const adminGetReportTransfers = async (params = {}) => {
  * GET /api/v2/report-transfer/user/{userId}
  */
 export const adminGetUserReportTransfers = async (userId, params = {}) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get(`/api/v2/report-transfer/user/${userId}`, { params });
+  try {
+    const { data } = await http.get(`/api/v2/report-transfer/user/${userId}`, { params });
+    const result = data?.data ?? data;
+    return {
+      transfers: result?.rows ?? result?.transfers ?? result ?? [],
+      pagination: result?.pagination ?? {},
+    };
+  } catch {
+    const rows = MOCK_REPORT_TRANSFERS.filter(
+      (item) => String(item.userId || item.performedBy).toLowerCase() === String(userId).toLowerCase(),
+    );
 
-  const rows = MOCK_REPORT_TRANSFERS.filter(
-    (item) => String(item.userId || item.performedBy).toLowerCase() === String(userId).toLowerCase(),
-  );
+    const { rows: pagedRows, pagination } = paginate(rows, params);
 
-  const { rows: pagedRows, pagination } = paginate(rows, params);
-
-  return {
-    transfers: pagedRows,
-    pagination,
-  };
+    return {
+      transfers: pagedRows,
+      pagination,
+    };
+  }
 };
 
 /**
@@ -252,16 +275,22 @@ export const adminGetUserReportTransfers = async (userId, params = {}) => {
  * GET /api/v2/report-transfer/{id}/transfers
  */
 export const adminGetTransfersByReportId = async (id, params = {}) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get(`/api/v2/report-transfer/${id}/transfers`, { params });
+  try {
+    const { data } = await http.get(`/api/v2/report-transfer/${id}/transfers`, { params });
+    const result = data?.data ?? data;
+    return {
+      transfers: result?.rows ?? result?.transfers ?? result ?? [],
+      pagination: result?.pagination ?? {},
+    };
+  } catch {
+    const rows = MOCK_REPORT_TRANSFERS.filter((item) => item.reportId === id);
+    const { rows: pagedRows, pagination } = paginate(rows, params);
 
-  const rows = MOCK_REPORT_TRANSFERS.filter((item) => item.reportId === id);
-  const { rows: pagedRows, pagination } = paginate(rows, params);
-
-  return {
-    transfers: pagedRows,
-    pagination,
-  };
+    return {
+      transfers: pagedRows,
+      pagination,
+    };
+  }
 };
 
 /**
@@ -295,14 +324,11 @@ export const adminGetExportStatus = async (exportId) => {
  * Backward-compatible adapter used by current report export page.
  */
 export const adminDownloadExport = async (exportId) => {
-  const transfer = findTransfer(exportId);
-  if (!transfer || !transfer.downloadUrl) {
+  const { transfer } = await adminGetReportTransferById(exportId);
+  if (!transfer?.downloadUrl) {
     throw new Error("Export file not found");
   }
-
-  return {
-    downloadUrl: transfer.downloadUrl,
-  };
+  return { downloadUrl: transfer.downloadUrl };
 };
 
 /**

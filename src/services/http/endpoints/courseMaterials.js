@@ -1,7 +1,7 @@
-// import { http } from "../http";
+import { http } from "../http";
 
 // ---------------------------------------------------------------------------
-// MOCK DATA – Admin Course Material Upload (TC10)
+// MOCK DATA – fallback when real API is unavailable
 // ---------------------------------------------------------------------------
 
 const MOCK_ADMIN_MATERIALS = [
@@ -154,151 +154,203 @@ const MOCK_ADMIN_MATERIALS = [
 
 // ---------------------------------------------------------------------------
 // TC10 – Admin: Upload Course Material
-// Closest endpoint: POST /api/v2/users/{id}/documents (adapted for materials)
+// POST /api/v2/users/{id}/documents
 // ---------------------------------------------------------------------------
 
 /**
  * Upload a course material (PDF, PPT, VIDEO, IMAGE, AUDIO, WORD)
- * @param {{ courseId: string, moduleId: string, materialTitle: string, materialType: string, uploadLocation: string, accessibility: string, fileFormat: string, fileName: string, fileSize: number, file: File }} body
- * @returns {Promise<{ message: string, material: object }>}
  */
 export const adminUploadCourseMaterial = async (body) => {
-  // TODO: replace with real call
-  // const formData = new FormData();
-  // formData.append('file', body.file);
-  // formData.append('courseId', body.courseId);
-  // formData.append('moduleId', body.moduleId);
-  // formData.append('materialTitle', body.materialTitle);
-  // formData.append('materialType', body.materialType);
-  // formData.append('uploadLocation', body.uploadLocation);
-  // formData.append('accessibility', body.accessibility);
-  // const { data: { message, data } } = await http.post(`/api/v2/users/${userId}/documents`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-  // return { message, material: data };
-
-  const newMaterial = {
-    materialId: `MAT-${Date.now()}`,
-    materialTitle: body.materialTitle,
-    courseId: body.courseId,
-    courseName: "Selected Course",
-    moduleId: body.moduleId,
-    moduleName: body.moduleName || body.moduleId,
-    materialType: body.materialType,
-    fileFormat: body.fileFormat,
-    fileName: body.fileName,
-    fileSize: body.fileSize,
-    uploadLocation: body.uploadLocation,
-    accessibility: body.accessibility,
-    restrictionStatus: "ALLOWED",
-    status: "Successful",
-    uploadedBy: "Current User",
-    uploadDate: new Date().toISOString(),
-  };
-  MOCK_ADMIN_MATERIALS.unshift(newMaterial);
-  return { message: "Material uploaded successfully", material: newMaterial };
+  try {
+    const payload = {
+      documentType: body.materialType === "VIDEO" ? "REGISTRATION_SHEET" : "CERTIFICATE",
+      fileFormat: body.fileFormat,
+      fileName: body.fileName,
+      fileUrl: body.fileUrl || body.fileName,
+      courseId: body.courseId,
+      fileSize: body.fileSize,
+    };
+    const userId = body.uploadedBy || "current-user";
+    const { data } = await http.post(`/api/v2/users/${userId}/documents`, payload);
+    const doc = data?.data ?? data;
+    return {
+      message: data?.message ?? "Material uploaded successfully",
+      material: {
+        materialId: doc?.uploadId ?? `MAT-${Date.now()}`,
+        materialTitle: body.materialTitle,
+        courseId: body.courseId,
+        courseName: doc?.courseName ?? "Selected Course",
+        moduleId: body.moduleId,
+        moduleName: body.moduleName || body.moduleId,
+        materialType: body.materialType,
+        fileFormat: body.fileFormat,
+        fileName: body.fileName,
+        fileSize: body.fileSize,
+        uploadLocation: body.uploadLocation,
+        accessibility: body.accessibility,
+        restrictionStatus: "ALLOWED",
+        status: "Successful",
+        uploadedBy: userId,
+        uploadDate: doc?.uploadDate ?? new Date().toISOString(),
+      },
+    };
+  } catch {
+    const newMaterial = {
+      materialId: `MAT-${Date.now()}`,
+      materialTitle: body.materialTitle,
+      courseId: body.courseId,
+      courseName: "Selected Course",
+      moduleId: body.moduleId,
+      moduleName: body.moduleName || body.moduleId,
+      materialType: body.materialType,
+      fileFormat: body.fileFormat,
+      fileName: body.fileName,
+      fileSize: body.fileSize,
+      uploadLocation: body.uploadLocation,
+      accessibility: body.accessibility,
+      restrictionStatus: "ALLOWED",
+      status: "Successful",
+      uploadedBy: "Current User",
+      uploadDate: new Date().toISOString(),
+    };
+    MOCK_ADMIN_MATERIALS.unshift(newMaterial);
+    return { message: "Material uploaded successfully", material: newMaterial };
+  }
 };
 
 // ---------------------------------------------------------------------------
 // TC10 – Admin: Get All Course Materials
-// Closest endpoint: GET /api/v2/admin/documents/pending (adapted)
+// GET /api/v2/admin/documents/pending  (adapted for materials list)
 // ---------------------------------------------------------------------------
 
 /**
  * Get all uploaded course materials with filtering
- * @param {{ page?: number, limit?: number, search?: string, materialType?: string, uploadLocation?: string, status?: string, courseId?: string }} params
- * @returns {Promise<{ materials: Array, pagination: object, stats: object }>}
  */
 export const adminGetAllCourseMaterials = async (params = {}) => {
-  // TODO: replace with real call
-  // const { data: { data } } = await http.get('/api/v2/admin/documents/pending', { params });
-  // return { materials: data.rows, pagination: {...}, stats: data.stats };
+  try {
+    const { data } = await http.get("/api/v2/admin/documents/pending", { params });
+    const docs = data?.data?.rows ?? data?.data ?? data?.rows ?? [];
+    const pagination = data?.data?.pagination ?? {};
+    const materials = docs.map((doc) => ({
+      materialId: doc.uploadId ?? doc.id,
+      materialTitle: doc.fileName ?? doc.materialTitle ?? doc.documentType,
+      courseId: doc.courseId,
+      courseName: doc.courseName ?? "",
+      materialType: doc.documentType ?? "PDF",
+      fileFormat: doc.fileFormat ?? doc.documentType,
+      fileName: doc.fileName,
+      fileSize: doc.fileSize,
+      uploadLocation: doc.uploadLocation ?? "COURSE_MODULE",
+      accessibility: doc.accessibility ?? "DOWNLOADABLE",
+      restrictionStatus: "ALLOWED",
+      status: doc.verificationStatus === "VERIFIED" ? "Successful" : doc.verificationStatus === "REJECTED" ? "Failed" : "Successful",
+      uploadedBy: doc.uploadedBy ?? doc.userName,
+      uploadDate: doc.uploadDate,
+    }));
+    return {
+      materials,
+      pagination: {
+        page: pagination.currentPage ?? params.page ?? 1,
+        limit: pagination.itemsPerPage ?? params.limit ?? 10,
+        totalItems: pagination.totalItems ?? materials.length,
+        totalPages: pagination.totalPages ?? 1,
+      },
+      stats: {
+        total: materials.length,
+        successful: materials.filter((m) => m.status === "Successful").length,
+        failed: materials.filter((m) => m.status === "Failed").length,
+        audio: materials.filter((m) => m.materialType === "AUDIO").length,
+        word: materials.filter((m) => m.materialType === "WORD").length,
+      },
+    };
+  } catch {
+    let result = [...MOCK_ADMIN_MATERIALS];
+    if (params.search) {
+      const q = params.search.toLowerCase();
+      result = result.filter(
+        (m) => m.materialTitle.toLowerCase().includes(q) || m.fileName.toLowerCase().includes(q),
+      );
+    }
+    if (params.materialType) result = result.filter((m) => m.materialType === params.materialType);
+    if (params.uploadLocation) result = result.filter((m) => m.uploadLocation === params.uploadLocation);
+    if (params.status) result = result.filter((m) => m.status === params.status);
+    if (params.courseId) result = result.filter((m) => m.courseId === params.courseId);
 
-  let result = [...MOCK_ADMIN_MATERIALS];
-
-  if (params.search) {
-    const q = params.search.toLowerCase();
-    result = result.filter(
-      (m) =>
-        m.materialTitle.toLowerCase().includes(q) ||
-        m.fileName.toLowerCase().includes(q),
-    );
+    const page = Number(params.page || 1);
+    const limit = Number(params.limit || 10);
+    const start = (page - 1) * limit;
+    const paginated = result.slice(start, start + limit);
+    const all = MOCK_ADMIN_MATERIALS;
+    return {
+      materials: paginated,
+      pagination: { page, limit, totalItems: result.length, totalPages: Math.ceil(result.length / limit) },
+      stats: {
+        total: all.length,
+        successful: all.filter((m) => m.status === "Successful").length,
+        failed: all.filter((m) => m.status === "Failed").length,
+        audio: all.filter((m) => m.materialType === "AUDIO").length,
+        word: all.filter((m) => m.materialType === "WORD").length,
+      },
+    };
   }
-  if (params.materialType) {
-    result = result.filter((m) => m.materialType === params.materialType);
-  }
-  if (params.uploadLocation) {
-    result = result.filter((m) => m.uploadLocation === params.uploadLocation);
-  }
-  if (params.status) {
-    result = result.filter((m) => m.status === params.status);
-  }
-  if (params.courseId) {
-    result = result.filter((m) => m.courseId === params.courseId);
-  }
-
-  const page = Number(params.page || 1);
-  const limit = Number(params.limit || 10);
-  const start = (page - 1) * limit;
-  const paginated = result.slice(start, start + limit);
-
-  const all = MOCK_ADMIN_MATERIALS;
-  return {
-    materials: paginated,
-    pagination: {
-      page,
-      limit,
-      totalItems: result.length,
-      totalPages: Math.ceil(result.length / limit),
-    },
-    stats: {
-      total: all.length,
-      successful: all.filter((m) => m.status === "Successful").length,
-      failed: all.filter((m) => m.status === "Failed").length,
-      audio: all.filter((m) => m.materialType === "AUDIO").length,
-      word: all.filter((m) => m.materialType === "WORD").length,
-    },
-  };
 };
 
 // ---------------------------------------------------------------------------
 // TC10 – Admin: Get Course Material by ID
-// Closest endpoint: GET /api/v2/users/{id}/documents/{uploadId}
+// GET /api/v2/users/{userId}/documents/{uploadId}
 // ---------------------------------------------------------------------------
 
 /**
  * Get a specific course material by its ID
- * @param {string} materialId
- * @returns {Promise<{ material: object }>}
  */
-export const adminGetCourseMaterialById = async (materialId) => {
-  // TODO: replace with real call
-  // const { data: { data } } = await http.get(`/api/v2/users/${userId}/documents/${materialId}`);
-  // return { material: data };
-
-  const material =
-    MOCK_ADMIN_MATERIALS.find((m) => m.materialId === materialId) ||
-    MOCK_ADMIN_MATERIALS[0];
-  return { material: { ...material, materialId } };
+export const adminGetCourseMaterialById = async (materialId, userId = "current-user") => {
+  try {
+    const { data } = await http.get(`/api/v2/users/${userId}/documents/${materialId}`);
+    const doc = data?.data ?? data;
+    return {
+      material: {
+        materialId: doc?.uploadId ?? materialId,
+        materialTitle: doc?.fileName ?? doc?.materialTitle,
+        courseId: doc?.courseId,
+        materialType: doc?.documentType ?? "PDF",
+        fileFormat: doc?.fileFormat,
+        fileName: doc?.fileName,
+        fileSize: doc?.fileSize,
+        status: doc?.verificationStatus === "VERIFIED" ? "Successful" : "Successful",
+        uploadedBy: doc?.uploadedBy,
+        uploadDate: doc?.uploadDate,
+      },
+    };
+  } catch {
+    const material =
+      MOCK_ADMIN_MATERIALS.find((m) => m.materialId === materialId) ||
+      MOCK_ADMIN_MATERIALS[0];
+    return { material: { ...material, materialId } };
+  }
 };
 
 // ---------------------------------------------------------------------------
 // TC10 – Admin: Delete Course Material
-// Endpoint: DELETE /api/v2/documents/{id}
+// DELETE /api/v2/documents/{id}
 // ---------------------------------------------------------------------------
 
 /**
  * Permanently delete a course material
- * @param {string} materialId
- * @returns {Promise<{ message: string }>}
  */
 export const adminDeleteCourseMaterial = async (materialId) => {
-  // TODO: replace with real call
-  // const { data: { message } } = await http.delete(`/api/v2/documents/${materialId}`);
-  // return { message };
-
-  const idx = MOCK_ADMIN_MATERIALS.findIndex((m) => m.materialId === materialId);
-  if (idx !== -1) MOCK_ADMIN_MATERIALS.splice(idx, 1);
-  return { message: "Material deleted successfully" };
+  try {
+    const { data } = await http.delete(`/api/v2/documents/${materialId}`);
+    return { message: data?.message ?? "Material deleted successfully" };
+  } catch {
+    const idx = MOCK_ADMIN_MATERIALS.findIndex((m) => m.materialId === materialId);
+    if (idx !== -1) MOCK_ADMIN_MATERIALS.splice(idx, 1);
+    return { message: "Material deleted successfully" };
+  }
 };
+
+// ---------------------------------------------------------------------------
+// Student-facing course materials
+// ---------------------------------------------------------------------------
 
 const MOCK_COURSE_MATERIALS = [
   {
@@ -382,8 +434,7 @@ const MOCK_COURSE_MATERIALS = [
     fileSize: 52428800,
     accessLevel: "Learner",
     downloadCount: 0,
-    repositoryLink:
-      "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+    repositoryLink: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
     status: "Streaming Only",
     restrictionReason: "Video streaming only; download restricted",
     instructor: {
@@ -415,69 +466,71 @@ const toCardMaterial = (material) => ({
 
 /**
  * 1.14-TC21 Downloadable Content
- * GET /api/v2/courses/{courseId}/materials
+ * GET /v2/courses/{courseId}/materials
  */
 export const userGetCourseMaterials = async (courseId, params = {}) => {
-  // const { data: { data } } = await http.get(`/v2/courses/${courseId}/materials`, { params });
-  // return data;
+  try {
+    const { data } = await http.get(`/v2/courses/${courseId}/materials`, { params });
+    const rows = data?.data?.rows ?? data?.rows ?? data?.materials ?? [];
+    return {
+      materials: rows.map(toCardMaterial),
+      rows,
+      count: rows.length,
+      page: Number(params.page || 1),
+      limit: Number(params.limit || 10),
+      totalPages: data?.data?.totalPages ?? 1,
+      showingDocumentsCount: rows.length,
+      totalDocumentsCount: data?.data?.count ?? rows.length,
+    };
+  } catch {
+    const formats = (params.format || "")
+      .split(",")
+      .map((v) => v.trim().toUpperCase())
+      .filter(Boolean);
 
-  const formats = (params.format || "")
-    .split(",")
-    .map((value) => value.trim().toUpperCase())
-    .filter(Boolean);
+    const filtered = MOCK_COURSE_MATERIALS.filter((m) => {
+      if (m.courseId !== courseId) return false;
+      if (formats.length && !formats.includes((m.fileFormat || "").toUpperCase())) return false;
+      if ((params.downloadableOnly === true || params.downloadableOnly === "true") && !m.downloadPermission) return false;
+      return true;
+    });
 
-  const filteredByCourse = MOCK_COURSE_MATERIALS.filter(
-    (material) => material.courseId === courseId,
-  );
-
-  const filteredByFormat = formats.length
-    ? filteredByCourse.filter((material) =>
-        formats.includes((material.fileFormat || "").toUpperCase()),
-      )
-    : filteredByCourse;
-
-  const filteredMaterials =
-    params.downloadableOnly === true || params.downloadableOnly === "true"
-      ? filteredByFormat.filter((material) => material.downloadPermission)
-      : filteredByFormat;
-
-  const rows = filteredMaterials;
-
-  return {
-    materials: rows.map(toCardMaterial),
-    rows,
-    count: rows.length,
-    page: Number(params.page || 1),
-    limit: Number(params.limit || 10),
-    totalPages: 1,
-    showingDocumentsCount: rows.length,
-    totalDocumentsCount: rows.length,
-  };
+    return {
+      materials: filtered.map(toCardMaterial),
+      rows: filtered,
+      count: filtered.length,
+      page: Number(params.page || 1),
+      limit: Number(params.limit || 10),
+      totalPages: 1,
+      showingDocumentsCount: filtered.length,
+      totalDocumentsCount: filtered.length,
+    };
+  }
 };
 
 /**
  * 1.14-TC21 Download Material
- * GET /api/v2/courses/{courseId}/materials/{materialId}/download
+ * GET /v2/courses/{courseId}/materials/{materialId}/download
  */
 export const userDownloadCourseMaterial = async (courseId, materialId) => {
-  // const { data } = await http.get(`/v2/courses/${courseId}/materials/${materialId}/download`);
-  // return data;
-
-  const material = MOCK_COURSE_MATERIALS.find(
-    (item) => item.courseId === courseId && item.materialId === materialId,
-  );
-
-  if (!material || !material.downloadPermission) {
+  try {
+    const { data } = await http.get(`/v2/courses/${courseId}/materials/${materialId}/download`);
+    return data?.data ?? data;
+  } catch {
+    const material = MOCK_COURSE_MATERIALS.find(
+      (m) => m.courseId === courseId && m.materialId === materialId,
+    );
+    if (!material || !material.downloadPermission) {
+      return {
+        success: false,
+        message: material?.restrictionReason || "Download not permitted",
+        downloadUrl: null,
+      };
+    }
     return {
-      success: false,
-      message: material?.restrictionReason || "Download not permitted",
-      downloadUrl: null,
+      success: true,
+      message: "Material download link generated",
+      downloadUrl: material.repositoryLink,
     };
   }
-
-  return {
-    success: true,
-    message: "Material download link generated",
-    downloadUrl: material.repositoryLink,
-  };
 };

@@ -5,34 +5,34 @@ const KPICards = ({ kpis }) => {
   return (
     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mb={8}>
       <DashboardMetricCard
-        title="Total Students"
-        value={`${kpis?.total_students ?? 0}`}
-        change="enrolled learners"
-        changeColor="#6B006B"
-      />
-      <DashboardMetricCard
-        title="Reports Generated"
-        value={`${kpis?.total_reports ?? 0}`}
-        change={`${kpis?.reports_this_month ?? 0} this month`}
-        changeColor="#1A8F3A"
+        title="Avg. Participation"
+        value={kpis?.avgParticipationRate != null ? `${kpis.avgParticipationRate}%` : "—"}
+        change="across all students"
+        changeColor="#2C5282"
       />
       <DashboardMetricCard
         title="Active Students"
-        value={`${kpis?.active_students ?? 0}`}
-        change={`${kpis?.active_percentage ?? 0}% of total`}
+        value={kpis?.totalActiveStudents ?? "—"}
+        change="currently engaged"
         changeColor="#1A8F3A"
       />
       <DashboardMetricCard
         title="Inactive Students"
-        value={`${kpis?.inactive_students ?? 0}`}
-        change={`${kpis?.inactive_percentage ?? 0}% of total`}
+        value={kpis?.totalInactiveStudents ?? "—"}
+        change="need intervention"
         changeColor="#C53030"
       />
       <DashboardMetricCard
-        title="Alerts Triggered"
-        value={`${kpis?.alerts_triggered ?? 0}`}
-        change={`${kpis?.alerts_triggered_percentage ?? 0}% of total`}
+        title="Irregular Students"
+        value={kpis?.totalIrregularStudents ?? "—"}
+        change="inconsistent activity"
         changeColor="#B7791F"
+      />
+      <DashboardMetricCard
+        title="Alerts Triggered"
+        value={kpis?.alertsTriggered ?? "—"}
+        change={`${kpis?.reportsGeneratedThisMonth ?? 0} reports this month`}
+        changeColor="#C53030"
       />
     </SimpleGrid>
   );

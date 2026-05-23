@@ -62,6 +62,7 @@ export * from "./gradeBook/GradeBookDetailsPage";
 export * from "./userDocuments/UserDocumentsPage";
 export * from "./userDocuments/UserDocumentDetailsPage";
 export * from "./certificates/CertificateUploadPage/CertificateUploadPage";
+export * from "./certificates/CertificateManagementPage/CertificateManagementPage";
 export * from "./reportExport/ReportExportPage";
 export * from "./questionImport/QuestionImportPage";
 export * from "./questionImport/UploadDetailsPage";

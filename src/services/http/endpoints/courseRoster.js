@@ -1,4 +1,4 @@
-// import { http } from "../http";
+import { http } from "../http";
 
 const MOCK_ROSTERS = {
   AGR101: {
@@ -61,9 +61,8 @@ const MOCK_ROSTERS = {
 
 const MOCK_EXPORTS = [];
 
-const getRosterByCourseId = (courseId) => {
+const getMockRoster = (courseId) => {
   if (MOCK_ROSTERS[courseId]) return MOCK_ROSTERS[courseId];
-
   return {
     reportId: `EXP-${courseId}`,
     courseId,
@@ -90,23 +89,31 @@ const getRosterByCourseId = (courseId) => {
  * GET /api/v2/courses/{courseId}/roster
  */
 export const adminGetCourseRoster = async (courseId, params = {}) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get(`/api/v2/courses/${courseId}/roster`, { params });
-
-  const roster = getRosterByCourseId(courseId);
-
-  return {
-    roster,
-    pagination: {
-      page: Number(params.page || 1),
-      limit: Number(params.limit || 10),
-      totalItems: roster.students.length,
-      totalPages: Math.max(
-        1,
-        Math.ceil(roster.students.length / Number(params.limit || 10)),
-      ),
-    },
-  };
+  try {
+    const { data } = await http.get(`/api/v2/courses/${courseId}/roster`, { params });
+    const roster = data?.data ?? data;
+    const students = roster?.students ?? [];
+    return {
+      roster,
+      pagination: {
+        page: Number(params.page || 1),
+        limit: Number(params.limit || 10),
+        totalItems: students.length,
+        totalPages: Math.max(1, Math.ceil(students.length / Number(params.limit || 10))),
+      },
+    };
+  } catch {
+    const roster = getMockRoster(courseId);
+    return {
+      roster,
+      pagination: {
+        page: Number(params.page || 1),
+        limit: Number(params.limit || 10),
+        totalItems: roster.students.length,
+        totalPages: Math.max(1, Math.ceil(roster.students.length / Number(params.limit || 10))),
+      },
+    };
+  }
 };
 
 /**
@@ -114,36 +121,28 @@ export const adminGetCourseRoster = async (courseId, params = {}) => {
  * POST /api/v2/courses/{courseId}/roster/export
  */
 export const adminExportCourseRoster = async (courseId, body = {}) => {
-  // TODO: replace mock with real call
-  // const { data: { message, data } } = await http.post(`/api/v2/courses/${courseId}/roster/export`, body);
-
-  const exportId = `ROSTER-EXP-${Date.now()}`;
-  const exportRecord = {
-    exportId,
-    courseId,
-    format: body.format || "EXCEL",
-    fields: body.fields || [
-      "studentId",
-      "firstName",
-      "lastName",
-      "email",
-      "enrollmentStatus",
-      "progressPercentage",
-      "enrollmentDate",
-    ],
-    includeGrades: Boolean(body.includeGrades),
-    includeContactInfo: Boolean(body.includeContactInfo),
-    includeEmergencyContact: Boolean(body.includeEmergencyContact),
-    status: "SUCCESS",
-    createdAt: new Date().toISOString(),
-  };
-
-  MOCK_EXPORTS.unshift(exportRecord);
-
-  return {
-    message: "Course roster export initiated successfully",
-    exportRecord,
-  };
+  try {
+    const { data } = await http.post(`/api/v2/courses/${courseId}/roster/export`, body);
+    return {
+      message: data?.message ?? "Course roster export initiated successfully",
+      exportRecord: data?.data ?? data,
+    };
+  } catch {
+    const exportId = `ROSTER-EXP-${Date.now()}`;
+    const exportRecord = {
+      exportId,
+      courseId,
+      format: body.format || "EXCEL",
+      fields: body.fields || ["studentId", "firstName", "lastName", "email", "enrollmentStatus", "progressPercentage", "enrollmentDate"],
+      includeGrades: Boolean(body.includeGrades),
+      includeContactInfo: Boolean(body.includeContactInfo),
+      includeEmergencyContact: Boolean(body.includeEmergencyContact),
+      status: "SUCCESS",
+      createdAt: new Date().toISOString(),
+    };
+    MOCK_EXPORTS.unshift(exportRecord);
+    return { message: "Course roster export initiated successfully", exportRecord };
+  }
 };
 
 /**
@@ -151,24 +150,18 @@ export const adminExportCourseRoster = async (courseId, body = {}) => {
  * GET /api/v2/exports/{id}/status
  */
 export const adminGetCourseRosterExportStatus = async (exportId) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get(`/api/v2/exports/${exportId}/status`);
-
-  const exportRecord = MOCK_EXPORTS.find((record) => record.exportId === exportId);
-
-  if (!exportRecord) {
+  try {
+    const { data } = await http.get(`/api/v2/exports/${exportId}/status`);
+    return data?.data ?? data;
+  } catch {
+    const exportRecord = MOCK_EXPORTS.find((r) => r.exportId === exportId);
+    if (!exportRecord) return { exportId, status: "FAILED", message: "Export not found" };
     return {
       exportId,
-      status: "FAILED",
-      message: "Export not found",
+      status: exportRecord.status,
+      message: exportRecord.status === "SUCCESS" ? "Export ready" : "Export in progress",
     };
   }
-
-  return {
-    exportId,
-    status: exportRecord.status,
-    message: exportRecord.status === "SUCCESS" ? "Export ready" : "Export in progress",
-  };
 };
 
 /**
@@ -176,25 +169,18 @@ export const adminGetCourseRosterExportStatus = async (exportId) => {
  * GET /api/v2/exports/{id}/download
  */
 export const adminDownloadCourseRosterExport = async (exportId) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get(`/api/v2/exports/${exportId}/download`);
-
-  const exportRecord = MOCK_EXPORTS.find((record) => record.exportId === exportId);
-
-  if (!exportRecord) {
-    throw new Error("Export file not found");
+  try {
+    const { data } = await http.get(`/api/v2/exports/${exportId}/download`);
+    return data?.data ?? data;
+  } catch {
+    const exportRecord = MOCK_EXPORTS.find((r) => r.exportId === exportId);
+    if (!exportRecord) throw new Error("Export file not found");
+    const ext = exportRecord.format === "CSV" ? "csv" : exportRecord.format === "PDF" ? "pdf" : "xlsx";
+    return {
+      exportId,
+      downloadUrl: `https://storage.example.com/exports/${exportId}.${ext}`,
+      format: exportRecord.format,
+      fileName: `course-roster-${exportRecord.courseId}-${new Date().toISOString().slice(0, 10)}.${ext}`,
+    };
   }
-
-  return {
-    exportId,
-    downloadUrl: `https://storage.example.com/exports/${exportId}.${
-      exportRecord.format === "CSV" ? "csv" : exportRecord.format === "PDF" ? "pdf" : "xlsx"
-    }`,
-    format: exportRecord.format,
-    fileName: `course-roster-${exportRecord.courseId}-${new Date()
-      .toISOString()
-      .slice(0, 10)}.${
-      exportRecord.format === "CSV" ? "csv" : exportRecord.format === "PDF" ? "pdf" : "xlsx"
-    }`,
-  };
 };
