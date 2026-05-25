@@ -42,6 +42,9 @@ import {
   adminGetEnrollmentStatusStudents,
   adminGetEnrollmentStatusCourses,
   adminGetEnrollmentStatusTrends,
+  adminListCoursesForReport,
+  adminGetDepartmentListing,
+  adminGetUserListing,
 } from "../../../../services";
 import dayjs from "dayjs";
 
@@ -103,6 +106,88 @@ const KpiCard = ({ icon: Icon, label, value, iconColor = "#660066" }) => (
     </ChakraText>
   </Box>
 );
+
+const DistributionSection = ({ kpis }) => {
+  const enrollDist = kpis?.enrollment_distribution ?? {};
+  const engageDist = kpis?.engagement_distribution ?? {};
+
+  const enrollTotal = (enrollDist.enrolled ?? 0) + (enrollDist.deactivated ?? 0);
+  const engageTotal = (engageDist.in_progress ?? 0) + (engageDist.completed ?? 0) + (engageDist.inactive ?? 0);
+
+  const enrolledPct = enrollTotal ? Math.round(((enrollDist.enrolled ?? 0) / enrollTotal) * 100) : 0;
+  const deactivatedPct = enrollTotal ? Math.round(((enrollDist.deactivated ?? 0) / enrollTotal) * 100) : 0;
+
+  const inProgressPct = engageTotal ? Math.round(((engageDist.in_progress ?? 0) / engageTotal) * 100) : 0;
+  const completedPct = engageTotal ? Math.round(((engageDist.completed ?? 0) / engageTotal) * 100) : 0;
+  const inactivePct = engageTotal ? Math.round(((engageDist.inactive ?? 0) / engageTotal) * 100) : 0;
+
+  return (
+    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mb={8}>
+      {/* Enrollment Distribution */}
+      <Box bg="white" border="1px solid #F2F4F7" borderRadius="xl" p={5} boxShadow="sm">
+        <ChakraText fontSize="13px" fontWeight="600" color="#667085" mb={4} textTransform="uppercase" letterSpacing="0.5px">
+          Enrollment Distribution
+        </ChakraText>
+        <Flex direction="column" gap={3}>
+          <Box>
+            <Flex justify="space-between" mb={1}>
+              <ChakraText fontSize="13px" color="#344054">Enrolled</ChakraText>
+              <ChakraText fontSize="13px" fontWeight="600" color="#344054">
+                {(enrollDist.enrolled ?? 0).toLocaleString()} ({enrolledPct}%)
+              </ChakraText>
+            </Flex>
+            <Progress value={enrolledPct} size="sm" colorScheme="green" borderRadius="full" />
+          </Box>
+          <Box>
+            <Flex justify="space-between" mb={1}>
+              <ChakraText fontSize="13px" color="#344054">Deactivated</ChakraText>
+              <ChakraText fontSize="13px" fontWeight="600" color="#344054">
+                {(enrollDist.deactivated ?? 0).toLocaleString()} ({deactivatedPct}%)
+              </ChakraText>
+            </Flex>
+            <Progress value={deactivatedPct} size="sm" colorScheme="red" borderRadius="full" />
+          </Box>
+        </Flex>
+      </Box>
+
+      {/* Engagement Distribution */}
+      <Box bg="white" border="1px solid #F2F4F7" borderRadius="xl" p={5} boxShadow="sm">
+        <ChakraText fontSize="13px" fontWeight="600" color="#667085" mb={4} textTransform="uppercase" letterSpacing="0.5px">
+          Engagement Distribution
+        </ChakraText>
+        <Flex direction="column" gap={3}>
+          <Box>
+            <Flex justify="space-between" mb={1}>
+              <ChakraText fontSize="13px" color="#344054">In Progress</ChakraText>
+              <ChakraText fontSize="13px" fontWeight="600" color="#344054">
+                {(engageDist.in_progress ?? 0).toLocaleString()} ({inProgressPct}%)
+              </ChakraText>
+            </Flex>
+            <Progress value={inProgressPct} size="sm" colorScheme="blue" borderRadius="full" />
+          </Box>
+          <Box>
+            <Flex justify="space-between" mb={1}>
+              <ChakraText fontSize="13px" color="#344054">Completed</ChakraText>
+              <ChakraText fontSize="13px" fontWeight="600" color="#344054">
+                {(engageDist.completed ?? 0).toLocaleString()} ({completedPct}%)
+              </ChakraText>
+            </Flex>
+            <Progress value={completedPct} size="sm" colorScheme="green" borderRadius="full" />
+          </Box>
+          <Box>
+            <Flex justify="space-between" mb={1}>
+              <ChakraText fontSize="13px" color="#344054">Inactive</ChakraText>
+              <ChakraText fontSize="13px" fontWeight="600" color="#344054">
+                {(engageDist.inactive ?? 0).toLocaleString()} ({inactivePct}%)
+              </ChakraText>
+            </Flex>
+            <Progress value={inactivePct} size="sm" colorScheme="orange" borderRadius="full" />
+          </Box>
+        </Flex>
+      </Box>
+    </SimpleGrid>
+  );
+};
 
 const FilterBar = ({ filters, onChange, onApply, onReset }) => (
   <Flex gap={3} flexWrap="wrap" align="flex-end" mb={5}>
@@ -196,6 +281,9 @@ const ENGAGEMENT_STATUS_OPTIONS = [
 ];
 
 const defaultStudentFilters = {
+  courseId: "",
+  departmentId: "",
+  instructorId: "",
   studentStatus: "",
   engagementStatus: "",
   startDate: "",
@@ -203,16 +291,27 @@ const defaultStudentFilters = {
 };
 
 const defaultCourseFilters = {
+  courseId: "",
+  departmentId: "",
+  instructorId: "",
   startDate: "",
   endDate: "",
 };
 
 const defaultTrendFilters = {
+  courseId: "",
+  departmentId: "",
+  instructorId: "",
   startDate: "",
   endDate: "",
 };
 
 const EnrollmentStatusReportPage = () => {
+  // ── Filter options ───────────────────────────────────────────────────────────
+  const [courses, setCourses] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [instructors, setInstructors] = useState([]);
+
   // ── KPI state (from students endpoint) ──────────────────────────────────────
   const [kpis, setKpis] = useState(null);
 
@@ -243,6 +342,20 @@ const EnrollmentStatusReportPage = () => {
 
   const LIMIT = 20;
 
+  // ── Load filter options on mount ─────────────────────────────────────────────
+
+  useEffect(() => {
+    Promise.allSettled([
+      adminListCoursesForReport(),
+      adminGetDepartmentListing(),
+      adminGetUserListing({ page: 1, limit: 200, role: "INSTRUCTOR" }),
+    ]).then(([coursesRes, deptsRes, instructorsRes]) => {
+      if (coursesRes.status === "fulfilled") setCourses(coursesRes.value?.rows ?? []);
+      if (deptsRes.status === "fulfilled") setDepartments(deptsRes.value?.departments ?? []);
+      if (instructorsRes.status === "fulfilled") setInstructors(instructorsRes.value?.users ?? []);
+    });
+  }, []);
+
   // ── Fetchers ─────────────────────────────────────────────────────────────────
 
   const fetchStudents = useCallback(async (page, filters) => {
@@ -250,6 +363,9 @@ const EnrollmentStatusReportPage = () => {
     setStudentsError(null);
     try {
       const params = { page, limit: LIMIT };
+      if (filters.courseId) params.courseId = filters.courseId;
+      if (filters.departmentId) params.departmentId = filters.departmentId;
+      if (filters.instructorId) params.instructorId = filters.instructorId;
       if (filters.studentStatus) params.studentStatus = filters.studentStatus;
       if (filters.engagementStatus) params.engagementStatus = filters.engagementStatus;
       if (filters.startDate) params.startDate = filters.startDate;
@@ -271,6 +387,9 @@ const EnrollmentStatusReportPage = () => {
     setCoursesError(null);
     try {
       const params = { page, limit: LIMIT };
+      if (filters.courseId) params.courseId = filters.courseId;
+      if (filters.departmentId) params.departmentId = filters.departmentId;
+      if (filters.instructorId) params.instructorId = filters.instructorId;
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
 
@@ -289,6 +408,9 @@ const EnrollmentStatusReportPage = () => {
     setTrendsError(null);
     try {
       const params = {};
+      if (filters.courseId) params.courseId = filters.courseId;
+      if (filters.departmentId) params.departmentId = filters.departmentId;
+      if (filters.instructorId) params.instructorId = filters.instructorId;
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
 
@@ -353,6 +475,39 @@ const EnrollmentStatusReportPage = () => {
     setAppliedTrendFilters(defaultTrendFilters);
     fetchTrends(defaultTrendFilters);
   };
+
+  // ── Shared filter definitions ─────────────────────────────────────────────────
+
+  const courseOptions = courses.map((c) => ({ value: c.id, label: c.title }));
+  const departmentOptions = departments.map((d) => ({ value: d.id, label: d.name }));
+  const instructorOptions = instructors.map((u) => ({
+    value: u.id,
+    label: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || u.email,
+  }));
+
+  const sharedFilterDefs = (filters, setFilters) => [
+    {
+      key: "courseId",
+      label: "Course",
+      type: "select",
+      value: filters.courseId,
+      options: courseOptions,
+    },
+    {
+      key: "departmentId",
+      label: "Department",
+      type: "select",
+      value: filters.departmentId,
+      options: departmentOptions,
+    },
+    {
+      key: "instructorId",
+      label: "Instructor",
+      type: "select",
+      value: filters.instructorId,
+      options: instructorOptions,
+    },
+  ];
 
   // ── Chart data ────────────────────────────────────────────────────────────────
 
@@ -435,56 +590,63 @@ const EnrollmentStatusReportPage = () => {
 
       {/* KPI Summary Cards */}
       {kpis && (
-        <SimpleGrid columns={{ base: 2, md: 4, lg: 4 }} spacing={4} mb={8}>
-          <KpiCard
-            icon={FiUsers}
-            label="Total Students in LMS"
-            value={kpis.total_students_in_lms?.toLocaleString()}
-            iconColor="#660066"
-          />
-          <KpiCard
-            icon={FiUserCheck}
-            label="Total Enrolled"
-            value={kpis.total_enrolled_students?.toLocaleString()}
-            iconColor="#3B82F6"
-          />
-          <KpiCard
-            icon={FiActivity}
-            label="Active (In Progress)"
-            value={kpis.total_active_students?.toLocaleString()}
-            iconColor="#10B981"
-          />
-          <KpiCard
-            icon={FiCheckCircle}
-            label="Completed"
-            value={kpis.total_completed_students?.toLocaleString()}
-            iconColor="#059669"
-          />
-          <KpiCard
-            icon={FiAlertCircle}
-            label="Inactive"
-            value={kpis.total_inactive_students?.toLocaleString()}
-            iconColor="#F59E0B"
-          />
-          <KpiCard
-            icon={FiUserX}
-            label="Deactivated"
-            value={kpis.total_deactivated_students?.toLocaleString()}
-            iconColor="#EF4444"
-          />
-          <KpiCard
-            icon={FiTrendingUp}
-            label="Overall Dropout Rate"
-            value={pct(kpis.overall_dropout_rate)}
-            iconColor="#6B7280"
-          />
-          <KpiCard
-            icon={FiBarChart2}
-            label="Avg Completion Rate"
-            value={pct(kpis.average_course_completion_rate)}
-            iconColor="#8B5CF6"
-          />
-        </SimpleGrid>
+        <>
+          <SimpleGrid columns={{ base: 2, md: 4, lg: 4 }} spacing={4} mb={4}>
+            <KpiCard
+              icon={FiUsers}
+              label="Total Students in LMS"
+              value={kpis.total_students_in_lms?.toLocaleString()}
+              iconColor="#660066"
+            />
+            <KpiCard
+              icon={FiUserCheck}
+              label="Total Enrolled"
+              value={kpis.total_enrolled_students?.toLocaleString()}
+              iconColor="#3B82F6"
+            />
+            <KpiCard
+              icon={FiActivity}
+              label="Active (In Progress)"
+              value={kpis.total_active_students?.toLocaleString()}
+              iconColor="#10B981"
+            />
+            <KpiCard
+              icon={FiCheckCircle}
+              label="Completed"
+              value={kpis.total_completed_students?.toLocaleString()}
+              iconColor="#059669"
+            />
+            <KpiCard
+              icon={FiAlertCircle}
+              label="Inactive"
+              value={kpis.total_inactive_students?.toLocaleString()}
+              iconColor="#F59E0B"
+            />
+            <KpiCard
+              icon={FiUserX}
+              label="Deactivated"
+              value={kpis.total_deactivated_students?.toLocaleString()}
+              iconColor="#EF4444"
+            />
+            <KpiCard
+              icon={FiTrendingUp}
+              label="Overall Dropout Rate"
+              value={pct(kpis.overall_dropout_rate)}
+              iconColor="#6B7280"
+            />
+            <KpiCard
+              icon={FiBarChart2}
+              label="Avg Completion Rate"
+              value={pct(kpis.average_course_completion_rate)}
+              iconColor="#8B5CF6"
+            />
+          </SimpleGrid>
+
+          {/* Distribution Breakdown */}
+          {(kpis.enrollment_distribution || kpis.engagement_distribution) && (
+            <DistributionSection kpis={kpis} />
+          )}
+        </>
       )}
 
       {/* Tabs */}
@@ -506,6 +668,7 @@ const EnrollmentStatusReportPage = () => {
           <TabPanel p={0} pt={5}>
             <FilterBar
               filters={[
+                ...sharedFilterDefs(studentFilters, setStudentFilters),
                 {
                   key: "studentStatus",
                   label: "Student Status",
@@ -641,6 +804,7 @@ const EnrollmentStatusReportPage = () => {
           <TabPanel p={0} pt={5}>
             <FilterBar
               filters={[
+                ...sharedFilterDefs(courseFilters, setCourseFilters),
                 {
                   key: "startDate",
                   label: "From Date",
@@ -695,7 +859,7 @@ const EnrollmentStatusReportPage = () => {
                             </Td>
                             <Td {...CellStyle} px={4}>{row.department_name || "—"}</Td>
                             <Td {...CellStyle} px={4} textAlign="center" fontWeight="600">
-                              {row.total_enrollments ?? "—"}
+                              {row.total_enrollments ?? row.enrollment_count ?? "—"}
                             </Td>
                             <Td {...CellStyle} px={4} textAlign="center">
                               <Badge colorScheme="blue" borderRadius="full" px={2}>
@@ -759,6 +923,7 @@ const EnrollmentStatusReportPage = () => {
           <TabPanel p={0} pt={5}>
             <FilterBar
               filters={[
+                ...sharedFilterDefs(trendFilters, setTrendFilters),
                 {
                   key: "startDate",
                   label: "From Date",

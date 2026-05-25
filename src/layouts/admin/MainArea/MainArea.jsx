@@ -52,6 +52,7 @@ import {
   UserDocumentsPageRoute,
   UserDocumentDetailsPageRoute,
   CertificateUploadPageRoute,
+  CertificateManagementPageRoute,
   ReportExportPageRoute,
   QuestionImportPageRoute,
   UploadDetailsPageRoute,
@@ -100,6 +101,8 @@ import {
   ImportReportPageRoute,
   PerformanceFiltersPageRoute,
   AdminExamResultAnalysisPageRoute,
+  CourseMaterialUploadPageRoute,
+  CourseRosterPageRoute,
   EnrollmentStatusReportPageRoute,
   AuditTrailReportPageRoute,
 } from "../../../pages/admin";
@@ -416,6 +419,12 @@ const MainArea = () => {
           path="/admin/bulk-courses/:batchId"
         />
         <CertificateUploadPageRoute exact path="/admin/certificates" />
+        <CertificateManagementPageRoute
+          exact
+          path="/admin/certificate-management"
+        />
+        <CourseMaterialUploadPageRoute exact path="/admin/course-materials" />
+        <CourseRosterPageRoute exact path="/admin/course-roster" />
         <UserDocumentsPageRoute exact path="/admin/user-documents" />
         <UserDocumentDetailsPageRoute
           exact
@@ -698,8 +707,14 @@ const MainArea = () => {
         <ExportReportsPageRoute exact path="/admin/export-reports" />
         <CustomFieldsPageRoute exact path="/admin/custom-fields" />
         <IpPolicyPageRoute exact path="/admin/ip-policy" />
-        <StudentTranscriptV2PageRoute exact path="/admin/student-transcript-v2" />
-        <PerformanceDrillDownPageRoute exact path="/admin/performance-drill-down" />
+        <StudentTranscriptV2PageRoute
+          exact
+          path="/admin/student-transcript-v2"
+        />
+        <PerformanceDrillDownPageRoute
+          exact
+          path="/admin/performance-drill-down"
+        />
         <InlineMarkupPageRoute exact path="/admin/feedback-markup-review" />
 
         <NotFoundPageRoute />

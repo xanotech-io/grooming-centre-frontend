@@ -14,17 +14,24 @@ const mapToRow = (item) => ({
   reportId: item.reportId,
   studentId: item.studentId,
   studentName: item.studentName ?? "—",
-  studentEmail: item.studentEmail ?? "—",
+  address: item.address ?? "—",
   program: item.program ?? "—",
   course: item.course ?? "—",
+  enrollmentStatus: item.enrollmentStatus ?? "—",
   participationScore: item.participationScore ?? 0,
   engagementStatus: item.engagementStatus ?? "—",
+  activityType: item.activityType ?? "—",
+  frequencyOfAccess: item.frequencyOfAccess ?? 0,
   alertTriggered: item.alertTriggered ?? false,
   generatedBy: item.generatedBy ?? "—",
   lastActiveDate: item.lastActiveDate
-    ? new Date(item.lastActiveDate).toLocaleDateString()
+    ? new Date(item.lastActiveDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+    : "—",
+  timestamp: item.timestamp
+    ? new Date(item.timestamp).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
     : "—",
   remarks: item.remarks ?? "—",
+  instructor: item.instructor ?? "—",
   _raw: item,
 });
 
@@ -38,13 +45,11 @@ const StudentReportsTab = ({ onKpisChange }) => {
   const fetchReports = async (params = {}) => {
     try {
       const result = await tc0804GetStudentReports(params);
-      const data = result?.data ?? {};
-      const items = (data.data ?? data.reports ?? []).map(mapToRow);
-      const total = data.total ?? items.length;
+      const items = (result?.reports ?? []).map(mapToRow);
+      const total = result?.total ?? items.length;
       const page = Number(params.page) || 1;
       const limit = Number(params.limit) || 50;
 
-      if (onKpisChange && data.kpis) onKpisChange(data.kpis);
       setTotalCount(total);
 
       return {
@@ -67,6 +72,19 @@ const StudentReportsTab = ({ onKpisChange }) => {
     searchKey: "search",
     filterControls: [
       {
+        triggerText: "Enrollment Status",
+        queryKey: "enrollmentStatus",
+        width: "200px",
+        body: {
+          checks: [
+            { label: "Active", queryValue: "Active" },
+            { label: "Suspended", queryValue: "Suspended" },
+            { label: "Graduated", queryValue: "Graduated" },
+            { label: "Withdrawn", queryValue: "Withdrawn" },
+          ],
+        },
+      },
+      {
         triggerText: "Engagement Status",
         queryKey: "engagementStatus",
         width: "200px",
@@ -75,6 +93,18 @@ const StudentReportsTab = ({ onKpisChange }) => {
             { label: "Active", queryValue: "Active" },
             { label: "Irregular", queryValue: "Irregular" },
             { label: "Inactive", queryValue: "Inactive" },
+          ],
+        },
+      },
+      {
+        triggerText: "Participation Level",
+        queryKey: "participationLevel",
+        width: "190px",
+        body: {
+          checks: [
+            { label: "High (≥70%)", queryValue: "high" },
+            { label: "Medium (40–69%)", queryValue: "medium" },
+            { label: "Low (<40%)", queryValue: "low" },
           ],
         },
       },
@@ -110,6 +140,15 @@ const StudentReportsTab = ({ onKpisChange }) => {
         ),
       },
       {
+        id: "studentId",
+        key: "studentId",
+        text: "Student ID",
+        fraction: "140px",
+        renderContent: (v) => (
+          <Text fontSize="13px" color="#4A5568">{v}</Text>
+        ),
+      },
+      {
         id: "studentName",
         key: "studentName",
         text: "Student Name",
@@ -118,8 +157,27 @@ const StudentReportsTab = ({ onKpisChange }) => {
           <Text fontWeight="600" fontSize="14px" color="#101828">{v}</Text>
         ),
       },
-      { id: "program", key: "program", text: "Program", fraction: "160px" },
+      { id: "program", key: "program", text: "Program / Dept", fraction: "160px" },
       { id: "course", key: "course", text: "Course", fraction: "160px" },
+      {
+        id: "enrollmentStatus",
+        key: "enrollmentStatus",
+        text: "Enroll. Status",
+        fraction: "130px",
+        renderContent: (s) => {
+          const cfg = {
+            Active: { bg: "#C6F6D5", color: "#276749" },
+            Suspended: { bg: "#FED7D7", color: "#C53030" },
+            Graduated: { bg: "#BEE3F8", color: "#2B6CB0" },
+            Withdrawn: { bg: "#FED7D7", color: "#C53030" },
+          }[s] ?? { bg: "#EDF2F7", color: "#4A5568" };
+          return (
+            <Box display="inline-block" bg={cfg.bg} color={cfg.color} borderRadius="6px" px="8px" py="2px" fontSize="11px" fontWeight="600">
+              {s}
+            </Box>
+          );
+        },
+      },
       {
         id: "participationScore",
         key: "participationScore",
@@ -134,7 +192,7 @@ const StudentReportsTab = ({ onKpisChange }) => {
       {
         id: "engagementStatus",
         key: "engagementStatus",
-        text: "Status",
+        text: "Engagement",
         fraction: "120px",
         renderContent: (status) => (
           <Tag size="sm" borderRadius="full" colorScheme={engagementColorMap[status] ?? "gray"}>
@@ -155,6 +213,7 @@ const StudentReportsTab = ({ onKpisChange }) => {
       },
       { id: "lastActiveDate", key: "lastActiveDate", text: "Last Active", fraction: "120px" },
       { id: "generatedBy", key: "generatedBy", text: "Generated By", fraction: "140px" },
+      { id: "timestamp", key: "timestamp", text: "Generated On", fraction: "130px" },
       { id: "remarks", key: "remarks", text: "Remarks", fraction: "200px" },
     ],
   };

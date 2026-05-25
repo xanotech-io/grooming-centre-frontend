@@ -39,3 +39,4 @@ export * from './ProgressReport/StudentCourseProgressPage';
 export { StudentVisualAnalyticsPageRoute } from './VisualAnalytics/StudentVisualAnalyticsPage';
 export { StudentExamResultAnalysisPageRoute } from './ExamResultAnalysis/StudentExamResultAnalysisPage';
 export { MyCertificatesPageRoute } from './Certificates/MyCertificatesPage';
+export { CertificateVerifyPageRoute } from './CertificateVerify/CertificateVerifyPage';

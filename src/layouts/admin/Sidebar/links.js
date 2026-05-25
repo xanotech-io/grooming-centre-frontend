@@ -317,6 +317,16 @@ export const links = [
     icon: <FiArchive />,
   },
   {
+    href: "/admin/course-materials",
+    text: "Course Materials",
+    icon: <FaFolderOpen />,
+  },
+  {
+    href: "/admin/course-roster",
+    text: "Course Roster",
+    icon: <FaFolderOpen />,
+  },
+  {
     href: "/admin/user-documents",
     text: "Document Verification",
     icon: <FaFolderOpen />,
