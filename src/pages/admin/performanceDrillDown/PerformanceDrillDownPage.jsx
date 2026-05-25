@@ -267,11 +267,14 @@ function OverviewTab() {
         <Box bg="blue.50" borderRadius="md" p={3}>
           <Text fontSize="xs" fontWeight="semibold" color="blue.700" mb={1}>Visual Indicator Thresholds</Text>
           <HStack spacing={4}>
-            {Object.entries(thresholds).map(([k, v]) => (
-              <Tag key={k} colorScheme={INDICATOR_COLORS[k] || "gray"} size="sm">
-                <TagLabel>{k}: {v}</TagLabel>
-              </Tag>
-            ))}
+            {Object.entries(thresholds).map(([k, v]) => {
+              const label = typeof v === "object" && v !== null ? (v.range || v.category || JSON.stringify(v)) : v;
+              return (
+                <Tag key={k} colorScheme={INDICATOR_COLORS[k] || "gray"} size="sm">
+                  <TagLabel>{k}: {label}</TagLabel>
+                </Tag>
+              );
+            })}
           </HStack>
         </Box>
       )}
