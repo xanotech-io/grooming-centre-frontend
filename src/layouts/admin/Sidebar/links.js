@@ -166,6 +166,10 @@ export const links = [
         text: "Instructor Performance",
       },
       {
+        href: "/admin/report/course-completion",
+        text: "Course Completion & Pass Rate",
+      },
+      {
         href: "/admin/mis-reports",
         text: "MIS Reports",
       },

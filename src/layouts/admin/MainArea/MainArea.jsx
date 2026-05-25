@@ -180,6 +180,7 @@ import { IpPolicyPageRoute } from "../../../pages/admin/ipPolicy/IpPolicyPage";
 import { StudentTranscriptV2PageRoute } from "../../../pages/admin/studentTranscript/StudentTranscriptV2Page";
 import { PerformanceDrillDownPageRoute } from "../../../pages/admin/performanceDrillDown/PerformanceDrillDownPage";
 import { InlineMarkupPageRoute } from "../../../pages/admin/inlineMarkup/InlineMarkupPage";
+import { CourseCompletionReportPageRoute } from "../../../pages/admin/report/courseCompletion/CourseCompletionReportPage";
 
 const MainArea = () => {
   return (
@@ -687,6 +688,10 @@ const MainArea = () => {
         <EnrollmentStatusReportPageRoute
           exact
           path="/admin/report/enrollment-status"
+        />
+        <CourseCompletionReportPageRoute
+          exact
+          path="/admin/report/course-completion"
         />
         <AuditTrailReportPageRoute exact path="/admin/report/audit-trail" />
         <ScheduledReportingPageRoute
