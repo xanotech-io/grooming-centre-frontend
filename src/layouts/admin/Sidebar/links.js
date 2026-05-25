@@ -287,6 +287,11 @@ export const links = [
     icon: <TiPen />,
   },
   {
+    href: "/admin/feedback-markup-review",
+    text: "Inline Markup Review",
+    icon: <TiPen />,
+  },
+  {
     href: "/admin/grade-book",
     text: "Grade Book",
     icon: <TiPen />,

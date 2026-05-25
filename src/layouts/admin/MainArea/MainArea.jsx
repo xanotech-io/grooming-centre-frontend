@@ -176,6 +176,7 @@ import { CustomFieldsPageRoute } from "../../../pages/admin/customFields/CustomF
 import { IpPolicyPageRoute } from "../../../pages/admin/ipPolicy/IpPolicyPage";
 import { StudentTranscriptV2PageRoute } from "../../../pages/admin/studentTranscript/StudentTranscriptV2Page";
 import { PerformanceDrillDownPageRoute } from "../../../pages/admin/performanceDrillDown/PerformanceDrillDownPage";
+import { InlineMarkupPageRoute } from "../../../pages/admin/inlineMarkup/InlineMarkupPage";
 
 const MainArea = () => {
   return (
@@ -699,6 +700,7 @@ const MainArea = () => {
         <IpPolicyPageRoute exact path="/admin/ip-policy" />
         <StudentTranscriptV2PageRoute exact path="/admin/student-transcript-v2" />
         <PerformanceDrillDownPageRoute exact path="/admin/performance-drill-down" />
+        <InlineMarkupPageRoute exact path="/admin/feedback-markup-review" />
 
         <NotFoundPageRoute />
       </Switch>

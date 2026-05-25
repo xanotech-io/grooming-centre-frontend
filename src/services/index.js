@@ -81,3 +81,4 @@ export * from "./http/endpoints/assessmentAnalytics";
 export * from "./http/endpoints/customFields";
 export * from "./http/endpoints/ipPolicy";
 export * from "./http/endpoints/studentTranscriptV2";
+export * from "./http/endpoints/inlineMarkup";
