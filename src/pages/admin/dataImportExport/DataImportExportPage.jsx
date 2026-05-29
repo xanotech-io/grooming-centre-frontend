@@ -35,6 +35,7 @@ import { Button, Heading, Breadcrumb, Link } from "../../../components";
 import { DashboardMetricCard } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
+  adminGetCourseListing,
   createExportReport,
   getDataImport,
   getDataImportExportKpis,
@@ -529,6 +530,13 @@ const ExportExtractTab = ({ operationType }) => {
   const [endDate, setEndDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [courses, setCourses] = useState([]);
+
+  useEffect(() => {
+    adminGetCourseListing()
+      .then((res) => setCourses(res?.courses ?? []))
+      .catch(() => setCourses([]));
+  }, []);
 
   const handleSubmit = async () => {
     if (endDate && startDate && dayjs(endDate).isBefore(dayjs(startDate))) {
@@ -593,8 +601,12 @@ const ExportExtractTab = ({ operationType }) => {
         <Text fontSize="12px" fontWeight="600" color="gray.500" mb={3}>Filters <Text as="span" color="gray.400" fontWeight="400">(optional)</Text></Text>
         <Grid templateColumns="1fr 1fr 1fr" gap={3}>
           <FormControl>
-            <FormLabel fontSize="xs" color="gray.500">Course ID</FormLabel>
-            <Input size="sm" placeholder="UUID" value={courseId} onChange={(e) => setCourseId(e.target.value)} bg="white" fontFamily="mono" />
+            <FormLabel fontSize="xs" color="gray.500">Course</FormLabel>
+            <Select size="sm" value={courseId} onChange={(e) => setCourseId(e.target.value)} bg="white" placeholder="All courses">
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>{c.title}</option>
+              ))}
+            </Select>
           </FormControl>
           <FormControl>
             <FormLabel fontSize="xs" color="gray.500">Start Date</FormLabel>

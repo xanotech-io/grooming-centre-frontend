@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Route } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 import {
@@ -8,31 +8,24 @@ import {
   TabPanel,
   TabPanels,
   Tabs,
+  useToast,
 } from "@chakra-ui/react";
 import { Breadcrumb, Heading, Link, Text } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { tc0804GetModuleKPIs } from "../../../../services";
+import { pm2GetModuleKPIs } from "../../../../services";
 import KPICards from "./KPICards";
 import StudentReportsTab from "./StudentReportsTab";
 import ParticipationTab from "./ParticipationTab";
 import AdminSummaryTab from "./AdminSummaryTab";
-import { useToast } from "@chakra-ui/react";
-import { useEffect } from "react";
 
 const StudentReportingModulePage = () => {
   const toast = useToast();
   const [kpis, setKpis] = useState(null);
 
   useEffect(() => {
-    const loadKpis = async () => {
-      try {
-        const res = await tc0804GetModuleKPIs();
-        setKpis(res?.kpis ?? null);
-      } catch (err) {
-        toast({ status: "error", description: "Failed to load KPIs", duration: 3000, isClosable: true });
-      }
-    };
-    loadKpis();
+    pm2GetModuleKPIs()
+      .then((res) => setKpis(res?.kpis ?? null))
+      .catch(() => toast({ status: "error", description: "Failed to load KPIs", duration: 3000, isClosable: true }));
   }, [toast]);
 
   return (
@@ -64,7 +57,7 @@ const StudentReportingModulePage = () => {
             Student Reporting & Participation Module
           </Heading>
           <Text fontSize="sm" color="gray.500" mt={1}>
-            Unified view of student reports, participation records, and engagement analytics
+            Unified view of student reports (TC08), participation monitoring (TC04), and engagement analytics
           </Text>
         </Box>
       </Flex>
@@ -73,14 +66,14 @@ const StudentReportingModulePage = () => {
 
       <Tabs variant="enclosed" colorScheme="purple">
         <TabList mb={4}>
-          <Tab>Student Reports</Tab>
-          <Tab>Participation Monitor</Tab>
+          <Tab>Student Reports (TC08)</Tab>
+          <Tab>Participation Monitor (TC04)</Tab>
           <Tab>Admin Summary</Tab>
         </TabList>
 
         <TabPanels>
           <TabPanel px={0}>
-            <StudentReportsTab onKpisChange={setKpis} />
+            <StudentReportsTab />
           </TabPanel>
           <TabPanel px={0}>
             <ParticipationTab />

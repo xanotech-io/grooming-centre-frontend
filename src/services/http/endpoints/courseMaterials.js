@@ -1,351 +1,147 @@
 import { http } from "../http";
 
 // ---------------------------------------------------------------------------
-// MOCK DATA – fallback when real API is unavailable
+// Helpers
 // ---------------------------------------------------------------------------
 
-const MOCK_ADMIN_MATERIALS = [
-  {
-    materialId: "MAT-101",
-    materialTitle: "Week 1 Introduction to Agriculture",
-    courseId: "AGR101",
-    courseName: "Agriculture Fundamentals",
-    moduleId: "MOD-001",
-    moduleName: "Module 1 – Soil Science",
-    materialType: "PDF",
-    fileFormat: "PDF",
-    fileName: "week1_intro.pdf",
-    fileSize: 2516582,
-    uploadLocation: "COURSE_MODULE",
-    accessibility: "DOWNLOADABLE",
-    restrictionStatus: "ALLOWED",
-    status: "Successful",
-    uploadedBy: "Instructor A",
-    uploadDate: "2026-05-10T10:30:00Z",
-  },
-  {
-    materialId: "MAT-102",
-    materialTitle: "Soil Science Presentation Slides",
-    courseId: "AGR101",
-    courseName: "Agriculture Fundamentals",
-    moduleId: "MOD-001",
-    moduleName: "Module 1 – Soil Science",
-    materialType: "PPT",
-    fileFormat: "PPT",
-    fileName: "soil_science_slides.ppt",
-    fileSize: 5242880,
-    uploadLocation: "LESSON",
-    accessibility: "VIEWABLE",
-    restrictionStatus: "ALLOWED",
-    status: "Successful",
-    uploadedBy: "Instructor A",
-    uploadDate: "2026-05-11T09:00:00Z",
-  },
-  {
-    materialId: "MAT-103",
-    materialTitle: "Irrigation Techniques – Training Video",
-    courseId: "AGR101",
-    courseName: "Agriculture Fundamentals",
-    moduleId: "MOD-002",
-    moduleName: "Module 2 – Water Management",
-    materialType: "VIDEO",
-    fileFormat: "MP4",
-    fileName: "irrigation_training.mp4",
-    fileSize: 52428800,
-    uploadLocation: "COURSE_MODULE",
-    accessibility: "VIEWABLE",
-    restrictionStatus: "ALLOWED",
-    status: "Successful",
-    uploadedBy: "Instructor B",
-    uploadDate: "2026-05-12T14:00:00Z",
-  },
-  {
-    materialId: "MAT-104",
-    materialTitle: "Soil Training Audio – Field Guide",
-    courseId: "AGR101",
-    courseName: "Agriculture Fundamentals",
-    moduleId: "MOD-001",
-    moduleName: "Module 1 – Soil Science",
-    materialType: "AUDIO",
-    fileFormat: "MP3",
-    fileName: "soil_training_audio.mp3",
-    fileSize: 3145728,
-    uploadLocation: "LESSON",
-    accessibility: "DOWNLOADABLE",
-    restrictionStatus: "ALLOWED",
-    status: "Successful",
-    uploadedBy: "Instructor A",
-    uploadDate: "2026-05-13T08:30:00Z",
-  },
-  {
-    materialId: "MAT-105",
-    materialTitle: "Crop Management Reference Guide",
-    courseId: "AGR101",
-    courseName: "Agriculture Fundamentals",
-    moduleId: "MOD-003",
-    moduleName: "Module 3 – Crop Management",
-    materialType: "WORD",
-    fileFormat: "DOCX",
-    fileName: "crop_management_guide.docx",
-    fileSize: 1048576,
-    uploadLocation: "COURSE_MODULE",
-    accessibility: "DOWNLOADABLE",
-    restrictionStatus: "ALLOWED",
-    status: "Successful",
-    uploadedBy: "Instructor B",
-    uploadDate: "2026-05-14T11:00:00Z",
-  },
-  {
-    materialId: "MAT-106",
-    materialTitle: "Farm Layout Diagram",
-    courseId: "AGR101",
-    courseName: "Agriculture Fundamentals",
-    moduleId: "MOD-002",
-    moduleName: "Module 2 – Water Management",
-    materialType: "IMAGE",
-    fileFormat: "PNG",
-    fileName: "farm_layout.png",
-    fileSize: 768000,
-    uploadLocation: "LIBRARY_SECTION",
-    accessibility: "VIEWABLE",
-    restrictionStatus: "ALLOWED",
-    status: "Successful",
-    uploadedBy: "Admin",
-    uploadDate: "2026-05-15T13:00:00Z",
-  },
-  {
-    materialId: "MAT-107",
-    materialTitle: "Fertilisation Audio Lecture",
-    courseId: "CS101",
-    courseName: "Computer Science Basics",
-    moduleId: "MOD-001",
-    moduleName: "Module 1 – Introduction",
-    materialType: "AUDIO",
-    fileFormat: "WAV",
-    fileName: "fertilisation_lecture.wav",
-    fileSize: 8388608,
-    uploadLocation: "LESSON",
-    accessibility: "VIEWABLE",
-    restrictionStatus: "ALLOWED",
-    status: "Successful",
-    uploadedBy: "Instructor C",
-    uploadDate: "2026-05-16T10:00:00Z",
-  },
-  {
-    materialId: "MAT-108",
-    materialTitle: "Lab Report Template",
-    courseId: "CS101",
-    courseName: "Computer Science Basics",
-    moduleId: "MOD-002",
-    moduleName: "Module 2 – Lab Sessions",
-    materialType: "WORD",
-    fileFormat: "DOC",
-    fileName: "lab_report_template.doc",
-    fileSize: 524288,
-    uploadLocation: "COURSE_MODULE",
-    accessibility: "DOWNLOADABLE",
-    restrictionStatus: "ALLOWED",
-    status: "Failed",
-    failureReason: "Upload failed due to format restriction",
-    uploadedBy: "Instructor C",
-    uploadDate: "2026-05-17T15:00:00Z",
-  },
-];
-
-// ---------------------------------------------------------------------------
-// TC10 – Admin: Upload Course Material
-// POST /api/v2/users/{id}/documents
-// ---------------------------------------------------------------------------
-
-/**
- * Upload a course material (PDF, PPT, VIDEO, IMAGE, AUDIO, WORD)
- */
-export const adminUploadCourseMaterial = async (body) => {
-  try {
-    const payload = {
-      documentType: body.materialType === "VIDEO" ? "REGISTRATION_SHEET" : "CERTIFICATE",
-      fileFormat: body.fileFormat,
-      fileName: body.fileName,
-      fileUrl: body.fileUrl || body.fileName,
-      courseId: body.courseId,
-      fileSize: body.fileSize,
-    };
-    const userId = body.uploadedBy || "current-user";
-    const { data } = await http.post(`/api/v2/users/${userId}/documents`, payload);
-    const doc = data?.data ?? data;
-    return {
-      message: data?.message ?? "Material uploaded successfully",
-      material: {
-        materialId: doc?.uploadId ?? `MAT-${Date.now()}`,
-        materialTitle: body.materialTitle,
-        courseId: body.courseId,
-        courseName: doc?.courseName ?? "Selected Course",
-        moduleId: body.moduleId,
-        moduleName: body.moduleName || body.moduleId,
-        materialType: body.materialType,
-        fileFormat: body.fileFormat,
-        fileName: body.fileName,
-        fileSize: body.fileSize,
-        uploadLocation: body.uploadLocation,
-        accessibility: body.accessibility,
-        restrictionStatus: "ALLOWED",
-        status: "Successful",
-        uploadedBy: userId,
-        uploadDate: doc?.uploadDate ?? new Date().toISOString(),
-      },
-    };
-  } catch {
-    const newMaterial = {
-      materialId: `MAT-${Date.now()}`,
-      materialTitle: body.materialTitle,
-      courseId: body.courseId,
-      courseName: "Selected Course",
-      moduleId: body.moduleId,
-      moduleName: body.moduleName || body.moduleId,
-      materialType: body.materialType,
-      fileFormat: body.fileFormat,
-      fileName: body.fileName,
-      fileSize: body.fileSize,
-      uploadLocation: body.uploadLocation,
-      accessibility: body.accessibility,
-      restrictionStatus: "ALLOWED",
-      status: "Successful",
-      uploadedBy: "Current User",
-      uploadDate: new Date().toISOString(),
-    };
-    MOCK_ADMIN_MATERIALS.unshift(newMaterial);
-    return { message: "Material uploaded successfully", material: newMaterial };
-  }
+const normalizeMaterial = (doc) => {
+  if (!doc) return null;
+  const uploader = doc.uploader ?? doc.uploadedBy;
+  return {
+    materialId: doc.id ?? doc.materialId,
+    materialTitle: doc.materialTitle ?? doc.title,
+    courseId: doc.course?.id ?? doc.courseId,
+    courseName: doc.course?.title,
+    moduleId: doc.module?.id ?? doc.moduleId,
+    moduleName: doc.module?.title,
+    lessonId: doc.lesson?.id ?? doc.lessonId,
+    lessonName: doc.lesson?.title,
+    materialType: doc.materialType,
+    fileFormat: doc.fileFormat,
+    fileName: doc.fileName ?? (doc.file
+      ? decodeURIComponent(doc.file.split("/").pop().split("?")[0])
+      : null),
+    // API returns fileSize in MB — convert to bytes for the table's formatBytes()
+    fileSize: doc.fileSize != null ? Math.round(doc.fileSize * 1024 * 1024) : null,
+    file: doc.file,
+    uploadLocation: doc.uploadLocation,
+    accessibility: doc.accessibility,
+    restrictionStatus: doc.restrictionStatus,
+    status: doc.uploadStatus ?? doc.status,
+    uploadedBy: uploader && typeof uploader === "object"
+      ? `${uploader.firstName ?? ""} ${uploader.lastName ?? ""}`.trim()
+      : null,
+    uploadDate: doc.uploadDate ?? doc.createdAt,
+  };
 };
 
 // ---------------------------------------------------------------------------
-// TC10 – Admin: Get All Course Materials
-// GET /api/v2/admin/documents/pending  (adapted for materials list)
+// TC10 – Admin: Upload Course Material
+// POST /api/v1/course-materials-v2
 // ---------------------------------------------------------------------------
 
-/**
- * Get all uploaded course materials with filtering
- */
-export const adminGetAllCourseMaterials = async (params = {}) => {
-  try {
-    const { data } = await http.get("/api/v2/admin/documents/pending", { params });
-    const docs = data?.data?.rows ?? data?.data ?? data?.rows ?? [];
-    const pagination = data?.data?.pagination ?? {};
-    const materials = docs.map((doc) => ({
-      materialId: doc.uploadId ?? doc.id,
-      materialTitle: doc.fileName ?? doc.materialTitle ?? doc.documentType,
-      courseId: doc.courseId,
-      courseName: doc.courseName ?? "",
-      materialType: doc.documentType ?? "PDF",
-      fileFormat: doc.fileFormat ?? doc.documentType,
-      fileName: doc.fileName,
-      fileSize: doc.fileSize,
-      uploadLocation: doc.uploadLocation ?? "COURSE_MODULE",
-      accessibility: doc.accessibility ?? "DOWNLOADABLE",
-      restrictionStatus: "ALLOWED",
-      status: doc.verificationStatus === "VERIFIED" ? "Successful" : doc.verificationStatus === "REJECTED" ? "Failed" : "Successful",
-      uploadedBy: doc.uploadedBy ?? doc.userName,
-      uploadDate: doc.uploadDate,
-    }));
-    return {
-      materials,
-      pagination: {
-        page: pagination.currentPage ?? params.page ?? 1,
-        limit: pagination.itemsPerPage ?? params.limit ?? 10,
-        totalItems: pagination.totalItems ?? materials.length,
-        totalPages: pagination.totalPages ?? 1,
-      },
-      stats: {
-        total: materials.length,
-        successful: materials.filter((m) => m.status === "Successful").length,
-        failed: materials.filter((m) => m.status === "Failed").length,
-        audio: materials.filter((m) => m.materialType === "AUDIO").length,
-        word: materials.filter((m) => m.materialType === "WORD").length,
-      },
-    };
-  } catch {
-    let result = [...MOCK_ADMIN_MATERIALS];
-    if (params.search) {
-      const q = params.search.toLowerCase();
-      result = result.filter(
-        (m) => m.materialTitle.toLowerCase().includes(q) || m.fileName.toLowerCase().includes(q),
-      );
-    }
-    if (params.materialType) result = result.filter((m) => m.materialType === params.materialType);
-    if (params.uploadLocation) result = result.filter((m) => m.uploadLocation === params.uploadLocation);
-    if (params.status) result = result.filter((m) => m.status === params.status);
-    if (params.courseId) result = result.filter((m) => m.courseId === params.courseId);
+export const adminUploadCourseMaterial = async (body) => {
+  const formData = new FormData();
+  formData.append("materialTitle", body.materialTitle);
+  formData.append("courseId", body.courseId);
+  formData.append("uploadLocation", body.uploadLocation);
+  if (body.moduleId && body.moduleId !== "—") formData.append("moduleId", body.moduleId);
+  if (body.lessonId) formData.append("lessonId", body.lessonId);
+  if (body.accessibility) formData.append("accessibility", body.accessibility);
+  formData.append("restrictionStatus", body.restrictionStatus || "ALLOWED");
+  formData.append("file", body.file);
 
-    const page = Number(params.page || 1);
-    const limit = Number(params.limit || 10);
-    const start = (page - 1) * limit;
-    const paginated = result.slice(start, start + limit);
-    const all = MOCK_ADMIN_MATERIALS;
-    return {
-      materials: paginated,
-      pagination: { page, limit, totalItems: result.length, totalPages: Math.ceil(result.length / limit) },
-      stats: {
-        total: all.length,
-        successful: all.filter((m) => m.status === "Successful").length,
-        failed: all.filter((m) => m.status === "Failed").length,
-        audio: all.filter((m) => m.materialType === "AUDIO").length,
-        word: all.filter((m) => m.materialType === "WORD").length,
-      },
-    };
-  }
+  const { data } = await http.post("/v1/course-materials-v2", formData);
+  return {
+    message: data?.message ?? "Material uploaded successfully",
+    material: normalizeMaterial(data?.data),
+  };
+};
+
+// ---------------------------------------------------------------------------
+// TC10 – Admin: Get Upload KPI Statistics
+// GET /api/v1/course-materials-v2/kpis
+// ---------------------------------------------------------------------------
+
+export const adminGetCourseMaterialKpis = async (courseId) => {
+  const params = courseId ? { courseId } : {};
+  const { data } = await http.get("/v1/course-materials-v2/kpis", { params });
+  const d = data?.data ?? {};
+  return {
+    total: d.totalUploads ?? 0,
+    successful: d.successfulUploads ?? 0,
+    failed: d.failedUploads ?? 0,
+    successRate: d.successRate ?? 0,
+    totalStorageMb: d.totalStorageMb ?? 0,
+    byMaterialType: d.byMaterialType ?? {},
+    byUploadLocation: d.byUploadLocation ?? {},
+  };
+};
+
+// ---------------------------------------------------------------------------
+// TC10 – Admin: List Materials for a Course (paginated)
+// GET /api/v1/course-materials-v2/course/{courseId}
+// ---------------------------------------------------------------------------
+
+export const adminGetAllCourseMaterials = async (params = {}) => {
+  const { courseId, materialType, uploadLocation, search, page = 1, limit = 10 } = params;
+
+  const query = { page, limit };
+  if (search) query.search = search;
+  if (materialType) query.materialType = materialType;
+  if (uploadLocation) query.uploadLocation = uploadLocation;
+
+  // Use the course-scoped endpoint when filtering by course, otherwise list all
+  const path = courseId
+    ? `/v1/course-materials-v2/course/${courseId}`
+    : `/v1/course-materials-v2`;
+
+  const { data } = await http.get(path, { params: query });
+  const d = data?.data ?? {};
+  return {
+    materials: (d.materials ?? []).map(normalizeMaterial),
+    pagination: {
+      page: d.page ?? page,
+      limit: d.limit ?? limit,
+      totalItems: d.total ?? 0,
+      totalPages: d.totalPages ?? 1,
+    },
+  };
+};
+
+// ---------------------------------------------------------------------------
+// TC10 – Admin: List Materials for a Module
+// GET /api/v1/course-materials-v2/module/{moduleId}
+// ---------------------------------------------------------------------------
+
+export const adminGetModuleMaterials = async (moduleId) => {
+  const { data } = await http.get(`/v1/course-materials-v2/module/${moduleId}`);
+  const d = data?.data ?? {};
+  return {
+    moduleId: d.moduleId,
+    total: d.total ?? 0,
+    materials: (d.materials ?? []).map(normalizeMaterial),
+  };
 };
 
 // ---------------------------------------------------------------------------
 // TC10 – Admin: Get Course Material by ID
-// GET /api/v2/users/{userId}/documents/{uploadId}
+// GET /api/v1/course-materials-v2/{materialId}
 // ---------------------------------------------------------------------------
 
-/**
- * Get a specific course material by its ID
- */
-export const adminGetCourseMaterialById = async (materialId, userId = "current-user") => {
-  try {
-    const { data } = await http.get(`/api/v2/users/${userId}/documents/${materialId}`);
-    const doc = data?.data ?? data;
-    return {
-      material: {
-        materialId: doc?.uploadId ?? materialId,
-        materialTitle: doc?.fileName ?? doc?.materialTitle,
-        courseId: doc?.courseId,
-        materialType: doc?.documentType ?? "PDF",
-        fileFormat: doc?.fileFormat,
-        fileName: doc?.fileName,
-        fileSize: doc?.fileSize,
-        status: doc?.verificationStatus === "VERIFIED" ? "Successful" : "Successful",
-        uploadedBy: doc?.uploadedBy,
-        uploadDate: doc?.uploadDate,
-      },
-    };
-  } catch {
-    const material =
-      MOCK_ADMIN_MATERIALS.find((m) => m.materialId === materialId) ||
-      MOCK_ADMIN_MATERIALS[0];
-    return { material: { ...material, materialId } };
-  }
+export const adminGetCourseMaterialById = async (materialId) => {
+  const { data } = await http.get(`/v1/course-materials-v2/${materialId}`);
+  return { material: normalizeMaterial(data?.data) };
 };
 
 // ---------------------------------------------------------------------------
 // TC10 – Admin: Delete Course Material
-// DELETE /api/v2/documents/{id}
+// DELETE /api/v1/course-materials-v2/{materialId}
 // ---------------------------------------------------------------------------
 
-/**
- * Permanently delete a course material
- */
 export const adminDeleteCourseMaterial = async (materialId) => {
-  try {
-    const { data } = await http.delete(`/api/v2/documents/${materialId}`);
-    return { message: data?.message ?? "Material deleted successfully" };
-  } catch {
-    const idx = MOCK_ADMIN_MATERIALS.findIndex((m) => m.materialId === materialId);
-    if (idx !== -1) MOCK_ADMIN_MATERIALS.splice(idx, 1);
-    return { message: "Material deleted successfully" };
-  }
+  const { data } = await http.delete(`/v1/course-materials-v2/${materialId}`);
+  return { message: data?.message ?? "Material deleted successfully" };
 };
 
 // ---------------------------------------------------------------------------

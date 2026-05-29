@@ -177,9 +177,14 @@ const MOCK_LOGS = [
 // ---------------------------------------------------------------------------
 export const tc20ListAvailableReports = async () => {
   try {
-    const { data: { data } } = await http.get('/v2/custom-reports');
-    const rows = Array.isArray(data) ? data : (data?.reports ?? data?.rows ?? []);
-    return { reports: rows, isMock: false };
+    const { data: { data } } = await http.get('/v1/mis-report-v2');
+    const rows = data?.reports ?? data?.rows ?? (Array.isArray(data) ? data : []);
+    const reports = rows.map((r) => ({
+      reportId: r.reportId ?? r.id,
+      reportName: r.reportName ?? r.name,
+      category: r.category,
+    }));
+    return { reports, isMock: false };
   } catch {
     return { reports: MOCK_AVAILABLE_REPORTS, isMock: true };
   }
@@ -192,7 +197,17 @@ export const tc20ListAvailableReports = async () => {
 export const tc20ListSchedules = async () => {
   try {
     const { data: { data } } = await http.get('/v1/mis-report-v2/schedules');
-    return { schedules: Array.isArray(data) ? data : [], isMock: false };
+    const rows = data?.schedules ?? (Array.isArray(data) ? data : []);
+    const schedules = rows.map((s) => ({
+      ...s,
+      scheduleId: s.scheduleId ?? s.id,
+      nextRunDate: s.nextRunDate ?? s.nextRunAt,
+      createdDate: s.createdDate ?? s.createdAt,
+      lastRunDate: s.lastRunDate ?? s.lastRunAt,
+      recipients: s.recipients ?? s.recipientEmails ?? [],
+      generatedBy: s.generatedBy ?? s.createdBy ?? s.creator ?? "—",
+    }));
+    return { schedules, isMock: false };
   } catch {
     return { schedules: MOCK_SCHEDULES, isMock: true };
   }

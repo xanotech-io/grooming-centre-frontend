@@ -93,7 +93,7 @@ const RosterTable = ({
       return <EmptyRow colSpan={7} message="No students match the current filters." />;
     }
     return students.map((s) => (
-      <Tr key={s.studentId} _hover={{ bg: "gray.50" }} transition="background 0.1s">
+      <Tr key={s.students} _hover={{ bg: "gray.50" }} transition="background 0.1s">
         <Td py="12px">
           <Flex alignItems="center" gap="10px">
             <Avatar

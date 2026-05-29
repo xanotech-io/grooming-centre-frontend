@@ -23,17 +23,32 @@ import { Button } from "../../../../../components";
 import {
   adminUploadCourseMaterial,
   adminGetCourseListing,
+  adminListModules,
+  adminGetLessonListing,
 } from "../../../../../services";
 
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+// Per-spec file size limits
+const SIZE_LIMITS = {
+  PDF:   30 * 1024 * 1024,
+  PPT:   30 * 1024 * 1024,
+  WORD:  30 * 1024 * 1024,
+  IMAGE:  5 * 1024 * 1024,
+  AUDIO: 50 * 1024 * 1024,
+  VIDEO: 300 * 1024 * 1024,
+};
+
+const SIZE_LABELS = {
+  PDF: "30 MB", PPT: "30 MB", WORD: "30 MB",
+  IMAGE: "5 MB", AUDIO: "50 MB", VIDEO: "300 MB",
+};
 
 const MATERIAL_TYPES = [
-  { value: "PDF",   label: "PDF Document",      accept: ".pdf" },
-  { value: "PPT",   label: "PPT / Presentation", accept: ".ppt,.pptx" },
-  { value: "VIDEO", label: "Video",              accept: ".mp4,.avi,.mov" },
-  { value: "IMAGE", label: "Image",              accept: ".jpg,.jpeg,.png" },
-  { value: "AUDIO", label: "Audio",              accept: ".mp3,.wav" },
-  { value: "WORD",  label: "Word Document",      accept: ".doc,.docx" },
+  { value: "PDF",   label: "PDF Document",       accept: ".pdf" },
+  { value: "PPT",   label: "PPT / Presentation",  accept: ".ppt,.pptx" },
+  { value: "VIDEO", label: "Video",               accept: ".mp4,.avi,.mov" },
+  { value: "IMAGE", label: "Image",               accept: ".jpg,.jpeg,.png,.gif" },
+  { value: "AUDIO", label: "Audio",               accept: ".mp3,.wav" },
+  { value: "WORD",  label: "Word Document",       accept: ".doc,.docx" },
 ];
 
 const UPLOAD_LOCATIONS = [
@@ -42,15 +57,22 @@ const UPLOAD_LOCATIONS = [
   { value: "LIBRARY_SECTION", label: "Library Section" },
 ];
 
+const FORMAT_MAP = {
+  PDF: "PDF", PPT: "PPT", PPTX: "PPT",
+  MP4: "MP4", AVI: "AVI", MOV: "MOV",
+  JPG: "JPG", JPEG: "JPG", PNG: "PNG", GIF: "GIF",
+  MP3: "MP3", WAV: "WAV",
+  DOC: "DOC", DOCX: "DOCX",
+};
+
 const INITIAL_FORM = {
   courseId: "",
   moduleId: "",
+  lessonId: "",
   materialTitle: "",
   materialType: "PDF",
   uploadLocation: "COURSE_MODULE",
   accessibility: "VIEWABLE",
-  fileName: "",
-  fileFormat: "PDF",
   file: null,
   fileError: "",
 };
@@ -60,9 +82,17 @@ const UploadMaterialModal = ({ isOpen, onClose, onSuccess }) => {
   const fileInputRef = useRef();
   const [form, setForm] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
+
   const [courses, setCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
 
+  const [modules, setModules] = useState([]);
+  const [loadingModules, setLoadingModules] = useState(false);
+
+  const [lessons, setLessons] = useState([]);
+  const [loadingLessons, setLoadingLessons] = useState(false);
+
+  // Load course list when modal opens
   useEffect(() => {
     if (!isOpen) return;
     setLoadingCourses(true);
@@ -72,22 +102,52 @@ const UploadMaterialModal = ({ isOpen, onClose, onSuccess }) => {
       .finally(() => setLoadingCourses(false));
   }, [isOpen]);
 
+  // Load modules or lessons whenever courseId or uploadLocation changes
+  useEffect(() => {
+    if (!form.courseId) {
+      setModules([]);
+      setLessons([]);
+      return;
+    }
+
+    if (form.uploadLocation === "COURSE_MODULE") {
+      setModules([]);
+      setLoadingModules(true);
+      adminListModules(form.courseId)
+        .then((res) => setModules(res.modules || []))
+        .catch(() => setModules([]))
+        .finally(() => setLoadingModules(false));
+    } else if (form.uploadLocation === "LESSON") {
+      setLessons([]);
+      setLoadingLessons(true);
+      adminGetLessonListing(form.courseId, {}, {})
+        .then((res) => setLessons(res.lessons || []))
+        .catch(() => setLessons([]))
+        .finally(() => setLoadingLessons(false));
+    }
+  }, [form.courseId, form.uploadLocation]);
+
   const set = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleMaterialTypeChange = (e) => {
-    const materialType = e.target.value;
     setForm((prev) => ({
       ...prev,
-      materialType,
+      materialType: e.target.value,
       file: null,
       fileError: "",
-      fileName: "",
     }));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const currentTypeConfig = MATERIAL_TYPES.find((t) => t.value === form.materialType);
+  const handleUploadLocationChange = (e) => {
+    setForm((prev) => ({
+      ...prev,
+      uploadLocation: e.target.value,
+      moduleId: "",
+      lessonId: "",
+    }));
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -95,27 +155,28 @@ const UploadMaterialModal = ({ isOpen, onClose, onSuccess }) => {
       setForm((prev) => ({ ...prev, file: null, fileError: "" }));
       return;
     }
-    if (file.size > MAX_FILE_SIZE) {
-      setForm((prev) => ({ ...prev, file: null, fileError: "File exceeds the 100 MB limit." }));
+    const limit = SIZE_LIMITS[form.materialType] ?? 300 * 1024 * 1024;
+    if (file.size > limit) {
+      setForm((prev) => ({
+        ...prev,
+        file: null,
+        fileError: `File exceeds the ${SIZE_LABELS[form.materialType]} limit for ${form.materialType}.`,
+      }));
       e.target.value = "";
       return;
     }
     const ext = file.name.split(".").pop().toUpperCase();
-    const FORMAT_MAP = {
-      PDF: "PDF", PPT: "PPT", PPTX: "PPT",
-      MP4: "MP4", AVI: "AVI", MOV: "MOV",
-      JPG: "JPG", JPEG: "JPG", PNG: "PNG",
-      MP3: "MP3", WAV: "WAV",
-      DOC: "DOC", DOCX: "DOCX",
-    };
     setForm((prev) => ({
       ...prev,
       file,
       fileError: "",
-      fileName: prev.fileName || file.name,
       fileFormat: FORMAT_MAP[ext] || ext,
     }));
   };
+
+  const currentTypeConfig = MATERIAL_TYPES.find((t) => t.value === form.materialType);
+  const needsModuleId = form.uploadLocation === "COURSE_MODULE";
+  const needsLessonId = form.uploadLocation === "LESSON";
 
   const isValid =
     !!form.courseId &&
@@ -132,19 +193,15 @@ const UploadMaterialModal = ({ isOpen, onClose, onSuccess }) => {
     }
     setLoading(true);
     try {
-      const selectedCourse = courses.find((c) => c.id === form.courseId);
       await adminUploadCourseMaterial({
         courseId: form.courseId,
-        courseName: selectedCourse ? `${selectedCourse.title} (${selectedCourse.displayId})` : form.courseId,
-        moduleId: form.moduleId || "—",
-        moduleName: form.moduleId || "—",
+        moduleId: form.moduleId || undefined,
+        lessonId: form.lessonId || undefined,
         materialTitle: form.materialTitle.trim(),
         materialType: form.materialType,
         uploadLocation: form.uploadLocation,
         accessibility: form.accessibility,
-        fileName: form.fileName.trim() || form.file.name,
-        fileFormat: form.fileFormat,
-        fileSize: form.file.size,
+        restrictionStatus: "ALLOWED",
         file: form.file,
       });
       toast({ title: "Material uploaded successfully", status: "success", duration: 3000, isClosable: true });
@@ -161,6 +218,8 @@ const UploadMaterialModal = ({ isOpen, onClose, onSuccess }) => {
 
   const handleClose = () => {
     setForm(INITIAL_FORM);
+    setModules([]);
+    setLessons([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
     onClose();
   };
@@ -190,23 +249,10 @@ const UploadMaterialModal = ({ isOpen, onClose, onSuccess }) => {
               >
                 {courses.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.title} ({c.displayId})
+                    {c.title}{c.displayId ? ` (${c.displayId})` : ""}
                   </option>
                 ))}
               </Select>
-            </FormControl>
-
-            {/* Module ID */}
-            <FormControl gridColumn="span 2">
-              <FormLabel fontSize="13px" fontWeight="500" color="gray.600">Module ID (optional)</FormLabel>
-              <Input
-                value={form.moduleId}
-                onChange={set("moduleId")}
-                placeholder="e.g. MOD-001"
-                size="sm"
-                borderRadius="6px"
-              />
-              <FormHelperText fontSize="11px">Leave blank if uploading to a general course section.</FormHelperText>
             </FormControl>
 
             {/* Material Title */}
@@ -241,7 +287,7 @@ const UploadMaterialModal = ({ isOpen, onClose, onSuccess }) => {
               <FormLabel fontSize="13px" fontWeight="500" color="gray.600">Upload Location</FormLabel>
               <Select
                 value={form.uploadLocation}
-                onChange={set("uploadLocation")}
+                onChange={handleUploadLocationChange}
                 size="sm"
                 borderRadius="6px"
               >
@@ -251,8 +297,62 @@ const UploadMaterialModal = ({ isOpen, onClose, onSuccess }) => {
               </Select>
             </FormControl>
 
+            {/* Module select — only for COURSE_MODULE */}
+            {needsModuleId && (
+              <FormControl gridColumn="span 2">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">Module</FormLabel>
+                <Select
+                  value={form.moduleId}
+                  onChange={set("moduleId")}
+                  size="sm"
+                  borderRadius="6px"
+                  placeholder={
+                    !form.courseId
+                      ? "Select a course first"
+                      : loadingModules
+                      ? "Loading modules…"
+                      : modules.length === 0
+                      ? "No modules found"
+                      : "Select module"
+                  }
+                  isDisabled={!form.courseId || loadingModules || modules.length === 0}
+                >
+                  {modules.map((m) => (
+                    <option key={m.id} value={m.id}>{m.title}</option>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {/* Lesson select — only for LESSON */}
+            {needsLessonId && (
+              <FormControl gridColumn="span 2">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">Lesson</FormLabel>
+                <Select
+                  value={form.lessonId}
+                  onChange={set("lessonId")}
+                  size="sm"
+                  borderRadius="6px"
+                  placeholder={
+                    !form.courseId
+                      ? "Select a course first"
+                      : loadingLessons
+                      ? "Loading lessons…"
+                      : lessons.length === 0
+                      ? "No lessons found"
+                      : "Select lesson"
+                  }
+                  isDisabled={!form.courseId || loadingLessons || lessons.length === 0}
+                >
+                  {lessons.map((l) => (
+                    <option key={l.id} value={l.id}>{l.title}</option>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
             {/* Accessibility */}
-            <FormControl>
+            <FormControl gridColumn="span 2">
               <FormLabel fontSize="13px" fontWeight="500" color="gray.600">Accessibility</FormLabel>
               <Select
                 value={form.accessibility}
@@ -263,18 +363,6 @@ const UploadMaterialModal = ({ isOpen, onClose, onSuccess }) => {
                 <option value="VIEWABLE">Viewable Only</option>
                 <option value="DOWNLOADABLE">Downloadable</option>
               </Select>
-            </FormControl>
-
-            {/* File Name */}
-            <FormControl>
-              <FormLabel fontSize="13px" fontWeight="500" color="gray.600">File Name (optional)</FormLabel>
-              <Input
-                value={form.fileName}
-                onChange={set("fileName")}
-                placeholder="Auto-filled from selected file"
-                size="sm"
-                borderRadius="6px"
-              />
             </FormControl>
 
             {/* File Upload */}
@@ -312,7 +400,7 @@ const UploadMaterialModal = ({ isOpen, onClose, onSuccess }) => {
                   <Box>
                     <Text fontSize="13px" color="gray.400">Click to choose a file</Text>
                     <Text fontSize="11px" color="gray.300" mt="2px">
-                      Accepted: {currentTypeConfig?.accept?.replace(/,/g, ", ")} — max 100 MB
+                      Accepted: {currentTypeConfig?.accept?.replace(/,/g, ", ")} — max {SIZE_LABELS[form.materialType]}
                     </Text>
                   </Box>
                 )}
@@ -321,10 +409,11 @@ const UploadMaterialModal = ({ isOpen, onClose, onSuccess }) => {
                 <FormErrorMessage fontSize="11px">{form.fileError}</FormErrorMessage>
               ) : (
                 <FormHelperText fontSize="11px">
-                  Audio (.mp3, .wav) and Word (.doc, .docx) formats are now supported in Course Modules.
+                  Max sizes: PDF/PPT/Word 30 MB · Images 5 MB · Audio 50 MB · Video 300 MB
                 </FormHelperText>
               )}
             </FormControl>
+
           </Grid>
         </ModalBody>
 

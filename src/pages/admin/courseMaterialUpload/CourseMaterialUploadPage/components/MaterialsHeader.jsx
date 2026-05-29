@@ -15,12 +15,18 @@ const KpiCard = ({ label, value, color, bg }) => (
 );
 
 const MaterialsHeader = ({ stats, onUploadClick }) => {
+  const storageMb = stats.totalStorageMb;
+  const storageLabel =
+    storageMb >= 1024
+      ? `${(storageMb / 1024).toFixed(1)} GB`
+      : `${(storageMb ?? 0).toFixed(1)} MB`;
+
   const cards = [
-    { label: "Total Uploads",    value: stats.total,      color: "#3182CE", bg: "#EBF8FF" },
-    { label: "Successful",       value: stats.successful,  color: "#38A169", bg: "#E6F4EA" },
-    { label: "Failed",           value: stats.failed,      color: "#E53E3E", bg: "#FED7D7" },
-    { label: "Audio Files",      value: stats.audio,       color: "#6B46C1", bg: "#E9D8FD" },
-    { label: "Word Documents",   value: stats.word,        color: "#234E52", bg: "#B2F5EA" },
+    { label: "Total Uploads",  value: stats.total,                                      color: "#3182CE", bg: "#EBF8FF" },
+    { label: "Successful",     value: stats.successful,                                  color: "#38A169", bg: "#E6F4EA" },
+    { label: "Failed",         value: stats.failed,                                      color: "#E53E3E", bg: "#FED7D7" },
+    { label: "Success Rate",   value: stats.successRate != null ? `${stats.successRate}%` : "—", color: "#6B46C1", bg: "#E9D8FD" },
+    { label: "Total Storage",  value: storageMb != null ? storageLabel : "—",            color: "#234E52", bg: "#B2F5EA" },
   ];
 
   return (
