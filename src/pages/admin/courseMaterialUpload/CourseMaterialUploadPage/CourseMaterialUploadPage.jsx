@@ -5,6 +5,8 @@ import { useFetch } from "../../../../hooks";
 import {
   adminGetAllCourseMaterials,
   adminDeleteCourseMaterial,
+  adminGetCourseMaterialKpis,
+  adminGetCourseListing,
 } from "../../../../services";
 
 import MaterialsHeader from "./components/MaterialsHeader";
@@ -19,28 +21,52 @@ const CourseMaterialUploadPage = () => {
   const { resource, handleFetchResource: fetchMaterials } = useFetch();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [courseId, setCourseId] = useState("");
   const [materialType, setMaterialType] = useState("");
   const [uploadLocation, setUploadLocation] = useState("");
-  const [status, setStatus] = useState("");
+  const [courses, setCourses] = useState([]);
+  const [kpis, setKpis] = useState({
+    total: 0,
+    successful: 0,
+    failed: 0,
+    successRate: 0,
+    totalStorageMb: 0,
+  });
 
   const uploadModal = useDisclosure();
   const viewModal = useDisclosure();
   const [selectedMaterial, setSelectedMaterial] = useState(null);
 
+  useEffect(() => {
+    adminGetCourseListing({ limit: 500 })
+      .then((res) => setCourses(res.courses || []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    adminGetCourseMaterialKpis(courseId || undefined)
+      .then(setKpis)
+      .catch(() => {});
+  }, [courseId]);
+
   const fetcher = useCallback(async () => {
-    const params = { page, limit: 10 };
+    const params = { page, limit: 10, courseId };
     if (search) params.search = search;
     if (materialType) params.materialType = materialType;
     if (uploadLocation) params.uploadLocation = uploadLocation;
-    if (status) params.status = status;
     return adminGetAllCourseMaterials(params);
-  }, [page, search, materialType, uploadLocation, status]);
+  }, [page, search, courseId, materialType, uploadLocation]);
 
   useEffect(() => {
     fetchMaterials({ fetcher });
   }, [fetchMaterials, fetcher]);
 
-  const refresh = () => fetchMaterials({ fetcher });
+  const refresh = () => {
+    fetchMaterials({ fetcher });
+    adminGetCourseMaterialKpis(courseId || undefined)
+      .then(setKpis)
+      .catch(() => {});
+  };
 
   const handleView = (mat) => {
     setSelectedMaterial(mat);
@@ -59,35 +85,35 @@ const CourseMaterialUploadPage = () => {
   };
 
   const handleSearchChange = (val) => { setSearch(val); setPage(1); };
+  const handleCourseIdChange = (val) => { setCourseId(val); setPage(1); };
   const handleMaterialTypeChange = (val) => { setMaterialType(val); setPage(1); };
   const handleUploadLocationChange = (val) => { setUploadLocation(val); setPage(1); };
-  const handleStatusChange = (val) => { setStatus(val); setPage(1); };
   const handleReset = () => {
     setSearch("");
+    setCourseId("");
     setMaterialType("");
     setUploadLocation("");
-    setStatus("");
     setPage(1);
   };
 
   const materials = resource.data?.materials ?? [];
   const pagination = resource.data?.pagination ?? {};
-  const stats = resource.data?.stats ?? { total: 0, successful: 0, failed: 0, audio: 0, word: 0 };
 
   return (
     <Box marginX="22px" marginY="20px">
-      <MaterialsHeader stats={stats} onUploadClick={uploadModal.onOpen} />
+      <MaterialsHeader stats={kpis} onUploadClick={uploadModal.onOpen} />
 
       <Box bg="white" borderRadius="8px" border="1px solid #E2E8F0" overflow="hidden">
         <MaterialsFilters
           search={search}
           onSearchChange={handleSearchChange}
+          courses={courses}
+          courseId={courseId}
+          onCourseIdChange={handleCourseIdChange}
           materialType={materialType}
           onMaterialTypeChange={handleMaterialTypeChange}
           uploadLocation={uploadLocation}
           onUploadLocationChange={handleUploadLocationChange}
-          status={status}
-          onStatusChange={handleStatusChange}
           onReset={handleReset}
         />
 

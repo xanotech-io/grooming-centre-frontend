@@ -69,7 +69,6 @@ import {
   tc20UpdateScheduleStatus,
   tc20GetScheduleLogs,
   tc20GetAllExecutionLogs,
-  tc20ListAvailableReports,
 } from "../../services/http/endpoints/scheduledReporting";
 
 // ---------------------------------------------------------------------------
@@ -202,7 +201,6 @@ const ScheduledReportingScreen = () => {
   const [schedules, setSchedules] = useState([]);
   const [kpis, setKpis] = useState(null);
   const [executionLogs, setExecutionLogs] = useState([]);
-  const [availableReports, setAvailableReports] = useState([]);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
 
   // Loading state
@@ -222,14 +220,15 @@ const ScheduledReportingScreen = () => {
   // Wizard state
   const [wizardStep, setWizardStep] = useState(1);
   const [form, setForm] = useState({
-    reportId: "",
+    scheduleName: "",
     reportName: "",
+    reportCategory: "",
     frequency: "",
     dayOfWeek: "",
     dayOfMonth: "",
     time: "08:00",
     startDate: "",
-    reportFormat: "PDF",
+    reportFormat: "pdf",
     deliveryMethod: "email",
   });
   const [recipients, setRecipients] = useState([]);
@@ -271,11 +270,6 @@ const ScheduledReportingScreen = () => {
 
   useEffect(() => { loadSchedules(); loadKPIs(); }, [loadSchedules, loadKPIs]);
 
-  // Load available reports when the create modal opens
-  useEffect(() => {
-    if (!isCreateOpen) return;
-    tc20ListAvailableReports().then(({ reports }) => setAvailableReports(reports));
-  }, [isCreateOpen]);
 
   // Load logs when the logs tab is active
   useEffect(() => {
@@ -315,11 +309,6 @@ const ScheduledReportingScreen = () => {
     onLogsOpen();
   };
 
-  const handleReportSelect = (reportId) => {
-    const report = availableReports.find((r) => r.reportId === reportId);
-    setForm((f) => ({ ...f, reportId, reportName: report?.reportName || "" }));
-  };
-
   const handleAddRecipient = () => {
     const email = recipientInput.trim();
     if (!email || !/\S+@\S+\.\S+/.test(email)) {
@@ -331,8 +320,16 @@ const ScheduledReportingScreen = () => {
   };
 
   const handleNextStep = () => {
-    if (wizardStep === 1 && !form.reportId) {
-      toast({ description: "Please select a report to schedule.", status: "warning", position: "top" });
+    if (wizardStep === 1 && !form.scheduleName.trim()) {
+      toast({ description: "Please enter a schedule name.", status: "warning", position: "top" });
+      return;
+    }
+    if (wizardStep === 1 && !form.reportName.trim()) {
+      toast({ description: "Please enter a report name.", status: "warning", position: "top" });
+      return;
+    }
+    if (wizardStep === 1 && !form.reportCategory) {
+      toast({ description: "Please select a report category.", status: "warning", position: "top" });
       return;
     }
     if (wizardStep === 2) {
@@ -353,7 +350,7 @@ const ScheduledReportingScreen = () => {
   const handleCreateModalClose = () => {
     onCreateClose();
     setWizardStep(1);
-    setForm({ reportId: "", reportName: "", frequency: "", dayOfWeek: "", dayOfMonth: "", time: "08:00", startDate: "", reportFormat: "PDF", deliveryMethod: "email" });
+    setForm({ scheduleName: "", reportName: "", reportCategory: "", frequency: "", dayOfWeek: "", dayOfMonth: "", time: "08:00", startDate: "", reportFormat: "pdf", deliveryMethod: "email" });
     setRecipients([]);
     setRecipientInput("");
   };
@@ -406,26 +403,36 @@ const ScheduledReportingScreen = () => {
     <VStack spacing={5} align="stretch">
       <SectionLabel>Step 1: Select a Report</SectionLabel>
       <FormControl isRequired>
-        <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Report</FormLabel>
-        <Select
-          placeholder="— Choose a report —"
+        <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Schedule Name</FormLabel>
+        <Input
+          placeholder="Enter schedule name"
           size="md" borderRadius="md" fontSize="14px"
-          value={form.reportId}
-          onChange={(e) => handleReportSelect(e.target.value)}
+          value={form.scheduleName}
+          onChange={(e) => setForm((f) => ({ ...f, scheduleName: e.target.value }))}
+        />
+      </FormControl>
+      <FormControl isRequired>
+        <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Report Name</FormLabel>
+        <Input
+          placeholder="Enter report name"
+          size="md" borderRadius="md" fontSize="14px"
+          value={form.reportName}
+          onChange={(e) => setForm((f) => ({ ...f, reportName: e.target.value }))}
+        />
+      </FormControl>
+      <FormControl isRequired>
+        <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Report Category</FormLabel>
+        <Select
+          placeholder="— Select category —"
+          size="md" borderRadius="md" fontSize="14px"
+          value={form.reportCategory}
+          onChange={(e) => setForm((f) => ({ ...f, reportCategory: e.target.value }))}
         >
-          {availableReports.map((r) => (
-            <option key={r.reportId} value={r.reportId}>{r.reportName}</option>
-          ))}
+          <option value="academic">Academic</option>
+          <option value="administrative">Administrative</option>
+          <option value="compliance">Compliance</option>
         </Select>
       </FormControl>
-      {form.reportId && (
-        <Box bg="#F9F5FF" borderRadius="lg" p={4} border="1px solid #E9D7FE">
-          <Text fontSize="13px" color="#6941C6" fontWeight="500">Selected: {form.reportName}</Text>
-          <Text fontSize="12px" color="#7F56D9" mt={1}>
-            Category: {availableReports.find((r) => r.reportId === form.reportId)?.category || "—"}
-          </Text>
-        </Box>
-      )}
     </VStack>
   );
 
@@ -493,9 +500,9 @@ const ScheduledReportingScreen = () => {
           <FormControl>
             <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Report Format</FormLabel>
             <Select size="md" borderRadius="md" fontSize="14px" value={form.reportFormat} onChange={(e) => setForm((f) => ({ ...f, reportFormat: e.target.value }))}>
-              <option value="PDF">PDF</option>
-              <option value="Excel">Excel</option>
-              <option value="CSV">CSV</option>
+              <option value="pdf">PDF</option>
+              <option value="excel">Excel</option>
+              <option value="csv">CSV</option>
             </Select>
           </FormControl>
         </GridItem>
@@ -556,7 +563,9 @@ const ScheduledReportingScreen = () => {
         <SectionLabel>Schedule Summary</SectionLabel>
         <VStack align="stretch" spacing={2}>
           {[
-            ["Report", form.reportName],
+            ["Schedule Name", form.scheduleName],
+            ["Report Name", form.reportName],
+            ["Category", form.reportCategory ? form.reportCategory.charAt(0).toUpperCase() + form.reportCategory.slice(1) : "—"],
             ["Frequency", form.frequency ? form.frequency.charAt(0).toUpperCase() + form.frequency.slice(1) : "—"],
             ["Start Date", form.startDate ? formatDate(form.startDate) : "—"],
             ["Time", form.time],

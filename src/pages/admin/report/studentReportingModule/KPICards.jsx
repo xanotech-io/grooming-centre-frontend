@@ -2,36 +2,43 @@ import { SimpleGrid } from "@chakra-ui/layout";
 import { DashboardMetricCard } from "../../../../components";
 
 const KPICards = ({ kpis }) => {
+  const avg = kpis?.avgParticipationRate ?? kpis?.average_participation_rate;
+  const active = kpis?.totalActiveStudents ?? kpis?.active_students;
+  const inactive = kpis?.totalInactiveStudents ?? kpis?.inactive_students;
+  const irregular = kpis?.totalIrregularStudents ?? kpis?.irregular_students;
+  const alerts = kpis?.alertsTriggered ?? kpis?.alerts_triggered;
+  const total = kpis?.totalStudents ?? kpis?.total_students;
+
   return (
     <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mb={8}>
       <DashboardMetricCard
+        title="Total Students"
+        value={total != null ? total : "—"}
+        change="enrolled learners"
+        changeColor="#660066"
+      />
+      <DashboardMetricCard
         title="Avg. Participation"
-        value={kpis?.avgParticipationRate != null ? `${kpis.avgParticipationRate}%` : "—"}
+        value={avg != null ? `${avg}%` : "—"}
         change="across all students"
         changeColor="#2C5282"
       />
       <DashboardMetricCard
         title="Active Students"
-        value={kpis?.totalActiveStudents ?? "—"}
-        change="currently engaged"
+        value={active != null ? active : "—"}
+        change="score ≥ 70"
         changeColor="#1A8F3A"
       />
       <DashboardMetricCard
-        title="Inactive Students"
-        value={kpis?.totalInactiveStudents ?? "—"}
-        change="need intervention"
-        changeColor="#C53030"
-      />
-      <DashboardMetricCard
         title="Irregular Students"
-        value={kpis?.totalIrregularStudents ?? "—"}
-        change="inconsistent activity"
+        value={irregular != null ? irregular : "—"}
+        change="score 40–69"
         changeColor="#B7791F"
       />
       <DashboardMetricCard
         title="Alerts Triggered"
-        value={kpis?.alertsTriggered ?? "—"}
-        change={`${kpis?.reportsGeneratedThisMonth ?? 0} reports this month`}
+        value={alerts != null ? alerts : "—"}
+        change={inactive != null ? `${inactive} inactive` : "flagged students"}
         changeColor="#C53030"
       />
     </SimpleGrid>

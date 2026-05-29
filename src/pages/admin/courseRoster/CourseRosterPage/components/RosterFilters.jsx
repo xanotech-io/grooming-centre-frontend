@@ -47,7 +47,7 @@ const RosterFilters = ({
         >
           {(courses || []).map((c) => (
             <option key={c.id} value={c.id}>
-              {c.title}{c.displayId ? ` (${c.displayId})` : ""}
+              {c.title}
             </option>
           ))}
         </Select>

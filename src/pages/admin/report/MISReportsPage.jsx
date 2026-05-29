@@ -41,6 +41,7 @@ import {
   ModalCloseButton,
   FormControl,
   FormLabel,
+  Divider,
 } from "@chakra-ui/react";
 import {
   FiSearch,
@@ -115,12 +116,15 @@ const MISReportsPage = () => {
     automationRate: "—",
     avgReportGenerationTimeMs: "—",
   });
-  const [generateForm, setGenerateForm] = useState({
+  const GENERATE_FORM_DEFAULT = {
     reportCategory: "academic",
     reportName: "",
     reportFormat: "json",
     frequency: "on_demand",
-  });
+    accessLevel: [],
+    filters: { courseId: "", departmentId: "", startDate: "", endDate: "", limit: "" },
+  };
+  const [generateForm, setGenerateForm] = useState(GENERATE_FORM_DEFAULT);
   const [generating, setGenerating] = useState(false);
 
   const fetchReports = useCallback(
@@ -196,37 +200,39 @@ const MISReportsPage = () => {
     }
   };
 
+  const handleGenerateClose = () => {
+    setGenerateForm(GENERATE_FORM_DEFAULT);
+    onGenerateClose();
+  };
+
   const handleGenerate = async () => {
     if (!generateForm.reportName.trim()) {
-      toast({
-        description: "Report name is required.",
-        status: "warning",
-        position: "top",
-      });
+      toast({ description: "Report name is required.", status: "warning", position: "top" });
       return;
     }
     setGenerating(true);
     try {
+      const { filters } = generateForm;
+      const cleanFilters = {};
+      if (filters.courseId) cleanFilters.courseId = filters.courseId;
+      if (filters.departmentId) cleanFilters.departmentId = filters.departmentId;
+      if (filters.startDate) cleanFilters.startDate = filters.startDate;
+      if (filters.endDate) cleanFilters.endDate = filters.endDate;
+      if (filters.limit) cleanFilters.limit = Number(filters.limit);
+
       const { message } = await adminGenerateMISReport({
         reportCategory: generateForm.reportCategory,
         reportName: generateForm.reportName,
         reportFormat: generateForm.reportFormat,
         frequency: generateForm.frequency,
+        accessLevel: generateForm.accessLevel,
+        filters: cleanFilters,
       });
-      toast({
-        description: message || "Report generated successfully.",
-        status: "success",
-        position: "top",
-      });
-      onGenerateClose();
+      toast({ description: message || "Report generated successfully.", status: "success", position: "top" });
+      handleGenerateClose();
       fetchReports();
     } catch (err) {
-      toast({
-        description:
-          err?.response?.data?.message || "Failed to generate report.",
-        status: "error",
-        position: "top",
-      });
+      toast({ description: err?.response?.data?.message || "Failed to generate report.", status: "error", position: "top" });
     } finally {
       setGenerating(false);
     }
@@ -1906,127 +1912,130 @@ const MISReportsPage = () => {
           </Tabs>
         </Box>
       </Box>
-      <Modal
-        isOpen={isGenerateOpen}
-        onClose={onGenerateClose}
-        isCentered
-        size="md"
-      >
+      <Modal isOpen={isGenerateOpen} onClose={handleGenerateClose} isCentered size="lg">
         <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(2px)" />
         <ModalContent borderRadius="xl" p={2}>
-          <ModalHeader fontSize="lg" fontWeight="700" color="#101928">
-            Generate Report
-          </ModalHeader>
+          <ModalHeader fontSize="lg" fontWeight="700" color="#101928">Generate Report</ModalHeader>
           <ModalCloseButton mt={3} mr={2} />
           <ModalBody>
             <VStack spacing={4} align="stretch">
-              <FormControl>
-                <FormLabel fontSize="14px" fontWeight="500" color="#344054">
-                  Report Name
-                </FormLabel>
+              <FormControl isRequired>
+                <FormLabel fontSize="14px" fontWeight="500" color="#344054">Report Name</FormLabel>
                 <ChakraInput
                   placeholder="e.g. Course Completion Summary – Oct 2026"
                   value={generateForm.reportName}
-                  onChange={(e) =>
-                    setGenerateForm((f) => ({
-                      ...f,
-                      reportName: e.target.value,
-                    }))
-                  }
-                  borderRadius="md"
-                  fontSize="14px"
+                  onChange={(e) => setGenerateForm((f) => ({ ...f, reportName: e.target.value }))}
+                  borderRadius="md" fontSize="14px"
                 />
               </FormControl>
-              <FormControl>
-                <FormLabel fontSize="14px" fontWeight="500" color="#344054">
-                  Category
-                </FormLabel>
-                <Select
-                  value={generateForm.reportCategory}
-                  onChange={(e) =>
-                    setGenerateForm((f) => ({
-                      ...f,
-                      reportCategory: e.target.value,
-                    }))
-                  }
-                  borderRadius="md"
-                  fontSize="14px"
-                >
-                  <option value="academic">Academic</option>
-                  <option value="admin">Administrative</option>
-                  <option value="compliance">Compliance</option>
-                </Select>
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="14px" fontWeight="500" color="#344054">
-                  Format
-                </FormLabel>
-                <Select
-                  value={generateForm.reportFormat}
-                  onChange={(e) =>
-                    setGenerateForm((f) => ({
-                      ...f,
-                      reportFormat: e.target.value,
-                    }))
-                  }
-                  borderRadius="md"
-                  fontSize="14px"
-                >
-                  <option value="json">JSON</option>
-                  <option value="pdf">PDF</option>
-                  <option value="excel">Excel</option>
-                  <option value="csv">CSV</option>
-                </Select>
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="14px" fontWeight="500" color="#344054">
-                  Frequency
-                </FormLabel>
-                <Select
-                  value={generateForm.frequency}
-                  onChange={(e) =>
-                    setGenerateForm((f) => ({
-                      ...f,
-                      frequency: e.target.value,
-                    }))
-                  }
-                  borderRadius="md"
-                  fontSize="14px"
-                >
+              <Grid templateColumns="repeat(2, 1fr)" gap={4}>
+                <FormControl isRequired>
+                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Category</FormLabel>
+                  <Select value={generateForm.reportCategory} onChange={(e) => setGenerateForm((f) => ({ ...f, reportCategory: e.target.value }))} borderRadius="md" fontSize="14px">
+                    <option value="academic">Academic</option>
+                    <option value="administrative">Administrative</option>
+                    <option value="compliance">Compliance</option>
+                  </Select>
+                </FormControl>
+                <FormControl isRequired>
+                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Format</FormLabel>
+                  <Select value={generateForm.reportFormat} onChange={(e) => setGenerateForm((f) => ({ ...f, reportFormat: e.target.value }))} borderRadius="md" fontSize="14px">
+                    <option value="json">JSON</option>
+                    <option value="pdf">PDF</option>
+                    <option value="excel">Excel</option>
+                    <option value="csv">CSV</option>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <FormControl isRequired>
+                <FormLabel fontSize="14px" fontWeight="500" color="#344054">Frequency</FormLabel>
+                <Select value={generateForm.frequency} onChange={(e) => setGenerateForm((f) => ({ ...f, frequency: e.target.value }))} borderRadius="md" fontSize="14px">
                   <option value="on_demand">On Demand</option>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
                 </Select>
               </FormControl>
+              <FormControl>
+                <FormLabel fontSize="14px" fontWeight="500" color="#344054">Access Level</FormLabel>
+                <HStack spacing={6} flexWrap="wrap">
+                  {["Admin", "Super Admin", "Instructor", "Student"].map((role) => (
+                    <Checkbox
+                      key={role}
+                      colorScheme="purple"
+                      fontSize="14px"
+                      isChecked={generateForm.accessLevel.includes(role)}
+                      onChange={(e) =>
+                        setGenerateForm((f) => ({
+                          ...f,
+                          accessLevel: e.target.checked
+                            ? [...f.accessLevel, role]
+                            : f.accessLevel.filter((r) => r !== role),
+                        }))
+                      }
+                    >
+                      <Text fontSize="14px" color="#344054">{role}</Text>
+                    </Checkbox>
+                  ))}
+                </HStack>
+              </FormControl>
+              <Divider />
+              <Text fontSize="13px" fontWeight="600" color="#667085">Filters (optional)</Text>
+              <Grid templateColumns="repeat(2, 1fr)" gap={4}>
+                <FormControl>
+                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Course ID</FormLabel>
+                  <ChakraInput
+                    placeholder="UUID"
+                    value={generateForm.filters.courseId}
+                    onChange={(e) => setGenerateForm((f) => ({ ...f, filters: { ...f.filters, courseId: e.target.value } }))}
+                    borderRadius="md" fontSize="14px"
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Department ID</FormLabel>
+                  <ChakraInput
+                    placeholder="UUID"
+                    value={generateForm.filters.departmentId}
+                    onChange={(e) => setGenerateForm((f) => ({ ...f, filters: { ...f.filters, departmentId: e.target.value } }))}
+                    borderRadius="md" fontSize="14px"
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Start Date</FormLabel>
+                  <ChakraInput
+                    type="date"
+                    value={generateForm.filters.startDate}
+                    onChange={(e) => setGenerateForm((f) => ({ ...f, filters: { ...f.filters, startDate: e.target.value } }))}
+                    borderRadius="md" fontSize="14px"
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">End Date</FormLabel>
+                  <ChakraInput
+                    type="date"
+                    value={generateForm.filters.endDate}
+                    onChange={(e) => setGenerateForm((f) => ({ ...f, filters: { ...f.filters, endDate: e.target.value } }))}
+                    borderRadius="md" fontSize="14px"
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Limit</FormLabel>
+                  <ChakraInput
+                    type="number"
+                    placeholder="100"
+                    value={generateForm.filters.limit}
+                    onChange={(e) => setGenerateForm((f) => ({ ...f, filters: { ...f.filters, limit: e.target.value } }))}
+                    borderRadius="md" fontSize="14px"
+                  />
+                </FormControl>
+              </Grid>
             </VStack>
           </ModalBody>
           <ModalFooter gap={3} pt={6} pb={4}>
-            <Button
-              variant="outline"
-              flex={1}
-              borderColor="#D0D5DD"
-              color="#344054"
-              fontSize="14px"
-              fontWeight="600"
-              onClick={onGenerateClose}
-              borderRadius="md"
-              h="44px"
-            >
+            <Button variant="outline" flex={1} borderColor="#D0D5DD" color="#344054" fontSize="14px" fontWeight="600" onClick={handleGenerateClose} borderRadius="md" h="44px">
               Cancel
             </Button>
-            <Button
-              bg="#660066"
-              flex={1}
-              color="white"
-              _hover={{ bg: "#550055" }}
-              fontSize="14px"
-              fontWeight="600"
-              borderRadius="md"
-              h="44px"
-              isLoading={generating}
-              onClick={handleGenerate}
-            >
+            <Button bg="#660066" flex={1} color="white" _hover={{ bg: "#550055" }} fontSize="14px" fontWeight="600" borderRadius="md" h="44px" isLoading={generating} onClick={handleGenerate}>
               Generate
             </Button>
           </ModalFooter>

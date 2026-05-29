@@ -17,20 +17,16 @@ const UPLOAD_LOCATIONS = [
   { value: "LIBRARY_SECTION", label: "Library Section" },
 ];
 
-const STATUSES = [
-  { value: "Successful", label: "Successful" },
-  { value: "Failed",     label: "Failed" },
-];
-
 const MaterialsFilters = ({
   search,
   onSearchChange,
+  courses = [],
+  courseId,
+  onCourseIdChange,
   materialType,
   onMaterialTypeChange,
   uploadLocation,
   onUploadLocationChange,
-  status,
-  onStatusChange,
   onReset,
 }) => (
   <Flex
@@ -51,6 +47,22 @@ const MaterialsFilters = ({
       maxW="240px"
       bg="white"
     />
+
+    <Select
+      value={courseId}
+      onChange={(e) => onCourseIdChange(e.target.value)}
+      size="sm"
+      borderRadius="6px"
+      maxW="260px"
+      bg="white"
+      placeholder="All Courses"
+    >
+      {courses.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.title}{c.displayId ? ` (${c.displayId})` : ""}
+        </option>
+      ))}
+    </Select>
 
     <Select
       value={materialType}
@@ -80,22 +92,6 @@ const MaterialsFilters = ({
       {UPLOAD_LOCATIONS.map((l) => (
         <option key={l.value} value={l.value}>
           {l.label}
-        </option>
-      ))}
-    </Select>
-
-    <Select
-      value={status}
-      onChange={(e) => onStatusChange(e.target.value)}
-      size="sm"
-      borderRadius="6px"
-      maxW="150px"
-      bg="white"
-      placeholder="All Statuses"
-    >
-      {STATUSES.map((s) => (
-        <option key={s.value} value={s.value}>
-          {s.label}
         </option>
       ))}
     </Select>
