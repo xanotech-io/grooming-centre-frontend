@@ -28,73 +28,201 @@ import {
   useToast,
   FormControl,
   FormLabel,
-  Switch,
   Spinner,
 } from "@chakra-ui/react";
 import { Breadcrumb, Button, Heading, Link } from "../../components";
 import { AdminMainAreaWrapper } from "../../layouts/admin/MainArea/Wrapper";
-import { FiMoreVertical } from "react-icons/fi";
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { FiMoreVertical, FiChevronDown, FiX } from "react-icons/fi";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import {
-  adminAssignRoleToUser,
-  adminCreateRole,
-  adminDeleteRole,
-  adminGetRoleAssignments,
-  adminGetRoleListing,
-  adminUpdateRole,
-  adminUpdateRolePermissions,
+  adminGetRoles,
+  adminGetRoleKPIs,
+  adminAssignUserRole,
+  adminToggleRoleStatus,
+  adminGetStudents,
 } from "../../services";
 
-const ROLE_TYPE_OPTIONS = [
-  "ADMIN",
-  "INSTRUCTOR",
-  "STUDENT",
-  "SUPERVISOR",
-  "ACADEMIC_ADMIN",
-];
-const ACCESS_LEVEL_OPTIONS = ["READ", "WRITE", "FULL_ACCESS"];
+const initialAssignForm = { userId: "", roleId: "", reason: "" };
 
-const initialRoleForm = {
-  roleName: "",
-  description: "",
-  roleType: "INSTRUCTOR",
-  accessLevel: "WRITE",
-  permissionsText: "COURSE_VIEW",
-  isActive: true,
+// ---------------------------------------------------------------------------
+// StudentCombobox — single input with searchable dropdown
+// ---------------------------------------------------------------------------
+
+const StudentCombobox = ({ students, loading, value, onSelect, onSearchChange }) => {
+  const [inputValue, setInputValue] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  const selectedStudent = students.find((s) => s.id === value) ?? null;
+
+  const filtered = useMemo(() => {
+    if (!inputValue) return students;
+    const q = inputValue.toLowerCase();
+    return students.filter(
+      (s) =>
+        `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
+        (s.email ?? "").toLowerCase().includes(q) ||
+        (s.username ?? "").toLowerCase().includes(q),
+    );
+  }, [students, inputValue]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputValue(val);
+    if (value) onSelect(null);
+    setIsOpen(true);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => onSearchChange(val), 350);
+  };
+
+  const handleFocus = () => {
+    if (!value) {
+      setIsOpen(true);
+      if (students.length === 0) onSearchChange("");
+    }
+  };
+
+  const handleSelect = (student) => {
+    onSelect(student);
+    setInputValue("");
+    setIsOpen(false);
+  };
+
+  const handleClear = () => {
+    onSelect(null);
+    setInputValue("");
+    setIsOpen(false);
+  };
+
+  return (
+    <Box ref={containerRef} position="relative">
+      <Flex
+        border="1px solid"
+        borderColor="inherit"
+        borderRadius="md"
+        alignItems="center"
+        px={3}
+        bg="white"
+        _focusWithin={{ borderColor: "blue.500", boxShadow: "0 0 0 1px #3182ce" }}
+      >
+        <Input
+          border="none"
+          px={0}
+          _focus={{ boxShadow: "none" }}
+          value={selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName} — ${selectedStudent.email}` : inputValue}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          placeholder="Search by name or email..."
+          readOnly={!!selectedStudent}
+        />
+        {loading && <Spinner size="xs" color="gray.400" mr={1} />}
+        {selectedStudent ? (
+          <Box
+            as="button"
+            type="button"
+            onClick={handleClear}
+            color="gray.400"
+            _hover={{ color: "gray.600" }}
+            ml={1}
+            flexShrink={0}
+          >
+            <FiX size={14} />
+          </Box>
+        ) : (
+          <Box color="gray.400" ml={1} flexShrink={0}>
+            <FiChevronDown size={14} />
+          </Box>
+        )}
+      </Flex>
+
+      {isOpen && (
+        <Box
+          position="absolute"
+          top="calc(100% + 4px)"
+          left={0}
+          right={0}
+          bg="white"
+          border="1px solid #E2E8F0"
+          borderRadius="md"
+          boxShadow="md"
+          zIndex={1500}
+          maxH="220px"
+          overflowY="auto"
+        >
+          {loading && (
+            <Flex alignItems="center" gap={2} px={3} py={2}>
+              <Spinner size="xs" />
+              <Text fontSize="13px" color="#718096">Loading students...</Text>
+            </Flex>
+          )}
+          {!loading && filtered.length === 0 && (
+            <Text fontSize="13px" color="#718096" px={3} py={2}>
+              No students found
+            </Text>
+          )}
+          {!loading &&
+            filtered.map((s) => (
+              <Box
+                key={s.id}
+                px={3}
+                py={2}
+                cursor="pointer"
+                _hover={{ bg: "#EBF8FF" }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSelect(s);
+                }}
+              >
+                <Text fontSize="14px" fontWeight="500">
+                  {s.firstName} {s.lastName}
+                </Text>
+                <Text fontSize="12px" color="#718096">
+                  {s.email}
+                </Text>
+              </Box>
+            ))}
+        </Box>
+      )}
+    </Box>
+  );
 };
 
-const initialAssignmentForm = {
-  userId: "",
-  userName: "",
-  userEmail: "",
-  roleId: "",
-  accessLevel: "WRITE",
-};
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 
 const RolesPage = () => {
   const toast = useToast();
-  const roleModal = useDisclosure();
-  const assignmentModal = useDisclosure();
+  const assignModal = useDisclosure();
 
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState([]);
-  const [assignmentCount, setAssignmentCount] = useState(0);
-  const [selectedRole, setSelectedRole] = useState(null);
+  const [kpis, setKpis] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [roleTypeFilter, setRoleTypeFilter] = useState("ALL");
-  const [roleForm, setRoleForm] = useState(initialRoleForm);
-  const [assignmentForm, setAssignmentForm] = useState(initialAssignmentForm);
+  const [assignForm, setAssignForm] = useState(initialAssignForm);
+  const [students, setStudents] = useState([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
 
-  const loadRoleData = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [rolesResponse, assignmentsResponse] = await Promise.all([
-        adminGetRoleListing(),
-        adminGetRoleAssignments({ page: 1, limit: 500 }),
+      const [rolesRes, kpisRes] = await Promise.all([
+        adminGetRoles(),
+        adminGetRoleKPIs(),
       ]);
-
-      setRoles(rolesResponse.roles || []);
-      setAssignmentCount(assignmentsResponse.count || 0);
+      setRoles(rolesRes.roles);
+      setKpis(kpisRes);
     } catch (error) {
       toast({
         title: error.message || "Failed to load roles",
@@ -108,174 +236,61 @@ const RolesPage = () => {
   }, [toast]);
 
   useEffect(() => {
-    loadRoleData();
-  }, [loadRoleData]);
+    loadData();
+  }, [loadData]);
+
+  const fetchStudents = useCallback(async (search = "") => {
+    setStudentsLoading(true);
+    try {
+      const res = await adminGetStudents({ search, page: 1, length: 50 });
+      setStudents(res.students);
+    } catch {
+      setStudents([]);
+    } finally {
+      setStudentsLoading(false);
+    }
+  }, []);
+
+  const openAssignModal = () => {
+    setAssignForm(initialAssignForm);
+    setStudents([]);
+    assignModal.onOpen();
+  };
 
   const filteredRoles = useMemo(() => {
-    return roles.filter((role) => {
-      const matchesSearch =
-        !searchTerm ||
-        role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        role.roleId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        role.assignedBy.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesType =
-        roleTypeFilter === "ALL" || role.roleType === roleTypeFilter;
-      return matchesSearch && matchesType;
-    });
-  }, [roles, searchTerm, roleTypeFilter]);
-
-  const totalUsers = useMemo(
-    () => roles.reduce((total, role) => total + Number(role.noOfUsers || 0), 0),
-    [roles],
-  );
-
-  const activeRoles = useMemo(
-    () => roles.filter((role) => role.status === "Active").length,
-    [roles],
-  );
-
-  const resetRoleForm = () => {
-    setRoleForm(initialRoleForm);
-    setSelectedRole(null);
-  };
-
-  const openCreateRole = () => {
-    resetRoleForm();
-    roleModal.onOpen();
-  };
-
-  const openEditRole = (role) => {
-    setSelectedRole(role);
-    setRoleForm({
-      roleName: role.name,
-      description: role.description || "",
-      roleType: role.roleType || "INSTRUCTOR",
-      accessLevel: role.accessLevel || "WRITE",
-      permissionsText: Array.isArray(role.permissions)
-        ? role.permissions.join(", ")
-        : "",
-      isActive: role.status === "Active",
-    });
-    roleModal.onOpen();
-  };
-
-  const handleRoleSubmit = async () => {
-    const permissions = roleForm.permissionsText
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-
-    if (!roleForm.roleName.trim()) {
-      toast({
-        title: "Role name is required",
-        status: "warning",
-        duration: 2500,
-        isClosable: true,
-      });
-      return;
-    }
-
-    try {
-      if (selectedRole) {
-        await adminUpdateRole(selectedRole.roleId, {
-          roleName: roleForm.roleName,
-          description: roleForm.description,
-          roleType: roleForm.roleType,
-          accessLevel: roleForm.accessLevel,
-          isActive: roleForm.isActive,
-        });
-
-        await adminUpdateRolePermissions(selectedRole.roleId, {
-          permissions,
-          action: "REPLACE",
-        });
-
-        toast({
-          title: "Role updated successfully",
-          status: "success",
-          duration: 2500,
-          isClosable: true,
-        });
-      } else {
-        await adminCreateRole({
-          roleName: roleForm.roleName,
-          description: roleForm.description,
-          roleType: roleForm.roleType,
-          accessLevel: roleForm.accessLevel,
-          permissions,
-          isActive: roleForm.isActive,
-        });
-        toast({
-          title: "Role created successfully",
-          status: "success",
-          duration: 2500,
-          isClosable: true,
-        });
-      }
-
-      roleModal.onClose();
-      resetRoleForm();
-      await loadRoleData();
-    } catch (error) {
-      toast({
-        title: error.message || "Unable to save role",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    }
-  };
-
-  const handleDeleteRole = async (roleId) => {
-    try {
-      await adminDeleteRole(roleId);
-      toast({
-        title: "Role deleted successfully",
-        status: "success",
-        duration: 2500,
-        isClosable: true,
-      });
-      await loadRoleData();
-    } catch (error) {
-      toast({
-        title: error.message || "Unable to delete role",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    }
-  };
+    if (!searchTerm) return roles;
+    const q = searchTerm.toLowerCase();
+    return roles.filter(
+      (r) =>
+        (r.name ?? r.roleName ?? "").toLowerCase().includes(q) ||
+        (r.roleId ?? r.id ?? "").toLowerCase().includes(q),
+    );
+  }, [roles, searchTerm]);
 
   const handleAssignRole = async () => {
-    if (!assignmentForm.userId.trim() || !assignmentForm.roleId) {
+    if (!assignForm.userId || !assignForm.roleId) {
       toast({
-        title: "User ID and role are required",
+        title: "Please select a student and a role",
         status: "warning",
         duration: 2500,
         isClosable: true,
       });
       return;
     }
-
     try {
-      await adminAssignRoleToUser(assignmentForm.userId.trim(), {
-        userName: assignmentForm.userName,
-        userEmail: assignmentForm.userEmail,
-        roleId: assignmentForm.roleId,
-        accessLevel: assignmentForm.accessLevel,
+      await adminAssignUserRole(assignForm.userId, {
+        roleId: assignForm.roleId,
+        reason: assignForm.reason,
       });
-
       toast({
-        title: "Role assigned to user successfully",
+        title: "Role assigned successfully",
         status: "success",
         duration: 2500,
         isClosable: true,
       });
-
-      assignmentModal.onClose();
-      setAssignmentForm(initialAssignmentForm);
-      await loadRoleData();
+      assignModal.onClose();
+      setAssignForm(initialAssignForm);
+      await loadData();
     } catch (error) {
       toast({
         title: error.message || "Unable to assign role",
@@ -285,6 +300,40 @@ const RolesPage = () => {
       });
     }
   };
+
+  const handleToggleStatus = async (role) => {
+    const roleId = role.roleId ?? role.id;
+    const currentlyActive = role.active ?? role.status === "Active";
+    try {
+      await adminToggleRoleStatus(roleId, !currentlyActive);
+      toast({
+        title: `Role ${!currentlyActive ? "activated" : "deactivated"} successfully`,
+        status: "success",
+        duration: 2500,
+        isClosable: true,
+      });
+      await loadData();
+    } catch (error) {
+      toast({
+        title: error.message || "Unable to update role status",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const statCards = [
+    { label: "Total Roles", value: kpis.totalRoles ?? roles.length },
+    {
+      label: "Active Roles",
+      value:
+        kpis.activeRoles ??
+        roles.filter((r) => r.active || r.status === "Active").length,
+    },
+    { label: "Total Assignments", value: kpis.totalAssignments ?? kpis.totalUsers ?? "—" },
+    { label: "Users With Roles", value: kpis.usersWithRoles ?? "—" },
+  ];
 
   return (
     <AdminMainAreaWrapper>
@@ -298,75 +347,28 @@ const RolesPage = () => {
 
       <Flex justifyContent="space-between" alignItems="center" mt={6} mb={4}>
         <Heading fontSize="heading.h4">Role Management</Heading>
-        <Flex gap={3}>
-          <Button secondary onClick={assignmentModal.onOpen}>
-            Assign new role
-          </Button>
-          <Button onClick={openCreateRole}>Create role</Button>
-        </Flex>
+        <Button onClick={openAssignModal}>Assign Role</Button>
       </Flex>
 
       <Flex gap={4} mb={5} wrap="wrap">
-        <Box
-          bg="white"
-          border="1px solid #E2E8F0"
-          borderRadius="8px"
-          px={4}
-          py={3}
-          minW="220px"
-        >
-          <Text fontSize="12px" color="#718096">
-            Total Roles
-          </Text>
-          <Text fontSize="20px" fontWeight="600" color="#1A202C">
-            {roles.length}
-          </Text>
-        </Box>
-        <Box
-          bg="white"
-          border="1px solid #E2E8F0"
-          borderRadius="8px"
-          px={4}
-          py={3}
-          minW="220px"
-        >
-          <Text fontSize="12px" color="#718096">
-            Active Roles
-          </Text>
-          <Text fontSize="20px" fontWeight="600" color="#1A202C">
-            {activeRoles}
-          </Text>
-        </Box>
-        <Box
-          bg="white"
-          border="1px solid #E2E8F0"
-          borderRadius="8px"
-          px={4}
-          py={3}
-          minW="220px"
-        >
-          <Text fontSize="12px" color="#718096">
-            Role Assignments
-          </Text>
-          <Text fontSize="20px" fontWeight="600" color="#1A202C">
-            {assignmentCount}
-          </Text>
-        </Box>
-        <Box
-          bg="white"
-          border="1px solid #E2E8F0"
-          borderRadius="8px"
-          px={4}
-          py={3}
-          minW="220px"
-        >
-          <Text fontSize="12px" color="#718096">
-            Users With Roles
-          </Text>
-          <Text fontSize="20px" fontWeight="600" color="#1A202C">
-            {totalUsers}
-          </Text>
-        </Box>
+        {statCards.map((card) => (
+          <Box
+            key={card.label}
+            bg="white"
+            border="1px solid #E2E8F0"
+            borderRadius="8px"
+            px={4}
+            py={3}
+            minW="220px"
+          >
+            <Text fontSize="12px" color="#718096">
+              {card.label}
+            </Text>
+            <Text fontSize="20px" fontWeight="600" color="#1A202C">
+              {loading ? "..." : card.value}
+            </Text>
+          </Box>
+        ))}
       </Flex>
 
       <Box
@@ -375,26 +377,13 @@ const RolesPage = () => {
         borderRadius="10px"
         overflow="hidden"
       >
-        <Flex p={4} borderBottom="1px solid #E2E8F0" gap={3} wrap="wrap">
+        <Flex p={4} borderBottom="1px solid #E2E8F0">
           <Input
             maxW="320px"
-            placeholder="Search role name, id, assigned by"
+            placeholder="Search by role name or ID"
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <Select
-            maxW="220px"
-            value={roleTypeFilter}
-            onChange={(event) => setRoleTypeFilter(event.target.value)}
-          >
-            <option value="ALL">All Role Types</option>
-            {ROLE_TYPE_OPTIONS.map((roleType) => (
-              <option key={roleType} value={roleType}>
-                {roleType}
-              </option>
-            ))}
-          </Select>
-          {/* <Button secondary onClick={loadRoleData}>Refresh</Button> */}
         </Flex>
 
         {loading ? (
@@ -415,10 +404,8 @@ const RolesPage = () => {
                 <Tr>
                   <Th textTransform="none">Role ID</Th>
                   <Th textTransform="none">Role Name</Th>
-                  <Th textTransform="none">Role Type</Th>
-                  <Th textTransform="none">Access Level</Th>
-                  <Th textTransform="none">Assigned By</Th>
-                  <Th textTransform="none">No. Users</Th>
+                  <Th textTransform="none">Description</Th>
+                  <Th textTransform="none">Users</Th>
                   <Th textTransform="none">Status</Th>
                   <Th textTransform="none" textAlign="center">
                     Action
@@ -426,52 +413,47 @@ const RolesPage = () => {
                 </Tr>
               </Thead>
               <Tbody>
-                {filteredRoles.map((role) => (
-                  <Tr key={role.roleId}>
-                    <Td>{role.roleId}</Td>
-                    <Td>
-                      <Text fontWeight="600">{role.name}</Text>
-                      {role.description ? (
-                        <Text fontSize="12px" color="#718096">
-                          {role.description}
+                {filteredRoles.map((role) => {
+                  const roleId = role.roleId ?? role.id;
+                  const isActive = role.active ?? role.status === "Active";
+                  return (
+                    <Tr key={roleId}>
+                      <Td>{roleId}</Td>
+                      <Td>
+                        <Text fontWeight="600">{role.name ?? role.roleName}</Text>
+                      </Td>
+                      <Td>
+                        <Text fontSize="13px" color="#4A5568">
+                          {role.description ?? "—"}
                         </Text>
-                      ) : null}
-                    </Td>
-                    <Td>{role.roleType}</Td>
-                    <Td>{role.accessLevel}</Td>
-                    <Td>{role.assignedBy}</Td>
-                    <Td>{role.noOfUsers}</Td>
-                    <Td>
-                      <Badge
-                        colorScheme={role.status === "Active" ? "green" : "red"}
-                        textTransform="none"
-                      >
-                        {role.status}
-                      </Badge>
-                    </Td>
-                    <Td textAlign="center">
-                      <Menu placement="bottom-end">
-                        <MenuButton as={Button} variant="ghost" px={2}>
-                          <FiMoreVertical />
-                        </MenuButton>
-                        <MenuList>
-                          <MenuItem onClick={() => openEditRole(role)}>
-                            Edit role
-                          </MenuItem>
-                          <MenuItem
-                            onClick={() => handleDeleteRole(role.roleId)}
-                            color="red.500"
-                          >
-                            Delete role
-                          </MenuItem>
-                        </MenuList>
-                      </Menu>
-                    </Td>
-                  </Tr>
-                ))}
+                      </Td>
+                      <Td>{role.userCount ?? role.noOfUsers ?? "—"}</Td>
+                      <Td>
+                        <Badge
+                          colorScheme={isActive ? "green" : "red"}
+                          textTransform="none"
+                        >
+                          {isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </Td>
+                      <Td textAlign="center">
+                        <Menu placement="bottom-end">
+                          <MenuButton as={Button} variant="ghost" px={2}>
+                            <FiMoreVertical />
+                          </MenuButton>
+                          <MenuList>
+                            <MenuItem onClick={() => handleToggleStatus(role)}>
+                              {isActive ? "Deactivate" : "Activate"}
+                            </MenuItem>
+                          </MenuList>
+                        </Menu>
+                      </Td>
+                    </Tr>
+                  );
+                })}
                 {!filteredRoles.length && (
                   <Tr>
-                    <Td colSpan={8}>
+                    <Td colSpan={6}>
                       <Text textAlign="center" py={8} color="#718096">
                         No roles found
                       </Text>
@@ -485,213 +467,70 @@ const RolesPage = () => {
       </Box>
 
       <Modal
-        isOpen={roleModal.isOpen}
+        isOpen={assignModal.isOpen}
         onClose={() => {
-          roleModal.onClose();
-          resetRoleForm();
+          assignModal.onClose();
+          setAssignForm(initialAssignForm);
+          setStudents([]);
         }}
         isCentered
       >
         <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
-            {selectedRole ? "Edit Role" : "Create Role"}
-          </ModalHeader>
+        <ModalContent overflow="visible">
+          <ModalHeader>Assign Role to User</ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
+          <ModalBody overflow="visible">
             <Flex direction="column" gap={4}>
               <FormControl isRequired>
-                <FormLabel>Role Name</FormLabel>
-                <Input
-                  value={roleForm.roleName}
-                  onChange={(event) =>
-                    setRoleForm((prev) => ({
+                <FormLabel>Student</FormLabel>
+                <StudentCombobox
+                  students={students}
+                  loading={studentsLoading}
+                  value={assignForm.userId}
+                  onSelect={(student) =>
+                    setAssignForm((prev) => ({
                       ...prev,
-                      roleName: event.target.value,
+                      userId: student ? student.id : "",
                     }))
                   }
+                  onSearchChange={fetchStudents}
                 />
               </FormControl>
-              <FormControl>
-                <FormLabel>Description</FormLabel>
-                <Input
-                  value={roleForm.description}
-                  onChange={(event) =>
-                    setRoleForm((prev) => ({
-                      ...prev,
-                      description: event.target.value,
-                    }))
-                  }
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Role Type</FormLabel>
-                <Select
-                  value={roleForm.roleType}
-                  onChange={(event) =>
-                    setRoleForm((prev) => ({
-                      ...prev,
-                      roleType: event.target.value,
-                    }))
-                  }
-                >
-                  {ROLE_TYPE_OPTIONS.map((roleType) => (
-                    <option key={roleType} value={roleType}>
-                      {roleType}
-                    </option>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Access Level</FormLabel>
-                <Select
-                  value={roleForm.accessLevel}
-                  onChange={(event) =>
-                    setRoleForm((prev) => ({
-                      ...prev,
-                      accessLevel: event.target.value,
-                    }))
-                  }
-                >
-                  {ACCESS_LEVEL_OPTIONS.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Permissions (comma separated)</FormLabel>
-                <Input
-                  value={roleForm.permissionsText}
-                  onChange={(event) =>
-                    setRoleForm((prev) => ({
-                      ...prev,
-                      permissionsText: event.target.value,
-                    }))
-                  }
-                  placeholder="COURSE_VIEW, REPORT_VIEW"
-                />
-              </FormControl>
-              <Flex justifyContent="space-between" alignItems="center">
-                <Text fontSize="14px">Active Status</Text>
-                <Switch
-                  isChecked={roleForm.isActive}
-                  onChange={(event) =>
-                    setRoleForm((prev) => ({
-                      ...prev,
-                      isActive: event.target.checked,
-                    }))
-                  }
-                />
-              </Flex>
-            </Flex>
-          </ModalBody>
-          <ModalFooter gap={3}>
-            <Button secondary onClick={roleModal.onClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleRoleSubmit}>
-              {selectedRole ? "Update Role" : "Create Role"}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
 
-      <Modal
-        isOpen={assignmentModal.isOpen}
-        onClose={() => {
-          assignmentModal.onClose();
-          setAssignmentForm(initialAssignmentForm);
-        }}
-        isCentered
-      >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Assign New Role</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Flex direction="column" gap={4}>
-              <FormControl isRequired>
-                <FormLabel>User ID</FormLabel>
-                <Input
-                  value={assignmentForm.userId}
-                  onChange={(event) =>
-                    setAssignmentForm((prev) => ({
-                      ...prev,
-                      userId: event.target.value,
-                    }))
-                  }
-                  placeholder="user-123"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>User Name</FormLabel>
-                <Input
-                  value={assignmentForm.userName}
-                  onChange={(event) =>
-                    setAssignmentForm((prev) => ({
-                      ...prev,
-                      userName: event.target.value,
-                    }))
-                  }
-                  placeholder="Jane Smith"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>User Email</FormLabel>
-                <Input
-                  value={assignmentForm.userEmail}
-                  onChange={(event) =>
-                    setAssignmentForm((prev) => ({
-                      ...prev,
-                      userEmail: event.target.value,
-                    }))
-                  }
-                  placeholder="jane.smith@groomingcentre.com"
-                />
-              </FormControl>
               <FormControl isRequired>
                 <FormLabel>Role</FormLabel>
                 <Select
-                  value={assignmentForm.roleId}
-                  onChange={(event) =>
-                    setAssignmentForm((prev) => ({
-                      ...prev,
-                      roleId: event.target.value,
-                    }))
+                  value={assignForm.roleId}
+                  onChange={(e) =>
+                    setAssignForm((prev) => ({ ...prev, roleId: e.target.value }))
                   }
                 >
                   <option value="">Select role</option>
-                  {roles.map((role) => (
-                    <option key={role.roleId} value={role.roleId}>
-                      {role.name} ({role.roleType})
-                    </option>
-                  ))}
+                  {roles.map((role) => {
+                    const id = role.roleId ?? role.id;
+                    return (
+                      <option key={id} value={id}>
+                        {role.name ?? role.roleName}
+                      </option>
+                    );
+                  })}
                 </Select>
               </FormControl>
+
               <FormControl>
-                <FormLabel>Access Level</FormLabel>
-                <Select
-                  value={assignmentForm.accessLevel}
-                  onChange={(event) =>
-                    setAssignmentForm((prev) => ({
-                      ...prev,
-                      accessLevel: event.target.value,
-                    }))
+                <FormLabel>Reason</FormLabel>
+                <Input
+                  value={assignForm.reason}
+                  onChange={(e) =>
+                    setAssignForm((prev) => ({ ...prev, reason: e.target.value }))
                   }
-                >
-                  {ACCESS_LEVEL_OPTIONS.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                </Select>
+                  placeholder="Reason for assignment (optional)"
+                />
               </FormControl>
             </Flex>
           </ModalBody>
           <ModalFooter gap={3}>
-            <Button secondary onClick={assignmentModal.onClose}>
+            <Button secondary onClick={assignModal.onClose}>
               Cancel
             </Button>
             <Button onClick={handleAssignRole}>Assign Role</Button>

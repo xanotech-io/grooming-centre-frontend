@@ -5,106 +5,44 @@ import {
   Button,
   DashboardMetricCard,
   Spinner,
-  Table,
   Text,
 } from "../../../components";
 import { EmptyState } from "../../../layouts";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { useFetchAndCache, useTableRows } from "../../../hooks";
+import { useFetchAndCache } from "../../../hooks";
 import { adminGetAcademicDashboardMetrics } from "../../../services";
 
 // ---------------------------------------------------------------------------
-// Custom hook - top-level metrics
+// Custom hook
 // ---------------------------------------------------------------------------
 
-const useAcademicMetrics = () => {
-  const { resource: metrics, handleFetchResource } = useFetchAndCache();
+const useAcademicDashboard = (params = {}) => {
+  const { resource, handleFetchResource } = useFetchAndCache();
 
   const fetcher = useCallback(async () => {
-    return await adminGetAcademicDashboardMetrics();
+    return await adminGetAcademicDashboardMetrics(params);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    handleFetchResource({ cacheKey: "academicDashboardMetrics", fetcher });
+    handleFetchResource({ cacheKey: "academicDashboardV2", fetcher });
   }, [handleFetchResource, fetcher]);
 
-  return { metrics };
+  return resource;
 };
-
-// ---------------------------------------------------------------------------
-// Department table config
-// ---------------------------------------------------------------------------
-
-const TABLE_COLUMNS = [
-  { id: "department", key: "department", text: "Department", fraction: "1fr" },
-  {
-    id: "enrollments",
-    key: "enrollments",
-    text: "Enrollments",
-    fraction: "120px",
-  },
-  {
-    id: "completionRate",
-    key: "completionRate",
-    text: "Completion Rate",
-    fraction: "150px",
-  },
-  {
-    id: "passRate",
-    key: "passRate",
-    text: "Pass Rate",
-    fraction: "120px",
-  },
-  {
-    id: "averageGPA",
-    key: "averageGPA",
-    text: "Avg GPA",
-    fraction: "110px",
-  },
-  {
-    id: "certificatesIssued",
-    key: "certificatesIssued",
-    text: "Certificates",
-    fraction: "120px",
-  },
-];
-
-const TABLE_OPTIONS = { action: [], selection: false, pagination: false };
-
-const mapDeptToRow = (dept) => ({
-  id: dept.department,
-  department: dept.department,
-  enrollments: dept.enrollments,
-  completionRate: `${dept.completionRate}%`,
-  passRate: `${dept.passRate}%`,
-  averageGPA: dept.averageGPA?.toFixed(2),
-  certificatesIssued: dept.certificatesIssued,
-});
 
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
 const AcademicMetricsDashboard = () => {
-  const { metrics } = useAcademicMetrics();
-  const m = metrics.data?.metrics;
+  const dashboard = useAcademicDashboard();
+  const d = dashboard.data?.dashboard;
+  const kpis = d?.kpis ?? {};
+  const loading = dashboard.loading;
 
-  const deptFetcher = useCallback(
-    () => async () => {
-      const result = await adminGetAcademicDashboardMetrics();
-      const rows = (result.metrics?.byDepartment ?? []).map(mapDeptToRow);
-      return {
-        rows,
-        showingDocumentsCount: rows.length,
-        totalDocumentsCount: rows.length,
-        currentPage: 1,
-        totalPages: 1,
-      };
-    },
-    []
-  );
-
-  const { rows, setRows, fetchRowItems } = useTableRows(deptFetcher);
+  const fmt = (val, suffix = "") =>
+    loading ? "..." : val != null ? `${val}${suffix}` : "—";
 
   return (
     <AdminMainAreaWrapper>
@@ -112,106 +50,87 @@ const AcademicMetricsDashboard = () => {
         <Text fontSize="heading.h3" bold>
           Academic Metrics Dashboard
         </Text>
+        {d?.lastUpdated && (
+          <Text fontSize="sm" color="gray.500" mt={1}>
+            Last updated: {new Date(d.lastUpdated).toLocaleString()}
+          </Text>
+        )}
       </Box>
 
-      {/* Primary metric cards */}
-      <Box display="flex" justifyContent="space-between" gridGap={4} mb={6}>
-        <DashboardMetricCard
-          title="Total Enrollments"
-          value={metrics.loading ? "..." : String(m?.totalEnrollments ?? "—")}
-          change="all academic programmes"
-          changeColor="#0083E2"
-        />
-        <DashboardMetricCard
-          title="Active Students"
-          value={metrics.loading ? "..." : String(m?.activeStudents ?? "—")}
-          change="currently enrolled"
-          changeColor="#1A8F3A"
-        />
-        <DashboardMetricCard
-          title="Completion Rate"
-          value={
-            metrics.loading ? "..." : `${m?.completionRate ?? "—"}%`
-          }
-          change="of enrolled students"
-          changeColor="#1A8F3A"
-        />
-        <DashboardMetricCard
-          title="Pass Rate"
-          value={metrics.loading ? "..." : `${m?.passRate ?? "—"}%`}
-          change="of completions"
-          changeColor="#1A8F3A"
-        />
-      </Box>
-
-      {/* Secondary metric cards */}
-      <Box display="flex" justifyContent="space-between" gridGap={4} mb={10}>
-        <DashboardMetricCard
-          title="Average GPA"
-          value={
-            metrics.loading
-              ? "..."
-              : m?.averageGPA?.toFixed(2) ?? "—"
-          }
-          change="institution-wide"
-          changeColor="#1A8F3A"
-        />
-        <DashboardMetricCard
-          title="Certificates Issued"
-          value={
-            metrics.loading ? "..." : String(m?.certificatesIssued ?? "—")
-          }
-          change="this academic year"
-          changeColor="#6B006B"
-        />
-        <DashboardMetricCard
-          title="At-Risk Students"
-          value={metrics.loading ? "..." : String(m?.atRiskStudents ?? "—")}
-          change="require intervention"
-          changeColor="#D97706"
-        />
-        <DashboardMetricCard
-          title="Failing Students"
-          value={metrics.loading ? "..." : String(m?.failingStudents ?? "—")}
-          change="below passing threshold"
-          changeColor="#E53E3E"
-        />
-      </Box>
-
-      {/* Department breakdown */}
-      <Box mb={4}>
-        <Text fontSize="heading.h4" bold>
-          Performance by Department
-        </Text>
-      </Box>
-
-      {metrics.loading && !rows?.data?.rows?.length ? (
-        <Flex
-          h="300px"
-          justifyContent="center"
-          alignItems="center"
-          flexDirection="column"
-        >
-          <Spinner size="xl" />
-          <Text mt={4}>Loading metrics...</Text>
-        </Flex>
-      ) : metrics.err ? (
+      {dashboard.err ? (
         <EmptyState
-          heading="Failed to load academic metrics"
-          description={metrics.err}
-          cta={<Button onClick={fetchRowItems}>Try Again</Button>}
+          heading="Failed to load academic dashboard"
+          description={dashboard.err}
+          cta={
+            <Button
+              onClick={() =>
+                dashboard.handleFetchResource?.({
+                  cacheKey: "academicDashboardV2",
+                })
+              }
+            >
+              Try Again
+            </Button>
+          }
         />
+      ) : loading ? (
+        <Flex h="300px" justifyContent="center" alignItems="center" flexDirection="column">
+          <Spinner size="xl" />
+          <Text mt={4}>Loading academic dashboard...</Text>
+        </Flex>
       ) : (
-        <Table
-          columns={TABLE_COLUMNS}
-          options={TABLE_OPTIONS}
-          rows={rows}
-          setRows={setRows}
-          handleFetch={fetchRowItems}
-          isLoading={metrics.loading}
-          placeholder="Search by department"
-          totalCount={m?.byDepartment?.length ?? 0}
-        />
+        <>
+          {/* Row 1 */}
+          <Box display="flex" justifyContent="space-between" gridGap={4} mb={4}>
+            <DashboardMetricCard
+              title="Total Courses"
+              value={fmt(kpis.totalCourses)}
+              change="active academic programmes"
+              changeColor="#0083E2"
+            />
+            <DashboardMetricCard
+              title="Enrollment Count"
+              value={fmt(kpis.courseEnrollmentCount)}
+              change="total course enrollments"
+              changeColor="#0083E2"
+            />
+            <DashboardMetricCard
+              title="Completion Rate"
+              value={fmt(kpis.courseCompletionRate, "%")}
+              change="learners completed / total enrolled"
+              changeColor="#1A8F3A"
+            />
+            <DashboardMetricCard
+              title="Average Score"
+              value={fmt(kpis.averageScore, "%")}
+              change="institution-wide average"
+              changeColor="#1A8F3A"
+            />
+          </Box>
+
+          {/* Row 2 */}
+          <Box display="flex" justifyContent="space-between" gridGap={4} mb={10}>
+            <DashboardMetricCard
+              title="Certificates Issued"
+              value={fmt(kpis.certificateIssuedCount)}
+              change="this academic year"
+              changeColor="#6B006B"
+            />
+            <DashboardMetricCard
+              title="Exam Attempts"
+              value={fmt(kpis.examAttempts)}
+              change="total exam sittings"
+              changeColor="#0083E2"
+            />
+            <DashboardMetricCard
+              title="Exam Pass Rate"
+              value={fmt(kpis.examPassRate, "%")}
+              change="passed exams / total attempts"
+              changeColor="#1A8F3A"
+            />
+            <Box flex={1} />
+          </Box>
+        </>
       )}
     </AdminMainAreaWrapper>
   );

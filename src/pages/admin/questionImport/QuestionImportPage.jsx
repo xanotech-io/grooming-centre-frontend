@@ -367,9 +367,9 @@ const QuestionImportPage = () => {
             Required CSV columns:
           </Text>
           <Text fontSize="12px" color="#2C5282">
-            {template.requiredColumns.join(", ")}{" "}
+            {template.requiredColumns?.join(", ")}{" "}
             <Text as="span" color="#718096">
-              + optional: {template.optionalColumns.join(", ")}
+              + optional: {template.optionalColumns?.join(", ")}
             </Text>
           </Text>
           <Text fontSize="12px" color="#718096" mt="4px">

@@ -361,7 +361,7 @@ const ScheduledReportingScreen = () => {
       return;
     }
     setSaving(true);
-    const body = { ...form, recipients };
+    const body = { ...form, recipientEmails: recipients };
     const { schedule, message, isMock } = await tc20CreateSchedule(body);
     if (schedule) {
       setSchedules((prev) => [{ ...schedule, status: "active" }, ...prev]);

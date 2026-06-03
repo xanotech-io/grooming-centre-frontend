@@ -11,8 +11,6 @@ import {
   FaFolderOpen,
   FaSitemap,
   FaClone,
-  FaDownload,
-  FaDatabase,
 } from "react-icons/fa";
 import {
   FiAward,
@@ -335,26 +333,26 @@ export const links = [
     text: "Document Verification",
     icon: <FaFolderOpen />,
   },
-  {
-    href: "/admin/report-export",
-    text: "Report Exports",
-    icon: <FaDownload />,
-  },
+  // {
+  //   href: "/admin/report-export",
+  //   text: "Report Exports",
+  //   icon: <FaDownload />,
+  // },
   {
     href: "/admin/question-import",
     text: "Question Upload",
     icon: <TiPen />,
   },
-  {
-    href: "/admin/question-bank-templates",
-    text: "Question Bank Templates",
-    icon: <TiPen />,
-  },
-  {
-    href: "/admin/data-operations",
-    text: "Data Operations",
-    icon: <FaDatabase />,
-  },
+  // {
+  //   href: "/admin/question-bank-templates",
+  //   text: "Question Bank Templates",
+  //   icon: <TiPen />,
+  // },
+  // {
+  //   href: "/admin/data-operations",
+  //   text: "Data Operations",
+  //   icon: <FaDatabase />,
+  // },
   {
     href: "/admin/badge-support",
     text: "Badge Support",

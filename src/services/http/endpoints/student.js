@@ -1,5 +1,14 @@
 import { http } from "../http";
 
+export const adminGetStudents = async (params = {}) => {
+  const { data } = await http.get('/v1/admin/students', { params });
+  const d = data?.data ?? {};
+  return {
+    students: d.rows ?? (Array.isArray(d) ? d : []),
+    count: d.count ?? 0,
+  };
+};
+
 /**
  * TC01 – Progress Report
  * GET /v2/students/{studentId}/progress

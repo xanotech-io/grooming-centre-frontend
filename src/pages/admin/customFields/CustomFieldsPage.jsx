@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Route } from "react-router-dom";
 import {
   Box,
@@ -47,7 +47,7 @@ import {
   Checkbox,
   CheckboxGroup,
 } from "@chakra-ui/react";
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiRefreshCw } from "react-icons/fi";
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiRefreshCw, FiChevronDown, FiX } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
   getCustomFieldsKpis,
@@ -56,6 +56,8 @@ import {
   updateCustomField,
   deleteCustomField,
   getEntityFieldValues,
+  adminGetStudents,
+  adminGetCourseListing,
 } from "../../../services";
 
 const MOCK_KPIS = {
@@ -509,6 +511,180 @@ function FieldFormModal({ isOpen, onClose, editField, onSaved }) {
   );
 }
 
+// Generic searchable combobox — fetches options via fetchFn(query)
+// Each option must have { id, label, sublabel? }
+function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
+  const [inputValue, setInputValue] = useState("");
+  const [options, setOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  const selectedOption = options.find((o) => o.id === value) ?? null;
+
+  const filtered = useMemo(() => {
+    if (!inputValue || selectedOption) return options;
+    const q = inputValue.toLowerCase();
+    return options.filter(
+      (o) =>
+        o.label.toLowerCase().includes(q) ||
+        (o.sublabel ?? "").toLowerCase().includes(q),
+    );
+  }, [options, inputValue, selectedOption]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const doFetch = useCallback(
+    async (query) => {
+      setLoading(true);
+      try {
+        const results = await fetchFn(query);
+        setOptions(results);
+      } catch {
+        setOptions([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchFn],
+  );
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputValue(val);
+    if (value) onSelect(null);
+    setIsOpen(true);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doFetch(val), 350);
+  };
+
+  const handleFocus = () => {
+    if (!selectedOption) {
+      setIsOpen(true);
+      if (options.length === 0) doFetch("");
+    }
+  };
+
+  const handleSelect = (opt) => {
+    onSelect(opt);
+    setInputValue("");
+    setIsOpen(false);
+  };
+
+  const handleClear = () => {
+    onSelect(null);
+    setInputValue("");
+    setOptions([]);
+    setIsOpen(false);
+  };
+
+  return (
+    <Box ref={containerRef} position="relative" flex="1" maxW="320px">
+      <Flex
+        border="1px solid"
+        borderColor="gray.200"
+        borderRadius="md"
+        alignItems="center"
+        px={2}
+        bg="white"
+        h="32px"
+        _focusWithin={{ borderColor: "blue.500", boxShadow: "0 0 0 1px #3182ce" }}
+      >
+        <Input
+          border="none"
+          px={0}
+          size="sm"
+          h="auto"
+          _focus={{ boxShadow: "none" }}
+          value={
+            selectedOption
+              ? `${selectedOption.label}${selectedOption.sublabel ? ` — ${selectedOption.sublabel}` : ""}`
+              : inputValue
+          }
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          placeholder={placeholder || "Search..."}
+          readOnly={!!selectedOption}
+        />
+        {loading && <Spinner size="xs" color="gray.400" mr={1} />}
+        {selectedOption ? (
+          <Box
+            as="button"
+            type="button"
+            onClick={handleClear}
+            color="gray.400"
+            _hover={{ color: "gray.600" }}
+            ml={1}
+            flexShrink={0}
+          >
+            <FiX size={12} />
+          </Box>
+        ) : (
+          <Box color="gray.400" ml={1} flexShrink={0}>
+            <FiChevronDown size={12} />
+          </Box>
+        )}
+      </Flex>
+
+      {isOpen && (
+        <Box
+          position="absolute"
+          top="calc(100% + 4px)"
+          left={0}
+          right={0}
+          bg="white"
+          border="1px solid #E2E8F0"
+          borderRadius="md"
+          boxShadow="md"
+          zIndex={1500}
+          maxH="220px"
+          overflowY="auto"
+        >
+          {loading && (
+            <Flex alignItems="center" gap={2} px={3} py={2}>
+              <Spinner size="xs" />
+              <Text fontSize="12px" color="gray.500">Loading...</Text>
+            </Flex>
+          )}
+          {!loading && filtered.length === 0 && (
+            <Text fontSize="12px" color="gray.500" px={3} py={2}>
+              No results found
+            </Text>
+          )}
+          {!loading &&
+            filtered.map((opt) => (
+              <Box
+                key={opt.id}
+                px={3}
+                py="6px"
+                cursor="pointer"
+                _hover={{ bg: "blue.50" }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSelect(opt);
+                }}
+              >
+                <Text fontSize="13px" fontWeight="500">{opt.label}</Text>
+                {opt.sublabel && (
+                  <Text fontSize="11px" color="gray.500">{opt.sublabel}</Text>
+                )}
+              </Box>
+            ))}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 function EntityValuesLookup() {
   const toast = useToast();
   const [entityType, setEntityType] = useState("user_profile");
@@ -516,33 +692,41 @@ function EntityValuesLookup() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
 
+  const fetchStudentOptions = useCallback(async (search) => {
+    const res = await adminGetStudents({ search, page: 1, length: 50 });
+    return res.students.map((s) => ({
+      id: s.id,
+      label: `${s.firstName} ${s.lastName}`,
+      sublabel: s.email,
+    }));
+  }, []);
+
+  const fetchCourseOptions = useCallback(async (search) => {
+    const res = await adminGetCourseListing({ search, limit: 50 });
+    return res.courses.map((c) => ({
+      id: c.id,
+      label: c.title,
+      sublabel: c.displayId ?? null,
+    }));
+  }, []);
+
+  const handleEntityTypeChange = (e) => {
+    setEntityType(e.target.value);
+    setEntityId("");
+    setResult(null);
+  };
+
   const handleLookup = async () => {
-    if (!entityId.trim()) {
-      toast({ title: "Entity ID is required", status: "warning", duration: 3000 });
+    if (!entityId) {
+      toast({ title: "Please select an entity first", status: "warning", duration: 3000 });
       return;
     }
     setLoading(true);
     try {
-      const res = await getEntityFieldValues(entityType, entityId.trim());
-      const payload = res?.data || res;
-      setResult(payload);
+      const res = await getEntityFieldValues(entityType, entityId);
+      setResult(res?.data || res);
     } catch {
-      toast({ title: "Lookup failed — showing mock data", status: "warning", duration: 3000 });
-      setResult({
-        entityId: entityId.trim(),
-        entityType,
-        custom_fields: [
-          {
-            id: "mock-val-1",
-            fieldId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-            value: "EMP-123456",
-            updatedAt: new Date().toISOString(),
-            field: { fieldName: "Employee ID", fieldType: "text", status: "active" },
-            editor: { firstName: "John", lastName: "Doe" },
-          },
-        ],
-        summary: { total_fields: 3, active_fields: 3 },
-      });
+      toast({ title: "Lookup failed", status: "error", duration: 3000 });
     } finally {
       setLoading(false);
     }
@@ -551,31 +735,42 @@ function EntityValuesLookup() {
   return (
     <Box>
       <Text fontSize="sm" color="gray.600" mb={4}>
-        Enter an entity type and ID to look up all stored custom field values for that entity.
+        Select an entity type and choose a record to look up all stored custom field values.
       </Text>
-      <Flex gap={3} mb={4} flexWrap="wrap">
+      <Flex gap={3} mb={4} flexWrap="wrap" alignItems="flex-end">
         <Select
           size="sm"
           value={entityType}
-          onChange={(e) => setEntityType(e.target.value)}
+          onChange={handleEntityTypeChange}
           maxW="200px"
         >
           <option value="user_profile">User Profile</option>
           <option value="course">Course</option>
         </Select>
-        <Input
-          size="sm"
-          placeholder="Entity UUID"
-          value={entityId}
-          onChange={(e) => setEntityId(e.target.value)}
-          maxW="320px"
-        />
+        {entityType === "user_profile" ? (
+          <EntityCombobox
+            key="user_profile"
+            fetchFn={fetchStudentOptions}
+            value={entityId}
+            onSelect={(opt) => setEntityId(opt ? opt.id : "")}
+            placeholder="Search student by name or email..."
+          />
+        ) : (
+          <EntityCombobox
+            key="course"
+            fetchFn={fetchCourseOptions}
+            value={entityId}
+            onSelect={(opt) => setEntityId(opt ? opt.id : "")}
+            placeholder="Search course by title..."
+          />
+        )}
         <Button
           size="sm"
           colorScheme="blue"
           leftIcon={<FiSearch />}
           onClick={handleLookup}
           isLoading={loading}
+          isDisabled={!entityId}
         >
           Lookup
         </Button>

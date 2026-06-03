@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Route } from "react-router-dom";
 import {
   Box,
@@ -51,7 +51,7 @@ import {
   StatNumber,
   StatHelpText,
 } from "@chakra-ui/react";
-import { FiRefreshCw, FiEye, FiCheck, FiRotateCcw, FiUpload, FiSearch } from "react-icons/fi";
+import { FiRefreshCw, FiEye, FiCheck, FiRotateCcw, FiUpload, FiSearch, FiChevronDown, FiX } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
   listTranscriptRequests,
@@ -59,6 +59,7 @@ import {
   reviewTranscript,
   postExamCompletion,
   getDepartmentTranscriptAnalytics,
+  adminGetDepartmentListing,
 } from "../../../services";
 
 const MOCK_TRANSCRIPTS = [
@@ -177,28 +178,6 @@ const MOCK_SUMMARY = {
   certificationRatio: 50.0,
 };
 
-const MOCK_DEPT_ANALYTICS = {
-  departmentId: "uuid-dept-1",
-  departmentName: "Microfinance Department",
-  departmentPerformance: {
-    totalStudents: 250,
-    completedTranscripts: 210,
-    averageExamScore: 76.5,
-    passRate: 84.0,
-    failedRate: 16.0,
-  },
-  transcriptActivity: {
-    weeklyTranscriptUpdates: 45,
-    monthlyTranscriptUpdates: 180,
-    transcriptDiscrepancies: 3,
-  },
-  studentTranscripts: [
-    { transcriptId: "a1b2c3d4", studentId: "uuid-s1", examType: "course", completionStatus: "Passed" },
-    { transcriptId: "b2c3d4e5", studentId: "uuid-s2", examType: "standalone", completionStatus: "Completed" },
-    { transcriptId: "c3d4e5f6", studentId: "uuid-s3", examType: "course", completionStatus: "Passed" },
-    { transcriptId: "d4e5f6a7", studentId: "uuid-s4", examType: "course", completionStatus: "Failed" },
-  ],
-};
 
 const STATUS_COLORS = {
   "Pending Review": "orange",
@@ -594,21 +573,87 @@ function TranscriptDetailDrawer({ isOpen, onClose, transcriptId, onReviewed }) {
 function DepartmentAnalyticsPanel() {
   const toast = useToast();
   const [deptId, setDeptId] = useState("");
+  const [deptName, setDeptName] = useState("");
   const [loading, setLoading] = useState(false);
   const [analytics, setAnalytics] = useState(null);
 
+  // Department dropdown state
+  const [departments, setDepartments] = useState([]);
+  const [deptSearch, setDeptSearch] = useState("");
+  const [deptLoading, setDeptLoading] = useState(false);
+  const [deptOpen, setDeptOpen] = useState(false);
+  const deptContainerRef = useRef(null);
+  const deptDebounceRef = useRef(null);
+
+  const filteredDepts = departments.filter((d) =>
+    !deptSearch || d.name.toLowerCase().includes(deptSearch.toLowerCase()),
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (deptContainerRef.current && !deptContainerRef.current.contains(e.target)) {
+        setDeptOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const loadDepartments = useCallback(async (search = "") => {
+    setDeptLoading(true);
+    try {
+      const res = await adminGetDepartmentListing({ search });
+      setDepartments(res.departments ?? []);
+    } catch {
+      setDepartments([]);
+    } finally {
+      setDeptLoading(false);
+    }
+  }, []);
+
+  const handleDeptInputChange = (e) => {
+    const val = e.target.value;
+    setDeptSearch(val);
+    if (deptId) { setDeptId(""); setDeptName(""); setAnalytics(null); }
+    setDeptOpen(true);
+    clearTimeout(deptDebounceRef.current);
+    deptDebounceRef.current = setTimeout(() => loadDepartments(val), 350);
+  };
+
+  const handleDeptFocus = () => {
+    if (!deptId) {
+      setDeptOpen(true);
+      if (departments.length === 0) loadDepartments("");
+    }
+  };
+
+  const handleDeptSelect = (dept) => {
+    setDeptId(dept.id);
+    setDeptName(dept.name);
+    setDeptSearch("");
+    setDeptOpen(false);
+    setAnalytics(null);
+  };
+
+  const handleDeptClear = () => {
+    setDeptId("");
+    setDeptName("");
+    setDeptSearch("");
+    setAnalytics(null);
+    setDeptOpen(false);
+  };
+
   const handleFetch = async () => {
-    if (!deptId.trim()) {
-      toast({ title: "Department ID is required", status: "warning", duration: 3000 });
+    if (!deptId) {
+      toast({ title: "Please select a department", status: "warning", duration: 3000 });
       return;
     }
     setLoading(true);
     try {
-      const res = await getDepartmentTranscriptAnalytics(deptId.trim());
+      const res = await getDepartmentTranscriptAnalytics(deptId);
       setAnalytics(res?.data || res);
     } catch {
-      toast({ title: "API failed — showing mock data", status: "warning", duration: 3000 });
-      setAnalytics(MOCK_DEPT_ANALYTICS);
+      toast({ title: "Failed to load analytics", status: "error", duration: 3000 });
     } finally {
       setLoading(false);
     }
@@ -619,10 +664,94 @@ function DepartmentAnalyticsPanel() {
 
   return (
     <Box>
-      <Text fontSize="sm" color="gray.600" mb={4}>Enter a department ID to load aggregated transcript and performance analytics for all students in that department.</Text>
-      <Flex gap={3} mb={6}>
-        <Input size="sm" placeholder="Department UUID" value={deptId} onChange={(e) => setDeptId(e.target.value)} maxW="320px" fontFamily="mono" />
-        <Button size="sm" colorScheme="blue" leftIcon={<FiSearch />} onClick={handleFetch} isLoading={loading}>
+      <Text fontSize="sm" color="gray.600" mb={4}>
+        Select a department to load aggregated transcript and performance analytics for all students in that department.
+      </Text>
+      <Flex gap={3} mb={6} alignItems="center">
+        {/* Department combobox */}
+        <Box ref={deptContainerRef} position="relative" flex="1" maxW="320px">
+          <Flex
+            border="1px solid"
+            borderColor="gray.200"
+            borderRadius="md"
+            alignItems="center"
+            px={2}
+            bg="white"
+            h="32px"
+            _focusWithin={{ borderColor: "blue.500", boxShadow: "0 0 0 1px #3182ce" }}
+          >
+            <Input
+              border="none"
+              px={0}
+              size="sm"
+              h="auto"
+              _focus={{ boxShadow: "none" }}
+              value={deptId ? deptName : deptSearch}
+              onChange={handleDeptInputChange}
+              onFocus={handleDeptFocus}
+              placeholder="Search department..."
+              readOnly={!!deptId}
+            />
+            {deptLoading && <Spinner size="xs" color="gray.400" mr={1} />}
+            {deptId ? (
+              <Box
+                as="button"
+                type="button"
+                onClick={handleDeptClear}
+                color="gray.400"
+                _hover={{ color: "gray.600" }}
+                ml={1}
+                flexShrink={0}
+              >
+                <FiX size={12} />
+              </Box>
+            ) : (
+              <Box color="gray.400" ml={1} flexShrink={0}>
+                <FiChevronDown size={12} />
+              </Box>
+            )}
+          </Flex>
+
+          {deptOpen && (
+            <Box
+              position="absolute"
+              top="calc(100% + 4px)"
+              left={0}
+              right={0}
+              bg="white"
+              border="1px solid #E2E8F0"
+              borderRadius="md"
+              boxShadow="md"
+              zIndex={1500}
+              maxH="220px"
+              overflowY="auto"
+            >
+              {deptLoading && (
+                <Flex alignItems="center" gap={2} px={3} py={2}>
+                  <Spinner size="xs" />
+                  <Text fontSize="12px" color="gray.500">Loading...</Text>
+                </Flex>
+              )}
+              {!deptLoading && filteredDepts.length === 0 && (
+                <Text fontSize="12px" color="gray.500" px={3} py={2}>No departments found</Text>
+              )}
+              {!deptLoading && filteredDepts.map((dept) => (
+                <Box
+                  key={dept.id}
+                  px={3}
+                  py="6px"
+                  cursor="pointer"
+                  _hover={{ bg: "blue.50" }}
+                  onMouseDown={(e) => { e.preventDefault(); handleDeptSelect(dept); }}
+                >
+                  <Text fontSize="13px" fontWeight="500">{dept.name}</Text>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
+
+        <Button size="sm" colorScheme="blue" leftIcon={<FiSearch />} onClick={handleFetch} isLoading={loading} isDisabled={!deptId}>
           Load Analytics
         </Button>
       </Flex>

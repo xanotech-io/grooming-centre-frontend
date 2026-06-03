@@ -36,7 +36,7 @@ const ViewAudit = () => {
     setError(null);
     
     try {
-      const response = await http.get('/admin/user-audit', { params });
+      const response = await http.get('/v1/admin/user-audit', { params });
 
       // Transform the data to match table format
       const rows = response.data.data.rows?.map(mapAuditToRow) || [];
@@ -91,7 +91,7 @@ const ViewAudit = () => {
   const deleteAuditLog = async (auditId) => {
     try {
       setIsDeleting(true);
-      await http.delete(`/admin/user-audit/${auditId}`);
+      await http.delete(`/v1/admin/user-audit/${auditId}`);
       
       toast({
         description: 'Audit log deleted successfully',
@@ -121,7 +121,7 @@ const ViewAudit = () => {
 
     try {
       setIsDeleting(true);
-      await http.delete('/admin/user-audit');
+      await http.delete('/v1/admin/user-audit');
       
       toast({
         description: 'All audit logs deleted successfully',
