@@ -28,7 +28,7 @@ const DocumentFilters = ({
   >
     <Box flex="1" minW="200px">
       <Text fontSize="12px" color="gray.500" mb="4px">
-        Student ID
+        Student ID (optional)
       </Text>
       <Flex gap="8px">
         <Input
@@ -60,9 +60,9 @@ const DocumentFilters = ({
         borderRadius="6px"
       >
         <option value="">All Statuses</option>
-        <option value="PENDING">Pending</option>
-        <option value="VERIFIED">Verified</option>
-        <option value="REJECTED">Rejected</option>
+        <option value="pending">Pending</option>
+        <option value="verified">Verified</option>
+        <option value="rejected">Rejected</option>
       </Select>
     </Box>
 
@@ -77,10 +77,11 @@ const DocumentFilters = ({
         borderRadius="6px"
       >
         <option value="">All Types</option>
-        <option value="CERTIFICATE">Certificate</option>
-        <option value="REGISTRATION_SHEET">Registration Sheet</option>
-        <option value="EVALUATION_FORM">Evaluation Form</option>
-        <option value="IDENTITY_DOCUMENT">Identity Document</option>
+        <option value="certificate">Certificate</option>
+        <option value="registration_sheet">Registration Sheet</option>
+        <option value="evaluation_form">Evaluation Form</option>
+        <option value="attendance_record">Attendance Record</option>
+        <option value="other">Other</option>
       </Select>
     </Box>
   </Flex>
