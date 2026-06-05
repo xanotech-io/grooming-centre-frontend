@@ -76,6 +76,7 @@ export * from "./http/endpoints/enrollmentStatusReport";
 export * from "./http/endpoints/auditTrailV2";
 export * from "./http/endpoints/scheduledReporting";
 export * from "./http/endpoints/studentReportingModule";
+export * from "./http/endpoints/examinationRecords";
 export * from "./http/endpoints/examNotifications";
 export * from "./http/endpoints/assessmentAnalytics";
 export * from "./http/endpoints/customFields";
