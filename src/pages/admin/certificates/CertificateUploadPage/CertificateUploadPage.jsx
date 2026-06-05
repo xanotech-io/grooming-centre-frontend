@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Route } from "react-router-dom";
-import { Box, Flex, Text, Badge, useDisclosure, useToast } from "@chakra-ui/react";
+import { Box, Flex, Badge, useDisclosure, useToast } from "@chakra-ui/react";
 import { useFetch } from "../../../../hooks";
 import {
   adminGetPendingDocuments,
-  adminGetUserDocuments,
+  adminGetAllDocuments,
   adminDeleteDocument,
+  adminGetDocumentKpis,
 } from "../../../../services";
 
 import PageHeader from "./components/PageHeader";
@@ -58,14 +59,17 @@ const CertificateUploadPage = () => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState(TAB_PENDING);
 
+  // KPI stats
+  const { resource: kpiResource, handleFetchResource: fetchKpis } = useFetch();
+
   // Pending tab state
   const { resource: pendingResource, handleFetchResource: fetchPending } = useFetch();
   const [pendingPage, setPendingPage] = useState(1);
 
   // All-docs tab state
   const { resource: allResource, handleFetchResource: fetchAll } = useFetch();
-  const [userIdInput, setUserIdInput] = useState("");
-  const [searchedUserId, setSearchedUserId] = useState("");
+  const [studentIdInput, setStudentIdInput] = useState("");
+  const [studentIdFilter, setStudentIdFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [allPage, setAllPage] = useState(1);
@@ -77,12 +81,16 @@ const CertificateUploadPage = () => {
   const rejectModal = useDisclosure();
   const [selectedDoc, setSelectedDoc] = useState(null);
 
+  // ── KPI fetcher ──────────────────────────────────────────────────────────
+  const kpiFetcher = useCallback(() => adminGetDocumentKpis(), []);
+
+  useEffect(() => {
+    fetchKpis({ fetcher: kpiFetcher });
+  }, [fetchKpis, kpiFetcher]);
+
   // ── Pending fetcher ──────────────────────────────────────────────────────
   const pendingFetcher = useCallback(
-    async () => {
-      const result = await adminGetPendingDocuments({ page: pendingPage, limit: 10 });
-      return result;
-    },
+    () => adminGetPendingDocuments({ page: pendingPage, limit: 10 }),
     [pendingPage],
   );
 
@@ -91,17 +99,13 @@ const CertificateUploadPage = () => {
   }, [activeTab, fetchPending, pendingFetcher]);
 
   // ── All-docs fetcher ─────────────────────────────────────────────────────
-  const allFetcher = useCallback(
-    async () => {
-      if (!searchedUserId) return { documents: [], pagination: {} };
-      const params = { page: allPage, limit: 10 };
-      if (statusFilter) params.verificationStatus = statusFilter;
-      if (typeFilter) params.documentType = typeFilter;
-      const result = await adminGetUserDocuments(searchedUserId, params);
-      return result;
-    },
-    [searchedUserId, allPage, statusFilter, typeFilter],
-  );
+  const allFetcher = useCallback(() => {
+    const params = { page: allPage, limit: 10 };
+    if (statusFilter) params.status = statusFilter;
+    if (typeFilter) params.documentType = typeFilter;
+    if (studentIdFilter) params.studentId = studentIdFilter;
+    return adminGetAllDocuments(params);
+  }, [allPage, statusFilter, typeFilter, studentIdFilter]);
 
   useEffect(() => {
     if (activeTab === TAB_ALL) fetchAll({ fetcher: allFetcher });
@@ -116,16 +120,15 @@ const CertificateUploadPage = () => {
   const allPagination = allResource.data?.pagination ?? {};
 
   const stats = {
-    total: (pendingSummary.totalPending ?? 0) + (pendingDocs.filter((d) => d.verificationStatus === "VERIFIED").length),
-    verified: pendingDocs.filter((d) => d.verificationStatus === "VERIFIED").length,
-    pending: pendingSummary.totalPending ?? pendingDocs.filter((d) => d.verificationStatus === "PENDING").length,
-    rejected: pendingDocs.filter((d) => d.verificationStatus === "REJECTED").length,
+    total: kpiResource.data?.totalDocuments ?? 0,
+    verified: kpiResource.data?.verified ?? 0,
+    pending: kpiResource.data?.pending ?? 0,
+    rejected: kpiResource.data?.rejected ?? 0,
   };
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleSearch = () => {
-    if (!userIdInput.trim()) return;
-    setSearchedUserId(userIdInput.trim());
+    setStudentIdFilter(studentIdInput.trim());
     setAllPage(1);
   };
 
@@ -143,6 +146,7 @@ const CertificateUploadPage = () => {
   };
 
   const refreshCurrentTab = () => {
+    fetchKpis({ fetcher: kpiFetcher });
     if (activeTab === TAB_PENDING) fetchPending({ fetcher: pendingFetcher });
     else fetchAll({ fetcher: allFetcher });
   };
@@ -195,34 +199,25 @@ const CertificateUploadPage = () => {
         {activeTab === TAB_ALL && (
           <>
             <DocumentFilters
-              userIdInput={userIdInput}
-              onUserIdChange={setUserIdInput}
+              userIdInput={studentIdInput}
+              onUserIdChange={setStudentIdInput}
               onSearch={handleSearch}
               statusFilter={statusFilter}
               onStatusChange={(v) => { setStatusFilter(v); setAllPage(1); }}
               typeFilter={typeFilter}
               onTypeChange={(v) => { setTypeFilter(v); setAllPage(1); }}
             />
-
-            {!searchedUserId ? (
-              <Flex justifyContent="center" py="48px" direction="column" alignItems="center" gap="8px">
-                <Text color="gray.400" fontSize="14px">
-                  Enter a Student ID above to view their documents.
-                </Text>
-              </Flex>
-            ) : (
-              <DocumentTable
-                documents={allDocs}
-                loading={allResource.loading}
-                error={allResource.err}
-                emptyMessage="No documents found for this student."
-                pagination={allPagination}
-                page={allPage}
-                onPageChange={setAllPage}
-                onView={openView}
-                onDelete={handleDelete}
-              />
-            )}
+            <DocumentTable
+              documents={allDocs}
+              loading={allResource.loading}
+              error={allResource.err}
+              emptyMessage="No documents found."
+              pagination={allPagination}
+              page={allPage}
+              onPageChange={setAllPage}
+              onView={openView}
+              onDelete={handleDelete}
+            />
           </>
         )}
       </Box>

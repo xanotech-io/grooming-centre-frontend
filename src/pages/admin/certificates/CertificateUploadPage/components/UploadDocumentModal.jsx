@@ -27,7 +27,7 @@ import {
 } from "../../../../../services";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-const ACCEPTED_TYPES = ".pdf,.jpg,.jpeg,.png,.doc,.docx";
+const ACCEPTED_TYPES = ".pdf,.jpg,.jpeg,.png,.xlsx,.xls";
 
 const INITIAL_FORM = {
   userId: "",
@@ -79,7 +79,7 @@ const UploadDocumentModal = ({ isOpen, onClose, onSuccess }) => {
       return;
     }
     const ext = file.name.split(".").pop().toUpperCase();
-    const detectedFormat = ["PDF", "JPG", "JPEG", "PNG", "DOC", "DOCX"].includes(ext)
+    const detectedFormat = ["PDF", "JPG", "JPEG", "PNG", "XLSX", "XLS"].includes(ext)
       ? (ext === "JPEG" ? "JPG" : ext)
       : form.fileFormat;
     setForm((prev) => ({
@@ -193,10 +193,11 @@ const UploadDocumentModal = ({ isOpen, onClose, onSuccess }) => {
                 borderRadius="6px"
                 placeholder="Select type"
               >
-                <option value="CERTIFICATE">Certificate</option>
-                <option value="REGISTRATION_SHEET">Registration Sheet</option>
-                <option value="EVALUATION_FORM">Evaluation Form</option>
-                <option value="IDENTITY_DOCUMENT">Identity Document</option>
+                <option value="certificate">Certificate</option>
+                <option value="registration_sheet">Registration Sheet</option>
+                <option value="evaluation_form">Evaluation Form</option>
+                <option value="attendance_record">Attendance Record</option>
+                <option value="other">Other</option>
               </Select>
             </FormControl>
 
@@ -214,8 +215,8 @@ const UploadDocumentModal = ({ isOpen, onClose, onSuccess }) => {
                 <option value="PDF">PDF</option>
                 <option value="JPG">JPG</option>
                 <option value="PNG">PNG</option>
-                <option value="DOC">DOC</option>
-                <option value="DOCX">DOCX</option>
+                <option value="XLSX">XLSX</option>
+                <option value="XLS">XLS</option>
               </Select>
             </FormControl>
 
@@ -275,7 +276,7 @@ const UploadDocumentModal = ({ isOpen, onClose, onSuccess }) => {
                 <FormErrorMessage fontSize="11px">{form.fileError}</FormErrorMessage>
               ) : (
                 <FormHelperText fontSize="11px">
-                  Accepted: PDF, JPG, PNG, DOC, DOCX — max 10 MB
+                  Accepted: PDF, JPG, PNG, XLSX, XLS — max 10 MB
                 </FormHelperText>
               )}
             </FormControl>

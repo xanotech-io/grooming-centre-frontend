@@ -26,7 +26,8 @@ const DOC_TYPE_LABELS = {
   CERTIFICATE: "Certificate",
   REGISTRATION_SHEET: "Registration Sheet",
   EVALUATION_FORM: "Evaluation Form",
-  IDENTITY_DOCUMENT: "Identity Document",
+  ATTENDANCE_RECORD: "Attendance Record",
+  OTHER: "Other",
 };
 
 const formatBytes = (bytes) => {

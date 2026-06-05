@@ -1,352 +1,239 @@
-// import { http } from '../http';
+import { http } from '../http';
 
 // ---------------------------------------------------------------------------
-// MOCK DATA - remove when wiring to real API endpoints
+// Field mapper: normalises the /student-documents-v2 API shape to what the
+// UI components expect (preserves uploadId, verificationStatus, etc.)
 // ---------------------------------------------------------------------------
 
-const MOCK_PENDING_DOCUMENTS = [
-  {
-    uploadId: "UPL-002",
-    userId: "user-uuid-456",
-    userName: "Jane Smith",
-    documentType: "IDENTITY_DOCUMENT",
-    fileName: "National_ID.pdf",
-    fileFormat: "PDF",
-    fileSize: 1024000,
-    uploadDate: "2025-11-01T09:00:00Z",
-    daysPending: 2,
-    uploadedBy: "Jane Smith",
-    accessLevel: "Admin",
-    category: "Identity Verification",
-  },
-  {
-    uploadId: "UPL-003",
-    userId: "user-uuid-789",
-    userName: "John Doe",
-    documentType: "REGISTRATION_SHEET",
-    fileName: "Registration_Form.pdf",
-    fileFormat: "PDF",
-    fileSize: 512000,
-    uploadDate: "2025-11-02T11:00:00Z",
-    daysPending: 1,
-    uploadedBy: "John Doe",
-    accessLevel: "Admin",
-    category: "Enrollment",
-  },
-  {
-    uploadId: "UPL-005",
-    userId: "user-uuid-321",
-    userName: "Amaka Obi",
-    documentType: "CERTIFICATE",
-    fileName: "Course_Certificate.pdf",
-    fileFormat: "PDF",
-    fileSize: 2048000,
-    uploadDate: "2025-10-29T08:00:00Z",
-    daysPending: 4,
-    uploadedBy: "Instructor-001",
-    accessLevel: "Learner",
-    category: "Course Material",
-  },
-  {
-    uploadId: "UPL-006",
-    userId: "user-uuid-654",
-    userName: "Tobi Adeyemi",
-    documentType: "EVALUATION_FORM",
-    fileName: "Evaluation_Form_Q4.pdf",
-    fileFormat: "PDF",
-    fileSize: 756000,
-    uploadDate: "2025-10-28T14:00:00Z",
-    daysPending: 5,
-    uploadedBy: "Instructor-002",
-    accessLevel: "Admin",
-    category: "Assessment",
-  },
-];
+const DOC_TYPE_UP = {
+  certificate: 'CERTIFICATE',
+  registration_sheet: 'REGISTRATION_SHEET',
+  evaluation_form: 'EVALUATION_FORM',
+  attendance_record: 'ATTENDANCE_RECORD',
+  other: 'OTHER',
+};
 
-const MOCK_USER_DOCUMENTS = [
-  {
-    uploadId: "UPL-001",
-    documentType: "CERTIFICATE",
-    fileName: "certificate_completion.pdf",
-    fileFormat: "PDF",
-    fileSize: 2048000,
-    verificationStatus: "VERIFIED",
-    uploadDate: "2025-11-01T10:30:00Z",
-    verifiedAt: "2025-11-02T14:00:00Z",
-    courseId: "AGR101",
-    uploadedBy: "Instructor-002",
-    accessLevel: "Learner",
-    downloadPermission: true,
-    category: "Course Material",
-    sourceModule: "AGR101 → Module 1",
-  },
-  {
-    uploadId: "UPL-002",
-    documentType: "IDENTITY_DOCUMENT",
-    fileName: "National_ID.pdf",
-    fileFormat: "PDF",
-    fileSize: 1024000,
-    verificationStatus: "PENDING",
-    uploadDate: "2025-11-01T09:00:00Z",
-    verifiedAt: null,
-    courseId: null,
-    uploadedBy: "Jane Smith",
-    accessLevel: "Admin",
-    downloadPermission: false,
-    category: "Identity Verification",
-    sourceModule: null,
-  },
-  {
-    uploadId: "UPL-007",
-    documentType: "EVALUATION_FORM",
-    fileName: "Module3_Eval.pdf",
-    fileFormat: "PDF",
-    fileSize: 890000,
-    verificationStatus: "REJECTED",
-    uploadDate: "2025-10-20T08:00:00Z",
-    verifiedAt: null,
-    courseId: "CS101",
-    uploadedBy: "Instructor-003",
-    accessLevel: "Admin",
-    downloadPermission: false,
-    category: "Assessment",
-    sourceModule: "CS101 → Module 3",
-    rejectionReason: "Document is blurry and unreadable. Please re-upload.",
-  },
-];
+const mapDoc = (doc) => {
+  const createdAt = doc.createdAt;
+  const daysPending = createdAt
+    ? Math.floor((Date.now() - new Date(createdAt)) / (1000 * 60 * 60 * 24))
+    : null;
 
-const MOCK_DOCUMENT_DETAIL = {
-  uploadId: "UPL-001",
-  userId: "user-uuid-789",
-  documentType: "CERTIFICATE",
-  fileName: "certificate_completion.pdf",
-  fileUrl: "https://storage.example.com/documents/cert-123.pdf",
-  fileFormat: "PDF",
-  fileSize: 2048000,
-  courseId: "AGR101",
-  courseName: "Data Analytics 101",
-  verificationStatus: "VERIFIED",
-  uploadDate: "2025-11-01T10:30:00Z",
-  verifiedAt: "2025-11-02T14:30:00Z",
-  verifiedBy: "Admin-001",
-  rejectionReason: null,
-  isVisible: true,
-  uploadedBy: "Instructor-002",
-  accessLevel: "Learner",
-  downloadPermission: true,
-  category: "Course Material",
-  sourceModule: "AGR101 → Module 1",
+  return {
+    uploadId: doc.id,
+    userId: doc.studentId,
+    userName: doc.student
+      ? `${doc.student.firstName} ${doc.student.lastName}`
+      : null,
+    documentType: DOC_TYPE_UP[doc.documentType] || doc.documentType?.toUpperCase(),
+    fileName: doc.title,
+    fileFormat: doc.fileType?.toUpperCase(),
+    fileUrl: doc.fileUrl,
+    fileSize: null,
+    verificationStatus: doc.status?.toUpperCase(),
+    status: doc.status?.toUpperCase(),
+    uploadDate: doc.createdAt,
+    verifiedAt: doc.verifiedAt,
+    courseId: doc.course?.id || doc.courseId,
+    courseName: doc.course?.title,
+    uploadedBy: doc.uploader
+      ? `${doc.uploader.firstName} ${doc.uploader.lastName}`
+      : null,
+    verifiedBy: doc.verifier
+      ? `${doc.verifier.firstName} ${doc.verifier.lastName}`
+      : null,
+    rejectionReason: doc.rejectionReason,
+    remark: doc.remark,
+    daysPending,
+    expiryDate: doc.expiryDate,
+  };
 };
 
 // ---------------------------------------------------------------------------
-// 7.1 Upload User Document
-// POST /api/v2/users/{id}/documents
+// Upload a document for a student
+// POST /api/v1/student-documents-v2
 // ---------------------------------------------------------------------------
 
-/**
- * Upload a document for a user
- * @param {string} userId
- * @param {{ documentType: string, fileFormat: string, fileName: string, fileUrl: string, courseId?: string, fileSize: number }} body
- * @returns {Promise<{ message: string, document: object }>}
- */
-export const adminUploadUserDocument = async (userId, body) => {
-  // TODO: replace mock with real call
-  // const formData = new FormData();
-  // formData.append('file', body.file);
-  // formData.append('documentType', body.documentType);
-  // formData.append('fileFormat', body.fileFormat);
-  // formData.append('fileName', body.fileName);
-  // if (body.courseId) formData.append('courseId', body.courseId);
-  // if (body.expiryDate) formData.append('expiryDate', body.expiryDate);
-  // const { data: { message, data } } = await http.post(`/v2/users/${userId}/documents`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-  // return { message, document: data };
+export const adminUploadUserDocument = async (studentId, body) => {
+  const formData = new FormData();
+  formData.append('file', body.file);
+  formData.append('studentId', studentId);
+  formData.append('documentType', body.documentType);
+  formData.append('title', body.fileName);
+  if (body.courseId) formData.append('courseId', body.courseId);
+  if (body.expiryDate) formData.append('expiryDate', body.expiryDate);
+  if (body.remark) formData.append('remark', body.remark);
 
+  const { data: { data } } = await http.post('/v1/student-documents-v2', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return { message: 'Document uploaded successfully', document: mapDoc(data) };
+};
+
+// ---------------------------------------------------------------------------
+// Get all documents (admin verification queue) with optional filters
+// GET /api/v1/student-documents-v2
+// ---------------------------------------------------------------------------
+
+export const adminGetAllDocuments = async (params = {}) => {
+  const query = {};
+  if (params.page) query.page = params.page;
+  if (params.limit) query.limit = params.limit;
+  if (params.status) query.status = params.status.toLowerCase();
+  if (params.documentType) query.documentType = params.documentType.toLowerCase();
+  if (params.studentId) query.studentId = params.studentId;
+
+  const { data: { data } } = await http.get('/v1/student-documents-v2', { params: query });
   return {
-    message: "Document uploaded successfully",
-    document: {
-      uploadId: `UPL-${Date.now()}`,
-      userId,
-      documentType: body.documentType,
-      fileName: body.fileName,
-      fileUrl: body.fileUrl,
-      fileFormat: body.fileFormat,
-      fileSize: body.fileSize,
-      courseId: body.courseId || null,
-      verificationStatus: "PENDING",
-      uploadDate: new Date().toISOString(),
-      uploadedBy: userId,
-      accessLevel: "Admin",
-      downloadPermission: false,
-      category: "Uploaded Document",
-      sourceModule: null,
+    documents: (data.documents || []).map(mapDoc),
+    pagination: {
+      page: data.page,
+      limit: data.limit,
+      totalItems: data.total,
+      totalPages: data.totalPages,
     },
   };
 };
 
 // ---------------------------------------------------------------------------
-// 7.2 Get User Documents
-// GET /api/v2/users/{id}/documents
+// Get all pending documents (admin verification queue)
+// GET /api/v1/student-documents-v2?status=pending
 // ---------------------------------------------------------------------------
 
-/**
- * Get all documents for a specific user
- * @param {string} userId
- * @param {{ page?: number, limit?: number, documentType?: string, verificationStatus?: string }} params
- * @returns {Promise<{ documents: Array, pagination: object }>}
- */
-export const adminGetUserDocuments = async (userId, params = {}) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get(`/v2/users/${userId}/documents`, { params });
-  // return { documents: data.rows, pagination: { page: data.page, limit: data.limit, totalItems: data.count, totalPages: data.totalPages } };
+export const adminGetPendingDocuments = async (params = {}) => {
+  const result = await adminGetAllDocuments({ ...params, status: 'pending' });
+  return {
+    ...result,
+    summary: {
+      totalPending: result.pagination.totalItems,
+      pendingMoreThan3Days: result.documents.filter((d) => d.daysPending > 3).length,
+    },
+  };
+};
 
-  let filtered = [...MOCK_USER_DOCUMENTS];
+// ---------------------------------------------------------------------------
+// Get all documents for a specific student (admin view with summary)
+// GET /api/v1/student-documents-v2/student/{studentId}
+// ---------------------------------------------------------------------------
+
+export const adminGetUserDocuments = async (studentId, params = {}) => {
+  const { data: { data } } = await http.get(`/v1/student-documents-v2/student/${studentId}`);
+
+  let docs = (data.documents || []).map(mapDoc);
+
   if (params.verificationStatus) {
-    filtered = filtered.filter(
-      (d) => d.verificationStatus === params.verificationStatus,
-    );
+    docs = docs.filter((d) => d.verificationStatus === params.verificationStatus);
   }
   if (params.documentType) {
-    filtered = filtered.filter((d) => d.documentType === params.documentType);
+    docs = docs.filter((d) => d.documentType === params.documentType);
   }
 
+  const page = params.page || 1;
+  const limit = params.limit || 10;
+  const paged = docs.slice((page - 1) * limit, page * limit);
+
   return {
-    documents: filtered,
+    documents: paged,
     pagination: {
-      page: params.page || 1,
-      limit: params.limit || 10,
-      totalItems: filtered.length,
-      totalPages: Math.ceil(filtered.length / (params.limit || 10)),
+      page,
+      limit,
+      totalItems: docs.length,
+      totalPages: Math.ceil(docs.length / limit),
     },
+    summary: data.summary,
   };
 };
 
 // ---------------------------------------------------------------------------
-// 7.3 Get Document by ID
-// GET /api/v2/users/{id}/documents/{uploadId}
+// Get a single document by ID
+// GET /api/v1/student-documents-v2/{documentId}
 // ---------------------------------------------------------------------------
 
-/**
- * Get a specific document by its upload ID
- * @param {string} userId
- * @param {string} uploadId
- * @returns {Promise<{ document: object }>}
- */
-export const adminGetDocumentById = async (userId, uploadId) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get(`/v2/users/${userId}/documents/${uploadId}`);
-  // return { document: data };
-
-  return { document: { ...MOCK_DOCUMENT_DETAIL, uploadId, userId } };
+export const adminGetDocumentById = async (_userId, documentId) => {
+  const { data: { data } } = await http.get(`/v1/student-documents-v2/${documentId}`);
+  return { document: mapDoc(data) };
 };
 
 // ---------------------------------------------------------------------------
-// 7.4 Verify Document (Admin)
-// PATCH /api/v2/documents/{id}/verify
+// Verify a document
+// PUT /api/v1/student-documents-v2/{documentId}/verify
 // ---------------------------------------------------------------------------
 
-/**
- * Verify a user document
- * @param {string} uploadId
- * @returns {Promise<{ message: string, document: object }>}
- */
-export const adminVerifyDocument = async (uploadId) => {
-  // TODO: replace mock with real call
-  // const { data: { message, data } } = await http.patch(`/v2/documents/${uploadId}/verify`);
-  // return { message, document: data };
+export const adminVerifyDocument = async (documentId) => {
+  const { data: { data } } = await http.put(
+    `/v1/student-documents-v2/${documentId}/verify`,
+    { action: 'verified' },
+  );
+  return { message: 'Document verified successfully', document: mapDoc(data) };
+};
 
+// ---------------------------------------------------------------------------
+// Reject a document with a reason
+// PUT /api/v1/student-documents-v2/{documentId}/verify  (action: rejected)
+// ---------------------------------------------------------------------------
+
+export const adminRejectDocument = async (documentId, body) => {
+  const { data: { data } } = await http.put(
+    `/v1/student-documents-v2/${documentId}/verify`,
+    { action: 'rejected', rejectionReason: body.rejectionReason },
+  );
+  return { message: 'Document rejected', document: mapDoc(data) };
+};
+
+// ---------------------------------------------------------------------------
+// Soft-delete a document
+// DELETE /api/v1/student-documents-v2/{documentId}
+// ---------------------------------------------------------------------------
+
+export const adminDeleteDocument = async (documentId) => {
+  await http.delete(`/v1/student-documents-v2/${documentId}`);
+  return { message: 'Document deleted successfully' };
+};
+
+// ---------------------------------------------------------------------------
+// Get document upload KPIs
+// GET /api/v1/student-documents-v2/kpis
+// ---------------------------------------------------------------------------
+
+export const adminGetDocumentKpis = async () => {
+  const { data: { data } } = await http.get('/v1/student-documents-v2/kpis');
   return {
-    message: "Document verified successfully",
-    document: {
-      uploadId,
-      verificationStatus: "VERIFIED",
-      verifiedAt: new Date().toISOString(),
-      verifiedBy: "Admin-001",
-    },
+    totalDocuments: data.totalDocuments,
+    verified: data.byStatus?.verified ?? 0,
+    pending: data.byStatus?.pending ?? 0,
+    rejected: data.byStatus?.rejected ?? 0,
+    uploadVerificationRate: data.uploadVerificationRate,
+    documentAvailabilityRate: data.documentAvailabilityRate,
+    averageVerificationTimeHours: data.averageVerificationTimeHours,
   };
 };
 
 // ---------------------------------------------------------------------------
-// 7.5 Reject Document (Admin)
-// PATCH /api/v2/documents/{id}/reject
+// Replace the file of an existing document (increments version, resets status)
+// PUT /api/v1/student-documents-v2/{documentId}/replace
 // ---------------------------------------------------------------------------
 
-/**
- * Reject a user document with a reason
- * @param {string} uploadId
- * @param {{ rejectionReason: string }} body
- * @returns {Promise<{ message: string, document: object }>}
- */
-export const adminRejectDocument = async (uploadId, body) => {
-  // TODO: replace mock with real call
-  // const { data: { message, data } } = await http.patch(`/v2/documents/${uploadId}/reject`, body);
-  // return { message, document: data };
+export const adminReplaceDocument = async (documentId, file, remark) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (remark) formData.append('remark', remark);
 
-  return {
-    message: "Document rejected successfully",
-    document: {
-      uploadId,
-      verificationStatus: "REJECTED",
-      rejectionReason: body.rejectionReason,
-      rejectedAt: new Date().toISOString(),
-      rejectedBy: "Admin-001",
-    },
-  };
+  const { data: { data } } = await http.put(
+    `/v1/student-documents-v2/${documentId}/replace`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return { message: 'Document replaced successfully', document: mapDoc(data) };
 };
 
 // ---------------------------------------------------------------------------
-// 7.6 Delete Document
-// DELETE /api/v2/documents/{id}
+// Get the audit log for a document
+// GET /api/v1/student-documents-v2/{documentId}/audit-log
 // ---------------------------------------------------------------------------
 
-/**
- * Delete a document permanently
- * @param {string} uploadId
- * @returns {Promise<{ message: string }>}
- */
-export const adminDeleteDocument = async (uploadId) => {
-  // TODO: replace mock with real call
-  // const { data: { message } } = await http.delete(`/v2/documents/${uploadId}`);
-  // return { message };
-
-  return {
-    message: "Document deleted successfully",
-    data: {
-      uploadId,
-      deletedAt: new Date().toISOString(),
-    },
-  };
-};
-
-// ---------------------------------------------------------------------------
-// 7.7 Get Pending Documents (Admin)
-// GET /api/v2/admin/documents/pending
-// ---------------------------------------------------------------------------
-
-/**
- * Get all pending documents awaiting admin verification
- * @param {{ page?: number, limit?: number }} params
- * @returns {Promise<{ documents: Array, pagination: object, summary: object }>}
- */
-export const adminGetPendingDocuments = async (params = {}) => {
-  // TODO: replace mock with real call
-  // const { data: { data } } = await http.get('/v2/admin/documents/pending', { params });
-  // return { documents: data.rows, pagination: { page: data.page, limit: data.limit, totalItems: data.count, totalPages: data.totalPages }, summary: data.summary };
-
-  return {
-    documents: MOCK_PENDING_DOCUMENTS,
-    pagination: {
-      page: params.page || 1,
-      limit: params.limit || 10,
-      totalItems: MOCK_PENDING_DOCUMENTS.length,
-      totalPages: Math.ceil(
-        MOCK_PENDING_DOCUMENTS.length / (params.limit || 10),
-      ),
-    },
-    summary: {
-      totalPending: MOCK_PENDING_DOCUMENTS.length,
-      pendingMoreThan3Days: MOCK_PENDING_DOCUMENTS.filter(
-        (d) => d.daysPending > 3,
-      ).length,
-    },
-  };
+export const adminGetDocumentAuditLog = async (documentId) => {
+  const { data: { data } } = await http.get(
+    `/v1/student-documents-v2/${documentId}/audit-log`,
+  );
+  return { auditLog: data };
 };

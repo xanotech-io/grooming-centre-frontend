@@ -8,7 +8,7 @@ const STATUS_CONFIG = {
 };
 
 const DocumentStatusBadge = ({ status }) => {
-  const config = STATUS_CONFIG[status] || {
+  const config = STATUS_CONFIG[status?.toUpperCase()] || {
     bg: "gray.100",
     color: "gray.600",
     label: status,

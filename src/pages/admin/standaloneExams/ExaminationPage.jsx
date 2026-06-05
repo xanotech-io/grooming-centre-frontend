@@ -1,23 +1,21 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Route, useHistory } from "react-router-dom";
+import { Route, Link as RouterLink } from "react-router-dom";
 import { Box, Flex, Text, Grid, Spinner } from "@chakra-ui/react";
 import { Checkbox, Tag, IconButton, Input as ChakraInput } from "@chakra-ui/react";
 import { FaSearch, FaSlidersH, FaChevronLeft, FaChevronRight, FaEllipsisV } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { getExaminationReportAnalysis, getExaminationReportStatistics } from "../../../services/http/endpoints/examinationReports";
+import { adminGetStandaloneExaminationListing } from "../../../services";
+import dayjs from "dayjs";
 
 // ─── Status helpers ────────────────────────────────────────────────────────────
-// Maps both API values (PASS / FAIL) and display labels
-const STATUS_CONFIG = {
-    "PASS": { bg: "#F0FFF4", color: "#38A169", actionLabel: null },
-    "FAIL": { bg: "#FFF5F5", color: "#E53E3E", actionLabel: null },
-    "Completed": { bg: "#F0FFF4", color: "#38A169", actionLabel: null },
-    "In-progress": { bg: "#FFFAF0", color: "#DD6B20", actionLabel: "Start grading" },
-    "Pending review": { bg: "#FFF5E0", color: "#D69E2E", actionLabel: "Review Submission" },
+const statusConfig = (active, isPublished) => {
+    if (isPublished && active) return { bg: "#F0FFF4", color: "#38A169", label: "Active" };
+    if (isPublished && !active) return { bg: "#EDF2F7", color: "#718096", label: "Closed" };
+    return { bg: "#FFFAF0", color: "#DD6B20", label: "Draft" };
 };
 
-const StatusBadge = ({ status }) => {
-    const cfg = STATUS_CONFIG[status] || { bg: "#EDF2F7", color: "#718096" };
+const StatusBadge = ({ active, isPublished }) => {
+    const cfg = statusConfig(active, isPublished);
     return (
         <Tag
             size="sm"
@@ -30,16 +28,15 @@ const StatusBadge = ({ status }) => {
             fontSize="13px"
             whiteSpace="nowrap"
         >
-            {status}
+            {cfg.label}
         </Tag>
     );
 };
 
 // ─── Action Menu ───────────────────────────────────────────────────────────────
-const ActionMenu = ({ rowIndex, status, openMenu, setOpenMenu }) => {
+const ActionMenu = ({ rowIndex, openMenu, setOpenMenu, analysisHref }) => {
     const ref = useRef(null);
     const isOpen = openMenu === rowIndex;
-    const cfg = STATUS_CONFIG[status];
 
     useEffect(() => {
         const handler = (e) => {
@@ -70,17 +67,18 @@ const ActionMenu = ({ rowIndex, status, openMenu, setOpenMenu }) => {
                     borderRadius="8px"
                     shadow="md"
                     zIndex={100}
-                    minW="150px"
+                    minW="160px"
                     py={1}
                 >
-                    <Box px={4} py={2} cursor="pointer" fontSize="14px" color="#1A202C" _hover={{ bg: "#F7FAFC" }} onClick={() => setOpenMenu(null)}>View</Box>
-                    <Box px={4} py={2} cursor="pointer" fontSize="14px" color="#1A202C" _hover={{ bg: "#F7FAFC" }} onClick={() => setOpenMenu(null)}>Edit</Box>
-                    {cfg?.actionLabel && (
-                        <Box px={4} py={2} cursor="pointer" fontSize="14px" color="#6b006b" fontWeight="500" _hover={{ bg: "#FAF5FF" }} onClick={() => setOpenMenu(null)}>
-                            {cfg.actionLabel}
+                    <RouterLink to={analysisHref} onClick={() => setOpenMenu(null)}>
+                        <Box
+                            px={4} py={2} cursor="pointer" fontSize="14px"
+                            color="#6b006b" fontWeight="500"
+                            _hover={{ bg: "#FAF5FF" }}
+                        >
+                            View Analysis
                         </Box>
-                    )}
-                    <Box px={4} py={2} cursor="pointer" fontSize="14px" color="#E53E3E" _hover={{ bg: "#FFF5F5" }} onClick={() => setOpenMenu(null)}>Delete</Box>
+                    </RouterLink>
                 </Box>
             )}
         </Box>
@@ -99,90 +97,65 @@ const StatCard = ({ label, value, sub, subColor }) => (
 );
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
+const COLUMNS = [
+    { label: "Exam Title", flex: "2" },
+    { label: "Marking Mode", flex: "1.2" },
+    { label: "Duration (mins)", flex: "1" },
+    { label: "Questions", flex: "1" },
+    { label: "Participants", flex: "1" },
+    { label: "Start Date", flex: "1.5" },
+    { label: "Status", flex: "1.2" },
+    { label: "Action", flex: "0.5", align: "center" },
+];
+
 const ExaminationPage = () => {
-    const { push } = useHistory();
     const [search, setSearch] = useState("");
     const [selectedRows, setSelectedRows] = useState([]);
     const [openMenu, setOpenMenu] = useState(null);
     const [rowsPerPage, setRowsPerPage] = useState(8);
     const [currentPage, setCurrentPage] = useState(1);
 
-    // ── Analysis API state ──
-    const [rows, setRows] = useState([]);
+    const [examinations, setExaminations] = useState([]);
     const [totalItems, setTotalItems] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    // ── Statistics API state ──
-    const [stats, setStats] = useState(null);
-    const [statsLoading, setStatsLoading] = useState(false);
-
-    useEffect(() => {
-        const fetchStats = async () => {
-            setStatsLoading(true);
-            try {
-                const response = await getExaminationReportStatistics();
-                setStats(response?.data ?? null);
-            } catch {
-                // silently fail — stat cards will fall back to "—"
-            } finally {
-                setStatsLoading(false);
-            }
-        };
-        fetchStats();
-    }, []);
-
-    const fetchAnalysis = useCallback(async () => {
+    const fetchExams = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await getExaminationReportAnalysis({
+            const result = await adminGetStandaloneExaminationListing({
                 page: currentPage,
                 limit: rowsPerPage,
                 ...(search ? { search } : {}),
             });
-            const { rows: apiRows = [], count = 0, totalPages: tp = 1 } = response?.data ?? {};
-            setRows(apiRows);
-            setTotalItems(count);
-            setTotalPages(tp);
-        } catch (err) {
-            setError("Failed to load examination data. Please try again.");
+            setExaminations(result.examinations ?? []);
+            setTotalItems(result.totalDocumentsCount ?? 0);
+            setTotalPages(Math.max(1, Math.ceil((result.totalDocumentsCount ?? 0) / rowsPerPage)));
+        } catch {
+            setError("Failed to load examinations. Please try again.");
         } finally {
             setLoading(false);
         }
     }, [currentPage, rowsPerPage, search]);
 
     useEffect(() => {
-        fetchAnalysis();
-    }, [fetchAnalysis]);
+        fetchExams();
+    }, [fetchExams]);
 
-    // Reset to page 1 when search changes
     useEffect(() => {
         setCurrentPage(1);
     }, [search]);
 
-    const allSelected = rows.length > 0 && rows.every((_, i) => selectedRows.includes(i));
+    const allSelected = examinations.length > 0 && examinations.every((_, i) => selectedRows.includes(i));
     const toggleAll = () =>
-        allSelected ? setSelectedRows([]) : setSelectedRows(rows.map((_, i) => i));
+        allSelected ? setSelectedRows([]) : setSelectedRows(examinations.map((_, i) => i));
     const toggleRow = (i) =>
         setSelectedRows((prev) => prev.includes(i) ? prev.filter((r) => r !== i) : [...prev, i]);
 
-    const COLUMNS = [
-        { label: "Student Name", flex: "1.5" },
-        { label: "Exam Title", flex: "1.5" },
-        { label: "Total Score", flex: "1" },
-        { label: "Correct / Wrong", flex: "1.2" },
-        { label: "Time Taken", flex: "1" },
-        { label: "Rank", flex: "0.8" },
-        { label: "Percentile", flex: "0.8" },
-        { label: "Status", flex: "1.2" },
-        { label: "Action", flex: "0.5", align: "center" },
-    ];
-
     return (
         <AdminMainAreaWrapper>
-            {/* Page heading */}
             <Text fontSize="26px" fontWeight="700" color="#1A202C" my={6}>
                 Examination
             </Text>
@@ -190,28 +163,28 @@ const ExaminationPage = () => {
             {/* Stats row */}
             <Grid templateColumns="repeat(4, 1fr)" gap={6} mb={6}>
                 <StatCard
-                    label="Avg. Time Per Exam"
-                    value={statsLoading ? "…" : stats?.averageTimeMinutes != null ? `${Math.round(stats.averageTimeMinutes)}min` : "—"}
-                    sub="Per exam"
+                    label="Total Exams"
+                    value={loading ? "…" : totalItems}
+                    sub="Available exams"
                     subColor="#1A202C"
                 />
                 <StatCard
-                    label="Pass Rate"
-                    value={statsLoading ? "…" : stats?.passRate != null ? `${stats.passRate}%` : "—"}
-                    sub={stats ? `${stats.passCount} passed / ${stats.failCount} failed` : undefined}
+                    label="Published"
+                    value={loading ? "…" : examinations.filter((e) => e.isPublished).length}
+                    sub="This page"
                     subColor="#38A169"
                 />
                 <StatCard
-                    label="Average Score"
-                    value={statsLoading ? "…" : stats?.averageScore != null ? stats.averageScore : "—"}
-                    sub={stats?.highestScore != null ? `Highest: ${stats.highestScore}` : undefined}
-                    subColor="#1A202C"
+                    label="Active"
+                    value={loading ? "…" : examinations.filter((e) => e.active).length}
+                    sub="Currently running"
+                    subColor="#3182CE"
                 />
                 <StatCard
-                    label="Total Attempts"
-                    value={statsLoading ? "…" : stats?.totalAttempts != null ? stats.totalAttempts : "—"}
-                    sub={stats?.lowestScore != null ? `Lowest score: ${stats.lowestScore}` : undefined}
-                    subColor="#E53E3E"
+                    label="Draft"
+                    value={loading ? "…" : examinations.filter((e) => !e.isPublished).length}
+                    sub="Not yet published"
+                    subColor="#DD6B20"
                 />
             </Grid>
 
@@ -225,7 +198,7 @@ const ExaminationPage = () => {
                         </Box>
                         <ChakraInput
                             pl="32px"
-                            placeholder="Search here..."
+                            placeholder="Search exams..."
                             fontSize="14px"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
@@ -250,29 +223,25 @@ const ExaminationPage = () => {
                     </Flex>
                 </Flex>
 
-                {/* Loading state */}
                 {loading && (
                     <Flex justify="center" align="center" py={12}>
                         <Spinner size="lg" color="#6b006b" thickness="3px" />
                     </Flex>
                 )}
 
-                {/* Error state */}
                 {!loading && error && (
                     <Flex justify="center" align="center" py={12}>
                         <Text color="#E53E3E" fontSize="14px">{error}</Text>
                     </Flex>
                 )}
 
-                {/* Empty state */}
-                {!loading && !error && rows.length === 0 && (
+                {!loading && !error && examinations.length === 0 && (
                     <Flex justify="center" align="center" py={12}>
-                        <Text color="#718096" fontSize="14px">No examination results found.</Text>
+                        <Text color="#718096" fontSize="14px">No examinations found.</Text>
                     </Flex>
                 )}
 
-                {/* Table */}
-                {!loading && !error && rows.length > 0 && (
+                {!loading && !error && examinations.length > 0 && (
                     <Box overflowX="auto">
                         <Box minW="900px">
                             {/* Header row */}
@@ -294,56 +263,59 @@ const ExaminationPage = () => {
                             </Flex>
 
                             {/* Data rows */}
-                            {rows.map((row, i) => (
-                                <Box key={row.analysisId ?? i} borderBottom={i < rows.length - 1 ? "1px solid #EDF2F7" : "none"} _hover={{ bg: "#FAFAFA" }} transition="background 0.15s">
+                            {examinations.map((exam, i) => (
+                                <Box
+                                    key={exam.id ?? i}
+                                    borderBottom={i < examinations.length - 1 ? "1px solid #EDF2F7" : "none"}
+                                    _hover={{ bg: "#FAFAFA" }}
+                                    transition="background 0.15s"
+                                >
                                     <Flex px={4} py={4} alignItems="center">
                                         <Box width="40px">
                                             <Checkbox isChecked={selectedRows.includes(i)} onChange={() => toggleRow(i)} colorScheme="purple" borderColor="#CBD5E0" />
                                         </Box>
-                                        {/* Student Name */}
-                                        <Box flex="1.5">
-                                            <Text fontSize="14px" color="#1A202C">{row.studentName ?? "—"}</Text>
+                                        {/* Exam Title — clickable */}
+                                        <Box flex="2">
+                                            <RouterLink to={`/admin/exam-result-analysis/${exam.id}`}>
+                                                <Text fontSize="14px" color="#1A202C" fontWeight="500" _hover={{ color: "#6b006b" }} cursor="pointer">
+                                                    {exam.title ?? "—"}
+                                                </Text>
+                                            </RouterLink>
                                         </Box>
-                                        {/* Exam Title */}
-                                        <Box
-                                            flex="1.5"
-                                            cursor="pointer"
-                                            onClick={() => push(`/admin/examination/${row.examId}`)}
-                                            _hover={{ textDecoration: "underline", color: "#6b006b" }}
-                                        >
-                                            <Text fontSize="14px" color="#1A202C" whiteSpace="pre-wrap">{row.examTitle ?? "—"}</Text>
-                                        </Box>
-                                        {/* Total Score */}
-                                        <Box flex="1">
-                                            <Text fontSize="14px" color="#1A202C">{row.totalScore ?? "—"}</Text>
-                                        </Box>
-                                        {/* Correct / Wrong */}
+                                        {/* Marking Mode */}
                                         <Box flex="1.2">
-                                            <Text fontSize="14px" color="#1A202C">
-                                                <Text as="span" color="#38A169" fontWeight="600">{row.correctAnswers ?? 0}</Text>
-                                                {" / "}
-                                                <Text as="span" color="#E53E3E" fontWeight="600">{row.wrongAnswers ?? 0}</Text>
-                                            </Text>
+                                            <Text fontSize="14px" color="#1A202C" textTransform="capitalize">{exam.markingMode ?? "—"}</Text>
                                         </Box>
-                                        {/* Time Taken */}
+                                        {/* Duration */}
                                         <Box flex="1">
-                                            <Text fontSize="14px" color="#1A202C">{row.timeTakenMinutes != null ? `${row.timeTakenMinutes}m` : "—"}</Text>
+                                            <Text fontSize="14px" color="#1A202C">{exam.duration != null ? `${exam.duration}` : "—"}</Text>
                                         </Box>
-                                        {/* Rank */}
-                                        <Box flex="0.8">
-                                            <Text fontSize="14px" color="#1A202C">{row.rank ?? "—"}</Text>
+                                        {/* Questions */}
+                                        <Box flex="1">
+                                            <Text fontSize="14px" color="#1A202C">{exam.amountOfQuestions ?? "—"}</Text>
                                         </Box>
-                                        {/* Percentile */}
-                                        <Box flex="0.8">
-                                            <Text fontSize="14px" color="#1A202C">{row.percentile != null ? `${row.percentile}%` : "—"}</Text>
+                                        {/* Participants */}
+                                        <Box flex="1">
+                                            <Text fontSize="14px" color="#1A202C">{exam.noOfUsers ?? 0}</Text>
+                                        </Box>
+                                        {/* Start Date */}
+                                        <Box flex="1.5">
+                                            <Text fontSize="14px" color="#1A202C">
+                                                {exam.startTime ? dayjs(exam.startTime).format("DD MMM YYYY") : "—"}
+                                            </Text>
                                         </Box>
                                         {/* Status */}
                                         <Box flex="1.2">
-                                            <StatusBadge status={row.status} />
+                                            <StatusBadge active={exam.active} isPublished={exam.isPublished} />
                                         </Box>
                                         {/* Action */}
                                         <Box flex="0.5" display="flex" justifyContent="center">
-                                            <ActionMenu rowIndex={i} status={row.status} openMenu={openMenu} setOpenMenu={setOpenMenu} />
+                                            <ActionMenu
+                                                rowIndex={i}
+                                                openMenu={openMenu}
+                                                setOpenMenu={setOpenMenu}
+                                                analysisHref={`/admin/exam-result-analysis/${exam.id}`}
+                                            />
                                         </Box>
                                     </Flex>
                                 </Box>
@@ -375,7 +347,7 @@ const ExaminationPage = () => {
                         </Box>
                     </Flex>
                     <Text fontSize="13px" color="#1A202C" fontWeight="600">
-                        Showing {Math.min(rowsPerPage, totalItems)} out of {totalItems} items
+                        Showing {examinations.length} out of {totalItems} items
                     </Text>
                     <Flex alignItems="center" gap={2}>
                         <IconButton
