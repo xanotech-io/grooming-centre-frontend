@@ -30,7 +30,8 @@
       "Bash(node -e ' *)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Dell\\\\Work\\\\grooming-centre-frontend\\\\src\\\\pages\\\\admin\\\\courses\\\\ViewCourseInfoPage\\\\\" -Recurse | Select-Object FullName)",
       "Bash(node -e \"const fs = require\\('fs'\\); const content = fs.readFileSync\\('src/layouts/admin/MainArea/MainArea.jsx', 'utf8'\\); const lines = content.split\\('\\\\n'\\); console.log\\('Line 163:', JSON.stringify\\(lines[162]\\)\\); console.log\\('Line 164:', JSON.stringify\\(lines[163]\\)\\); console.log\\('Line 165:', JSON.stringify\\(lines[164]\\)\\); console.log\\('Line 166:', JSON.stringify\\(lines[165]\\)\\);\")",
-      "Bash(node -e \"const fs = require\\('fs'\\); const content = fs.readFileSync\\('src/layouts/admin/MainArea/MainArea.jsx', 'utf8'\\); const lines = content.split\\('\\\\n'\\); console.log\\('Total lines:', lines.length\\); for \\(let i = 160; i < 172; i++\\) { console.log\\('L' + \\(i+1\\) + ':', JSON.stringify\\(lines[i]\\)\\); }\")"
+      "Bash(node -e \"const fs = require\\('fs'\\); const content = fs.readFileSync\\('src/layouts/admin/MainArea/MainArea.jsx', 'utf8'\\); const lines = content.split\\('\\\\n'\\); console.log\\('Total lines:', lines.length\\); for \\(let i = 160; i < 172; i++\\) { console.log\\('L' + \\(i+1\\) + ':', JSON.stringify\\(lines[i]\\)\\); }\")",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
