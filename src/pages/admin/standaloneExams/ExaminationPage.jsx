@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Route, Link as RouterLink } from "react-router-dom";
-import { Box, Flex, Text, Grid, Spinner } from "@chakra-ui/react";
+import { Box, Flex, Text, Grid, Spinner, Button } from "@chakra-ui/react";
 import { Checkbox, Tag, IconButton, Input as ChakraInput } from "@chakra-ui/react";
-import { FaSearch, FaSlidersH, FaChevronLeft, FaChevronRight, FaEllipsisV } from "react-icons/fa";
+import { FaSearch, FaSlidersH, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { adminGetStandaloneExaminationListing } from "../../../services";
 import dayjs from "dayjs";
@@ -34,56 +34,56 @@ const StatusBadge = ({ active, isPublished }) => {
 };
 
 // ─── Action Menu ───────────────────────────────────────────────────────────────
-const ActionMenu = ({ rowIndex, openMenu, setOpenMenu, analysisHref }) => {
-    const ref = useRef(null);
-    const isOpen = openMenu === rowIndex;
+// const ActionMenu = ({ rowIndex, openMenu, setOpenMenu, analysisHref }) => {
+//     const ref = useRef(null);
+//     const isOpen = openMenu === rowIndex;
 
-    useEffect(() => {
-        const handler = (e) => {
-            if (ref.current && !ref.current.contains(e.target)) setOpenMenu(null);
-        };
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, [setOpenMenu]);
+//     useEffect(() => {
+//         const handler = (e) => {
+//             if (ref.current && !ref.current.contains(e.target)) setOpenMenu(null);
+//         };
+//         document.addEventListener("mousedown", handler);
+//         return () => document.removeEventListener("mousedown", handler);
+//     }, [setOpenMenu]);
 
-    return (
-        <Box position="relative" ref={ref}>
-            <IconButton
-                icon={<FaEllipsisV />}
-                variant="ghost"
-                size="sm"
-                color="#718096"
-                aria-label="Row actions"
-                onClick={() => setOpenMenu(isOpen ? null : rowIndex)}
-                _hover={{ bg: "#F7FAFC" }}
-            />
-            {isOpen && (
-                <Box
-                    position="absolute"
-                    right="0"
-                    top="36px"
-                    bg="white"
-                    border="1px solid #E2E8F0"
-                    borderRadius="8px"
-                    shadow="md"
-                    zIndex={100}
-                    minW="160px"
-                    py={1}
-                >
-                    <RouterLink to={analysisHref} onClick={() => setOpenMenu(null)}>
-                        <Box
-                            px={4} py={2} cursor="pointer" fontSize="14px"
-                            color="#6b006b" fontWeight="500"
-                            _hover={{ bg: "#FAF5FF" }}
-                        >
-                            View Analysis
-                        </Box>
-                    </RouterLink>
-                </Box>
-            )}
-        </Box>
-    );
-};
+//     return (
+//         <Box position="relative" ref={ref}>
+//             <IconButton
+//                 icon={<FaEllipsisV />}
+//                 variant="ghost"
+//                 size="sm"
+//                 color="#718096"
+//                 aria-label="Row actions"
+//                 onClick={() => setOpenMenu(isOpen ? null : rowIndex)}
+//                 _hover={{ bg: "#F7FAFC" }}
+//             />
+//             {isOpen && (
+//                 <Box
+//                     position="absolute"
+//                     right="0"
+//                     top="36px"
+//                     bg="white"
+//                     border="1px solid #E2E8F0"
+//                     borderRadius="8px"
+//                     shadow="md"
+//                     zIndex={100}
+//                     minW="160px"
+//                     py={1}
+//                 >
+//                     <RouterLink to={analysisHref} onClick={() => setOpenMenu(null)}>
+//                         <Box
+//                             px={4} py={2} cursor="pointer" fontSize="14px"
+//                             color="#6b006b" fontWeight="500"
+//                             _hover={{ bg: "#FAF5FF" }}
+//                         >
+//                             View Analysis
+//                         </Box>
+//                     </RouterLink>
+//                 </Box>
+//             )}
+//         </Box>
+//     );
+// };
 
 // ─── Stat Card ─────────────────────────────────────────────────────────────────
 const StatCard = ({ label, value, sub, subColor }) => (
@@ -111,7 +111,7 @@ const COLUMNS = [
 const ExaminationPage = () => {
     const [search, setSearch] = useState("");
     const [selectedRows, setSelectedRows] = useState([]);
-    const [openMenu, setOpenMenu] = useState(null);
+    // const [openMenu, setOpenMenu] = useState(null);
     const [rowsPerPage, setRowsPerPage] = useState(8);
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -157,7 +157,7 @@ const ExaminationPage = () => {
     return (
         <AdminMainAreaWrapper>
             <Text fontSize="26px" fontWeight="700" color="#1A202C" my={6}>
-                Examination
+                Examination Analysis
             </Text>
 
             {/* Stats row */}
@@ -310,12 +310,21 @@ const ExaminationPage = () => {
                                         </Box>
                                         {/* Action */}
                                         <Box flex="0.5" display="flex" justifyContent="center">
-                                            <ActionMenu
+                                            {/* <ActionMenu
                                                 rowIndex={i}
                                                 openMenu={openMenu}
                                                 setOpenMenu={setOpenMenu}
                                                 analysisHref={`/admin/exam-result-analysis/${exam.id}`}
-                                            />
+                                                onClick={() => setOpenMenu(i === openMenu ? null : i)}
+                                            /> */}
+
+                                           
+
+                                            <Button bg="#6b006b" className="bg-[#6b006b] text-white">
+                                                <RouterLink to={`/admin/exam-result-analysis/${exam.id}`}>
+                                                    View Analysis
+                                                </RouterLink>
+                                            </Button>
                                         </Box>
                                     </Flex>
                                 </Box>
