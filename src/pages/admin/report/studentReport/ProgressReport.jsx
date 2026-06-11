@@ -156,7 +156,9 @@ const ProgressReport = () => {
 
           {/* Summary cards */}
           <Box
-            display="flex"
+            gridTemplateColumns={{ base: "1fr", md: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }}
+            display="grid"
+            flexDirection="column"
             justifyContent="space-between"
             gridGap={4}
             mb={10}
@@ -213,12 +215,12 @@ const ProgressReport = () => {
                   <Thead bg="#F7FAFC">
                     <Tr>
                       {[
-                        "Course",
-                        "Modules",
-                        "Completion",
+                        "Course Title",
+                        "Modules Completed",
+                        "Completion Percentage",
                         "Assessment",
                         "Exam",
-                        "Latest Score",
+                        // "Latest Score",
                         "Certificate",
                         "Status",
                         "Last Access",
@@ -245,7 +247,7 @@ const ProgressReport = () => {
                           </Text>
                         </Td>
                         <Td py="12px" fontSize="12px" color="gray.600">
-                          {c.modulesCompleted ?? "—"}
+                          {c.modulesCompletedRatio ?? "—"}
                         </Td>
                         <Td py="12px" minW="120px">
                           <Flex justifyContent="space-between" mb="4px">
@@ -279,14 +281,14 @@ const ProgressReport = () => {
                             ? `${c.courseExamScore}%`
                             : "—"}
                         </Td>
-                        <Td
+                        {/* <Td
                           py="12px"
                           fontSize="13px"
                           fontWeight="700"
                           color="#6b006b"
                         >
                           {c.latestScore != null ? `${c.latestScore}%` : "—"}
-                        </Td>
+                        </Td> */}
                         <Td py="12px">
                           <Badge
                             colorScheme={

@@ -11,19 +11,19 @@ const useStyles = makeStyles(() => ({
     width: "100%"
   },
   title: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 500,
     marginBottom: 16,
     color: "#000",
   },
   value: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 700,
     color: "#000",
     marginBottom: 12,
   },
   change: {
-    fontSize: 16,
+    fontSize: 10,
     fontWeight: 500,
   },
 }));

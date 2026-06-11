@@ -14,7 +14,6 @@ import {
 } from "react-icons/fa";
 import {
   FiAward,
-  FiTrendingUp,
   FiMail,
   FiArchive,
   FiBarChart2,
@@ -54,7 +53,7 @@ export const links = [
   },
   {
     href: "/admin/examination",
-    text: "Examination",
+    text: "Examination Analysis",
     icon: <TiPen />,
   },
   {
@@ -362,11 +361,11 @@ export const links = [
     text: "Badge Support",
     icon: <FiAward />,
   },
-  {
-    href: "/admin/report/studentReport",
-    text: "Student Progress",
-    icon: <FiTrendingUp />,
-  },
+  // {
+  //   href: "/admin/report/studentReport",
+  //   text: "Student Progress",
+  //   icon: <FiTrendingUp />,
+  // },
 ];
 
 export const superAdminSettingsLinks = [
