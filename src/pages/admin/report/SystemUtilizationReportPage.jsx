@@ -46,19 +46,20 @@ const SystemUtilizationReportPage = () => {
       const result = await getSystemUtilizationReport(params);
       const reportData = result?.data ?? {};
       const rows = (reportData.data ?? []).map(mapToRow);
-      const total = rows.length;
       const page = Number(params.page) || 1;
-      const limit = Number(params.limit) || 50;
+      const limit = Number(params.limit) || 20;
+      const totalDocumentsCount =
+        reportData.totalCount ?? reportData.count ?? reportData.total ?? rows.length;
 
       setSummary(reportData.summary ?? null);
-      setTotalCount(total);
+      setTotalCount(totalDocumentsCount);
 
       return {
         rows,
         showingDocumentsCount: rows.length,
-        totalDocumentsCount: total,
+        totalDocumentsCount,
         currentPage: page,
-        totalPages: Math.ceil(total / limit) || 1,
+        totalPages: Math.ceil(totalDocumentsCount / limit) || 1,
       };
     } catch (err) {
       toast({
@@ -86,9 +87,9 @@ const SystemUtilizationReportPage = () => {
         width: "180px",
         body: {
           checks: [
-            { label: "Student", queryValue: "Student" },
-            { label: "Instructor", queryValue: "Instructor" },
-            { label: "Admin", queryValue: "Admin" },
+            { label: "Student", queryValue: "student" },
+            { label: "Instructor", queryValue: "instructor" },
+            { label: "Admin", queryValue: "admin" },
           ],
         },
       },
@@ -132,7 +133,6 @@ const SystemUtilizationReportPage = () => {
     ],
     options: {
       dateFilter: true,
-      action: [],
       selection: false,
       pagination: true,
     },
@@ -161,7 +161,9 @@ const SystemUtilizationReportPage = () => {
         fraction: "120px",
         renderContent: (role) => (
           <Tag size="sm" borderRadius="full" colorScheme="purple">
-            {role}
+            {role && role !== "—"
+              ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase()
+              : role}
           </Tag>
         ),
       },

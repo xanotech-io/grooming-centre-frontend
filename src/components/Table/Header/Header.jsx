@@ -53,9 +53,9 @@ const Header = ({
       });
 
       setParams((prevParams) => {
-        // Clean up deleted params
+        // Clean up deleted params (preserve pagination-managed keys)
         for (let key in prevParams) {
-          if (!params[key] && key !== "length" && key !== "page")
+          if (!params[key] && key !== "length" && key !== "page" && key !== "limit")
             Reflect.deleteProperty(prevParams, key);
         }
 

@@ -166,6 +166,7 @@ import { AssessmentOverviewPageRoute } from "../../../pages/admin/report/courseA
 import { DepartmentReportPageRoute } from "../../../pages/admin/report/courseAssessment/DepartmentReportPage";
 import { EvaluationsPageRoute } from "../../../pages/admin/report/courseAssessment/EvaluationsPage";
 import { SystemUtilizationReportPageRoute } from "../../../pages/admin/report/SystemUtilizationReportPage";
+import { AttendanceReportPageRoute } from "../../../pages/admin/report/attendance/AttendanceReportPage";
 import { VisualAnalyticsDashboardPageRoute } from "../../../pages/admin/report/visualAnalytics/VisualAnalyticsDashboardPage";
 import { ProctoringAuditReportPageRoute } from "../../../pages/admin/report/proctoring/ProctoringAuditReportPage";
 import { ExamSessionAuditPageRoute } from "../../../pages/admin/report/proctoring/ExamSessionAuditPage";
@@ -664,6 +665,10 @@ const MainArea = () => {
         <SystemUtilizationReportPageRoute
           exact
           path="/admin/report/system-utilization"
+        />
+        <AttendanceReportPageRoute
+          exact
+          path="/admin/report/attendance"
         />
         <PerformanceFiltersPageRoute
           exact

@@ -188,6 +188,10 @@ export const links = [
         text: "Assessment Analytics",
       },
       {
+        href: "/admin/report/attendance",
+        text: "Attendance Report",
+      },
+      {
         href: "/admin/report/system-utilization",
         text: "System Utilization",
       },
