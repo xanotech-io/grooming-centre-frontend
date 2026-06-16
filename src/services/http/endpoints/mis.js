@@ -3,8 +3,12 @@ import { http } from '../http';
 export const adminListMISReports = async (params) => {
   const { data: { data } } = await http.get('/v1/mis-report-v2', { params });
   const rows = data?.reports ?? data?.rows ?? (Array.isArray(data) ? data : []);
-  const pagination = data?.pagination ?? {};
-  return { reports: rows, pagination };
+  return {
+    reports: rows,
+    total: data?.total ?? 0,
+    page: data?.page ?? 1,
+    limit: data?.limit ?? 20,
+  };
 };
 
 export const adminGetMISKPIs = async () => {
