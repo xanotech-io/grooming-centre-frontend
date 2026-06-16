@@ -438,7 +438,7 @@ const MISReportsPage = () => {
     <>
       <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6} mb={8}>
         <SummaryCard title="Total Reports" value={pagination.totalItems ?? "—"} subtext="all reports" />
-        <SummaryCard title="Avg. Generation Time" value={kpis?.avgReportGenerationTimeMs ?? "—"} subtext="ms per report" />
+        <SummaryCard title="Avg. Generation Time" value={kpis?.avgReportGenerationTimeMs ? `${(kpis.avgReportGenerationTimeMs / 60000).toFixed(2)} min` : "—"} subtext="avg. time to generate" />
         <SummaryCard title="Report Accuracy" value={kpis?.reportAccuracyRate ?? "—"} subtext="accuracy rate" />
         <SummaryCard title="Automation Rate" value={kpis?.automationRate ?? "—"} subtext="automation rate" />
       </SimpleGrid>
@@ -452,7 +452,7 @@ const MISReportsPage = () => {
     <>
       <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6} mb={8}>
         <SummaryCard title="Total Reports" value={pagination.totalItems ?? "—"} />
-        <SummaryCard title="Avg. Generation Time" value={kpis?.avgReportGenerationTimeMs ?? "—"} subtext="ms per report" />
+        <SummaryCard title="Avg. Generation Time" value={kpis?.avgReportGenerationTimeMs ? `${(kpis.avgReportGenerationTimeMs / 60000).toFixed(2)} min` : "—"} subtext="avg. time to generate" />
         <SummaryCard title="Report Accuracy" value={kpis?.reportAccuracyRate ?? "—"} subtext="accuracy rate" />
         <SummaryCard title="Automation Rate" value={kpis?.automationRate ?? "—"} subtext="automation rate" />
       </SimpleGrid>
