@@ -105,8 +105,8 @@ const EventsTable = ({
                 <Th px={4} py={3} color="#344054" fontSize="12.3px" fontWeight="600" textTransform="none">Student</Th>
                 <Th px={4} py={3} color="#344054" fontSize="12.3px" fontWeight="600" textTransform="none">Examination</Th>
                 <Th px={4} py={3} color="#344054" fontSize="12.3px" fontWeight="600" textTransform="none">Alert Type</Th>
-                <Th px={4} py={3} color="#344054" fontSize="12.3px" fontWeight="600" textTransform="none">Description</Th>
-                <Th px={4} py={3} color="#344054" fontSize="12.3px" fontWeight="600" textTransform="none">Timestamp</Th>
+                <Th px={4} py={3} color="#344054" fontSize="12.3px" fontWeight="600" textTransform="none">SessionTime</Th>
+                <Th px={4} py={3} color="#344054" fontSize="12.3px" fontWeight="600" textTransform="none">Duration</Th>
                 <Th px={4} py={3} color="#344054" fontSize="12.3px" fontWeight="600" textTransform="none">Status</Th>
                 <Th px={4} py={3} color="#344054" fontSize="12.3px" fontWeight="600" textTransform="none">Proctor</Th>
                 <Th px={4} py={3} color="#344054" fontSize="12.3px" fontWeight="600" textTransform="none">Last Action</Th>
@@ -136,10 +136,11 @@ const EventsTable = ({
                       <Td px={4} py={4}>
                         <AlertTypeBadge type={evt.alertType} />
                       </Td>
+                      <Td px={4} py={4} color="#101928" fontSize="12px">{fmtTime(evt.sessionStart)} - {fmtTime(evt.sessionEnd)}</Td>
                       <Td px={4} py={4} color="#475367" fontSize="12px" maxW="180px">
-                        <Text noOfLines={2}>{evt.description ?? '—'}</Text>
+                        <Text noOfLines={2}>{evt.sessionDurationMinutes} Minutes</Text>
                       </Td>
-                      <Td px={4} py={4} color="#101928" fontSize="12px">{fmtTime(evt.eventTimestamp)}</Td>
+                      
                       <Td px={4} py={4} color="#101928" fontSize="12px">{fmtStatus(evt.status)}</Td>
                       <Td px={4} py={4} color="#101928" fontSize="12px">{fmtName(evt.proctor)}</Td>
                       <Td px={4} py={4} color="#475367" fontSize="12px">

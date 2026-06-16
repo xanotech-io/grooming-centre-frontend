@@ -107,12 +107,13 @@ const LogEventModal = ({ isOpen, onClose, onSuccess }) => {
               <FormControl>
                 <FormLabel fontSize="13px" color="#344054">Alert Type</FormLabel>
                 <Select name="alertType" value={form.alertType} onChange={handleChange} size="sm">
+                   <option value="compliance">Compliance</option>
                   <option value="warning">Warning</option>
                   <option value="violation">Violation</option>
                   <option value="system_flag">System Flag</option>
                 </Select>
               </FormControl>
-              <FormControl isRequired>
+              <FormControl>
                 <FormLabel fontSize="13px" color="#344054">Description</FormLabel>
                 <Textarea name="description" value={form.description} onChange={handleChange} placeholder="Describe the event..." size="sm" rows={3} />
               </FormControl>

@@ -43,6 +43,13 @@ export const flagAssessmentQuestion = adminFlagAssessmentQuestionForReview;
 export const bulkFlagAssessmentQuestions = adminBulkFlagAssessmentQuestionsForReview;
 export const getInstructorReportDirectory = adminGetInstructorReportDirectory;
 
+// ─── TC01 – Course Completion & Pass Rate Report ───────────────────────────────
+
+export const adminGetTC01CoursePassRateReport = async (params = {}) => {
+  const { data } = await http.get('/v1/reports/tc01/course-pass-rate', { params });
+  return data?.data ?? data;
+};
+
 // ─── V2 Instructor Performance ─────────────────────────────────────────────────
 
 const BASE_V2 = "/v1/instructor-performance-v2";
