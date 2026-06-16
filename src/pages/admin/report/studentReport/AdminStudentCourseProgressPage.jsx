@@ -93,19 +93,8 @@ const AdminStudentCourseProgressPage = () => {
       {/* Breadcrumb */}
       <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
         <Breadcrumb
+          
           item2={
-            <BreadcrumbItem>
-              <Link href="/admin/report/studentReport">Learners</Link>
-            </BreadcrumbItem>
-          }
-          item3={
-            <BreadcrumbItem>
-              <Link href={`/admin/report/studentReport/${studentId}/details`}>
-                Report Details
-              </Link>
-            </BreadcrumbItem>
-          }
-          item4={
             <BreadcrumbItem>
               <Link href={`/admin/report/studentReport/${studentId}/progress`}>
                 Progress Report
