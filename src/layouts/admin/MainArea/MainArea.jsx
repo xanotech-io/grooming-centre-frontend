@@ -181,6 +181,7 @@ import { StudentTranscriptV2PageRoute } from "../../../pages/admin/studentTransc
 import { PerformanceDrillDownPageRoute } from "../../../pages/admin/performanceDrillDown/PerformanceDrillDownPage";
 import { InlineMarkupPageRoute } from "../../../pages/admin/inlineMarkup/InlineMarkupPage";
 import { CourseCompletionReportPageRoute } from "../../../pages/admin/report/courseCompletion/CourseCompletionReportPage";
+import { TC01CoursePassRateReportRoute } from "../../../pages/admin/report/tc01CoursePassRate/TC01CoursePassRateReport";
 
 const MainArea = () => {
   return (
@@ -692,6 +693,10 @@ const MainArea = () => {
         <CourseCompletionReportPageRoute
           exact
           path="/admin/report/course-completion"
+        />
+        <TC01CoursePassRateReportRoute
+          exact
+          path="/admin/report/tc01-course-pass-rate"
         />
         <AuditTrailReportPageRoute exact path="/admin/report/audit-trail" />
         <ScheduledReportingPageRoute

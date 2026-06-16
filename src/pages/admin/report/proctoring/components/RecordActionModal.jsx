@@ -59,7 +59,7 @@ const RecordActionModal = ({ isOpen, onClose, event, onSuccess }) => {
               <FormLabel fontSize="13px" color="#344054">Updated Status</FormLabel>
               <Select name="updatedStatus" value={form.updatedStatus} onChange={handleChange} size="sm">
                 <option value="resolved">Resolved</option>
-                <option value="active">Active</option>
+                <option value="escalated">Escalated</option>
               </Select>
             </FormControl>
           </VStack>
