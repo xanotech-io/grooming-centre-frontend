@@ -34,6 +34,8 @@ export const SearchBar = ({
     onSearch?.(query);
   };
 
+  const { onChange: rhfOnChange, ...registerRest } = register("query", { validate: true });
+
   return (
     <Flex
       as="form"
@@ -66,7 +68,11 @@ export const SearchBar = ({
             textColor: "black",
           },
         }}
-        {...register("query", { validate: true })}
+        onChange={(e) => {
+          rhfOnChange(e);
+          onSearch?.(e.target.value);
+        }}
+        {...registerRest}
       />
 
       <IconButton

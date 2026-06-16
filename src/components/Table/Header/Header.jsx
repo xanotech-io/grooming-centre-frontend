@@ -376,6 +376,10 @@ export const FilterBody = ({ data, tags = [], onClose, onApplyFilter }) => {
     }
 
     setSelectedChecks(allSelected);
+
+    if (data.autoApply) {
+      onApplyFilter(data.queryKey, allSelected);
+    }
   };
 
   const handleApply = () => {
@@ -389,10 +393,9 @@ export const FilterBody = ({ data, tags = [], onClose, onApplyFilter }) => {
   };
 
   const handleClearAll = () => {
-    const selectedChecks = [];
-    setSelectedChecks(selectedChecks);
-
-    onApplyFilter(data.queryKey, selectedChecks);
+    const cleared = [];
+    setSelectedChecks(cleared);
+    onApplyFilter(data.queryKey, cleared);
     onClose();
   };
 
@@ -483,7 +486,7 @@ export const FilterBody = ({ data, tags = [], onClose, onApplyFilter }) => {
           {!data.body.radios && data.body.checks && (
             <HStack
               as="footer"
-              justifyContent="space-between"
+              justifyContent={data.autoApply ? "flex-start" : "space-between"}
               borderTop="1px"
               borderColor="accent.2"
               padding={2}
@@ -492,9 +495,11 @@ export const FilterBody = ({ data, tags = [], onClose, onApplyFilter }) => {
                 Clear all
               </Button>
 
-              <Button xs onClick={handleApply}>
-                Apply
-              </Button>
+              {!data.autoApply && (
+                <Button xs onClick={handleApply}>
+                  Apply
+                </Button>
+              )}
             </HStack>
           )}
         </form>

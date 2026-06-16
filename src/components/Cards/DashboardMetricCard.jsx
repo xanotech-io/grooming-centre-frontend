@@ -23,7 +23,7 @@ const useStyles = makeStyles(() => ({
     marginBottom: 12,
   },
   change: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 500,
   },
 }));

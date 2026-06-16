@@ -82,19 +82,8 @@ const ProgressReport = () => {
         my={4}
       >
         <Breadcrumb
+        
           item2={
-            <BreadcrumbItem>
-              <Link href="/admin/report/studentReport">Learners</Link>
-            </BreadcrumbItem>
-          }
-          item3={
-            <BreadcrumbItem>
-              <Link href={`/admin/report/studentReport/${studentId}/details`}>
-                Report Details
-              </Link>
-            </BreadcrumbItem>
-          }
-          item4={
             <BreadcrumbItem isCurrentPage>
               <Link href="#">Progress Report</Link>
             </BreadcrumbItem>
@@ -178,13 +167,13 @@ const ProgressReport = () => {
             />
             <DashboardMetricCard
               title="Time Spent"
-              value={`${activity?.totalTimeSpentHours ?? "—"} hrs`}
+              value={`${activity?.totalTimeSpentHours ?? 0} hrs`}
               change={`${activity?.totalSessionCount ?? 0} sessions`}
               changeColor="#1A8F3A"
             />
             <DashboardMetricCard
               title="Weekly Activity"
-              value={`${activity?.weeklyLogins ?? "—"}`}
+              value={`${activity?.weeklyLogins ?? 0}`}
               change="logins this week"
               changeColor="#1A8F3A"
             />
@@ -247,7 +236,7 @@ const ProgressReport = () => {
                           </Text>
                         </Td>
                         <Td py="12px" fontSize="12px" color="gray.600">
-                          {c.modulesCompletedRatio ?? "—"}
+                          {c.modulesCompleted ?? "—"}
                         </Td>
                         <Td py="12px" minW="120px">
                           <Flex justifyContent="space-between" mb="4px">

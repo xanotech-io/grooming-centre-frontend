@@ -17,8 +17,13 @@ import {
   adminGetAssessmentOverview,
   adminGetDepartmentListing,
   adminListCoursesForReport,
+  adminListModules,
+  adminGetStudents,
+  adminGetInstructorReportDirectory,
 } from "../../../../services";
 import dayjs from "dayjs";
+
+const PAGE_SIZE = 20;
 
 const passFailColorMap = { Pass: "green", Fail: "red" };
 const gradeColorMap = { A: "green", B: "blue", C: "yellow", F: "red" };
@@ -47,59 +52,74 @@ const TD = ({ children }) => (
   </Box>
 );
 
-const SummaryBox = ({ label, value, color }) => (
-  <Box
-    bg="white"
-    border="1px"
-    borderColor="gray.200"
-    borderRadius="lg"
-    p={6}
-    shadow="sm"
-    textAlign="center"
-    flex="1"
-  >
-    <Text fontSize="3xl" fontWeight="800" color={color ?? "primary.base"}>
-      {value ?? "—"}
-    </Text>
-    <Text fontSize="sm" color="gray.500" mt={1} fontWeight="500">
-      {label}
-    </Text>
-  </Box>
-);
-
 const AssessmentOverviewPage = () => {
   const toast = useToast();
 
-  // Filter options
+  // Filter option lists
   const [courses, setCourses] = useState([]);
+  const [modules, setModules] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [instructors, setInstructors] = useState([]);
   const [filtersLoading, setFiltersLoading] = useState(true);
+  const [modulesLoading, setModulesLoading] = useState(false);
 
-  // Filters
+  // Active filter values
   const [courseId, setCourseId] = useState("");
+  const [moduleId, setModuleId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [studentId, setStudentId] = useState("");
+  const [instructorId, setInstructorId] = useState("");
 
   // Report data
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
   const [kpis, setKpis] = useState(null);
-  const [totalCourses, setTotalCourses] = useState(null);
 
-  // Load filter options on mount
+  // Pagination
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const pageSlice = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Load static filter options on mount
   useEffect(() => {
     Promise.allSettled([
       adminListCoursesForReport(),
       adminGetDepartmentListing(),
-    ]).then(([coursesRes, deptsRes]) => {
+      adminGetStudents({ limit: 500 }),
+      adminGetInstructorReportDirectory({ limit: 500 }),
+    ]).then(([coursesRes, deptsRes, studentsRes, instructorsRes]) => {
       if (coursesRes.status === "fulfilled") setCourses(coursesRes.value.rows ?? []);
       if (deptsRes.status === "fulfilled") setDepartments(deptsRes.value.departments ?? []);
+      if (studentsRes.status === "fulfilled") setStudents(studentsRes.value.students ?? []);
+      if (instructorsRes.status === "fulfilled") {
+        const raw = instructorsRes.value;
+        setInstructors(
+          (raw.rows ?? (Array.isArray(raw) ? raw : [])).map((i) => ({
+            id: i.id,
+            name: i.firstName && i.lastName
+              ? `${i.firstName} ${i.lastName}`.trim()
+              : i.name ?? "—",
+          }))
+        );
+      }
     }).finally(() => setFiltersLoading(false));
   }, []);
 
-  // Auto-load overview on mount
+  // Fetch modules whenever the selected course changes
+  useEffect(() => {
+    setModuleId("");
+    setModules([]);
+    if (!courseId) return;
+    setModulesLoading(true);
+    adminListModules(courseId)
+      .then((res) => setModules(res.modules ?? []))
+      .catch(() => {})
+      .finally(() => setModulesLoading(false));
+  }, [courseId]);
+
+  // Auto-load on mount
   useEffect(() => {
     fetchOverview({});
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -108,12 +128,12 @@ const AssessmentOverviewPage = () => {
   const fetchOverview = async (params) => {
     setLoading(true);
     setError(null);
+    setPage(1);
     try {
       const res = await adminGetAssessmentOverview(params);
       const data = res?.data ?? {};
       setResults(data.assessments ?? data.results ?? []);
       setKpis(data.kpis ?? null);
-      setTotalCourses(data.totalCourses ?? null);
     } catch (err) {
       const message =
         err?.response?.data?.message || err.message || "Unable to fetch overview report";
@@ -127,21 +147,23 @@ const AssessmentOverviewPage = () => {
   const handleApply = () => {
     const params = {};
     if (courseId) params.courseId = courseId;
+    if (moduleId) params.moduleId = moduleId;
     if (departmentId) params.departmentId = departmentId;
-    if (startDate) params.startDate = startDate;
-    if (endDate) params.endDate = endDate;
+    if (studentId) params.studentId = studentId;
+    if (instructorId) params.instructorId = instructorId;
     fetchOverview(params);
   };
 
   const handleClearFilters = () => {
     setCourseId("");
+    setModuleId("");
     setDepartmentId("");
-    setStartDate("");
-    setEndDate("");
+    setStudentId("");
+    setInstructorId("");
     fetchOverview({});
   };
 
-  const hasActiveFilters = courseId || departmentId || startDate || endDate;
+  const hasActiveFilters = courseId || moduleId || departmentId || studentId || instructorId;
 
   const kpiAverage = kpis?.averageScore ?? kpis?.averageAssessmentScore ?? 0;
   const kpiDifficulty =
@@ -154,7 +176,7 @@ const AssessmentOverviewPage = () => {
         <Breadcrumb
           item2={
             <BreadcrumbItem isCurrentPage>
-              <Link href="/admin/report/assessment-overview">Assessment Reports</Link>
+              <Link href="/admin/report/assessment-overview">Assessment &amp; Quiz Result Report</Link>
             </BreadcrumbItem>
           }
         />
@@ -171,9 +193,9 @@ const AssessmentOverviewPage = () => {
         marginBottom={0}
       >
         <Box>
-          <Heading as="h1" fontSize="heading.h3">Assessment Reports</Heading>
+          <Heading as="h1" fontSize="heading.h3">Assessment &amp; Quiz Result Report</Heading>
           <Text fontSize="sm" color="gray.500" mt={1}>
-            Assessment performance data across courses, departments and the organisation.
+            Student performance per assessment, module and course — with overall pass rate overview.
           </Text>
         </Box>
         <Button secondary onClick={() => fetchOverview({})} isLoading={loading}>
@@ -198,7 +220,7 @@ const AssessmentOverviewPage = () => {
         </Text>
         <Flex gap={4} flexWrap="wrap" alignItems="flex-end">
           {/* Course */}
-          <Box minW={{ base: "100%", md: "220px" }} flex="1">
+          <Box minW={{ base: "100%", md: "200px" }} flex="1">
             <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
               Course
             </Text>
@@ -216,8 +238,33 @@ const AssessmentOverviewPage = () => {
             </Select>
           </Box>
 
-          {/* Department */}
+          {/* Course Module */}
           <Box minW={{ base: "100%", md: "200px" }} flex="1">
+            <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
+              Course Module
+            </Text>
+            <Select
+              placeholder={
+                !courseId
+                  ? "Select a course first"
+                  : modulesLoading
+                  ? "Loading..."
+                  : "All modules"
+              }
+              value={moduleId}
+              onChange={(e) => setModuleId(e.target.value)}
+              isDisabled={!courseId || modulesLoading}
+              size="sm"
+              borderRadius="md"
+            >
+              {modules.map((m) => (
+                <option key={m.id} value={m.id}>{m.title}</option>
+              ))}
+            </Select>
+          </Box>
+
+          {/* Department */}
+          <Box minW={{ base: "100%", md: "180px" }} flex="1">
             <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
               Department
             </Text>
@@ -235,42 +282,46 @@ const AssessmentOverviewPage = () => {
             </Select>
           </Box>
 
-          {/* From date */}
-          <Box minW="150px">
+          {/* Student */}
+          <Box minW={{ base: "100%", md: "180px" }} flex="1">
             <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
-              From
+              Student
             </Text>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={{
-                fontSize: "14px",
-                border: "1px solid #E2E8F0",
-                borderRadius: "6px",
-                padding: "6px 10px",
-                width: "100%",
-              }}
-            />
+            <Select
+              placeholder={filtersLoading ? "Loading..." : "All students"}
+              value={studentId}
+              onChange={(e) => setStudentId(e.target.value)}
+              isDisabled={filtersLoading}
+              size="sm"
+              borderRadius="md"
+            >
+              {students.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.firstName && s.lastName
+                    ? `${s.firstName} ${s.lastName}`.trim()
+                    : s.name ?? s.email ?? s.id}
+                </option>
+              ))}
+            </Select>
           </Box>
 
-          {/* To date */}
-          <Box minW="150px">
+          {/* Course Instructor */}
+          <Box minW={{ base: "100%", md: "180px" }} flex="1">
             <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
-              To
+              Instructor
             </Text>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={{
-                fontSize: "14px",
-                border: "1px solid #E2E8F0",
-                borderRadius: "6px",
-                padding: "6px 10px",
-                width: "100%",
-              }}
-            />
+            <Select
+              placeholder={filtersLoading ? "Loading..." : "All instructors"}
+              value={instructorId}
+              onChange={(e) => setInstructorId(e.target.value)}
+              isDisabled={filtersLoading}
+              size="sm"
+              borderRadius="md"
+            >
+              {instructors.map((i) => (
+                <option key={i.id} value={i.id}>{i.name}</option>
+              ))}
+            </Select>
           </Box>
 
           <Flex gap={2} alignSelf="flex-end">
@@ -312,24 +363,6 @@ const AssessmentOverviewPage = () => {
       {/* Report body */}
       {!loading && !error && (
         <>
-          {/* Summary totals */}
-          {(totalCourses != null || results.length > 0) && (
-            <Flex gap={4} mb={6} flexWrap="wrap">
-              {totalCourses != null && (
-                <SummaryBox
-                  label="Total Courses"
-                  value={totalCourses?.toLocaleString()}
-                  color="#6B006B"
-                />
-              )}
-              <SummaryBox
-                label="Total Submissions"
-                value={results.length.toLocaleString()}
-                color="#1A5276"
-              />
-            </Flex>
-          )}
-
           {/* KPI Cards */}
           {kpis && (
             <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mb={8}>
@@ -387,7 +420,7 @@ const AssessmentOverviewPage = () => {
             <>
               <Flex justifyContent="space-between" alignItems="center" mb={3}>
                 <Text fontSize="sm" color="gray.500" fontWeight="500">
-                  Showing {results.length} submission{results.length !== 1 ? "s" : ""}
+                  Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, results.length)} of {results.length} submission{results.length !== 1 ? "s" : ""}
                 </Text>
               </Flex>
               <Box
@@ -401,17 +434,20 @@ const AssessmentOverviewPage = () => {
                 <Box as="table" width="100%" borderCollapse="collapse">
                   <Box as="thead" bg="gray.50" borderBottom="1px" borderColor="gray.200">
                     <Box as="tr">
-                      <TH w="170px">Student</TH>
-                      <TH w="210px">Assessment</TH>
-                      <TH w="190px">Course</TH>
-                      <TH w="90px">Score</TH>
-                      <TH w="80px">Grade</TH>
-                      <TH w="85px">Result</TH>
-                      <TH w="120px">Date Taken</TH>
+                      <TH w="160px">Student</TH>
+                      <TH w="190px">Assessment</TH>
+                      <TH w="170px">Course</TH>
+                      <TH w="160px">Module</TH>
+                      <TH w="80px">Score</TH>
+                      <TH w="70px">Grade</TH>
+                      <TH w="80px">Result</TH>
+                      <TH w="140px">Instructor</TH>
+                      <TH w="200px">Instructor Remark</TH>
+                      <TH w="110px">Date Taken</TH>
                     </Box>
                   </Box>
                   <Box as="tbody">
-                    {results.map((item, idx) => (
+                    {pageSlice.map((item, idx) => (
                       <Box
                         as="tr"
                         key={item.id ?? `${item.studentId}-${item.assessmentTitle}-${idx}`}
@@ -429,6 +465,11 @@ const AssessmentOverviewPage = () => {
                         <TD>
                           <Text fontSize="13px" color="gray.600">
                             {item.courseTitle ?? "—"}
+                          </Text>
+                        </TD>
+                        <TD>
+                          <Text fontSize="13px" color="gray.600">
+                            {item.moduleTitle ?? item.module ?? "—"}
                           </Text>
                         </TD>
                         <TD>
@@ -456,6 +497,16 @@ const AssessmentOverviewPage = () => {
                           </Tag>
                         </TD>
                         <TD>
+                          <Text fontSize="13px">
+                            {item.instructorName ?? item.instructor ?? "—"}
+                          </Text>
+                        </TD>
+                        <TD>
+                          <Text fontSize="13px" color="gray.600" noOfLines={2}>
+                            {item.instructorRemark ?? item.feedback ?? item.remark ?? "—"}
+                          </Text>
+                        </TD>
+                        <TD>
                           {item.dateTaken ?? item.submittedAt
                             ? dayjs(item.dateTaken ?? item.submittedAt).format("DD MMM YYYY")
                             : "—"}
@@ -465,6 +516,54 @@ const AssessmentOverviewPage = () => {
                   </Box>
                 </Box>
               </Box>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <Flex justifyContent="center" alignItems="center" gap={2} mt={5}>
+                  <Button
+                    secondary
+                    isDisabled={page === 1}
+                    onClick={() => setPage((p) => p - 1)}
+                    size="sm"
+                  >
+                    Previous
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                    .reduce((acc, p, i, arr) => {
+                      if (i > 0 && p - arr[i - 1] > 1) acc.push("...");
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((item, i) =>
+                      item === "..." ? (
+                        <Text key={`ellipsis-${i}`} color="gray.400" px={1}>…</Text>
+                      ) : (
+                        <Button
+                          key={item}
+                          onClick={() => setPage(item)}
+                          size="sm"
+                          secondary={item !== page}
+                          style={
+                            item === page
+                              ? { background: "#660066", color: "white", border: "none" }
+                              : {}
+                          }
+                        >
+                          {item}
+                        </Button>
+                      )
+                    )}
+                  <Button
+                    secondary
+                    isDisabled={page === totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                    size="sm"
+                  >
+                    Next
+                  </Button>
+                </Flex>
+              )}
             </>
           )}
         </>

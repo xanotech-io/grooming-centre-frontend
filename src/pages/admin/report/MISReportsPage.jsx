@@ -56,6 +56,7 @@ import {
   adminGetMISKPIs,
   adminGenerateMISReport,
   adminArchiveMISReport,
+  adminUnarchiveMISReport,
   adminDeleteMISReport,
 } from "../../../services";
 import { AdminMainAreaWrapper } from "../../../layouts";
@@ -192,6 +193,16 @@ const MISReportsPage = () => {
       fetchReports(filters);
     } catch (err) {
       toast({ description: err?.response?.data?.message || "Failed to archive.", status: "error", position: "top" });
+    }
+  };
+
+  const handleUnarchive = async (reportId) => {
+    try {
+      const { message } = await adminUnarchiveMISReport(reportId);
+      toast({ description: message || "Report unarchived.", status: "success", position: "top" });
+      fetchReports(filters);
+    } catch (err) {
+      toast({ description: err?.response?.data?.message || "Failed to unarchive.", status: "error", position: "top" });
     }
   };
 
@@ -384,7 +395,11 @@ const MISReportsPage = () => {
                         border="1px solid #E4E7EC" borderRadius="md"
                       />
                       <MenuList>
-                        <MenuItem fontSize="13px" onClick={() => handleArchive(item.id)}>Archive report</MenuItem>
+                        {item.status?.toLowerCase() === "archived" ? (
+                          <MenuItem fontSize="13px" onClick={() => handleUnarchive(item.id)}>Unarchive report</MenuItem>
+                        ) : (
+                          <MenuItem fontSize="13px" onClick={() => handleArchive(item.id)}>Archive report</MenuItem>
+                        )}
                         <MenuItem fontSize="13px" color="red.500" onClick={() => handleDelete(item.id)}>Delete report</MenuItem>
                       </MenuList>
                     </Menu>

@@ -592,7 +592,7 @@ const EnrollmentStatusReportPage = () => {
       {kpis && (
         <>
           <SimpleGrid columns={{ base: 2, md: 4, lg: 4 }} spacing={4} mb={4}>
-            <KpiCard
+             <KpiCard
               icon={FiUsers}
               label="Total Students in LMS"
               value={kpis.total_students_in_lms?.toLocaleString()}
@@ -603,14 +603,14 @@ const EnrollmentStatusReportPage = () => {
               label="Total Enrolled"
               value={kpis.total_enrolled_students?.toLocaleString()}
               iconColor="#3B82F6"
-            />
+            /> 
             <KpiCard
               icon={FiActivity}
               label="Active (In Progress)"
               value={kpis.total_active_students?.toLocaleString()}
               iconColor="#10B981"
             />
-            <KpiCard
+             <KpiCard
               icon={FiCheckCircle}
               label="Completed"
               value={kpis.total_completed_students?.toLocaleString()}
@@ -627,7 +627,7 @@ const EnrollmentStatusReportPage = () => {
               label="Deactivated"
               value={kpis.total_deactivated_students?.toLocaleString()}
               iconColor="#EF4444"
-            />
+            /> 
             <KpiCard
               icon={FiTrendingUp}
               label="Overall Dropout Rate"

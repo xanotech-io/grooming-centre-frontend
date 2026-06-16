@@ -2,10 +2,7 @@ import { useLocation } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 
 const TABS = [
-  { label: "Course Assessment", href: "/admin/report/course-assessment" },
   { label: "Assessment Overview", href: "/admin/report/assessment-overview" },
-  { label: "Department Report", href: "/admin/report/assessment/department" },
-  { label: "My Evaluations", href: "/admin/report/assessment/evaluations" },
 ];
 
 const AssessmentTabBar = () => {
