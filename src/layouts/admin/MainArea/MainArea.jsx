@@ -160,11 +160,7 @@ import { DataImportExportPageRoute } from "../../../pages/admin/dataImportExport
 import { InteractiveDashboardRoute } from "../../../pages/admin/dashboard/InteractiveDashboard";
 import { StudentTrainingReportPageRoute } from "../../../pages/admin/studentProgress/StudentTrainingReportPage";
 import { ReportBuilderPageRoute } from "../../../pages/admin/report/ReportBuilderPage";
-import { CourseAssessmentResultsPageRoute } from "../../../pages/admin/report/courseAssessment/CourseAssessmentResultsPage";
-import { StudentAssessmentDetailsPageRoute } from "../../../pages/admin/report/courseAssessment/StudentAssessmentDetailsPage";
 import { AssessmentOverviewPageRoute } from "../../../pages/admin/report/courseAssessment/AssessmentOverviewPage";
-import { DepartmentReportPageRoute } from "../../../pages/admin/report/courseAssessment/DepartmentReportPage";
-import { EvaluationsPageRoute } from "../../../pages/admin/report/courseAssessment/EvaluationsPage";
 import { SystemUtilizationReportPageRoute } from "../../../pages/admin/report/SystemUtilizationReportPage";
 import { AttendanceReportPageRoute } from "../../../pages/admin/report/attendance/AttendanceReportPage";
 import { VisualAnalyticsDashboardPageRoute } from "../../../pages/admin/report/visualAnalytics/VisualAnalyticsDashboardPage";
@@ -643,25 +639,9 @@ const MainArea = () => {
           path="/admin/report/participation-monitoring"
         />
         <ReportBuilderPageRoute exact path="/admin/report/report-builder" />
-        <EvaluationsPageRoute
-          exact
-          path="/admin/report/assessment/evaluations"
-        />
-        <DepartmentReportPageRoute
-          exact
-          path="/admin/report/assessment/department"
-        />
         <AssessmentOverviewPageRoute
           exact
           path="/admin/report/assessment-overview"
-        />
-        <StudentAssessmentDetailsPageRoute
-          exact
-          path="/admin/report/course-assessment/student/:studentId"
-        />
-        <CourseAssessmentResultsPageRoute
-          exact
-          path="/admin/report/course-assessment"
         />
         <SystemUtilizationReportPageRoute
           exact

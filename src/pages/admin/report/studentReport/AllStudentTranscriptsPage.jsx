@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Route } from "react-router-dom";
-import { Box, Flex } from "@chakra-ui/layout";
-import { BreadcrumbItem, useToast } from "@chakra-ui/react";
+import { Box, Flex, HStack } from "@chakra-ui/layout";
+import { BreadcrumbItem, Select, useToast } from "@chakra-ui/react";
 import { Tag } from "@chakra-ui/tag";
 import { Breadcrumb, Heading, Link, Table } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
@@ -29,21 +29,37 @@ const mapToRow = (item) => ({
   issuanceReference: item.issuanceReference ?? "—",
 });
 
+const STATUS_PILLS = [
+  { label: "All", value: "" },
+  { label: "Draft", value: "Draft" },
+  { label: "Pending Review", value: "Pending Review" },
+  { label: "Approved", value: "Approved" },
+  { label: "Issued", value: "Issued" },
+  { label: "Returned", value: "Returned" },
+];
+
 const AllStudentTranscriptsPage = () => {
   const toast = useToast();
   const [totalCount, setTotalCount] = useState(0);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const statusFilterRef = useRef("");
+  const typeFilterRef = useRef("");
 
   const fetchTranscripts = async (params = {}) => {
     try {
-      const result = await adminGetAllStudentTranscripts(params);
+      const allParams = { ...params };
+      if (statusFilterRef.current) allParams.status = statusFilterRef.current;
+      if (typeFilterRef.current) allParams.transcriptType = typeFilterRef.current;
+      const result = await adminGetAllStudentTranscripts(allParams);
       const rows = (result.rows ?? []).map(mapToRow);
       setTotalCount(result.totalDocumentsCount ?? rows.length);
       return {
         rows,
         showingDocumentsCount: rows.length,
         totalDocumentsCount: result.totalDocumentsCount ?? rows.length,
-        currentPage: Number(params.page) || 1,
-        totalPages: Math.ceil((result.totalDocumentsCount ?? rows.length) / (Number(params.limit) || 10)) || 1,
+        currentPage: Number(allParams.page) || 1,
+        totalPages: Math.ceil((result.totalDocumentsCount ?? rows.length) / (Number(allParams.limit) || 10)) || 1,
       };
     } catch (err) {
       toast({
@@ -56,35 +72,25 @@ const AllStudentTranscriptsPage = () => {
     }
   };
 
+  const fetcher = (props) => async () => fetchTranscripts(props?.params);
+  const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
+  const handleStatusPill = (value) => {
+    const next = statusFilter === value ? "" : value;
+    setStatusFilter(next);
+    statusFilterRef.current = next;
+    fetchRowItems({ params: { page: 1 } });
+  };
+
+  const handleTypeChange = (e) => {
+    const val = e.target.value;
+    setTypeFilter(val);
+    typeFilterRef.current = val;
+    fetchRowItems({ params: { page: 1 } });
+  };
+
   const tableProps = {
     searchKey: "search",
-    filterControls: [
-      {
-        triggerText: "Status",
-        queryKey: "status",
-        width: "200px",
-        body: {
-          checks: [
-            { label: "Draft", queryValue: "Draft" },
-            { label: "Pending Review", queryValue: "Pending Review" },
-            { label: "Approved", queryValue: "Approved" },
-            { label: "Issued", queryValue: "Issued" },
-            { label: "Returned", queryValue: "Returned" },
-          ],
-        },
-      },
-      {
-        triggerText: "Transcript Type",
-        queryKey: "transcriptType",
-        width: "180px",
-        body: {
-          checks: [
-            { label: "Official", queryValue: "Official" },
-            { label: "Unofficial", queryValue: "Unofficial" },
-          ],
-        },
-      },
-    ],
     columns: [
       {
         id: "studentName",
@@ -145,9 +151,6 @@ const AllStudentTranscriptsPage = () => {
     },
   };
 
-  const fetcher = (props) => async () => fetchTranscripts(props?.params);
-  const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
-
   return (
     <AdminMainAreaWrapper>
       <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
@@ -173,6 +176,35 @@ const AllStudentTranscriptsPage = () => {
         <Heading as="h1" fontSize="heading.h3">
           Student Transcripts
         </Heading>
+      </Flex>
+
+      <Flex mb={4} gap={3} alignItems="center" flexWrap="wrap">
+        <HStack spacing={2} flexWrap="wrap">
+          {STATUS_PILLS.map((pill) => {
+            const isActive = statusFilter === pill.value;
+            return (
+              <Tag
+                key={pill.value}
+                size="sm"
+                borderRadius="full"
+                cursor="pointer"
+                colorScheme={isActive ? (statusColorMap[pill.label] || "blue") : "gray"}
+                variant={isActive ? "solid" : "subtle"}
+                onClick={() => handleStatusPill(pill.value)}
+                px={3}
+                py={1}
+                userSelect="none"
+              >
+                {pill.label}
+              </Tag>
+            );
+          })}
+        </HStack>
+        <Select size="sm" maxW="180px" value={typeFilter} onChange={handleTypeChange}>
+          <option value="">All Types</option>
+          <option value="Official">Official</option>
+          <option value="Unofficial">Unofficial</option>
+        </Select>
       </Flex>
 
       <Table

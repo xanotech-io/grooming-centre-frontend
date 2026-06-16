@@ -50,3 +50,20 @@ export const adminGetTrainingReport = async (studentId) => {
   const { data: { data } } = await http.get(`${BASE}/training-report/${studentId}`);
   return data;
 };
+
+export const adminGetStudentProgressListing = async (params) => {
+  const { data: { data } } = await http.get(`${BASE}/progress`, { params });
+  const rows = Array.isArray(data) ? data : (data.rows ?? data.data ?? []);
+  return {
+    users: rows.map((u) => ({
+      id: u.studentId ?? u.id,
+      displayId: u.studentId ?? u.displayId ?? u.id,
+      fullName: u.fullName,
+      email: u.email,
+      active: u.active,
+      departmentName: u.department ?? u.departmentName,
+    })),
+    showingDocumentsCount: rows.length,
+    totalDocumentsCount: Array.isArray(data) ? rows.length : (data.count ?? data.total ?? rows.length),
+  };
+};

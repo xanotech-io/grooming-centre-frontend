@@ -308,7 +308,7 @@ const StudentTranscriptDetailsPage = () => {
             />
           </Box>
 
-          <Flex gap={6} flexDirection={{ base: "column", lg: "row" }}>
+          <Flex gap={6} flexDirection={{ base: "column", lg: "column" }}>
             {/* Transcript metadata */}
             <Box
               bg="white"
@@ -397,7 +397,7 @@ const StudentTranscriptDetailsPage = () => {
               </Box>
 
               <Grid
-                templateColumns="1fr 80px 60px 140px"
+                templateColumns="1fr 160px 80px 60px 140px"
                 bg="gray.50"
                 borderBottom="1px"
                 borderColor="gray.200"
@@ -405,6 +405,7 @@ const StudentTranscriptDetailsPage = () => {
                 py={3}
               >
                 <Text bold as="level5" color="gray.600">Course</Text>
+                <Text bold as="level5" color="gray.600">Instructor</Text>
                 <Text bold as="level5" color="gray.600" textAlign="center">Score</Text>
                 <Text bold as="level5" color="gray.600" textAlign="center">Grade</Text>
                 <Text bold as="level5" color="gray.600" textAlign="center">Certificate</Text>
@@ -418,7 +419,7 @@ const StudentTranscriptDetailsPage = () => {
                 (transcript.courseRecords ?? []).map((record, idx) => (
                   <Grid
                     key={record.courseId ?? idx}
-                    templateColumns="1fr 80px 60px 140px"
+                    templateColumns="1fr 160px 80px 60px 140px"
                     px={6}
                     py={4}
                     borderBottom="1px"
@@ -430,8 +431,14 @@ const StudentTranscriptDetailsPage = () => {
                       <Icon color="primary.base" fontSize="16px">
                         <FaGraduationCap />
                       </Icon>
-                      <Text bold>{record.courseTitle}</Text>
+                      <Text bold>{record.course?.title ?? "—"}</Text>
                     </Flex>
+
+                    <Text fontSize="sm" color="gray.600">
+                      {record.instructor
+                        ? `${record.instructor.firstName} ${record.instructor.lastName}`
+                        : "—"}
+                    </Text>
 
                     <Text textAlign="center" color="gray.700">
                       {record.score != null ? `${record.score}%` : "—"}

@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { Route } from "react-router-dom";
 import { Box, Flex, SimpleGrid } from "@chakra-ui/layout";
-import { BreadcrumbItem, Select, Tag, useToast } from "@chakra-ui/react";
+import {
+  BreadcrumbItem,
+  Tag,
+  useToast,
+  Input,
+  InputGroup,
+  InputRightElement,
+  IconButton,
+  Spinner,
+} from "@chakra-ui/react";
 import {
   Breadcrumb,
   Button,
@@ -15,6 +24,7 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import { useTableRows } from "../../../../hooks";
 import { getAttendanceReport, adminGetStudents } from "../../../../services";
 import dayjs from "dayjs";
+import { AiOutlineClose } from "react-icons/ai";
 
 const statusColorMap = {
   Present: "green",
@@ -30,7 +40,7 @@ const deliveryColorMap = {
 
 const mapToRow = (record) => ({
   id: record.id,
-  studentName: record.studentName ?? record.student?.name ?? "—",
+  studentName: record.student.firstName ?? record.student?.firstName ?? "—",
   courseTitle: record.courseTitle ?? record.course?.title ?? "—",
   lessonTitle: record.lessonTitle ?? record.lesson?.title ?? "—",
   sessionDate: record.sessionDate ?? "—",
@@ -42,26 +52,153 @@ const mapToRow = (record) => ({
   deliveryMode: record.deliveryMode ?? "—",
 });
 
+const getStudentDisplayName = (s) =>
+  `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.email || s.id;
+
+const StudentAutocomplete = ({ onStudentChange }) => {
+  const [inputText, setInputText] = useState("");
+  const [allStudents, setAllStudents] = useState([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [selectedName, setSelectedName] = useState("");
+  const containerRef = useRef(null);
+
+  // Load full student list once on mount
+  useEffect(() => {
+    adminGetStudents({ limit: 500 })
+      .then(({ students }) => setAllStudents(students ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filtered = inputText.trim()
+    ? allStudents.filter((s) =>
+        getStudentDisplayName(s)
+          .toLowerCase()
+          .includes(inputText.trim().toLowerCase())
+      )
+    : allStudents;
+
+  const handleSelect = (student) => {
+    const name = getStudentDisplayName(student);
+    setSelectedName(name);
+    setInputText(name);
+    setIsOpen(false);
+    onStudentChange(student.id);
+  };
+
+  const handleClear = () => {
+    setInputText("");
+    setSelectedName("");
+    setIsOpen(false);
+    onStudentChange("");
+  };
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputText(val);
+    setIsOpen(true);
+    if (selectedName && val !== selectedName) {
+      setSelectedName("");
+      onStudentChange("");
+    }
+  };
+
+  const handleFocus = () => setIsOpen(true);
+
+  return (
+    <Box position="relative" ref={containerRef} minW="300px" maxW="360px">
+      <InputGroup size="sm">
+        <Input
+          value={inputText}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          placeholder={loading ? "Loading students…" : "Search or select a student…"}
+          isDisabled={loading}
+          bg="white"
+          borderRadius="md"
+          borderColor="gray.300"
+          _hover={{ borderColor: "gray.400" }}
+          pr={inputText ? "32px" : undefined}
+        />
+        {loading && (
+          <InputRightElement>
+            <Spinner size="xs" color="gray.400" />
+          </InputRightElement>
+        )}
+        {!loading && inputText && (
+          <InputRightElement>
+            <IconButton
+              size="xs"
+              variant="ghost"
+              aria-label="Clear student"
+              icon={<AiOutlineClose />}
+              onClick={handleClear}
+              _hover={{ bg: "transparent" }}
+            />
+          </InputRightElement>
+        )}
+      </InputGroup>
+
+      {isOpen && !loading && (
+        <Box
+          position="absolute"
+          top="calc(100% + 4px)"
+          left={0}
+          right={0}
+          bg="white"
+          border="1px"
+          borderColor="gray.200"
+          rounded="md"
+          shadow="md"
+          zIndex={10}
+          maxH="220px"
+          overflowY="auto"
+        >
+          {filtered.length === 0 ? (
+            <Box px={3} py={2}>
+              <Text fontSize="sm" color="gray.400">No students found</Text>
+            </Box>
+          ) : (
+            filtered.map((s) => (
+              <Box
+                key={s.id}
+                px={3}
+                py={2}
+                cursor="pointer"
+                _hover={{ bg: "gray.50" }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSelect(s);
+                }}
+              >
+                <Text fontSize="sm">{getStudentDisplayName(s)}</Text>
+              </Box>
+            ))
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 const AttendanceReportPage = () => {
   const toast = useToast();
   const [kpis, setKpis] = useState(null);
   const [meta, setMeta] = useState({ totalSessions: 0, sessionsPresent: 0 });
-  const [students, setStudents] = useState([]);
-  const [selectedStudentId, setSelectedStudentId] = useState("");
 
-  // Ref gives the fetcher synchronous access to the current student ID
-  // without needing a re-render cycle before the API call.
   const studentIdRef = useRef("");
-
-  // Remember the last params used (page, limit, active filters) so that
-  // changing the student doesn't wipe out the rest of the table state.
   const lastParamsRef = useRef({});
-
-  useEffect(() => {
-    adminGetStudents({ limit: 200 })
-      .then(({ students: list }) => setStudents(list ?? []))
-      .catch(() => {});
-  }, []);
 
   const fetchReport = async (params = {}) => {
     lastParamsRef.current = params;
@@ -118,7 +255,7 @@ const AttendanceReportPage = () => {
         queryKey: "attendanceStatus",
         width: "200px",
         body: {
-          checks: [
+          radios: [
             { label: "Present", queryValue: "Present" },
             { label: "Absent", queryValue: "Absent" },
             { label: "Late", queryValue: "Late" },
@@ -131,7 +268,7 @@ const AttendanceReportPage = () => {
         queryKey: "deliveryMode",
         width: "180px",
         body: {
-          checks: [
+          radios: [
             { label: "Virtual", queryValue: "Virtual" },
             { label: "Physical", queryValue: "Physical" },
           ],
@@ -233,12 +370,8 @@ const AttendanceReportPage = () => {
   const fetcher = (props) => async () => fetchReport(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
-  const handleStudentChange = (e) => {
-    const val = e.target.value;
-    // Update ref synchronously so the next fetchReport call sees the new value
-    studentIdRef.current = val;
-    setSelectedStudentId(val);
-    // Re-fetch preserving the current page/limit/filter params
+  const handleStudentSelect = (studentId) => {
+    studentIdRef.current = studentId;
     fetchRowItems({ params: lastParamsRef.current });
   };
 
@@ -283,17 +416,12 @@ const AttendanceReportPage = () => {
 
       <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mb={8}>
         <DashboardMetricCard
-          title="Attendance Rate"
+          title="Attendance Percentage"
           value={kpis ? `${kpis.attendancePercentage ?? 0}%` : "—"}
           change="overall attendance"
           changeColor="#1A8F3A"
         />
-        <DashboardMetricCard
-          title="Sessions Present"
-          value={`${meta.sessionsPresent}`}
-          change={`of ${meta.totalSessions} total sessions`}
-          changeColor="#2B6CB0"
-        />
+        
         <DashboardMetricCard
           title="Lessons Missed"
           value={`${kpis?.lessonsMissed ?? 0}`}
@@ -314,7 +442,7 @@ const AttendanceReportPage = () => {
         />
       </SimpleGrid>
 
-      {/* Student selector — sits above the table filters */}
+      {/* Student search — type to find a student, pick from dropdown */}
       <Box
         display="flex"
         alignItems="center"
@@ -329,24 +457,7 @@ const AttendanceReportPage = () => {
         <Text fontSize="sm" fontWeight="600" color="gray.600" whiteSpace="nowrap">
           Student:
         </Text>
-        <Select
-          placeholder="All Students"
-          value={selectedStudentId}
-          onChange={handleStudentChange}
-          size="sm"
-          maxW="320px"
-          isDisabled={students.length === 0}
-          bg="white"
-          borderColor="gray.300"
-          _hover={{ borderColor: "gray.400" }}
-          borderRadius="md"
-        >
-          {students.map((s) => (
-            <option key={s.id} value={s.id}>
-              {`${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.email || s.id}
-            </option>
-          ))}
-        </Select>
+        <StudentAutocomplete onStudentChange={handleStudentSelect} />
       </Box>
 
       <Table

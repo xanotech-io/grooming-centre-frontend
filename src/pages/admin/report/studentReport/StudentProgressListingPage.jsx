@@ -1,115 +1,208 @@
-import { Flex, Box } from "@chakra-ui/layout";
+import { useState, useEffect, useRef } from "react";
+import { Flex, Box, HStack } from "@chakra-ui/layout";
+import { InputGroup, InputLeftElement, Input } from "@chakra-ui/react";
 import { Route } from "react-router-dom";
-import { FaSortAmountUpAlt } from "react-icons/fa";
-import { Badge } from "@chakra-ui/react";
-import { Heading, Table, Breadcrumb, Link, Text } from "../../../../components";
+import { BsSearch } from "react-icons/bs";
+import { AiOutlineDown } from "react-icons/ai";
+import { Heading, Table, Breadcrumb, Link, Text, Button } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { BreadcrumbItem } from "@chakra-ui/react";
-import { useTableRows } from "../../../../hooks";
-import { adminGetUserListing } from "../../../../services";
+import { adminGetStudentProgressListing } from "../../../../services";
+
+const PAGE_SIZE = 20;
+
+const SortDropdown = ({ sortOrder, onSort }) => {
+  const [open, setOpen] = useState(false);
+
+  const label =
+    sortOrder === "asc" ? "Ascending" : sortOrder === "desc" ? "Descending" : "Sort";
+
+  return (
+    <Box position="relative">
+      <Button
+        secondary
+        sm
+        rightIcon={<AiOutlineDown />}
+        backgroundColor="white"
+        color="accent.3"
+        border="1px solid"
+        borderColor="gray.300"
+        onClick={() => setOpen((o) => !o)}
+      >
+        {label}
+      </Button>
+
+      {open && (
+        <>
+          <Box
+            position="fixed"
+            top={0}
+            left={0}
+            w="100%"
+            h="100%"
+            zIndex={1}
+            onClick={() => setOpen(false)}
+          />
+          <Box
+            position="absolute"
+            top="calc(100% + 5px)"
+            left={0}
+            zIndex={2}
+            backgroundColor="white"
+            border="1px solid"
+            borderColor="accent.3"
+            borderRadius="4px"
+            boxShadow="md"
+            minW="160px"
+            overflow="hidden"
+          >
+            {[
+              { label: "Ascending", value: "asc" },
+              { label: "Descending", value: "desc" },
+            ].map((opt) => (
+              <Box
+                key={opt.value}
+                px={3}
+                py={2}
+                cursor="pointer"
+                fontWeight={sortOrder === opt.value ? "bold" : "normal"}
+                color={sortOrder === opt.value ? "#660066" : "gray.700"}
+                _hover={{ backgroundColor: "accent.1" }}
+                onClick={() => {
+                  onSort(opt.value);
+                  setOpen(false);
+                }}
+              >
+                <Text fontSize="sm">{opt.label}</Text>
+              </Box>
+            ))}
+          </Box>
+        </>
+      )}
+    </Box>
+  );
+};
+
+const sortList = (list, order) => {
+  if (!order) return list;
+  return [...list].sort((a, b) => {
+    const nameA = (a.fullName?.text ?? "").toLowerCase();
+    const nameB = (b.fullName?.text ?? "").toLowerCase();
+    return order === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+  });
+};
 
 const StudentProgressListingPage = () => {
-  const tableProps = {
-    searchKey: "search",
-    filterControls: [
-      {
-        triggerText: "Sort",
-        queryKey: "sort",
-        triggerIcon: <FaSortAmountUpAlt />,
-        width: "200px",
-        position: "right-bottom",
-        body: {
-          radios: [
-            {
-              label: "Alphabetically: ascending",
-              queryValue: "asc",
-              additionalParams: { date: false },
-            },
-            {
-              label: "Alphabetically: descending",
-              queryValue: "desc",
-              additionalParams: { date: false },
-            },
-          ],
-        },
-      },
-    ],
+  const [filteredStudents, setFilteredStudents] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rows, setRows] = useState({ data: null, loading: false, err: null });
+  const [searchValue, setSearchValue] = useState("");
+  const [sortOrder, setSortOrder] = useState(null);
+  const debounceRef = useRef(null);
+  const searchRef = useRef("");
 
-    columns: [
-      {
-        id: "1",
-        key: "userId",
-        text: "Student ID",
-        fraction: "130px",
-        renderContent: (data) => <Text>{data.text}</Text>,
-      },
-      {
-        id: "2",
-        key: "fullName",
-        text: "Full Name",
-        fraction: "200px",
-        renderContent: (data) => <Text>{data.text}</Text>,
-      },
-      {
-        id: "5",
-        key: "email",
-        text: "Email Address",
-        fraction: "250px",
-      },
-      {
-        id: "6",
-        key: "department",
-        text: "Department",
-        fraction: "180px",
-      },
-      {
-        id: "7",
-        key: "status",
-        text: "Status",
-        fraction: "120px",
-        renderContent: (data) => (
-          <Badge colorScheme={data.active ? "green" : "orange"} variant="solid">
-            {data.active ? "Active" : "Inactive"}
-          </Badge>
-        ),
-      },
-    ],
-
-    options: {
-      action: [
-        {
-          text: "Progress Report",
-          link: (user) => `/admin/report/studentReport/${user.id}/progress`,
-        },
-        {
-          text: "Training Report",
-          link: (user) => `/admin/report/studentReport/${user.id}/training-report`,
-        },
-      ],
-      selection: false,
-      pagination: true,
+  const columns = [
+    {
+      id: "1",
+      key: "userId",
+      text: "Student ID",
+      fraction: "150px",
+      renderContent: (data) => <Text>{data?.text ?? "—"}</Text>,
     },
+    {
+      id: "2",
+      key: "fullName",
+      text: "Full Name",
+      fraction: "220px",
+      renderContent: (data) => <Text>{data?.text ?? "—"}</Text>,
+    },
+    {
+      id: "3",
+      key: "email",
+      text: "Email Address",
+      fraction: "260px",
+    },
+    {
+      id: "4",
+      key: "department",
+      text: "Department",
+      fraction: "200px",
+    },
+  ];
+
+  const options = {
+    action: [
+      {
+        text: "Progress Report",
+        link: (row) => `/admin/report/studentReport/${row.id}/progress`,
+      },
+      {
+        text: "Training Report",
+        link: (row) => `/admin/report/studentReport/${row.id}/training-report`,
+      },
+    ],
+    selection: false,
+    pagination: false,
   };
 
-  const mapUserToRow = (user) => ({
-    ...user,
-    fullName: { text: `${user.firstName} ${user.lastName}`, userId: user.id },
-    userId: { text: user.displayId, userId: user.id },
-    department: user.departmentName ?? "—",
-    status: { active: user.active, text: user.active ? "Active" : "Inactive" },
+  const mapToRow = (u) => ({
+    id: u.id,
+    email: u.email ?? "—",
+    fullName: { text: u.fullName ?? "—", userId: u.id },
+    userId: { text: u.displayId ?? u.id ?? "—", userId: u.id },
+    department: u.departmentName ?? "—",
   });
 
-  const fetcher = (props) => async () => {
-    const res = await adminGetUserListing(props?.params);
-    const rows = (res.users ?? []).map(mapUserToRow);
-    return {
-      rows,
-      showingDocumentsCount: res.showingDocumentsCount ?? rows.length,
-      totalDocumentsCount: res.totalDocumentsCount ?? rows.length,
-    };
+  const applyPage = (list, page) => {
+    const start = (page - 1) * PAGE_SIZE;
+    const slice = list.slice(start, start + PAGE_SIZE);
+    setCurrentPage(page);
+    setRows({
+      data: {
+        rows: slice,
+        showingDocumentsCount: slice.length,
+        totalDocumentsCount: list.length,
+      },
+    });
   };
 
-  const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+  const doFetch = async (search = "", order = null) => {
+    setRows({ loading: true });
+    try {
+      const params = {};
+      if (search) params.search = search;
+      const res = await adminGetStudentProgressListing(params);
+      const mapped = (res.users ?? []).map(mapToRow);
+      const sorted = sortList(mapped, order);
+      setFilteredStudents(sorted);
+      applyPage(sorted, 1);
+    } catch (err) {
+      setRows({ err: err.message });
+    }
+  };
+
+  useEffect(() => {
+    doFetch("", null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearchValue(val);
+    searchRef.current = val;
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      doFetch(val, sortOrder);
+    }, 300);
+  };
+
+  const handleSort = (order) => {
+    const next = sortOrder === order ? null : order;
+    setSortOrder(next);
+    doFetch(searchRef.current, next);
+  };
+
+  const totalPages = Math.ceil((filteredStudents.length || 0) / PAGE_SIZE);
 
   return (
     <AdminMainAreaWrapper>
@@ -143,13 +236,69 @@ const StudentProgressListingPage = () => {
         </Box>
       </Flex>
 
+      <HStack mb={4} spacing={3} align="center">
+        <InputGroup width="375px">
+          <InputLeftElement pointerEvents="none" height="33px">
+            <BsSearch color="gray" size={14} />
+          </InputLeftElement>
+          <Input
+            value={searchValue}
+            onChange={handleSearchChange}
+            placeholder="Search by student name or ID…"
+            size="sm"
+            border="1px solid"
+            borderColor="gray.300"
+            borderRadius="4px"
+            _focus={{ borderColor: "purple.500", boxShadow: "none" }}
+            pl={8}
+          />
+        </InputGroup>
+
+        <SortDropdown sortOrder={sortOrder} onSort={handleSort} />
+      </HStack>
+
       <Table
-        {...tableProps}
-        placeholder="Search by student name or ID…"
+        columns={columns}
+        options={options}
+        SearchBarVisibility="none"
         rows={rows}
         setRows={setRows}
-        handleFetch={fetchRowItems}
+        handleFetch={() => {}}
       />
+
+      {totalPages > 1 && (
+        <HStack justify="space-between" mt={4} px={2}>
+          <Text color="accent.3" fontSize="sm">
+            Showing{" "}
+            {filteredStudents.length === 0
+              ? 0
+              : (currentPage - 1) * PAGE_SIZE + 1}
+            –{Math.min(currentPage * PAGE_SIZE, filteredStudents.length)} of{" "}
+            {filteredStudents.length}
+          </Text>
+          <HStack spacing={2}>
+            <Button
+              secondary
+              sm
+              onClick={() => applyPage(filteredStudents, currentPage - 1)}
+              isDisabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <Text bold fontSize="sm">
+              {currentPage} / {totalPages}
+            </Text>
+            <Button
+              secondary
+              sm
+              onClick={() => applyPage(filteredStudents, currentPage + 1)}
+              isDisabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+          </HStack>
+        </HStack>
+      )}
     </AdminMainAreaWrapper>
   );
 };
