@@ -11,7 +11,6 @@ import {
   TabPanel,
   SimpleGrid,
   HStack,
-  VStack,
   Input as ChakraInput,
   InputGroup,
   InputLeftElement,
@@ -42,13 +41,13 @@ import {
   FormControl,
   FormLabel,
   Divider,
+  VStack,
 } from "@chakra-ui/react";
 import {
   FiSearch,
-  FiFilter,
-  FiMoreVertical,
   FiChevronLeft,
   FiChevronRight,
+  FiMoreVertical,
 } from "react-icons/fi";
 import { Route } from "react-router-dom";
 import {
@@ -61,123 +60,130 @@ import {
 import { AdminMainAreaWrapper } from "../../../layouts";
 import { motion } from "framer-motion";
 import ScheduleReportModal from "./components/ScheduleReportModal";
-import { Bar, Doughnut } from "react-chartjs-2";
+
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 const SummaryCard = ({ title, value, subtext, subtextColor }) => (
-  <Box
-    bg="white"
-    p={6}
-    borderRadius="xl"
-    border="1px solid #F2F4F7"
-    boxShadow="sm"
-  >
-    <Text fontSize="15px" fontWeight="500" color="#101928" mb={2}>
-      {title}
-    </Text>
-    <Text fontSize="28px" fontWeight="700" color="#101928" mb={1}>
-      {value}
-    </Text>
-    <Text fontSize="14px" fontWeight="500" color={subtextColor || "#12B76A"}>
-      {subtext}
-    </Text>
+  <Box bg="white" p={6} borderRadius="xl" border="1px solid #F2F4F7" boxShadow="sm">
+    <Text fontSize="15px" fontWeight="500" color="#101928" mb={2}>{title}</Text>
+    <Text fontSize="28px" fontWeight="700" color="#101928" mb={1}>{value}</Text>
+    {subtext && (
+      <Text fontSize="14px" fontWeight="500" color={subtextColor || "#12B76A"}>{subtext}</Text>
+    )}
   </Box>
 );
 
-const MISReportsPage = () => {
-  const [activeTab, setActiveTab] = useState(0);
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const toast = useToast();
-  const {
-    isOpen: isGenerateOpen,
-    onOpen: onGenerateOpen,
-    onClose: onGenerateClose,
-  } = useDisclosure();
+const getStatusColor = (status) => {
+  switch (status?.toLowerCase()) {
+    case "generated": return { bg: "#ECFDF3", color: "#027A48" };
+    case "archived":  return { bg: "#FEF3F2", color: "#B42318" };
+    case "draft":     return { bg: "#FFFAEB", color: "#B54708" };
+    default:          return { bg: "#F2F4F7", color: "#344054" };
+  }
+};
 
-  // Overview tab data state
+const TABS = ["Overview", "Academic", "Administrative", "Compliance", "Attendance", "Performance"];
+const CATEGORY_MAP = { 1: "academic", 2: "administrative", 3: "compliance" };
+
+const GENERATE_FORM_DEFAULT = {
+  reportCategory: "academic",
+  reportName: "",
+  reportFormat: "json",
+  frequency: "on_demand",
+  accessLevel: [],
+  filters: { courseId: "", departmentId: "", startDate: "", endDate: "", limit: "" },
+};
+
+// ─── component ──────────────────────────────────────────────────────────────
+
+const MISReportsPage = () => {
+  const toast = useToast();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isGenerateOpen, onOpen: onGenerateOpen, onClose: onGenerateClose } = useDisclosure();
+
+  const [activeTab, setActiveTab] = useState(0);
+
+  // ── list state ──────────────────────────────────────────────────────────
   const [reports, setReports] = useState([]);
-  const [summary] = useState({
-    totalReports: "—",
-    automatedReports: "—",
-    averageCreationTime: "—",
-    reportAccuracy: "—",
-  });
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    itemsPerPage: 10,
-  });
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 20 });
   const [reportsLoading, setReportsLoading] = useState(false);
-  const [overviewSearch, setOverviewSearch] = useState("");
-  const [overviewCategory, setOverviewCategory] = useState("");
-  const [kpis, setKpis] = useState({
-    systemUsageRate: "—",
-    reportAccuracyRate: "—",
-    automationRate: "—",
-    avgReportGenerationTimeMs: "—",
+
+  // ── filters ─────────────────────────────────────────────────────────────
+  const [filters, setFilters] = useState({
+    search: "", category: "", status: "", frequency: "", startDate: "", endDate: "", page: 1, limit: 20,
   });
-  const GENERATE_FORM_DEFAULT = {
-    reportCategory: "academic",
-    reportName: "",
-    reportFormat: "json",
-    frequency: "on_demand",
-    accessLevel: [],
-    filters: { courseId: "", departmentId: "", startDate: "", endDate: "", limit: "" },
-  };
+
+  // ── kpis ────────────────────────────────────────────────────────────────
+  const [kpis, setKpis] = useState(null);
+
+  // ── generate form ───────────────────────────────────────────────────────
   const [generateForm, setGenerateForm] = useState(GENERATE_FORM_DEFAULT);
   const [generating, setGenerating] = useState(false);
 
-  const fetchReports = useCallback(
-    async (filters = {}) => {
-      setReportsLoading(true);
-      try {
-        const params = {};
-        const search = filters.search ?? overviewSearch;
-        const category = filters.category ?? overviewCategory;
-        const statusFilter = filters.status ?? "";
-        if (category) params.category = category.toLowerCase();
-        if (statusFilter) params.status = statusFilter;
-        if (search) params.search = search;
-        params.page = 1;
-        params.limit = 10;
-        const result = await adminListMISReports(params);
-        setReports(result.reports);
-        setPagination(result.pagination);
-      } catch {
-        setReports([]);
-      } finally {
-        setReportsLoading(false);
-      }
-    },
-    [overviewSearch, overviewCategory],
-  );
+  // ── fetch ────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    fetchReports();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchReports = useCallback(async (f) => {
+    setReportsLoading(true);
+    try {
+      const params = { page: f.page || 1, limit: f.limit || 20 };
+      if (f.search)    params.search    = f.search;
+      if (f.category)  params.category  = f.category;
+      if (f.status)    params.status    = f.status;
+      if (f.frequency) params.frequency = f.frequency;
+      if (f.startDate) params.startDate = f.startDate;
+      if (f.endDate)   params.endDate   = f.endDate;
+
+      const result = await adminListMISReports(params);
+      setReports(result.reports ?? []);
+      setPagination(result.pagination ?? { currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 20 });
+    } catch {
+      setReports([]);
+    } finally {
+      setReportsLoading(false);
+    }
   }, []);
 
+  // initial load
+  useEffect(() => { fetchReports(filters); }, []); // eslint-disable-line
+
+  // KPIs (once)
   useEffect(() => {
     adminGetMISKPIs()
-      .then(({ kpis: data }) => setKpis(data))
+      .then(({ kpis: d }) => setKpis(d))
       .catch(() => {});
   }, []);
+
+  // re-fetch when active tab switches to a category tab
+  useEffect(() => {
+    const category = CATEGORY_MAP[activeTab] ?? "";
+    const newFilters = { ...filters, category, page: 1 };
+    setFilters(newFilters);
+    fetchReports(newFilters);
+  }, [activeTab]); // eslint-disable-line
+
+  // ── filter helpers ───────────────────────────────────────────────────────
+
+  const applyFilter = (key, value) => {
+    const newFilters = { ...filters, [key]: value, page: 1 };
+    setFilters(newFilters);
+    fetchReports(newFilters);
+  };
+
+  const goToPage = (page) => {
+    const newFilters = { ...filters, page };
+    setFilters(newFilters);
+    fetchReports(newFilters);
+  };
+
+  // ── actions ──────────────────────────────────────────────────────────────
 
   const handleArchive = async (reportId) => {
     try {
       const { message } = await adminArchiveMISReport(reportId);
-      toast({
-        description: message || "Report archived.",
-        status: "success",
-        position: "top",
-      });
-      fetchReports();
+      toast({ description: message || "Report archived.", status: "success", position: "top" });
+      fetchReports(filters);
     } catch (err) {
-      toast({
-        description: err?.response?.data?.message || "Failed to archive.",
-        status: "error",
-        position: "top",
-      });
+      toast({ description: err?.response?.data?.message || "Failed to archive.", status: "error", position: "top" });
     }
   };
 
@@ -185,25 +191,14 @@ const MISReportsPage = () => {
     if (!window.confirm("Delete this report?")) return;
     try {
       const { message } = await adminDeleteMISReport(reportId);
-      toast({
-        description: message || "Report deleted.",
-        status: "success",
-        position: "top",
-      });
-      fetchReports();
+      toast({ description: message || "Report deleted.", status: "success", position: "top" });
+      fetchReports(filters);
     } catch (err) {
-      toast({
-        description: err?.response?.data?.message || "Failed to delete.",
-        status: "error",
-        position: "top",
-      });
+      toast({ description: err?.response?.data?.message || "Failed to delete.", status: "error", position: "top" });
     }
   };
 
-  const handleGenerateClose = () => {
-    setGenerateForm(GENERATE_FORM_DEFAULT);
-    onGenerateClose();
-  };
+  const handleGenerateClose = () => { setGenerateForm(GENERATE_FORM_DEFAULT); onGenerateClose(); };
 
   const handleGenerate = async () => {
     if (!generateForm.reportName.trim()) {
@@ -212,13 +207,13 @@ const MISReportsPage = () => {
     }
     setGenerating(true);
     try {
-      const { filters } = generateForm;
+      const { filters: f } = generateForm;
       const cleanFilters = {};
-      if (filters.courseId) cleanFilters.courseId = filters.courseId;
-      if (filters.departmentId) cleanFilters.departmentId = filters.departmentId;
-      if (filters.startDate) cleanFilters.startDate = filters.startDate;
-      if (filters.endDate) cleanFilters.endDate = filters.endDate;
-      if (filters.limit) cleanFilters.limit = Number(filters.limit);
+      if (f.courseId)     cleanFilters.courseId     = f.courseId;
+      if (f.departmentId) cleanFilters.departmentId = f.departmentId;
+      if (f.startDate)    cleanFilters.startDate    = f.startDate;
+      if (f.endDate)      cleanFilters.endDate      = f.endDate;
+      if (f.limit)        cleanFilters.limit        = Number(f.limit);
 
       const { message } = await adminGenerateMISReport({
         reportCategory: generateForm.reportCategory,
@@ -230,7 +225,7 @@ const MISReportsPage = () => {
       });
       toast({ description: message || "Report generated successfully.", status: "success", position: "top" });
       handleGenerateClose();
-      fetchReports();
+      fetchReports(filters);
     } catch (err) {
       toast({ description: err?.response?.data?.message || "Failed to generate report.", status: "error", position: "top" });
     } finally {
@@ -238,1580 +233,229 @@ const MISReportsPage = () => {
     }
   };
 
-  const handleSearchChange = (e) => {
-    const val = e.target.value;
-    setOverviewSearch(val);
-    fetchReports({ search: val, category: overviewCategory });
-  };
+  // ── shared reports table ─────────────────────────────────────────────────
 
-  const handleCategoryChange = (e) => {
-    const val = e.target.value;
-    setOverviewCategory(val);
-    fetchReports({ search: overviewSearch, category: val });
-  };
+  const renderReportsTable = () => (
+    <Box bg="white" borderRadius="xl" border="1px solid #E4E7EC" overflow="hidden" boxShadow="xs">
+      {/* filters row */}
+      <Box p={4} borderBottom="1px solid #F2F4F7">
+        <Flex justify="space-between" align="center" flexWrap="wrap" gap={3}>
+          <HStack spacing={3} flexWrap="wrap">
+            <InputGroup w="280px">
+              <InputLeftElement pointerEvents="none">
+                <FiSearch color="#667085" />
+              </InputLeftElement>
+              <ChakraInput
+                placeholder="Search here..."
+                fontSize="14px"
+                borderRadius="md"
+                value={filters.search}
+                onChange={(e) => applyFilter("search", e.target.value)}
+              />
+            </InputGroup>
+          </HStack>
 
-  const tabs = [
-    "Overview",
-    "Academic",
-    "Administrative",
-    "Compliance",
-    "Attendance",
-    "Performance",
-  ];
+          <HStack spacing={3} flexWrap="wrap">
+            {/* category — hidden on category-specific tabs */}
+            {activeTab === 0 && (
+              <Select
+                w="150px" size="sm" borderRadius="md" placeholder="Category"
+                value={filters.category}
+                onChange={(e) => applyFilter("category", e.target.value)}
+              >
+                <option value="academic">Academic</option>
+                <option value="administrative">Administrative</option>
+                <option value="compliance">Compliance</option>
+              </Select>
+            )}
 
-  const academicData = [
-    {
-      course: "Data Analytics",
-      department: "Science",
-      enrolled: 500,
-      completion: "70%",
-      status: "High",
-    },
-    {
-      course: "Data Analytics",
-      department: "Business Admin",
-      enrolled: 500,
-      completion: "20%",
-      status: "Low",
-    },
-    {
-      course: "Data Analytics",
-      department: "Computer Science",
-      enrolled: 500,
-      completion: "70%",
-      status: "High",
-    },
-    {
-      course: "Data Analytics",
-      department: "Science",
-      enrolled: 500,
-      completion: "15%",
-      status: "Low",
-    },
-  ];
+            <Select
+              w="130px" size="sm" borderRadius="md" placeholder="Status"
+              value={filters.status}
+              onChange={(e) => applyFilter("status", e.target.value)}
+            >
+              <option value="draft">Draft</option>
+              <option value="generated">Generated</option>
+              <option value="archived">Archived</option>
+            </Select>
 
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "approved":
-        return { bg: "#ECFDF3", color: "#027A48" };
-      case "archived":
-        return { bg: "#FEF3F2", color: "#B42318" };
-      case "draft":
-        return { bg: "#FFFAEB", color: "#B54708" };
-      case "high":
-        return { bg: "#ECFDF3", color: "#027A48" };
-      case "low":
-        return { bg: "#FEF3F2", color: "#B42318" };
-      default:
-        return { bg: "#F2F4F7", color: "#344054" };
-    }
-  };
+            <Select
+              w="140px" size="sm" borderRadius="md" placeholder="Frequency"
+              value={filters.frequency}
+              onChange={(e) => applyFilter("frequency", e.target.value)}
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="annual">Annual</option>
+              <option value="on_demand">On Demand</option>
+            </Select>
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-    },
-    scales: {
-      x: { grid: { display: false } },
-      y: {
-        beginAtZero: true,
-        grid: { borderDash: [5, 5] },
-        ticks: { stepSize: 20 },
-      },
-    },
-  };
+            <ChakraInput
+              type="date" size="sm" borderRadius="md" w="150px"
+              value={filters.startDate}
+              onChange={(e) => applyFilter("startDate", e.target.value)}
+            />
+            <ChakraInput
+              type="date" size="sm" borderRadius="md" w="150px"
+              value={filters.endDate}
+              onChange={(e) => applyFilter("endDate", e.target.value)}
+            />
+          </HStack>
+        </Flex>
+      </Box>
 
-  const barData = {
-    labels: ["January", "February", "March", "April", "May", "June", "July"],
-    datasets: [
-      {
-        label: "Course Completion",
-        data: [60, 30, 75, 50, 60, 52, 50],
-        backgroundColor: "#D94111",
-        borderRadius: 4,
-      },
-    ],
-  };
+      {/* table */}
+      <Box overflowX="auto">
+        <Table variant="simple" size="sm">
+          <Thead bg="#F9FAFB">
+            <Tr>
+              <Th w="40px" px={6} py={4}><Checkbox colorScheme="purple" /></Th>
+              {[
+                "Report ID", "Category", "Report Name", "Generated By",
+                "Date & Time", "Format", "Frequency", "Status", "Remark", "Action",
+              ].map((h) => (
+                <Th key={h} textTransform="none" fontSize="12px" fontWeight="500" color="#475367">{h}</Th>
+              ))}
+            </Tr>
+          </Thead>
+          <Tbody>
+            {reportsLoading ? (
+              <Tr><Td colSpan={11} textAlign="center" py={10} fontSize="13px" color="#667085">Loading reports...</Td></Tr>
+            ) : reports.length === 0 ? (
+              <Tr><Td colSpan={11} textAlign="center" py={10} fontSize="13px" color="#667085">No reports found.</Td></Tr>
+            ) : (
+              reports.map((item, idx) => (
+                <Tr key={item.id ?? idx}>
+                  <Td px={6} py={4}><Checkbox colorScheme="purple" /></Td>
+                  <Td fontSize="12px" color="#667085">{item.id}</Td>
+                  <Td fontSize="12px" color="#101928" fontWeight="500">{item.category}</Td>
+                  <Td fontSize="12px" color="#101928" fontWeight="500" maxW="200px">{item.name ?? item.reportName}</Td>
+                  <Td fontSize="12px" color="#667085">{item.generatedBy}</Td>
+                  <Td fontSize="12px" color="#667085">{item.dateTime ?? item.createdAt}</Td>
+                  <Td fontSize="12px" color="#667085">{item.format ?? item.reportFormat}</Td>
+                  <Td fontSize="12px" color="#667085">{item.frequency}</Td>
+                  <Td>
+                    <Badge
+                      bg={getStatusColor(item.status).bg}
+                      color={getStatusColor(item.status).color}
+                      borderRadius="full" px={3} py={1} fontSize="11px" fontWeight="500"
+                    >
+                      {item.status}
+                    </Badge>
+                  </Td>
+                  <Td fontSize="12px" color="#667085" maxW="150px">{item.remark}</Td>
+                  <Td>
+                    <Menu>
+                      <MenuButton
+                        as={IconButton} icon={<FiMoreVertical />}
+                        variant="ghost" size="sm" color="#98A2B3"
+                        border="1px solid #E4E7EC" borderRadius="md"
+                      />
+                      <MenuList>
+                        <MenuItem fontSize="13px" onClick={() => handleArchive(item.id)}>Archive report</MenuItem>
+                        <MenuItem fontSize="13px" color="red.500" onClick={() => handleDelete(item.id)}>Delete report</MenuItem>
+                      </MenuList>
+                    </Menu>
+                  </Td>
+                </Tr>
+              ))
+            )}
+          </Tbody>
+        </Table>
+      </Box>
 
-  const doughnutData = {
-    labels: ["Computer Science", "Art"],
-    datasets: [
-      {
-        data: [80, 15],
-        backgroundColor: ["#CC0C0C", "#F97316"],
-        borderWidth: 0,
-      },
-    ],
-  };
+      {/* pagination */}
+      <Flex justify="space-between" align="center" p={4} borderTop="1px solid #F2F4F7" flexWrap="wrap" gap={3}>
+        <HStack spacing={2}>
+          <Text fontSize="13px" color="#344054">Rows per page</Text>
+          <Select
+            w="70px" size="sm" borderRadius="md"
+            value={String(filters.limit)}
+            onChange={(e) => applyFilter("limit", Number(e.target.value))}
+          >
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </Select>
+        </HStack>
+        <HStack spacing={4}>
+          <Text fontSize="13px" color="#344054">
+            Showing <b>{reports.length}</b> of <b>{pagination.totalItems ?? 0}</b> items
+          </Text>
+          <HStack spacing={1}>
+            <IconButton
+              icon={<FiChevronLeft />} size="sm" variant="ghost" aria-label="Previous"
+              isDisabled={pagination.currentPage <= 1}
+              onClick={() => goToPage(pagination.currentPage - 1)}
+            />
+            <Text fontSize="13px" fontWeight="600">{pagination.currentPage}</Text>
+            <IconButton
+              icon={<FiChevronRight />} size="sm" variant="ghost" aria-label="Next"
+              isDisabled={pagination.currentPage >= (pagination.totalPages ?? 1)}
+              onClick={() => goToPage(pagination.currentPage + 1)}
+            />
+          </HStack>
+        </HStack>
+      </Flex>
+    </Box>
+  );
+
+  // ── overview tab ─────────────────────────────────────────────────────────
 
   const renderOverview = () => (
     <>
-      <SimpleGrid columns={4} spacing={6} mb={8}>
+      <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6} mb={8}>
         <SummaryCard
-          title="Total Report"
-          value={String(summary.totalReports)}
-          subtext="+5% vs last month"
+          title="Total Reports"
+          value={pagination.totalItems ?? "—"}
+          subtext="all reports"
         />
         <SummaryCard
-          title="Automated Report"
-          value={String(summary.automatedReports)}
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Average Creation Time"
-          value={
-            kpis.avgReportGenerationTimeMs
-              ? kpis.avgReportGenerationTimeMs + "ms"
-              : "—"
-          }
+          title="Avg. Generation Time"
+          value={kpis?.avgReportGenerationTimeMs ? `${kpis.avgReportGenerationTimeMs} ms` : "—"}
+          subtext="per report"
         />
         <SummaryCard
           title="Report Accuracy"
-          value={kpis.reportAccuracyRate ? kpis.reportAccuracyRate + "%" : "—"}
-          subtext="+5% vs last month"
+          value={kpis?.reportAccuracyRate ? `${kpis.reportAccuracyRate}%` : "—"}
+          subtext="accuracy rate"
+        />
+        <SummaryCard
+          title="Automation Rate"
+          value={kpis?.automationRate ? `${kpis.automationRate}%` : "—"}
+          subtext="automated reports"
         />
       </SimpleGrid>
+      {renderReportsTable()}
+    </>
+  );
 
-      <Box
-        bg="white"
-        borderRadius="xl"
-        border="1px solid #E4E7EC"
-        overflow="hidden"
-        boxShadow="xs"
-      >
-        <Box p={4} borderBottom="1px solid #F2F4F7">
-          <Flex justify="space-between" align="center">
-            <HStack spacing={3}>
-              <InputGroup w="350px">
-                <InputLeftElement pointerEvents="none">
-                  <FiSearch color="#667085" />
-                </InputLeftElement>
-                <ChakraInput
-                  placeholder="Search here..."
-                  fontSize="14px"
-                  borderRadius="md"
-                  value={overviewSearch}
-                  onChange={handleSearchChange}
-                />
-              </InputGroup>
-              <Button
-                leftIcon={<FiFilter />}
-                variant="outline"
-                size="sm"
-                fontSize="14px"
-                fontWeight="500"
-                color="#344054"
-                borderRadius="md"
-              >
-                Filter
-              </Button>
-            </HStack>
-            <HStack spacing={3}>
-              <Select
-                w="140px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Department"
-                value={overviewCategory}
-                onChange={handleCategoryChange}
-              >
-                <option value="Academic">Academic</option>
-                <option value="Administrative">Administrative</option>
-                <option value="Compliance">Compliance</option>
-              </Select>
-              <Select
-                w="120px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Status"
-                onChange={(e) =>
-                  fetchReports({
-                    status: e.target.value,
-                    search: overviewSearch,
-                    category: overviewCategory,
-                  })
-                }
-              >
-                <option value="draft">Draft</option>
-                <option value="generated">Generated</option>
-                <option value="archived">Archived</option>
-              </Select>
-              <Select
-                w="120px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Region"
-              >
-                <option>Lagos</option>
-              </Select>
-              <Select
-                w="140px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Date Range"
-              >
-                <option>This Month</option>
-              </Select>
-            </HStack>
-          </Flex>
-        </Box>
+  // ── category tabs (Academic / Administrative / Compliance / Attendance / Performance) ──
 
-        <Box overflowX="auto">
-          <Table variant="simple" size="sm">
-            <Thead bg="#F9FAFB">
-              <Tr>
-                <Th w="40px" px={6} py={4}>
-                  <Checkbox colorScheme="purple" />
-                </Th>
-                <Th
-                  textTransform="none"
-                  fontSize="12px"
-                  fontWeight="500"
-                  color="#475367"
-                >
-                  Report ID
-                </Th>
-                <Th
-                  textTransform="none"
-                  fontSize="12px"
-                  fontWeight="500"
-                  color="#475367"
-                >
-                  Category
-                </Th>
-                <Th
-                  textTransform="none"
-                  fontSize="12px"
-                  fontWeight="500"
-                  color="#475367"
-                >
-                  Report Name
-                </Th>
-                <Th
-                  textTransform="none"
-                  fontSize="12px"
-                  fontWeight="500"
-                  color="#475367"
-                >
-                  Generated By
-                </Th>
-                <Th
-                  textTransform="none"
-                  fontSize="12px"
-                  fontWeight="500"
-                  color="#475367"
-                >
-                  Date and Time
-                </Th>
-                <Th
-                  textTransform="none"
-                  fontSize="12px"
-                  fontWeight="500"
-                  color="#475367"
-                >
-                  Format
-                </Th>
-                <Th
-                  textTransform="none"
-                  fontSize="12px"
-                  fontWeight="500"
-                  color="#475367"
-                >
-                  Frequency
-                </Th>
-                <Th
-                  textTransform="none"
-                  fontSize="12px"
-                  fontWeight="500"
-                  color="#475367"
-                >
-                  Status
-                </Th>
-                <Th
-                  textTransform="none"
-                  fontSize="12px"
-                  fontWeight="500"
-                  color="#475367"
-                >
-                  Remark
-                </Th>
-                <Th
-                  textTransform="none"
-                  fontSize="12px"
-                  fontWeight="500"
-                  color="#475367"
-                >
-                  Action
-                </Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {reportsLoading ? (
-                <Tr>
-                  <Td
-                    colSpan={11}
-                    textAlign="center"
-                    py={10}
-                    fontSize="13px"
-                    color="#667085"
-                  >
-                    Loading reports...
-                  </Td>
-                </Tr>
-              ) : reports.length === 0 ? (
-                <Tr>
-                  <Td
-                    colSpan={11}
-                    textAlign="center"
-                    py={10}
-                    fontSize="13px"
-                    color="#667085"
-                  >
-                    No reports found.
-                  </Td>
-                </Tr>
-              ) : (
-                reports.map((item, idx) => (
-                  <Tr key={idx}>
-                    <Td px={6} py={6}>
-                      <Checkbox colorScheme="purple" />
-                    </Td>
-                    <Td fontSize="12px" color="#667085">
-                      {item.id}
-                    </Td>
-                    <Td fontSize="12px" color="#101928" fontWeight="500">
-                      {item.category}
-                    </Td>
-                    <Td
-                      fontSize="12px"
-                      color="#101928"
-                      fontWeight="500"
-                      maxW="200px"
-                    >
-                      {item.name}
-                    </Td>
-                    <Td fontSize="12px" color="#667085">
-                      {item.generatedBy}
-                    </Td>
-                    <Td fontSize="12px" color="#667085">
-                      {item.dateTime}
-                    </Td>
-                    <Td fontSize="12px" color="#667085">
-                      {item.format}
-                    </Td>
-                    <Td fontSize="12px" color="#667085">
-                      {item.frequency}
-                    </Td>
-                    <Td>
-                      <Badge
-                        bg={getStatusColor(item.status).bg}
-                        color={getStatusColor(item.status).color}
-                        borderRadius="full"
-                        px={3}
-                        py={1}
-                        fontSize="11px"
-                        fontWeight="500"
-                      >
-                        {item.status}
-                      </Badge>
-                    </Td>
-                    <Td fontSize="12px" color="#667085" maxW="150px">
-                      {item.remark}
-                    </Td>
-                    <Td>
-                      <Menu>
-                        <MenuButton
-                          as={IconButton}
-                          icon={<FiMoreVertical />}
-                          variant="ghost"
-                          size="sm"
-                          color="#98A2B3"
-                          border="1px solid #E4E7EC"
-                          borderRadius="md"
-                        />
-                        <MenuList>
-                          <MenuItem
-                            fontSize="13px"
-                            onClick={() => handleArchive(item.id)}
-                          >
-                            Archive report
-                          </MenuItem>
-                          <MenuItem
-                            fontSize="13px"
-                            color="red.500"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            Delete report
-                          </MenuItem>
-                        </MenuList>
-                      </Menu>
-                    </Td>
-                  </Tr>
-                ))
-              )}
-            </Tbody>
-          </Table>
-        </Box>
+  const renderCategoryTab = (label) => (
+    <>
+      <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6} mb={8}>
+        <SummaryCard title="Total Reports" value={pagination.totalItems ?? "—"} />
+        <SummaryCard title="Avg. Generation Time" value={kpis?.avgReportGenerationTimeMs ? `${kpis.avgReportGenerationTimeMs} ms` : "—"} />
+        <SummaryCard title="Report Accuracy" value={kpis?.reportAccuracyRate ? `${kpis.reportAccuracyRate}%` : "—"} />
+        <SummaryCard title="Automation Rate" value={kpis?.automationRate ? `${kpis.automationRate}%` : "—"} />
+      </SimpleGrid>
 
-        <Flex
-          justify="space-between"
-          align="center"
-          p={4}
-          borderTop="1px solid #F2F4F7"
-        >
-          <HStack spacing={2}>
-            <Text fontSize="13px" color="#344054">
-              Rows per page
-            </Text>
-            <Select w="70px" size="sm" borderRadius="md" defaultValue="08">
-              <option>08</option>
-            </Select>
-          </HStack>
-          <HStack spacing={4}>
-            <Text fontSize="13px" color="#344054">
-              {`Showing ${reports.length} out of ${pagination.totalItems} items`}
-            </Text>
-            <HStack spacing={1}>
-              <IconButton
-                icon={<FiChevronLeft />}
-                size="sm"
-                variant="ghost"
-                isDisabled
-                aria-label="Previous page"
-              />
-              <Text fontSize="13px" fontWeight="600">
-                {pagination.currentPage}
-              </Text>
-              <IconButton
-                icon={<FiChevronRight />}
-                size="sm"
-                variant="ghost"
-                aria-label="Next page"
-              />
-            </HStack>
-          </HStack>
-        </Flex>
+      <Box mb={6}>
+        <Text fontSize="18px" fontWeight="600" color="#101928" mb={4}>{label} Reports</Text>
+        {renderReportsTable()}
       </Box>
     </>
   );
 
-  const renderAcademic = () => (
-    <>
-      <SimpleGrid columns={4} spacing={6} mb={8}>
-        <SummaryCard
-          title="Total Courses"
-          value="100"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Course Enrollment"
-          value="42m 3"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Course Completion Rate"
-          value="83%"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Average Assessment Score"
-          value="80%"
-          subtext="+5% vs last month"
-        />
-      </SimpleGrid>
-
-      <SimpleGrid columns={4} spacing={6} mb={8}>
-        <SummaryCard
-          title="Certificate Issued"
-          value="100"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Exam Attempt"
-          value="42m 3"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Exam Pass Rate"
-          value="83%"
-          subtext="+5% vs last month"
-        />
-      </SimpleGrid>
-
-      <Grid templateColumns="7fr 3fr" gap={6} mb={8}>
-        <Box
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          border="1px solid #E4E7EC"
-          boxShadow="sm"
-        >
-          <Text fontSize="18px" fontWeight="600" color="#101928" mb={6}>
-            Course Completion
-          </Text>
-          <Box h="300px">
-            <Bar data={barData} options={chartOptions} />
-          </Box>
-        </Box>
-        <Box
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          border="1px solid #E4E7EC"
-          boxShadow="sm"
-        >
-          <Text fontSize="18px" fontWeight="600" color="#101928" mb={6}>
-            Subject Enrollment
-          </Text>
-          <Box
-            h="250px"
-            position="relative"
-            display="flex"
-            justifyContent="center"
-          >
-            <Doughnut
-              data={doughnutData}
-              options={{ maintainAspectRatio: false, cutout: "70%" }}
-            />
-            <Box
-              position="absolute"
-              top="50%"
-              left="50%"
-              transform="translate(-50%, -50%)"
-              textAlign="center"
-            >
-              <Text fontSize="24px" fontWeight="700" color="#101928">
-                2.1K
-              </Text>
-              <Text fontSize="12px" color="#667085">
-                Enrollment
-              </Text>
-            </Box>
-          </Box>
-          <VStack align="stretch" mt={6} spacing={2}>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#CC0C0C" borderRadius="full" />
-                <Text fontSize="12px">Computer Science</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                80%
-              </Text>
-            </Flex>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#F97316" borderRadius="full" />
-                <Text fontSize="12px">Art</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                15%
-              </Text>
-            </Flex>
-          </VStack>
-        </Box>
-      </Grid>
-
-      <Box
-        bg="white"
-        borderRadius="xl"
-        border="1px solid #E4E7EC"
-        overflow="hidden"
-        boxShadow="xs"
-      >
-        <Box p={4} borderBottom="1px solid #F2F4F7">
-          <Text fontSize="18px" fontWeight="600" color="#101928" mb={4}>
-            Course Enrollment
-          </Text>
-          <Flex justify="space-between" align="center">
-            <HStack spacing={3}>
-              <InputGroup w="350px">
-                <InputLeftElement pointerEvents="none">
-                  <FiSearch color="#667085" />
-                </InputLeftElement>
-                <ChakraInput
-                  placeholder="Search here..."
-                  fontSize="14px"
-                  borderRadius="md"
-                />
-              </InputGroup>
-              <Button
-                leftIcon={<FiFilter />}
-                variant="outline"
-                size="sm"
-                fontSize="14px"
-                fontWeight="500"
-                color="#344054"
-                borderRadius="md"
-              >
-                Filter
-              </Button>
-            </HStack>
-            <HStack spacing={3}>
-              <Select
-                w="140px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Department"
-              >
-                <option>Science</option>
-              </Select>
-              <Select
-                w="120px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Region"
-              >
-                <option>Lagos</option>
-              </Select>
-              <Select
-                w="140px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Date Range"
-              >
-                <option>Last 30 Days</option>
-              </Select>
-            </HStack>
-          </Flex>
-        </Box>
-        <Table variant="simple" size="sm">
-          <Thead bg="#F9FAFB">
-            <Tr>
-              <Th px={6} py={4}>
-                <Checkbox colorScheme="purple" />
-              </Th>
-              <Th textTransform="none">Course</Th>
-              <Th textTransform="none">Department</Th>
-              <Th textTransform="none">Enrolled</Th>
-              <Th textTransform="none">Completion (%)</Th>
-              <Th textTransform="none">Completion Status</Th>
-              <Th textTransform="none">Action</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {academicData.map((item, idx) => (
-              <Tr key={idx}>
-                <Td px={6} py={6}>
-                  <Checkbox colorScheme="purple" />
-                </Td>
-                <Td fontSize="12px">{item.course}</Td>
-                <Td fontSize="12px">{item.department}</Td>
-                <Td fontSize="12px">{item.enrolled}</Td>
-                <Td fontSize="12px">{item.completion}</Td>
-                <Td>
-                  <Badge
-                    bg={getStatusColor(item.status).bg}
-                    color={getStatusColor(item.status).color}
-                    borderRadius="full"
-                    px={4}
-                    py={1}
-                    fontSize="11px"
-                  >
-                    {item.status}
-                  </Badge>
-                </Td>
-                <Td>
-                  <Menu>
-                    <MenuButton
-                      as={IconButton}
-                      icon={<FiMoreVertical />}
-                      variant="ghost"
-                      size="sm"
-                      color="#98A2B3"
-                      border="1px solid #E4E7EC"
-                      borderRadius="md"
-                    />
-                    <MenuList>
-                      <MenuItem fontSize="13px">Archive report</MenuItem>
-                    </MenuList>
-                  </Menu>
-                </Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
-        <Flex
-          justify="space-between"
-          align="center"
-          p={4}
-          borderTop="1px solid #F2F4F7"
-        >
-          <HStack spacing={2}>
-            <Text fontSize="13px" color="#344054">
-              Rows per page
-            </Text>
-            <Select w="70px" size="sm" borderRadius="md" defaultValue="08">
-              <option>08</option>
-            </Select>
-          </HStack>
-          <HStack spacing={4}>
-            <Text fontSize="13px" color="#344054">
-              Showing 10 out of 100 items
-            </Text>
-            <IconButton
-              icon={<FiChevronLeft />}
-              size="sm"
-              variant="ghost"
-              isDisabled
-            />
-            <Text fontSize="13px" fontWeight="600">
-              1
-            </Text>
-            <IconButton icon={<FiChevronRight />} size="sm" variant="ghost" />
-          </HStack>
-        </Flex>
-      </Box>
-    </>
-  );
-
-  const renderAdministrative = () => (
-    <>
-      <SimpleGrid columns={4} spacing={6} mb={8}>
-        <SummaryCard
-          title="Total Registered Users"
-          value="1000"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Approved Users"
-          value="840"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Instructor Account"
-          value="104"
-          subtext="+5% vs last month"
-        />
-        <Box
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          border="1px solid #F2F4F7"
-          boxShadow="sm"
-        >
-          <Text fontSize="15px" fontWeight="500" color="#101928" mb={2}>
-            System Uptime
-          </Text>
-          <Text fontSize="28px" fontWeight="700" color="#12B76A" mb={1}>
-            Active
-          </Text>
-        </Box>
-      </SimpleGrid>
-
-      <Grid templateColumns="7fr 3fr" gap={6} mb={8}>
-        <Box
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          border="1px solid #E4E7EC"
-          boxShadow="sm"
-        >
-          <Text fontSize="18px" fontWeight="600" color="#101928" mb={6}>
-            System Usage Rate
-          </Text>
-          <Box h="300px">
-            <Bar
-              data={{
-                ...barData,
-                datasets: [
-                  { ...barData.datasets[0], backgroundColor: "#D94111" },
-                ],
-              }}
-              options={chartOptions}
-            />
-          </Box>
-        </Box>
-        <Box
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          border="1px solid #E4E7EC"
-          boxShadow="sm"
-        >
-          <Text fontSize="18px" fontWeight="600" color="#101928" mb={6}>
-            User Account Status
-          </Text>
-          <Box
-            h="250px"
-            position="relative"
-            display="flex"
-            justifyContent="center"
-          >
-            <Doughnut
-              data={{
-                labels: ["Active", "Pending", "Suspended"],
-                datasets: [
-                  {
-                    data: [80, 25, 5],
-                    backgroundColor: ["#00A143", "#F97316", "#CC0C0C"],
-                    borderWidth: 0,
-                  },
-                ],
-              }}
-              options={{ maintainAspectRatio: false, cutout: "70%" }}
-            />
-            <Box
-              position="absolute"
-              top="50%"
-              left="50%"
-              transform="translate(-50%, -50%)"
-              textAlign="center"
-            >
-              <Text fontSize="24px" fontWeight="700" color="#101928">
-                2.1K
-              </Text>
-              <Text fontSize="12px" color="#667085">
-                Total Account
-              </Text>
-            </Box>
-          </Box>
-          <VStack align="stretch" mt={6} spacing={2}>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#00A143" borderRadius="full" />
-                <Text fontSize="12px">Active</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                80%
-              </Text>
-            </Flex>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#F97316" borderRadius="full" />
-                <Text fontSize="12px">Pending</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                25%
-              </Text>
-            </Flex>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#CC0C0C" borderRadius="full" />
-                <Text fontSize="12px">Suspended</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                5%
-              </Text>
-            </Flex>
-          </VStack>
-        </Box>
-      </Grid>
-      {/* Reuse Course Enrollment Table or Similar UI */}
-      {academicData.length > 0 && renderAcademic().props.children[3]}
-    </>
-  );
-
-  const renderCompliance = () => (
-    <>
-      <SimpleGrid columns={4} spacing={6} mb={8}>
-        <SummaryCard
-          title="Overall Compliance"
-          value="85%"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Average Department Rate"
-          value="84%"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Examination Submission"
-          value="104"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Overdue Courses"
-          value="12"
-          subtext="+5% vs last month"
-        />
-      </SimpleGrid>
-
-      <Grid templateColumns="7fr 3fr" gap={6} mb={8}>
-        <Box
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          border="1px solid #E4E7EC"
-          boxShadow="sm"
-        >
-          <Text fontSize="18px" fontWeight="600" color="#101928" mb={6}>
-            Compliance by Department
-          </Text>
-          <Box h="300px">
-            <Bar
-              data={{
-                labels: [
-                  "Sales",
-                  "Finance",
-                  "HR",
-                  "Legal",
-                  "Dept",
-                  "Dept",
-                  "Dept",
-                ],
-                datasets: [
-                  {
-                    label: "Compliance",
-                    data: [60, 30, 75, 50, 60, 52, 50],
-                    backgroundColor: "#D94111",
-                    borderRadius: 4,
-                  },
-                ],
-              }}
-              options={chartOptions}
-            />
-          </Box>
-        </Box>
-        <Box
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          border="1px solid #E4E7EC"
-          boxShadow="sm"
-        >
-          <Text fontSize="18px" fontWeight="600" color="#101928" mb={6}>
-            Compliance Course Status
-          </Text>
-          <Box
-            h="250px"
-            position="relative"
-            display="flex"
-            justifyContent="center"
-          >
-            <Doughnut
-              data={{
-                labels: ["Completed", "In-progress", "Overdue"],
-                datasets: [
-                  {
-                    data: [80, 25, 5],
-                    backgroundColor: ["#00A143", "#F97316", "#CC0C0C"],
-                    borderWidth: 0,
-                  },
-                ],
-              }}
-              options={{ maintainAspectRatio: false, cutout: "70%" }}
-            />
-            <Box
-              position="absolute"
-              top="50%"
-              left="50%"
-              transform="translate(-50%, -50%)"
-              textAlign="center"
-            >
-              <Text fontSize="24px" fontWeight="700" color="#101928">
-                2.1K
-              </Text>
-              <Text fontSize="12px" color="#667085">
-                Enrollment
-              </Text>
-            </Box>
-          </Box>
-          <VStack align="stretch" mt={6} spacing={2}>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#00A143" borderRadius="full" />
-                <Text fontSize="12px">Completed</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                80%
-              </Text>
-            </Flex>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#F97316" borderRadius="full" />
-                <Text fontSize="12px">In-progress</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                25%
-              </Text>
-            </Flex>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#CC0C0C" borderRadius="full" />
-                <Text fontSize="12px">Overdue</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                5%
-              </Text>
-            </Flex>
-          </VStack>
-        </Box>
-      </Grid>
-      {/* Reuse Table */}
-      {academicData.length > 0 && renderAcademic().props.children[3]}
-    </>
-  );
-
-  const renderAttendance = () => (
-    <>
-      <SimpleGrid columns={4} spacing={6} mb={8}>
-        <SummaryCard
-          title="Overall Attendance"
-          value="85%"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Average Daily Logins"
-          value="56"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Absence Rate"
-          value="1.4%"
-          subtext="-5% vs last month"
-          subtextColor="#F04438"
-        />
-        <SummaryCard
-          title="Average Session Duration"
-          value="1h 2m"
-          subtext="+5% vs last month"
-        />
-      </SimpleGrid>
-
-      <Grid templateColumns="7fr 3fr" gap={6} mb={8}>
-        <Box
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          border="1px solid #E4E7EC"
-          boxShadow="sm"
-        >
-          <Flex justify="space-between" align="center" mb={6}>
-            <Text fontSize="18px" fontWeight="600" color="#101928">
-              Monthly Attendance
-            </Text>
-            <Select
-              w="180px"
-              size="sm"
-              borderRadius="md"
-              defaultValue="Jan-Jul 2025"
-            >
-              <option>January - July 2025</option>
-            </Select>
-          </Flex>
-          <Box h="300px">
-            <Bar data={barData} options={chartOptions} />
-          </Box>
-        </Box>
-        <Box
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          border="1px solid #E4E7EC"
-          boxShadow="sm"
-        >
-          <Text fontSize="18px" fontWeight="600" color="#101928" mb={6}>
-            Logins by Device
-          </Text>
-          <Box
-            h="250px"
-            position="relative"
-            display="flex"
-            justifyContent="center"
-          >
-            <Doughnut
-              data={{
-                labels: ["Desktop/Laptop", "Phone"],
-                datasets: [
-                  {
-                    data: [80, 25],
-                    backgroundColor: ["#CC0C0C", "#F97316"],
-                    borderWidth: 0,
-                  },
-                ],
-              }}
-              options={{ maintainAspectRatio: false, cutout: "70%" }}
-            />
-            <Box
-              position="absolute"
-              top="50%"
-              left="50%"
-              transform="translate(-50%, -50%)"
-              textAlign="center"
-            >
-              <Text fontSize="24px" fontWeight="700" color="#101928">
-                2.1K
-              </Text>
-              <Text fontSize="12px" color="#667085">
-                Logins
-              </Text>
-            </Box>
-          </Box>
-          <VStack align="stretch" mt={6} spacing={2}>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#CC0C0C" borderRadius="full" />
-                <Text fontSize="12px">Desktop/Laptop</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                80%
-              </Text>
-            </Flex>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#F97316" borderRadius="full" />
-                <Text fontSize="12px">Phone</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                25%
-              </Text>
-            </Flex>
-          </VStack>
-        </Box>
-      </Grid>
-      {/* Reuse Course Enrollment Table UI */}
-      <Box
-        bg="white"
-        borderRadius="xl"
-        border="1px solid #E4E7EC"
-        overflow="hidden"
-        boxShadow="xs"
-      >
-        <Box p={4} borderBottom="1px solid #F2F4F7">
-          <Text fontSize="18px" fontWeight="600" color="#101928" mb={4}>
-            Course Enrollment
-          </Text>
-          <Flex justify="space-between" align="center">
-            <HStack spacing={3}>
-              <InputGroup w="350px">
-                <InputLeftElement pointerEvents="none">
-                  <FiSearch color="#667085" />
-                </InputLeftElement>
-                <ChakraInput
-                  placeholder="Search here..."
-                  fontSize="14px"
-                  borderRadius="md"
-                />
-              </InputGroup>
-              <Button
-                leftIcon={<FiFilter />}
-                variant="outline"
-                size="sm"
-                fontSize="14px"
-                fontWeight="500"
-                color="#344054"
-                borderRadius="md"
-              >
-                Filter
-              </Button>
-            </HStack>
-            <HStack spacing={3}>
-              <Select
-                w="140px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Department"
-              >
-                <option>Science</option>
-              </Select>
-              <Select
-                w="120px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Region"
-              >
-                <option>Lagos</option>
-              </Select>
-              <Select
-                w="140px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Date Range"
-              >
-                <option>Last 30 Days</option>
-              </Select>
-            </HStack>
-          </Flex>
-        </Box>
-        <Table variant="simple" size="sm">
-          <Thead bg="#F9FAFB">
-            <Tr>
-              <Th px={6} py={4}>
-                <Checkbox colorScheme="purple" />
-              </Th>
-              <Th textTransform="none">Course</Th>
-              <Th textTransform="none">Department</Th>
-              <Th textTransform="none">Enrolled</Th>
-              <Th textTransform="none">Completion (%)</Th>
-              <Th textTransform="none">Completion Status</Th>
-              <Th textTransform="none">Action</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {academicData.map((item, idx) => (
-              <Tr key={idx}>
-                <Td px={6} py={6}>
-                  <Checkbox colorScheme="purple" />
-                </Td>
-                <Td fontSize="12px">{item.course}</Td>
-                <Td fontSize="12px">{item.department}</Td>
-                <Td fontSize="12px">{item.enrolled}</Td>
-                <Td fontSize="12px">{item.completion}</Td>
-                <Td>
-                  <Badge
-                    bg={getStatusColor(item.status).bg}
-                    color={getStatusColor(item.status).color}
-                    borderRadius="full"
-                    px={4}
-                    py={1}
-                    fontSize="11px"
-                  >
-                    {item.status}
-                  </Badge>
-                </Td>
-                <Td>
-                  <Menu>
-                    <MenuButton
-                      as={IconButton}
-                      icon={<FiMoreVertical />}
-                      variant="ghost"
-                      size="sm"
-                      color="#98A2B3"
-                      border="1px solid #E4E7EC"
-                      borderRadius="md"
-                    />
-                    <MenuList>
-                      <MenuItem fontSize="13px">Archive report</MenuItem>
-                    </MenuList>
-                  </Menu>
-                </Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
-        <Flex
-          justify="space-between"
-          align="center"
-          p={4}
-          borderTop="1px solid #F2F4F7"
-        >
-          <HStack spacing={2}>
-            <Text fontSize="13px" color="#344054">
-              Rows per page
-            </Text>
-            <Select w="70px" size="sm" borderRadius="md" defaultValue="08">
-              <option>08</option>
-            </Select>
-          </HStack>
-          <HStack spacing={4}>
-            <Text fontSize="13px" color="#344054">
-              Showing 10 out of 100 items
-            </Text>
-            <IconButton
-              icon={<FiChevronLeft />}
-              size="sm"
-              variant="ghost"
-              isDisabled
-            />
-            <Text fontSize="13px" fontWeight="600">
-              1
-            </Text>
-            <IconButton icon={<FiChevronRight />} size="sm" variant="ghost" />
-          </HStack>
-        </Flex>
-      </Box>
-    </>
-  );
-
-  const renderPerformance = () => (
-    <>
-      <SimpleGrid columns={4} spacing={6} mb={8}>
-        <SummaryCard
-          title="Average Quiz Score"
-          value="84%"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Feedback Rating"
-          value="4.5/5.0"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Top Performers"
-          value="104"
-          subtext="+5% vs last month"
-        />
-        <SummaryCard
-          title="Completion Rate"
-          value="82%"
-          subtext="+5% vs last month"
-        />
-      </SimpleGrid>
-
-      <Grid templateColumns="7fr 3fr" gap={6} mb={8}>
-        <Box
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          border="1px solid #E4E7EC"
-          boxShadow="sm"
-        >
-          <Flex justify="space-between" align="center" mb={6}>
-            <Text fontSize="18px" fontWeight="600" color="#101928">
-              Performance Trend Analysis
-            </Text>
-            <Select
-              w="120px"
-              size="sm"
-              borderRadius="md"
-              defaultValue="January"
-            >
-              <option>January</option>
-            </Select>
-          </Flex>
-          <Box h="300px">
-            <Bar
-              data={{
-                labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
-                datasets: [
-                  {
-                    label: "Performance",
-                    data: [60, 35, 75, 50],
-                    backgroundColor: "#D94111",
-                    borderRadius: 4,
-                  },
-                ],
-              }}
-              options={chartOptions}
-            />
-          </Box>
-        </Box>
-        <Box
-          bg="white"
-          p={6}
-          borderRadius="xl"
-          border="1px solid #E4E7EC"
-          boxShadow="sm"
-        >
-          <Text fontSize="18px" fontWeight="600" color="#101928" mb={6}>
-            Average Rating
-          </Text>
-          <Box
-            h="250px"
-            position="relative"
-            display="flex"
-            justifyContent="center"
-          >
-            <Doughnut
-              data={{
-                labels: ["Excellent (5)", "Good (4)", "Average (3)"],
-                datasets: [
-                  {
-                    data: [80, 25, 5],
-                    backgroundColor: ["#00A143", "#F97316", "#CC0C0C"],
-                    borderWidth: 0,
-                  },
-                ],
-              }}
-              options={{ maintainAspectRatio: false, cutout: "70%" }}
-            />
-            <Box
-              position="absolute"
-              top="50%"
-              left="50%"
-              transform="translate(-50%, -50%)"
-              textAlign="center"
-            >
-              <Text fontSize="24px" fontWeight="700" color="#101928">
-                2.1K
-              </Text>
-              <Text fontSize="12px" color="#667085">
-                Average Rating
-              </Text>
-            </Box>
-          </Box>
-          <VStack align="stretch" mt={6} spacing={2}>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#00A143" borderRadius="full" />
-                <Text fontSize="12px">Excellent (5)</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                80%
-              </Text>
-            </Flex>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#F97316" borderRadius="full" />
-                <Text fontSize="12px">Good (4)</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                25%
-              </Text>
-            </Flex>
-            <Flex justify="space-between">
-              <HStack>
-                <Box w="10px" h="10px" bg="#CC0C0C" borderRadius="full" />
-                <Text fontSize="12px">Average (3)</Text>
-              </HStack>
-              <Text fontSize="12px" fontWeight="600">
-                5%
-              </Text>
-            </Flex>
-          </VStack>
-        </Box>
-      </Grid>
-      {/* Reuse Table */}
-      <Box
-        bg="white"
-        borderRadius="xl"
-        border="1px solid #E4E7EC"
-        overflow="hidden"
-        boxShadow="xs"
-      >
-        <Box p={4} borderBottom="1px solid #F2F4F7">
-          <Text fontSize="18px" fontWeight="600" color="#101928" mb={4}>
-            Course Enrollment
-          </Text>
-          <Flex justify="space-between" align="center">
-            <HStack spacing={3}>
-              <InputGroup w="350px">
-                <InputLeftElement pointerEvents="none">
-                  <FiSearch color="#667085" />
-                </InputLeftElement>
-                <ChakraInput
-                  placeholder="Search here..."
-                  fontSize="14px"
-                  borderRadius="md"
-                />
-              </InputGroup>
-              <Button
-                leftIcon={<FiFilter />}
-                variant="outline"
-                size="sm"
-                fontSize="14px"
-                fontWeight="500"
-                color="#344054"
-                borderRadius="md"
-              >
-                Filter
-              </Button>
-            </HStack>
-            <HStack spacing={3}>
-              <Select
-                w="140px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Department"
-              >
-                <option>Science</option>
-              </Select>
-              <Select
-                w="120px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Region"
-              >
-                <option>Lagos</option>
-              </Select>
-              <Select
-                w="140px"
-                size="sm"
-                borderRadius="md"
-                placeholder="Date Range"
-              >
-                <option>Last 30 Days</option>
-              </Select>
-            </HStack>
-          </Flex>
-        </Box>
-        <Table variant="simple" size="sm">
-          <Thead bg="#F9FAFB">
-            <Tr>
-              <Th px={6} py={4}>
-                <Checkbox colorScheme="purple" />
-              </Th>
-              <Th textTransform="none">Course</Th>
-              <Th textTransform="none">Department</Th>
-              <Th textTransform="none">Enrolled</Th>
-              <Th textTransform="none">Completion (%)</Th>
-              <Th textTransform="none">Completion Status</Th>
-              <Th textTransform="none">Action</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {academicData.map((item, idx) => (
-              <Tr key={idx}>
-                <Td px={6} py={6}>
-                  <Checkbox colorScheme="purple" />
-                </Td>
-                <Td fontSize="12px">{item.course}</Td>
-                <Td fontSize="12px">{item.department}</Td>
-                <Td fontSize="12px">{item.enrolled}</Td>
-                <Td fontSize="12px">{item.completion}</Td>
-                <Td>
-                  <Badge
-                    bg={getStatusColor(item.status).bg}
-                    color={getStatusColor(item.status).color}
-                    borderRadius="full"
-                    px={4}
-                    py={1}
-                    fontSize="11px"
-                  >
-                    {item.status}
-                  </Badge>
-                </Td>
-                <Td>
-                  <Menu>
-                    <MenuButton
-                      as={IconButton}
-                      icon={<FiMoreVertical />}
-                      variant="ghost"
-                      size="sm"
-                      color="#98A2B3"
-                      border="1px solid #E4E7EC"
-                      borderRadius="md"
-                    />
-                    <MenuList>
-                      <MenuItem fontSize="13px">Archive report</MenuItem>
-                    </MenuList>
-                  </Menu>
-                </Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
-        <Flex
-          justify="space-between"
-          align="center"
-          p={4}
-          borderTop="1px solid #F2F4F7"
-        >
-          <HStack spacing={2}>
-            <Text fontSize="13px" color="#344054">
-              Rows per page
-            </Text>
-            <Select w="70px" size="sm" borderRadius="md" defaultValue="08">
-              <option>08</option>
-            </Select>
-          </HStack>
-          <HStack spacing={4}>
-            <Text fontSize="13px" color="#344054">
-              Showing 10 out of 100 items
-            </Text>
-            <IconButton
-              icon={<FiChevronLeft />}
-              size="sm"
-              variant="ghost"
-              isDisabled
-            />
-            <Text fontSize="13px" fontWeight="600">
-              1
-            </Text>
-            <IconButton icon={<FiChevronRight />} size="sm" variant="ghost" />
-          </HStack>
-        </Flex>
-      </Box>
-    </>
-  );
+  // ── render ────────────────────────────────────────────────────────────────
 
   return (
     <AdminMainAreaWrapper>
       <Box
-        mb={6}
-        mt={6}
+        mb={6} mt={6}
         as={motion.div}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1823,95 +467,63 @@ const MISReportsPage = () => {
           </Text>
           <HStack spacing={3}>
             <Button
-              variant="outline"
-              borderColor="#660066"
-              color="#660066"
-              h="40px"
-              fontSize="14px"
-              fontWeight="500"
-              onClick={onOpen}
+              variant="outline" borderColor="#660066" color="#660066"
+              h="40px" fontSize="14px" fontWeight="500" onClick={onOpen}
             >
               Schedule report
             </Button>
             <Button
-              bg="#660066"
-              color="white"
-              _hover={{ bg: "#550055" }}
-              h="40px"
-              fontSize="14px"
-              fontWeight="500"
-              onClick={onGenerateOpen}
+              bg="#660066" color="white" _hover={{ bg: "#550055" }}
+              h="40px" fontSize="14px" fontWeight="500" onClick={onGenerateOpen}
             >
               Generate Report
             </Button>
           </HStack>
         </Flex>
 
-        <Box position="relative" mb="-1px" w="100%" overflow="hidden">
-          <Tabs
-            index={activeTab}
-            onChange={(index) => setActiveTab(index)}
-            colorScheme="purple"
-            isLazy
-            variant="unstyled"
+        <Tabs
+          index={activeTab}
+          onChange={(index) => setActiveTab(index)}
+          colorScheme="purple"
+          isLazy
+          variant="unstyled"
+        >
+          <TabList
+            borderBottom="1px solid #E4E7EC"
+            overflowX="auto"
+            whiteSpace="nowrap"
+            pb="4px"
+            sx={{
+              "&::-webkit-scrollbar": { height: "3px" },
+              "&::-webkit-scrollbar-thumb": { background: "#E4E7EC", borderRadius: "10px" },
+            }}
           >
-            <Box position="relative">
-              <TabList
-                borderBottom="1px solid #E4E7EC"
-                overflowX="auto"
-                whiteSpace="nowrap"
-                pb="4px"
-                sx={{
-                  "&::-webkit-scrollbar": { height: "3px" },
-                  "&::-webkit-scrollbar-thumb": {
-                    background: "#E4E7EC",
-                    borderRadius: "10px",
-                  },
-                }}
+            {TABS.map((tab, i) => (
+              <Tab
+                key={i}
+                _selected={{ color: "#660066", borderBottom: "2px solid #660066", fontWeight: "600" }}
+                borderBottom="2px solid transparent"
+                fontSize="13px" fontWeight="500" color="#344054"
+                px={4} py={3} mr={8} flexShrink={0}
+                _focus={{ boxShadow: "none" }}
               >
-                {tabs.map((tab, index) => (
-                  <Tab
-                    key={index}
-                    _selected={{
-                      color: "#660066",
-                      borderBottom: "2px solid #660066",
-                      fontWeight: "600",
-                    }}
-                    borderBottom="2px solid transparent"
-                    fontSize="13px"
-                    fontWeight="500"
-                    color="#344054"
-                    px={4}
-                    py={3}
-                    mr={8}
-                    transition="all 0.3s ease"
-                    flexShrink={0}
-                    _focus={{
-                      boxShadow: "none",
-                      outline: "none",
-                    }}
-                    _active={{
-                      boxShadow: "none",
-                      outline: "none",
-                    }}
-                  >
-                    {tab}
-                  </Tab>
-                ))}
-              </TabList>
-            </Box>
+                {tab}
+              </Tab>
+            ))}
+          </TabList>
 
-            <TabPanels mt={8}>
-              <TabPanel p={0}>{renderOverview()}</TabPanel>
-              <TabPanel p={0}>{renderAcademic()}</TabPanel>
-              <TabPanel p={0}>{renderAdministrative()}</TabPanel>
-              <TabPanel p={0}>{renderCompliance()}</TabPanel>
-              <TabPanel p={0}>{renderAttendance()}</TabPanel>
-              <TabPanel p={0}>{renderPerformance()}</TabPanel>
-            </TabPanels>
-          </Tabs>
-        </Box>
+          <TabPanels mt={8}>
+            <TabPanel p={0}>{renderOverview()}</TabPanel>
+            <TabPanel p={0}>{renderCategoryTab("Academic")}</TabPanel>
+            <TabPanel p={0}>{renderCategoryTab("Administrative")}</TabPanel>
+            <TabPanel p={0}>{renderCategoryTab("Compliance")}</TabPanel>
+            <TabPanel p={0}>{renderCategoryTab("Attendance")}</TabPanel>
+            <TabPanel p={0}>{renderCategoryTab("Performance")}</TabPanel>
+          </TabPanels>
+        </Tabs>
       </Box>
+
+      {/* Generate Report Modal */}
       <Modal isOpen={isGenerateOpen} onClose={handleGenerateClose} isCentered size="lg">
         <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(2px)" />
         <ModalContent borderRadius="xl" p={2}>
@@ -1931,7 +543,11 @@ const MISReportsPage = () => {
               <Grid templateColumns="repeat(2, 1fr)" gap={4}>
                 <FormControl isRequired>
                   <FormLabel fontSize="14px" fontWeight="500" color="#344054">Category</FormLabel>
-                  <Select value={generateForm.reportCategory} onChange={(e) => setGenerateForm((f) => ({ ...f, reportCategory: e.target.value }))} borderRadius="md" fontSize="14px">
+                  <Select
+                    value={generateForm.reportCategory}
+                    onChange={(e) => setGenerateForm((f) => ({ ...f, reportCategory: e.target.value }))}
+                    borderRadius="md" fontSize="14px"
+                  >
                     <option value="academic">Academic</option>
                     <option value="administrative">Administrative</option>
                     <option value="compliance">Compliance</option>
@@ -1939,7 +555,11 @@ const MISReportsPage = () => {
                 </FormControl>
                 <FormControl isRequired>
                   <FormLabel fontSize="14px" fontWeight="500" color="#344054">Format</FormLabel>
-                  <Select value={generateForm.reportFormat} onChange={(e) => setGenerateForm((f) => ({ ...f, reportFormat: e.target.value }))} borderRadius="md" fontSize="14px">
+                  <Select
+                    value={generateForm.reportFormat}
+                    onChange={(e) => setGenerateForm((f) => ({ ...f, reportFormat: e.target.value }))}
+                    borderRadius="md" fontSize="14px"
+                  >
                     <option value="json">JSON</option>
                     <option value="pdf">PDF</option>
                     <option value="excel">Excel</option>
@@ -1949,11 +569,17 @@ const MISReportsPage = () => {
               </Grid>
               <FormControl isRequired>
                 <FormLabel fontSize="14px" fontWeight="500" color="#344054">Frequency</FormLabel>
-                <Select value={generateForm.frequency} onChange={(e) => setGenerateForm((f) => ({ ...f, frequency: e.target.value }))} borderRadius="md" fontSize="14px">
+                <Select
+                  value={generateForm.frequency}
+                  onChange={(e) => setGenerateForm((f) => ({ ...f, frequency: e.target.value }))}
+                  borderRadius="md" fontSize="14px"
+                >
                   <option value="on_demand">On Demand</option>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="annual">Annual</option>
                 </Select>
               </FormControl>
               <FormControl>
@@ -1963,7 +589,6 @@ const MISReportsPage = () => {
                     <Checkbox
                       key={role}
                       colorScheme="purple"
-                      fontSize="14px"
                       isChecked={generateForm.accessLevel.includes(role)}
                       onChange={(e) =>
                         setGenerateForm((f) => ({
@@ -2021,8 +646,7 @@ const MISReportsPage = () => {
                 <FormControl>
                   <FormLabel fontSize="14px" fontWeight="500" color="#344054">Limit</FormLabel>
                   <ChakraInput
-                    type="number"
-                    placeholder="100"
+                    type="number" placeholder="100"
                     value={generateForm.filters.limit}
                     onChange={(e) => setGenerateForm((f) => ({ ...f, filters: { ...f.filters, limit: e.target.value } }))}
                     borderRadius="md" fontSize="14px"
@@ -2032,22 +656,31 @@ const MISReportsPage = () => {
             </VStack>
           </ModalBody>
           <ModalFooter gap={3} pt={6} pb={4}>
-            <Button variant="outline" flex={1} borderColor="#D0D5DD" color="#344054" fontSize="14px" fontWeight="600" onClick={handleGenerateClose} borderRadius="md" h="44px">
+            <Button
+              variant="outline" flex={1} borderColor="#D0D5DD" color="#344054"
+              fontSize="14px" fontWeight="600" onClick={handleGenerateClose}
+              borderRadius="md" h="44px"
+            >
               Cancel
             </Button>
-            <Button bg="#660066" flex={1} color="white" _hover={{ bg: "#550055" }} fontSize="14px" fontWeight="600" borderRadius="md" h="44px" isLoading={generating} onClick={handleGenerate}>
+            <Button
+              bg="#660066" flex={1} color="white" _hover={{ bg: "#550055" }}
+              fontSize="14px" fontWeight="600" borderRadius="md" h="44px"
+              isLoading={generating} onClick={handleGenerate}
+            >
               Generate
             </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
+
       <ScheduleReportModal isOpen={isOpen} onClose={onClose} />
     </AdminMainAreaWrapper>
   );
 };
 
-export const MISReportsPageRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <MISReportsPage {...props} />} />;
-};
+export const MISReportsPageRoute = ({ ...rest }) => (
+  <Route {...rest} render={(props) => <MISReportsPage {...props} />} />
+);
 
 export default MISReportsPage;
