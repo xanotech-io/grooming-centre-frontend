@@ -1,7 +1,7 @@
 import { http } from "../http";
 
 export const adminGetInstructorReportDirectory = async (params = {}) => {
-  const { data } = await http.get('/v2/instructors', { params });
+  const { data } = await http.get('/v1/instructor-performance-v2/list', { params });
   return data?.data ?? data;
 };
 

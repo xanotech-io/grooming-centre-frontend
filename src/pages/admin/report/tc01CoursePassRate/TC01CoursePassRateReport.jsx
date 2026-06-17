@@ -28,7 +28,7 @@ import {
   adminGetTC01CoursePassRateReport,
   adminListCoursesForReport,
   adminGetDepartmentListing,
-  adminGetUserListing,
+  adminGetInstructorReportDirectory,
 } from "../../../../services";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -177,11 +177,11 @@ const TC01CoursePassRateReport = () => {
     Promise.allSettled([
       adminListCoursesForReport(),
       adminGetDepartmentListing(),
-      adminGetUserListing({ page: 1, limit: 200, role: "INSTRUCTOR" }),
+      adminGetInstructorReportDirectory({ limit: 200 }),
     ]).then(([coursesRes, deptsRes, usersRes]) => {
       if (coursesRes.status === "fulfilled") setCourses(coursesRes.value?.rows ?? []);
       if (deptsRes.status === "fulfilled") setDepartments(deptsRes.value?.departments ?? []);
-      if (usersRes.status === "fulfilled") setInstructors(usersRes.value?.users ?? []);
+      if (usersRes.status === "fulfilled") setInstructors(usersRes.value?.rows ?? usersRes.value?.instructors ?? (Array.isArray(usersRes.value) ? usersRes.value : []));
     });
   }, []);
 

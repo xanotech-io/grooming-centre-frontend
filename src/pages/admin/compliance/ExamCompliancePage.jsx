@@ -259,7 +259,7 @@ const DetailRow = ({ label, value }) => (
 // ─── KPI Section ─────────────────────────────────────────────────────────────
 
 const KpiSection = ({ kpis, loading }) => {
-  const compColor = kpis?.compliance_rate_percent < 50 ? "red.500" : kpis?.compliance_rate_percent < 70 ? "orange.400" : "green.500";
+  // const compColor = kpis?.compliance_rate_percent < 50 ? "red.500" : kpis?.compliance_rate_percent < 70 ? "orange.400" : "green.500";
 
   const cards = [
     { label: "Total Notifications", value: kpis?.total_notifications ?? 0 },
@@ -269,13 +269,13 @@ const KpiSection = ({ kpis, loading }) => {
     { label: "Escalated Cases", value: kpis?.escalated_count ?? 0, color: (kpis?.escalated_count ?? 0) > 0 ? "red.500" : undefined },
     { label: "Delivery Success", value: kpis?.delivery_success_count ?? 0 },
     { label: "Delivery Failed", value: kpis?.delivery_failed_count ?? 0, color: (kpis?.delivery_failed_count ?? 0) > 0 ? "orange.400" : undefined },
-    { label: "Compliance Rate", value: `${kpis?.compliance_rate_percent ?? 0}%`, color: compColor },
-    { label: "On-Time Completion", value: `${kpis?.on_time_completion_rate_percent ?? 0}%` },
-    { label: "Delivery Success Rate", value: `${kpis?.delivery_success_rate_percent ?? 0}%` },
-    { label: "Escalation Rate", value: `${kpis?.escalation_rate_percent ?? 0}%` },
-    { label: "Avg Days to Comply", value: `${kpis?.avg_days_to_compliance ?? 0} days` },
-    { label: "Completion Rate", value: `${kpis?.complianceCompletionRate ?? 0}%` },
-    { label: "Non-Compliance Ratio", value: `${kpis?.nonComplianceRatio ?? 0}%` },
+    // { label: "Compliance Rate", value: `${kpis?.compliance_rate_percent ?? 0}%`, color: compColor },
+    // { label: "On-Time Completion", value: `${kpis?.on_time_completion_rate_percent ?? 0}%` },
+    // { label: "Delivery Success Rate", value: `${kpis?.delivery_success_rate_percent ?? 0}%` },
+    // { label: "Escalation Rate", value: `${kpis?.escalation_rate_percent ?? 0}%` },
+    // { label: "Avg Days to Comply", value: `${kpis?.avg_days_to_compliance ?? 0} days` },
+    // { label: "Completion Rate", value: `${kpis?.complianceCompletionRate ?? 0}%` },
+    // { label: "Non-Compliance Ratio", value: `${kpis?.nonComplianceRatio ?? 0}%` },
   ];
 
   return (
@@ -295,7 +295,7 @@ const KpiSection = ({ kpis, loading }) => {
             <Text fontSize="xs" fontWeight={700} color="gray.600">By Type:</Text>
             {Object.entries(kpis.by_notification_type ?? {}).map(([k, v]) => (
               <Tag key={k} colorScheme={notifTypeBadgeColor(k)} size="sm">{k}: {v}</Tag>
-            ))}
+            ))} 
           </Flex>
           <Flex gap={2} align="center">
             <Text fontSize="xs" fontWeight={700} color="gray.600">By Channel:</Text>

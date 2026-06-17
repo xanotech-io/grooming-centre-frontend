@@ -51,7 +51,7 @@ import {
   getProjectGradingReport,
   getProjectGradingDetail,
   adminGetCourseListing,
-  adminGetUserListing,
+  adminGetInstructorReportDirectory,
 } from "../../../../services";
 import dayjs from "dayjs";
 
@@ -469,8 +469,8 @@ const ProjectGradingReportPage = () => {
     adminGetCourseListing({ page: 1, limit: 200 })
       .then((res) => setCourses(res?.courses ?? []))
       .catch(() => {});
-    adminGetUserListing({ page: 1, limit: 200, role: "INSTRUCTOR" })
-      .then((res) => setInstructors(res?.rows ?? res?.users ?? []))
+    adminGetInstructorReportDirectory({ limit: 200 })
+      .then((res) => setInstructors(res?.rows ?? res?.instructors ?? (Array.isArray(res) ? res : [])))
       .catch(() => {});
   }, []);
 

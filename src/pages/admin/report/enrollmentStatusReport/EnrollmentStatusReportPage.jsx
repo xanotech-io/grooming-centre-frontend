@@ -44,7 +44,7 @@ import {
   adminGetEnrollmentStatusTrends,
   adminListCoursesForReport,
   adminGetDepartmentListing,
-  adminGetUserListing,
+  adminGetInstructorReportDirectory,
 } from "../../../../services";
 import dayjs from "dayjs";
 
@@ -348,11 +348,11 @@ const EnrollmentStatusReportPage = () => {
     Promise.allSettled([
       adminListCoursesForReport(),
       adminGetDepartmentListing(),
-      adminGetUserListing({ page: 1, limit: 200, role: "INSTRUCTOR" }),
+      adminGetInstructorReportDirectory({ limit: 200 }),
     ]).then(([coursesRes, deptsRes, instructorsRes]) => {
       if (coursesRes.status === "fulfilled") setCourses(coursesRes.value?.rows ?? []);
       if (deptsRes.status === "fulfilled") setDepartments(deptsRes.value?.departments ?? []);
-      if (instructorsRes.status === "fulfilled") setInstructors(instructorsRes.value?.users ?? []);
+      if (instructorsRes.status === "fulfilled") setInstructors(instructorsRes.value?.rows ?? instructorsRes.value?.instructors ?? (Array.isArray(instructorsRes.value) ? instructorsRes.value : []));
     });
   }, []);
 
