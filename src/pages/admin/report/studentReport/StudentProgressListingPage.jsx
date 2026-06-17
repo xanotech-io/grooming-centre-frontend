@@ -106,8 +106,17 @@ const StudentProgressListingPage = () => {
       id: "1",
       key: "userId",
       text: "Student ID",
-      fraction: "150px",
-      renderContent: (data) => <Text>{data?.text ?? "—"}</Text>,
+      fraction: "200px",
+      renderContent: (data) => (
+        <Text
+          isTruncated
+          maxWidth="180px"
+          title={data?.text ?? ""}
+          pr={2}
+        >
+          {data?.text ?? "—"}
+        </Text>
+      ),
     },
     {
       id: "2",
@@ -236,8 +245,8 @@ const StudentProgressListingPage = () => {
         </Box>
       </Flex>
 
-      <HStack mb={4} spacing={3} align="center">
-        <InputGroup width="375px">
+      <Flex mb={4} gap={3} align="center" flexWrap="wrap">
+        <InputGroup width={{ base: "100%", md: "375px" }}>
           <InputLeftElement pointerEvents="none" height="33px">
             <BsSearch color="gray" size={14} />
           </InputLeftElement>
@@ -255,19 +264,30 @@ const StudentProgressListingPage = () => {
         </InputGroup>
 
         <SortDropdown sortOrder={sortOrder} onSort={handleSort} />
-      </HStack>
+      </Flex>
 
-      <Table
-        columns={columns}
-        options={options}
-        SearchBarVisibility="none"
-        rows={rows}
-        setRows={setRows}
-        handleFetch={() => {}}
-      />
+      <Box overflowX="auto" width="100%">
+        <Box minWidth="700px">
+          <Table
+            columns={columns}
+            options={options}
+            SearchBarVisibility="none"
+            rows={rows}
+            setRows={setRows}
+            handleFetch={() => {}}
+          />
+        </Box>
+      </Box>
 
       {totalPages > 1 && (
-        <HStack justify="space-between" mt={4} px={2}>
+        <Flex
+          justify="space-between"
+          align="center"
+          flexWrap="wrap"
+          gap={3}
+          mt={4}
+          px={2}
+        >
           <Text color="accent.3" fontSize="sm">
             Showing{" "}
             {filteredStudents.length === 0
@@ -297,7 +317,7 @@ const StudentProgressListingPage = () => {
               Next
             </Button>
           </HStack>
-        </HStack>
+        </Flex>
       )}
     </AdminMainAreaWrapper>
   );

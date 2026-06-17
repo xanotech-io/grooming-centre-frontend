@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Route } from "react-router-dom";
-import { Box, Flex, HStack } from "@chakra-ui/layout";
+import { Box, Flex } from "@chakra-ui/layout";
 import { BreadcrumbItem, Select, useToast } from "@chakra-ui/react";
 import { Tag } from "@chakra-ui/tag";
 import { Breadcrumb, Heading, Link, Table } from "../../../../components";
@@ -179,27 +179,11 @@ const AllStudentTranscriptsPage = () => {
       </Flex>
 
       <Flex mb={4} gap={3} alignItems="center" flexWrap="wrap">
-        <HStack spacing={2} flexWrap="wrap">
-          {STATUS_PILLS.map((pill) => {
-            const isActive = statusFilter === pill.value;
-            return (
-              <Tag
-                key={pill.value}
-                size="sm"
-                borderRadius="full"
-                cursor="pointer"
-                colorScheme={isActive ? (statusColorMap[pill.label] || "blue") : "gray"}
-                variant={isActive ? "solid" : "subtle"}
-                onClick={() => handleStatusPill(pill.value)}
-                px={3}
-                py={1}
-                userSelect="none"
-              >
-                {pill.label}
-              </Tag>
-            );
-          })}
-        </HStack>
+        <Select size="sm" maxW="180px" value={statusFilter} onChange={(e) => handleStatusPill(e.target.value)}>
+          {STATUS_PILLS.map((pill) => (
+            <option key={pill.value} value={pill.value}>{pill.label}</option>
+          ))}
+        </Select>
         <Select size="sm" maxW="180px" value={typeFilter} onChange={handleTypeChange}>
           <option value="">All Types</option>
           <option value="Official">Official</option>

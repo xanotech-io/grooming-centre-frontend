@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Route, useParams } from "react-router-dom";
-import { Box, Flex, Grid, Stack } from "@chakra-ui/layout";
+import { Box, Flex, Grid, SimpleGrid, Stack } from "@chakra-ui/layout";
 import {
   Badge,
   Modal,
@@ -47,12 +47,12 @@ const MetaRow = ({ label, value }) => (
       as="level5"
       color="gray.500"
       fontWeight="500"
-      minW="180px"
+      minW="140px"
       flexShrink={0}
     >
       {label}
     </Text>
-    <Box as="span" fontSize="sm" color="gray.800">
+    <Box as="span" fontSize="sm" color="gray.800" wordBreak="break-all" minW={0}>
       {value ?? "—"}
     </Box>
   </Flex>
@@ -269,7 +269,7 @@ const StudentTranscriptDetailsPage = () => {
       ) : (
         <Stack spacing={8}>
           {/* Summary metric cards */}
-          <Box display="flex" justifyContent="space-between" gridGap={4}>
+          <SimpleGrid columns={{ base: 2, md: 4 }} gap={4}>
             <DashboardMetricCard
               title="GPA"
               value={summary?.gpa?.toFixed?.(1) ?? summary?.gpa ?? "—"}
@@ -306,9 +306,9 @@ const StudentTranscriptDetailsPage = () => {
               }
               changeColor="#6B006B"
             />
-          </Box>
+          </SimpleGrid>
 
-          <Flex gap={6} flexDirection={{ base: "column", lg: "column" }}>
+          <Flex gap={6} flexDirection={{ base: "column", lg: "row" }} alignItems="flex-start">
             {/* Transcript metadata */}
             <Box
               bg="white"
@@ -316,7 +316,8 @@ const StudentTranscriptDetailsPage = () => {
               borderColor="gray.200"
               borderRadius="lg"
               p={6}
-              flex="1"
+              w={{ base: "full", lg: "340px" }}
+              flexShrink={0}
             >
               <Heading as="h2" fontSize="heading.h4" mb={4}>
                 Transcript Info
@@ -388,7 +389,8 @@ const StudentTranscriptDetailsPage = () => {
               borderColor="gray.200"
               borderRadius="lg"
               overflow="hidden"
-              flex="2"
+              flex="1"
+              minW={0}
             >
               <Box px={6} py={4} borderBottom="1px" borderColor="gray.200">
                 <Heading as="h2" fontSize="heading.h4">
@@ -396,87 +398,91 @@ const StudentTranscriptDetailsPage = () => {
                 </Heading>
               </Box>
 
-              <Grid
-                templateColumns="1fr 160px 80px 60px 140px"
-                bg="gray.50"
-                borderBottom="1px"
-                borderColor="gray.200"
-                px={6}
-                py={3}
-              >
-                <Text bold as="level5" color="gray.600">Course</Text>
-                <Text bold as="level5" color="gray.600">Instructor</Text>
-                <Text bold as="level5" color="gray.600" textAlign="center">Score</Text>
-                <Text bold as="level5" color="gray.600" textAlign="center">Grade</Text>
-                <Text bold as="level5" color="gray.600" textAlign="center">Certificate</Text>
-              </Grid>
+              <Box overflowX="auto">
+                <Grid
+                  templateColumns="1fr 160px 80px 60px 140px"
+                  bg="gray.50"
+                  borderBottom="1px"
+                  borderColor="gray.200"
+                  px={6}
+                  py={3}
+                  minW="560px"
+                >
+                  <Text bold as="level5" color="gray.600">Course</Text>
+                  <Text bold as="level5" color="gray.600">Instructor</Text>
+                  <Text bold as="level5" color="gray.600" textAlign="center">Score</Text>
+                  <Text bold as="level5" color="gray.600" textAlign="center">Grade</Text>
+                  <Text bold as="level5" color="gray.600" textAlign="center">Certificate</Text>
+                </Grid>
 
-              {(transcript?.courseRecords ?? []).length === 0 ? (
-                <Flex justify="center" align="center" py={10}>
-                  <Text color="gray.400">No course records found.</Text>
-                </Flex>
-              ) : (
-                (transcript.courseRecords ?? []).map((record, idx) => (
-                  <Grid
-                    key={record.courseId ?? idx}
-                    templateColumns="1fr 160px 80px 60px 140px"
-                    px={6}
-                    py={4}
-                    borderBottom="1px"
-                    borderColor="gray.100"
-                    _last={{ borderBottom: "none" }}
-                    alignItems="center"
-                  >
-                    <Flex align="center" gap={3}>
-                      <Icon color="primary.base" fontSize="16px">
-                        <FaGraduationCap />
-                      </Icon>
-                      <Text bold>{record.course?.title ?? "—"}</Text>
-                    </Flex>
+                {(transcript?.courseRecords ?? []).length === 0 ? (
+                  <Flex justify="center" align="center" py={10}>
+                    <Text color="gray.400">No course records found.</Text>
+                  </Flex>
+                ) : (
+                  (transcript.courseRecords ?? []).map((record, idx) => (
+                    <Grid
+                      key={record.courseId ?? idx}
+                      templateColumns="1fr 160px 80px 60px 140px"
+                      px={6}
+                      py={4}
+                      borderBottom="1px"
+                      borderColor="gray.100"
+                      _last={{ borderBottom: "none" }}
+                      alignItems="center"
+                      minW="560px"
+                    >
+                      <Flex align="center" gap={3}>
+                        <Icon color="primary.base" fontSize="16px">
+                          <FaGraduationCap />
+                        </Icon>
+                        <Text bold>{record.course?.title ?? "—"}</Text>
+                      </Flex>
 
-                    <Text fontSize="sm" color="gray.600">
-                      {record.instructor
-                        ? `${record.instructor.firstName} ${record.instructor.lastName}`
-                        : "—"}
-                    </Text>
+                      <Text fontSize="sm" color="gray.600">
+                        {record.instructor
+                          ? `${record.instructor.firstName} ${record.instructor.lastName}`
+                          : "—"}
+                      </Text>
 
-                    <Text textAlign="center" color="gray.700">
-                      {record.score != null ? `${record.score}%` : "—"}
-                    </Text>
+                      <Text textAlign="center" color="gray.700">
+                        {record.score != null ? `${record.score}%` : "—"}
+                      </Text>
 
-                    <Flex justify="center">
-                      <Badge
-                        colorScheme={
-                          record.grade?.startsWith("A")
-                            ? "green"
-                            : record.grade?.startsWith("B")
-                            ? "blue"
-                            : record.grade?.startsWith("C")
-                            ? "yellow"
-                            : "red"
-                        }
-                        borderRadius="full"
-                        px={2}
-                      >
-                        {record.grade ?? "—"}
-                      </Badge>
-                    </Flex>
+                      <Flex justify="center">
+                        <Badge
+                          colorScheme={
+                            record.grade?.startsWith("A")
+                              ? "green"
+                              : record.grade?.startsWith("B")
+                              ? "blue"
+                              : record.grade?.startsWith("C")
+                              ? "yellow"
+                              : "red"
+                          }
+                          borderRadius="full"
+                          px={2}
+                        >
+                          {record.grade ?? "—"}
+                        </Badge>
+                      </Flex>
 
-                    <Flex justify="center" align="center" gap={1}>
-                      {record.certificateIssued ? (
-                        <>
-                          <Icon color="green.500" fontSize="14px">
-                            <FaAward />
-                          </Icon>
-                          <Text as="level5" color="green.600">Issued</Text>
-                        </>
-                      ) : (
-                        <Text as="level5" color="gray.400">Not issued</Text>
-                      )}
-                    </Flex>
-                  </Grid>
-                ))
-              )}
+                      <Flex justify="center" align="center" gap={1}>
+                        {record.certificateIssued ? (
+                          <>
+                            <Icon color="green.500" fontSize="14px">
+                              <FaAward />
+                            </Icon>
+                            <Text as="level5" color="green.600">Issued</Text>
+                          </>
+                        ) : (
+                          <Text as="level5" color="gray.400">Not issued</Text>
+                        )}
+                      </Flex>
+                    </Grid>
+                  ))
+                )}
+              </Box>
             </Box>
           </Flex>
         </Stack>
