@@ -179,8 +179,8 @@ export const links = [
         text: "Report Builder",
       },
       {
-        href: "/admin/report/course-assessment",
-        text: "Assessment Reports",
+        href: "/admin/report/assessment-overview",
+        text: "Assessment & Quiz Result Report",
       },
       {
         href: "/admin/report/assessment-analytics",
