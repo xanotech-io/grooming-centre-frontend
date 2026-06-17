@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Route } from "react-router-dom";
-import { Box, Flex, SimpleGrid } from "@chakra-ui/layout";
+import { Box, Flex, SimpleGrid, Stack, HStack } from "@chakra-ui/layout";
 import {
   BreadcrumbItem,
   Tag,
@@ -10,11 +10,13 @@ import {
   InputRightElement,
   IconButton,
   Spinner,
+  Divider,
 } from "@chakra-ui/react";
 import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
+  DatePicker,
   Heading,
   Link,
   Table,
@@ -24,7 +26,7 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import { useTableRows } from "../../../../hooks";
 import { getAttendanceReport, adminGetStudents } from "../../../../services";
 import dayjs from "dayjs";
-import { AiOutlineClose } from "react-icons/ai";
+import { AiOutlineClose, AiOutlineFilter, AiOutlineDown } from "react-icons/ai";
 
 const statusColorMap = {
   Present: "green",
@@ -63,7 +65,6 @@ const StudentAutocomplete = ({ onStudentChange }) => {
   const [selectedName, setSelectedName] = useState("");
   const containerRef = useRef(null);
 
-  // Load full student list once on mount
   useEffect(() => {
     adminGetStudents({ limit: 500 })
       .then(({ students }) => setAllStudents(students ?? []))
@@ -192,18 +193,210 @@ const StudentAutocomplete = ({ onStudentChange }) => {
   );
 };
 
+const ATTENDANCE_STATUSES = ["All", "Present", "Absent", "Late", "Excused"];
+const DELIVERY_MODES = ["All", "Virtual", "Physical"];
+
+const FilterBox = ({ onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [attendanceStatus, setAttendanceStatus] = useState("");
+  const [deliveryMode, setDeliveryMode] = useState("");
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+  const boxRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (boxRef.current && !boxRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const activeCount = [attendanceStatus, deliveryMode, startDate || endDate].filter(Boolean).length;
+
+  const handleApply = () => {
+    const params = {};
+    if (attendanceStatus) params.attendanceStatus = attendanceStatus;
+    if (deliveryMode) params.deliveryMode = deliveryMode;
+    if (startDate) params.startDate = startDate.toISOString();
+    if (endDate) params.endDate = endDate.toISOString();
+    onChange(params);
+    setIsOpen(false);
+  };
+
+  const handleClear = () => {
+    setAttendanceStatus("");
+    setDeliveryMode("");
+    setStartDate(null);
+    setEndDate(null);
+    onChange({});
+    setIsOpen(false);
+  };
+
+  return (
+    <Box position="relative" ref={boxRef}>
+      <Button
+        secondary
+        sm
+        backgroundColor="white"
+        color="accent.3"
+        leftIcon={<AiOutlineFilter />}
+        rightIcon={<AiOutlineDown />}
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
+        Filters{activeCount > 0 ? ` (${activeCount})` : ""}
+      </Button>
+
+      {isOpen && (
+        <>
+          <Box
+            position="fixed"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            zIndex={1}
+            onClick={() => setIsOpen(false)}
+          />
+          <Box
+            position="absolute"
+            top="calc(100% + 6px)"
+            right={0}
+            zIndex={2}
+            bg="white"
+            border="1px"
+            borderColor="gray.200"
+            rounded="md"
+            shadow="lg"
+            width="260px"
+            p={4}
+          >
+            {/* Attendance Status */}
+            <Text fontSize="sm" fontWeight="700" color="gray.700" mb={2}>
+              Attendance Status
+            </Text>
+            <Stack spacing={0} mb={3}>
+              {ATTENDANCE_STATUSES.map((opt) => {
+                const val = opt === "All" ? "" : opt;
+                const isSelected = attendanceStatus === val;
+                return (
+                  <Box
+                    key={opt}
+                    px={3}
+                    py="6px"
+                    cursor="pointer"
+                    borderRadius="md"
+                    bg={isSelected ? "purple.50" : "transparent"}
+                    _hover={{ bg: isSelected ? "purple.50" : "gray.50" }}
+                    onClick={() => setAttendanceStatus(val)}
+                  >
+                    <Text
+                      fontSize="sm"
+                      fontWeight={isSelected ? "600" : "400"}
+                      color={isSelected ? "#660066" : "gray.700"}
+                    >
+                      {opt}
+                    </Text>
+                  </Box>
+                );
+              })}
+            </Stack>
+
+            <Divider mb={3} />
+
+            {/* Delivery Mode */}
+            <Text fontSize="sm" fontWeight="700" color="gray.700" mb={2}>
+              Delivery Mode
+            </Text>
+            <Stack spacing={0} mb={3}>
+              {DELIVERY_MODES.map((opt) => {
+                const val = opt === "All" ? "" : opt;
+                const isSelected = deliveryMode === val;
+                return (
+                  <Box
+                    key={opt}
+                    px={3}
+                    py="6px"
+                    cursor="pointer"
+                    borderRadius="md"
+                    bg={isSelected ? "purple.50" : "transparent"}
+                    _hover={{ bg: isSelected ? "purple.50" : "gray.50" }}
+                    onClick={() => setDeliveryMode(val)}
+                  >
+                    <Text
+                      fontSize="sm"
+                      fontWeight={isSelected ? "600" : "400"}
+                      color={isSelected ? "#660066" : "gray.700"}
+                    >
+                      {opt}
+                    </Text>
+                  </Box>
+                );
+              })}
+            </Stack>
+
+            <Divider mb={3} />
+
+            {/* Date Range */}
+            <Text fontSize="sm" fontWeight="700" color="gray.700" mb={2}>
+              Date Range
+            </Text>
+            <Stack spacing={3} mb={4}>
+              <Box>
+                <Text fontSize="xs" color="gray.500" mb={1}>
+                  Start Date
+                </Text>
+                <DatePicker
+                  value={startDate}
+                  onChange={setStartDate}
+                  inputVariant="outlined"
+                  size="small"
+                />
+              </Box>
+              <Box>
+                <Text fontSize="xs" color="gray.500" mb={1}>
+                  End Date
+                </Text>
+                <DatePicker
+                  value={endDate}
+                  onChange={setEndDate}
+                  inputVariant="outlined"
+                  size="small"
+                />
+              </Box>
+            </Stack>
+
+            <HStack justifyContent="space-between">
+              <Button ghost xs onClick={handleClear}>
+                Clear all
+              </Button>
+              <Button xs onClick={handleApply}>
+                Apply
+              </Button>
+            </HStack>
+          </Box>
+        </>
+      )}
+    </Box>
+  );
+};
+
 const AttendanceReportPage = () => {
   const toast = useToast();
   const [kpis, setKpis] = useState(null);
   const [meta, setMeta] = useState({ totalSessions: 0, sessionsPresent: 0 });
 
   const studentIdRef = useRef("");
+  const filterParamsRef = useRef({});
   const lastParamsRef = useRef({});
 
   const fetchReport = async (params = {}) => {
     lastParamsRef.current = params;
     const finalParams = {
       ...params,
+      ...filterParamsRef.current,
       ...(studentIdRef.current ? { studentId: studentIdRef.current } : {}),
     };
 
@@ -249,34 +442,8 @@ const AttendanceReportPage = () => {
   };
 
   const tableProps = {
-    filterControls: [
-      {
-        triggerText: "Attendance Status",
-        queryKey: "attendanceStatus",
-        width: "200px",
-        body: {
-          radios: [
-            { label: "Present", queryValue: "Present" },
-            { label: "Absent", queryValue: "Absent" },
-            { label: "Late", queryValue: "Late" },
-            { label: "Excused", queryValue: "Excused" },
-          ],
-        },
-      },
-      {
-        triggerText: "Delivery Mode",
-        queryKey: "deliveryMode",
-        width: "180px",
-        body: {
-          radios: [
-            { label: "Virtual", queryValue: "Virtual" },
-            { label: "Physical", queryValue: "Physical" },
-          ],
-        },
-      },
-    ],
     options: {
-      dateFilter: true,
+      dateFilter: false,
       selection: false,
       pagination: true,
     },
@@ -375,6 +542,11 @@ const AttendanceReportPage = () => {
     fetchRowItems({ params: lastParamsRef.current });
   };
 
+  const handleFilterChange = (newFilterParams) => {
+    filterParamsRef.current = newFilterParams;
+    fetchRowItems({ params: lastParamsRef.current });
+  };
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -421,7 +593,6 @@ const AttendanceReportPage = () => {
           change="overall attendance"
           changeColor="#1A8F3A"
         />
-        
         <DashboardMetricCard
           title="Lessons Missed"
           value={`${kpis?.lessonsMissed ?? 0}`}
@@ -442,9 +613,8 @@ const AttendanceReportPage = () => {
         />
       </SimpleGrid>
 
-      {/* Student search — type to find a student, pick from dropdown */}
-      <Box
-        display="flex"
+      {/* Controls row: student search + filter box */}
+      <Flex
         alignItems="center"
         gap={3}
         mb={4}
@@ -453,12 +623,17 @@ const AttendanceReportPage = () => {
         rounded="md"
         border="1px"
         borderColor="accent.2"
+        flexWrap="wrap"
       >
         <Text fontSize="sm" fontWeight="600" color="gray.600" whiteSpace="nowrap">
           Student:
         </Text>
         <StudentAutocomplete onStudentChange={handleStudentSelect} />
-      </Box>
+
+        <Box flex={1} />
+
+        <FilterBox onChange={handleFilterChange} />
+      </Flex>
 
       <Table
         {...tableProps}

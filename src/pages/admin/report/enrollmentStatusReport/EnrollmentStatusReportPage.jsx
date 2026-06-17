@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useMemo, useState } from "react";
 import { Route } from "react-router-dom";
 import {
   Box,
@@ -8,6 +8,7 @@ import {
   Progress,
   Select,
   Input,
+  Spinner as ChakraSpinner,
   Tabs,
   TabList,
   TabPanels,
@@ -21,6 +22,8 @@ import {
   Td,
   TableContainer,
   Text as ChakraText,
+  FormControl,
+  FormLabel,
 } from "@chakra-ui/react";
 import {
   Chart as ChartJS,
@@ -35,7 +38,7 @@ import {
   Legend,
 } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
-import { FiUsers, FiUserCheck, FiTrendingUp, FiUserX, FiActivity, FiCheckCircle, FiAlertCircle, FiBarChart2 } from "react-icons/fi";
+import { FiUserCheck, FiTrendingUp, FiActivity,  FiAlertCircle, FiBarChart2, FiFilter, FiChevronDown, FiX } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { Button, Heading, Spinner } from "../../../../components";
 import {
@@ -45,6 +48,7 @@ import {
   adminListCoursesForReport,
   adminGetDepartmentListing,
   adminGetInstructorReportDirectory,
+  adminGetStudents,
 } from "../../../../services";
 import dayjs from "dayjs";
 
@@ -89,6 +93,168 @@ const trendScheme = (t) => {
 const fmt = (d) => (d ? dayjs(d).format("DD MMM YYYY") : "—");
 const pct = (v) => (v != null ? `${Number(v).toFixed(1)}%` : "—");
 
+// ── EntityCombobox ────────────────────────────────────────────────────────────
+
+function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
+  const [inputValue, setInputValue] = useState("");
+  const [options, setOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  const selectedOption = useMemo(
+    () => options.find((o) => o.id === value) ?? null,
+    [options, value],
+  );
+
+  useEffect(() => {
+    if (!value) setInputValue("");
+  }, [value]);
+
+  const filtered = useMemo(() => {
+    if (!inputValue || selectedOption) return options;
+    const q = inputValue.toLowerCase();
+    return options.filter(
+      (o) =>
+        o.label.toLowerCase().includes(q) ||
+        (o.sublabel ?? "").toLowerCase().includes(q),
+    );
+  }, [options, inputValue, selectedOption]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const doFetch = useCallback(
+    async (query) => {
+      setLoading(true);
+      try {
+        setOptions(await fetchFn(query));
+      } catch {
+        setOptions([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchFn],
+  );
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputValue(val);
+    if (value) onSelect(null);
+    setIsOpen(true);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doFetch(val), 350);
+  };
+
+  const handleFocus = () => {
+    if (!value) {
+      setIsOpen(true);
+      if (options.length === 0) doFetch("");
+    }
+  };
+
+  const displayValue = selectedOption
+    ? `${selectedOption.label}${selectedOption.sublabel ? ` — ${selectedOption.sublabel}` : ""}`
+    : value || inputValue;
+
+  return (
+    <Box ref={containerRef} position="relative">
+      <Flex
+        border="1px solid"
+        borderColor="gray.200"
+        borderRadius="md"
+        alignItems="center"
+        px={2}
+        bg="white"
+        h="32px"
+        _focusWithin={{ borderColor: "purple.400", boxShadow: "0 0 0 1px #660066" }}
+      >
+        <Input
+          border="none"
+          px={0}
+          size="sm"
+          h="auto"
+          _focus={{ boxShadow: "none" }}
+          value={displayValue}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          placeholder={placeholder || "Search..."}
+          readOnly={!!value}
+        />
+        {loading && <ChakraSpinner size="xs" color="gray.400" mr={1} />}
+        {value ? (
+          <Box
+            as="button"
+            type="button"
+            onClick={() => { onSelect(null); setInputValue(""); setOptions([]); setIsOpen(false); }}
+            color="gray.400"
+            _hover={{ color: "gray.600" }}
+            ml={1}
+            flexShrink={0}
+          >
+            <FiX size={12} />
+          </Box>
+        ) : (
+          <Box color="gray.400" ml={1} flexShrink={0}><FiChevronDown size={12} /></Box>
+        )}
+      </Flex>
+
+      {isOpen && (
+        <Box
+          position="absolute"
+          top="calc(100% + 4px)"
+          left={0}
+          right={0}
+          bg="white"
+          border="1px solid #E2E8F0"
+          borderRadius="md"
+          boxShadow="md"
+          zIndex={1500}
+          maxH="220px"
+          overflowY="auto"
+        >
+          {loading && (
+            <Flex alignItems="center" gap={2} px={3} py={2}>
+              <ChakraSpinner size="xs" />
+              <ChakraText fontSize="12px" color="gray.500">Loading...</ChakraText>
+            </Flex>
+          )}
+          {!loading && filtered.length === 0 && (
+            <ChakraText fontSize="12px" color="gray.500" px={3} py={2}>No results found</ChakraText>
+          )}
+          {!loading && filtered.map((opt) => (
+            <Box
+              key={opt.id}
+              px={3}
+              py="6px"
+              cursor="pointer"
+              _hover={{ bg: "purple.50" }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelect(opt);
+                setInputValue("");
+                setIsOpen(false);
+              }}
+            >
+              <ChakraText fontSize="13px" fontWeight="500">{opt.label}</ChakraText>
+              {opt.sublabel && <ChakraText fontSize="11px" color="gray.500">{opt.sublabel}</ChakraText>}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 const KpiCard = ({ icon: Icon, label, value, iconColor = "#660066" }) => (
@@ -105,136 +271,6 @@ const KpiCard = ({ icon: Icon, label, value, iconColor = "#660066" }) => (
       {value ?? "—"}
     </ChakraText>
   </Box>
-);
-
-const DistributionSection = ({ kpis }) => {
-  const enrollDist = kpis?.enrollment_distribution ?? {};
-  const engageDist = kpis?.engagement_distribution ?? {};
-
-  const enrollTotal = (enrollDist.enrolled ?? 0) + (enrollDist.deactivated ?? 0);
-  const engageTotal = (engageDist.in_progress ?? 0) + (engageDist.completed ?? 0) + (engageDist.inactive ?? 0);
-
-  const enrolledPct = enrollTotal ? Math.round(((enrollDist.enrolled ?? 0) / enrollTotal) * 100) : 0;
-  const deactivatedPct = enrollTotal ? Math.round(((enrollDist.deactivated ?? 0) / enrollTotal) * 100) : 0;
-
-  const inProgressPct = engageTotal ? Math.round(((engageDist.in_progress ?? 0) / engageTotal) * 100) : 0;
-  const completedPct = engageTotal ? Math.round(((engageDist.completed ?? 0) / engageTotal) * 100) : 0;
-  const inactivePct = engageTotal ? Math.round(((engageDist.inactive ?? 0) / engageTotal) * 100) : 0;
-
-  return (
-    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mb={8}>
-      {/* Enrollment Distribution */}
-      <Box bg="white" border="1px solid #F2F4F7" borderRadius="xl" p={5} boxShadow="sm">
-        <ChakraText fontSize="13px" fontWeight="600" color="#667085" mb={4} textTransform="uppercase" letterSpacing="0.5px">
-          Enrollment Distribution
-        </ChakraText>
-        <Flex direction="column" gap={3}>
-          <Box>
-            <Flex justify="space-between" mb={1}>
-              <ChakraText fontSize="13px" color="#344054">Enrolled</ChakraText>
-              <ChakraText fontSize="13px" fontWeight="600" color="#344054">
-                {(enrollDist.enrolled ?? 0).toLocaleString()} ({enrolledPct}%)
-              </ChakraText>
-            </Flex>
-            <Progress value={enrolledPct} size="sm" colorScheme="green" borderRadius="full" />
-          </Box>
-          <Box>
-            <Flex justify="space-between" mb={1}>
-              <ChakraText fontSize="13px" color="#344054">Deactivated</ChakraText>
-              <ChakraText fontSize="13px" fontWeight="600" color="#344054">
-                {(enrollDist.deactivated ?? 0).toLocaleString()} ({deactivatedPct}%)
-              </ChakraText>
-            </Flex>
-            <Progress value={deactivatedPct} size="sm" colorScheme="red" borderRadius="full" />
-          </Box>
-        </Flex>
-      </Box>
-
-      {/* Engagement Distribution */}
-      <Box bg="white" border="1px solid #F2F4F7" borderRadius="xl" p={5} boxShadow="sm">
-        <ChakraText fontSize="13px" fontWeight="600" color="#667085" mb={4} textTransform="uppercase" letterSpacing="0.5px">
-          Engagement Distribution
-        </ChakraText>
-        <Flex direction="column" gap={3}>
-          <Box>
-            <Flex justify="space-between" mb={1}>
-              <ChakraText fontSize="13px" color="#344054">In Progress</ChakraText>
-              <ChakraText fontSize="13px" fontWeight="600" color="#344054">
-                {(engageDist.in_progress ?? 0).toLocaleString()} ({inProgressPct}%)
-              </ChakraText>
-            </Flex>
-            <Progress value={inProgressPct} size="sm" colorScheme="blue" borderRadius="full" />
-          </Box>
-          <Box>
-            <Flex justify="space-between" mb={1}>
-              <ChakraText fontSize="13px" color="#344054">Completed</ChakraText>
-              <ChakraText fontSize="13px" fontWeight="600" color="#344054">
-                {(engageDist.completed ?? 0).toLocaleString()} ({completedPct}%)
-              </ChakraText>
-            </Flex>
-            <Progress value={completedPct} size="sm" colorScheme="green" borderRadius="full" />
-          </Box>
-          <Box>
-            <Flex justify="space-between" mb={1}>
-              <ChakraText fontSize="13px" color="#344054">Inactive</ChakraText>
-              <ChakraText fontSize="13px" fontWeight="600" color="#344054">
-                {(engageDist.inactive ?? 0).toLocaleString()} ({inactivePct}%)
-              </ChakraText>
-            </Flex>
-            <Progress value={inactivePct} size="sm" colorScheme="orange" borderRadius="full" />
-          </Box>
-        </Flex>
-      </Box>
-    </SimpleGrid>
-  );
-};
-
-const FilterBar = ({ filters, onChange, onApply, onReset }) => (
-  <Flex gap={3} flexWrap="wrap" align="flex-end" mb={5}>
-    {filters.map((f) =>
-      f.type === "select" ? (
-        <Box key={f.key} minW="160px">
-          <ChakraText fontSize="12px" fontWeight="500" color="#667085" mb={1}>
-            {f.label}
-          </ChakraText>
-          <Select
-            size="sm"
-            borderRadius="md"
-            value={f.value}
-            onChange={(e) => onChange(f.key, e.target.value)}
-            placeholder={`All ${f.label}`}
-          >
-            {f.options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        </Box>
-      ) : (
-        <Box key={f.key} minW="140px">
-          <ChakraText fontSize="12px" fontWeight="500" color="#667085" mb={1}>
-            {f.label}
-          </ChakraText>
-          <Input
-            size="sm"
-            borderRadius="md"
-            type="date"
-            value={f.value}
-            onChange={(e) => onChange(f.key, e.target.value)}
-          />
-        </Box>
-      )
-    )}
-    <Flex gap={2} mb="1px">
-      <Button onClick={onApply} style={{ height: "32px", fontSize: "13px" }}>
-        Apply
-      </Button>
-      <Button secondary onClick={onReset} style={{ height: "32px", fontSize: "13px" }}>
-        Reset
-      </Button>
-    </Flex>
-  </Flex>
 );
 
 const Paginator = ({ page, total, limit, onPrev, onNext }) => {
@@ -256,18 +292,18 @@ const Paginator = ({ page, total, limit, onPrev, onNext }) => {
   );
 };
 
-const EmptyRow = ({ cols }) => (
-  <Tr>
-    <Td colSpan={cols} textAlign="center" py={10} color="#667085" fontSize="14px">
-      No data found
-    </Td>
-  </Tr>
-);
+// const EmptyRow = ({ cols }) => (
+//   <Tr>
+//     <Td colSpan={cols} textAlign="center" py={10} color="#667085" fontSize="14px">
+//       No data found
+//     </Td>
+//   </Tr>
+// );
 
 const TableHeadStyle = { fontSize: "12px", fontWeight: "600", color: "#667085", textTransform: "uppercase", bg: "#F9FAFB" };
 const CellStyle = { fontSize: "13px", color: "#344054", py: 3 };
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const STUDENT_STATUS_OPTIONS = [
   { value: "Enrolled", label: "Enrolled" },
@@ -284,6 +320,7 @@ const defaultStudentFilters = {
   courseId: "",
   departmentId: "",
   instructorId: "",
+  studentId: "",
   studentStatus: "",
   engagementStatus: "",
   startDate: "",
@@ -306,16 +343,12 @@ const defaultTrendFilters = {
   endDate: "",
 };
 
-const EnrollmentStatusReportPage = () => {
-  // ── Filter options ───────────────────────────────────────────────────────────
-  const [courses, setCourses] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [instructors, setInstructors] = useState([]);
+// ── Main Component ────────────────────────────────────────────────────────────
 
-  // ── KPI state (from students endpoint) ──────────────────────────────────────
+const EnrollmentStatusReportPage = () => {
   const [kpis, setKpis] = useState(null);
 
-  // ── Students tab ────────────────────────────────────────────────────────────
+  // Students tab
   const [studentsData, setStudentsData] = useState([]);
   const [studentsTotal, setStudentsTotal] = useState(0);
   const [studentsPage, setStudentsPage] = useState(1);
@@ -323,8 +356,9 @@ const EnrollmentStatusReportPage = () => {
   const [studentsError, setStudentsError] = useState(null);
   const [studentFilters, setStudentFilters] = useState(defaultStudentFilters);
   const [appliedStudentFilters, setAppliedStudentFilters] = useState(defaultStudentFilters);
+  const [showStudentFilters, setShowStudentFilters] = useState(false);
 
-  // ── Courses tab ──────────────────────────────────────────────────────────────
+  // Courses tab
   const [coursesData, setCoursesData] = useState([]);
   const [coursesTotal, setCoursesTotal] = useState(0);
   const [coursesPage, setCoursesPage] = useState(1);
@@ -332,31 +366,50 @@ const EnrollmentStatusReportPage = () => {
   const [coursesError, setCoursesError] = useState(null);
   const [courseFilters, setCourseFilters] = useState(defaultCourseFilters);
   const [appliedCourseFilters, setAppliedCourseFilters] = useState(defaultCourseFilters);
+  const [showCourseFilters, setShowCourseFilters] = useState(false);
 
-  // ── Trends tab ───────────────────────────────────────────────────────────────
+  // Trends tab
   const [trendsData, setTrendsData] = useState(null);
   const [trendsLoading, setTrendsLoading] = useState(false);
   const [trendsError, setTrendsError] = useState(null);
   const [trendFilters, setTrendFilters] = useState(defaultTrendFilters);
   const [appliedTrendFilters, setAppliedTrendFilters] = useState(defaultTrendFilters);
+  const [showTrendFilters, setShowTrendFilters] = useState(false);
 
   const LIMIT = 20;
 
-  // ── Load filter options on mount ─────────────────────────────────────────────
+  // ── Combobox fetch functions ──────────────────────────────────────────────────
 
-  useEffect(() => {
-    Promise.allSettled([
-      adminListCoursesForReport(),
-      adminGetDepartmentListing(),
-      adminGetInstructorReportDirectory({ limit: 200 }),
-    ]).then(([coursesRes, deptsRes, instructorsRes]) => {
-      if (coursesRes.status === "fulfilled") setCourses(coursesRes.value?.rows ?? []);
-      if (deptsRes.status === "fulfilled") setDepartments(deptsRes.value?.departments ?? []);
-      if (instructorsRes.status === "fulfilled") setInstructors(instructorsRes.value?.data ?? []);
-    });
+  const fetchCourseOptions = useCallback(async (query) => {
+    const res = await adminListCoursesForReport({ search: query, limit: 50 });
+    return (res?.rows ?? []).map((c) => ({ id: c.id, label: c.title }));
   }, []);
 
-  // ── Fetchers ─────────────────────────────────────────────────────────────────
+  const fetchDepartmentOptions = useCallback(async (query) => {
+    const res = await adminGetDepartmentListing({ search: query });
+    return (res?.departments ?? []).map((d) => ({ id: d.id, label: d.name }));
+  }, []);
+
+  const fetchInstructorOptions = useCallback(async (query) => {
+    const res = await adminGetInstructorReportDirectory({ search: query, limit: 50 });
+    const list = res?.data ?? [];
+    return list.map((i) => ({
+      id: i.id ?? i.instructor_id,
+      label: (i.name ?? `${i.firstName ?? ""} ${i.lastName ?? ""}`.trim()) || i.instructor_name,
+      sublabel: i.email ?? i.instructor_email ?? null,
+    }));
+  }, []);
+
+  const fetchStudentOptions = useCallback(async (query) => {
+    const res = await adminGetStudents({ search: query, limit: 50 });
+    return (res?.students ?? []).map((s) => ({
+      id: s.id ?? s.userId,
+      label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.email,
+      sublabel: s.email ?? null,
+    }));
+  }, []);
+
+  // ── Fetchers ──────────────────────────────────────────────────────────────────
 
   const fetchStudents = useCallback(async (page, filters) => {
     setStudentsLoading(true);
@@ -366,11 +419,11 @@ const EnrollmentStatusReportPage = () => {
       if (filters.courseId) params.courseId = filters.courseId;
       if (filters.departmentId) params.departmentId = filters.departmentId;
       if (filters.instructorId) params.instructorId = filters.instructorId;
+      if (filters.studentId) params.studentId = filters.studentId;
       if (filters.studentStatus) params.studentStatus = filters.studentStatus;
       if (filters.engagementStatus) params.engagementStatus = filters.engagementStatus;
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
-
       const res = await adminGetEnrollmentStatusStudents(params);
       setStudentsData(res?.data?.data ?? []);
       setStudentsTotal(res?.data?.total ?? 0);
@@ -392,7 +445,6 @@ const EnrollmentStatusReportPage = () => {
       if (filters.instructorId) params.instructorId = filters.instructorId;
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
-
       const res = await adminGetEnrollmentStatusCourses(params);
       setCoursesData(res?.data?.data ?? []);
       setCoursesTotal(res?.data?.total ?? 0);
@@ -413,7 +465,6 @@ const EnrollmentStatusReportPage = () => {
       if (filters.instructorId) params.instructorId = filters.instructorId;
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
-
       const res = await adminGetEnrollmentStatusTrends(params);
       setTrendsData(res?.data ?? null);
     } catch (err) {
@@ -423,15 +474,13 @@ const EnrollmentStatusReportPage = () => {
     }
   }, []);
 
-  // ── Initial load ─────────────────────────────────────────────────────────────
-
   useEffect(() => {
     fetchStudents(1, defaultStudentFilters);
     fetchCourses(1, defaultCourseFilters);
     fetchTrends(defaultTrendFilters);
   }, [fetchStudents, fetchCourses, fetchTrends]);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────────
 
   const handleRefresh = () => {
     fetchStudents(studentsPage, appliedStudentFilters);
@@ -439,7 +488,6 @@ const EnrollmentStatusReportPage = () => {
     fetchTrends(appliedTrendFilters);
   };
 
-  // Students
   const applyStudentFilters = () => {
     setAppliedStudentFilters(studentFilters);
     setStudentsPage(1);
@@ -452,7 +500,6 @@ const EnrollmentStatusReportPage = () => {
     fetchStudents(1, defaultStudentFilters);
   };
 
-  // Courses
   const applyCourseFilters = () => {
     setAppliedCourseFilters(courseFilters);
     setCoursesPage(1);
@@ -465,7 +512,6 @@ const EnrollmentStatusReportPage = () => {
     fetchCourses(1, defaultCourseFilters);
   };
 
-  // Trends
   const applyTrendFilters = () => {
     setAppliedTrendFilters(trendFilters);
     fetchTrends(trendFilters);
@@ -476,38 +522,11 @@ const EnrollmentStatusReportPage = () => {
     fetchTrends(defaultTrendFilters);
   };
 
-  // ── Shared filter definitions ─────────────────────────────────────────────────
+  // ── Active filter counts ──────────────────────────────────────────────────────
 
-  const courseOptions = courses.map((c) => ({ value: c.id, label: c.title }));
-  const departmentOptions = departments.map((d) => ({ value: d.id, label: d.name }));
-  const instructorOptions = instructors.map((u) => ({
-    value: u.id,
-    label: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || u.email,
-  }));
-
-  const sharedFilterDefs = (filters, setFilters) => [
-    {
-      key: "courseId",
-      label: "Course",
-      type: "select",
-      value: filters.courseId,
-      options: courseOptions,
-    },
-    {
-      key: "departmentId",
-      label: "Department",
-      type: "select",
-      value: filters.departmentId,
-      options: departmentOptions,
-    },
-    {
-      key: "instructorId",
-      label: "Instructor",
-      type: "select",
-      value: filters.instructorId,
-      options: instructorOptions,
-    },
-  ];
+  const studentBoxActiveCount = Object.values(studentFilters).filter(Boolean).length;
+  const courseBoxActiveCount = Object.values(courseFilters).filter(Boolean).length;
+  const trendBoxActiveCount = Object.values(trendFilters).filter(Boolean).length;
 
   // ── Chart data ────────────────────────────────────────────────────────────────
 
@@ -531,44 +550,21 @@ const EnrollmentStatusReportPage = () => {
   const engagementTrendChart = {
     labels: (trendsData?.engagement_trend_per_course ?? []).map((d) => d.course_title),
     datasets: [
-      {
-        label: "In Progress",
-        data: (trendsData?.engagement_trend_per_course ?? []).map((d) => d.in_progress),
-        backgroundColor: "#3B82F6",
-        borderRadius: 4,
-      },
-      {
-        label: "Completed",
-        data: (trendsData?.engagement_trend_per_course ?? []).map((d) => d.completed),
-        backgroundColor: "#10B981",
-        borderRadius: 4,
-      },
-      {
-        label: "Inactive",
-        data: (trendsData?.engagement_trend_per_course ?? []).map((d) => d.inactive),
-        backgroundColor: "#F59E0B",
-        borderRadius: 4,
-      },
+      { label: "In Progress", data: (trendsData?.engagement_trend_per_course ?? []).map((d) => d.in_progress), backgroundColor: "#3B82F6", borderRadius: 4 },
+      { label: "Completed", data: (trendsData?.engagement_trend_per_course ?? []).map((d) => d.completed), backgroundColor: "#10B981", borderRadius: 4 },
+      { label: "Inactive", data: (trendsData?.engagement_trend_per_course ?? []).map((d) => d.inactive), backgroundColor: "#F59E0B", borderRadius: 4 },
     ],
   };
 
   const chartOptions = {
     responsive: true,
-    plugins: {
-      legend: { position: "top" },
-    },
-    scales: {
-      x: { grid: { display: false } },
-      y: { beginAtZero: true, grid: { color: "#F2F4F7" } },
-    },
+    plugins: { legend: { position: "top" } },
+    scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { color: "#F2F4F7" } } },
   };
 
   const barGroupedOptions = {
     ...chartOptions,
-    scales: {
-      x: { grid: { display: false }, stacked: false },
-      y: { beginAtZero: true, grid: { color: "#F2F4F7" }, stacked: false },
-    },
+    scales: { x: { grid: { display: false }, stacked: false }, y: { beginAtZero: true, grid: { color: "#F2F4F7" }, stacked: false } },
   };
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -590,116 +586,106 @@ const EnrollmentStatusReportPage = () => {
 
       {/* KPI Summary Cards */}
       {kpis && (
-        <>
-          <SimpleGrid columns={{ base: 2, md: 4, lg: 4 }} spacing={4} mb={4}>
-             <KpiCard
-              icon={FiUsers}
-              label="Total Students in LMS"
-              value={kpis.total_students_in_lms?.toLocaleString()}
-              iconColor="#660066"
-            />
-            <KpiCard
-              icon={FiUserCheck}
-              label="Total Enrolled"
-              value={kpis.total_enrolled_students?.toLocaleString()}
-              iconColor="#3B82F6"
-            /> 
-            <KpiCard
-              icon={FiActivity}
-              label="Active (In Progress)"
-              value={kpis.total_active_students?.toLocaleString()}
-              iconColor="#10B981"
-            />
-             <KpiCard
-              icon={FiCheckCircle}
-              label="Completed"
-              value={kpis.total_completed_students?.toLocaleString()}
-              iconColor="#059669"
-            />
-            <KpiCard
-              icon={FiAlertCircle}
-              label="Inactive"
-              value={kpis.total_inactive_students?.toLocaleString()}
-              iconColor="#F59E0B"
-            />
-            <KpiCard
-              icon={FiUserX}
-              label="Deactivated"
-              value={kpis.total_deactivated_students?.toLocaleString()}
-              iconColor="#EF4444"
-            /> 
-            <KpiCard
-              icon={FiTrendingUp}
-              label="Overall Dropout Rate"
-              value={pct(kpis.overall_dropout_rate)}
-              iconColor="#6B7280"
-            />
-            <KpiCard
-              icon={FiBarChart2}
-              label="Avg Completion Rate"
-              value={pct(kpis.average_course_completion_rate)}
-              iconColor="#8B5CF6"
-            />
-          </SimpleGrid>
-
-          {/* Distribution Breakdown */}
-          {(kpis.enrollment_distribution || kpis.engagement_distribution) && (
-            <DistributionSection kpis={kpis} />
-          )}
-        </>
+        <SimpleGrid columns={{ base: 2, md: 4, lg: 4 }} spacing={4} mb={4}>
+          <KpiCard icon={FiUserCheck} label="Total Enrolled" value={kpis.total_enrolled_students?.toLocaleString()} iconColor="#3B82F6" />
+          <KpiCard icon={FiActivity} label="Active (In Progress)" value={kpis.total_active_students?.toLocaleString()} iconColor="#10B981" />
+          {/* <KpiCard icon={FiCheckCircle} label="Completed" value={kpis.total_completed_students?.toLocaleString()} iconColor="#059669" /> */}
+          <KpiCard icon={FiAlertCircle} label="Inactive" value={kpis.total_inactive_students?.toLocaleString()} iconColor="#F59E0B" />
+          <KpiCard icon={FiTrendingUp} label="Overall Dropout Rate" value={pct(kpis.overall_dropout_rate)} iconColor="#6B7280" />
+          <KpiCard icon={FiBarChart2} label="Avg Completion Rate" value={pct(kpis.average_course_completion_rate)} iconColor="#8B5CF6" />
+        </SimpleGrid>
       )}
 
       {/* Tabs */}
       <Tabs colorScheme="purple" variant="enclosed">
         <TabList mb={0} borderBottom="1px solid #E4E7EC">
-          <Tab fontSize="14px" fontWeight="500" _selected={{ color: "#660066", borderColor: "#660066", borderBottomColor: "white" }}>
-            Students
-          </Tab>
-          <Tab fontSize="14px" fontWeight="500" _selected={{ color: "#660066", borderColor: "#660066", borderBottomColor: "white" }}>
-            Courses
-          </Tab>
-          <Tab fontSize="14px" fontWeight="500" _selected={{ color: "#660066", borderColor: "#660066", borderBottomColor: "white" }}>
-            Trends
-          </Tab>
+          <Tab fontSize="14px" fontWeight="500" _selected={{ color: "#660066", borderColor: "#660066", borderBottomColor: "white" }}>Students</Tab>
+          <Tab fontSize="14px" fontWeight="500" _selected={{ color: "#660066", borderColor: "#660066", borderBottomColor: "white" }}>Courses</Tab>
+          <Tab fontSize="14px" fontWeight="500" _selected={{ color: "#660066", borderColor: "#660066", borderBottomColor: "white" }}>Trends</Tab>
         </TabList>
 
         <TabPanels>
-          {/* ── Students Tab ────────────────────────────────────────────── */}
+          {/* ── Students Tab ─────────────────────────────────────────────── */}
           <TabPanel p={0} pt={5}>
-            <FilterBar
-              filters={[
-                ...sharedFilterDefs(studentFilters, setStudentFilters),
-                {
-                  key: "studentStatus",
-                  label: "Student Status",
-                  type: "select",
-                  value: studentFilters.studentStatus,
-                  options: STUDENT_STATUS_OPTIONS,
-                },
-                {
-                  key: "engagementStatus",
-                  label: "Engagement Status",
-                  type: "select",
-                  value: studentFilters.engagementStatus,
-                  options: ENGAGEMENT_STATUS_OPTIONS,
-                },
-                {
-                  key: "startDate",
-                  label: "From Date",
-                  type: "date",
-                  value: studentFilters.startDate,
-                },
-                {
-                  key: "endDate",
-                  label: "To Date",
-                  type: "date",
-                  value: studentFilters.endDate,
-                },
-              ]}
-              onChange={(key, val) => setStudentFilters((prev) => ({ ...prev, [key]: val }))}
-              onApply={applyStudentFilters}
-              onReset={resetStudentFilters}
-            />
+            <Flex gap={2} mb={3} alignItems="center">
+              <Button
+                secondary
+                onClick={() => setShowStudentFilters((v) => !v)}
+                style={{ height: "32px", fontSize: "13px", display: "flex", alignItems: "center", gap: "6px" }}
+              >
+                <FiFilter size={13} />
+                Filters{studentBoxActiveCount > 0 ? ` (${studentBoxActiveCount})` : ""}
+              </Button>
+              {/* <Button onClick={applyStudentFilters} style={{ height: "32px", fontSize: "13px" }}>Apply</Button>
+              <Button secondary onClick={resetStudentFilters} style={{ height: "32px", fontSize: "13px" }}>Reset</Button> */}
+            </Flex>
+
+            {showStudentFilters && (
+              <Box bg="gray.50" border="1px solid #E4E7EC" borderRadius="md" p={4} mb={4}>
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Course</FormLabel>
+                    <EntityCombobox
+                      fetchFn={fetchCourseOptions}
+                      value={studentFilters.courseId}
+                      onSelect={(opt) => setStudentFilters((p) => ({ ...p, courseId: opt ? opt.id : "" }))}
+                      placeholder="Search course..."
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Department</FormLabel>
+                    <EntityCombobox
+                      fetchFn={fetchDepartmentOptions}
+                      value={studentFilters.departmentId}
+                      onSelect={(opt) => setStudentFilters((p) => ({ ...p, departmentId: opt ? opt.id : "" }))}
+                      placeholder="Search department..."
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Instructor</FormLabel>
+                    <EntityCombobox
+                      fetchFn={fetchInstructorOptions}
+                      value={studentFilters.instructorId}
+                      onSelect={(opt) => setStudentFilters((p) => ({ ...p, instructorId: opt ? opt.id : "" }))}
+                      placeholder="Search instructor..."
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Student</FormLabel>
+                    <EntityCombobox
+                      fetchFn={fetchStudentOptions}
+                      value={studentFilters.studentId}
+                      onSelect={(opt) => setStudentFilters((p) => ({ ...p, studentId: opt ? opt.id : "" }))}
+                      placeholder="Search student..."
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Student Status</FormLabel>
+                    <Select size="sm" borderRadius="md" value={studentFilters.studentStatus} onChange={(e) => setStudentFilters((p) => ({ ...p, studentStatus: e.target.value }))} placeholder="All Statuses">
+                      {STUDENT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </Select>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Engagement Status</FormLabel>
+                    <Select size="sm" borderRadius="md" value={studentFilters.engagementStatus} onChange={(e) => setStudentFilters((p) => ({ ...p, engagementStatus: e.target.value }))} placeholder="All Statuses">
+                      {ENGAGEMENT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </Select>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>From Date</FormLabel>
+                    <Input size="sm" borderRadius="md" type="date" value={studentFilters.startDate} onChange={(e) => setStudentFilters((p) => ({ ...p, startDate: e.target.value }))} />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>To Date</FormLabel>
+                    <Input size="sm" borderRadius="md" type="date" value={studentFilters.endDate} onChange={(e) => setStudentFilters((p) => ({ ...p, endDate: e.target.value }))} />
+                  </FormControl>
+                </SimpleGrid>
+                <Flex gap={2} mt={3}>
+                  <Button onClick={applyStudentFilters} style={{ height: "32px", fontSize: "13px" }}>Apply</Button>
+                  <Button secondary onClick={resetStudentFilters} style={{ height: "32px", fontSize: "13px" }}>Reset</Button>
+                </Flex>
+              </Box>
+            )}
 
             {studentsLoading ? (
               <Flex h="320px" justify="center" align="center" flexDir="column" gap={3}>
@@ -709,9 +695,7 @@ const EnrollmentStatusReportPage = () => {
             ) : studentsError ? (
               <Box bg="red.50" border="1px solid" borderColor="red.200" borderRadius="lg" p={6}>
                 <ChakraText color="red.700" mb={3}>{studentsError}</ChakraText>
-                <Button secondary onClick={() => fetchStudents(studentsPage, appliedStudentFilters)}>
-                  Try Again
-                </Button>
+                <Button secondary onClick={() => fetchStudents(studentsPage, appliedStudentFilters)}>Try Again</Button>
               </Box>
             ) : (
               <>
@@ -726,7 +710,7 @@ const EnrollmentStatusReportPage = () => {
                     </Thead>
                     <Tbody>
                       {studentsData.length === 0 ? (
-                        <EmptyRow cols={10} />
+                        <Tr><Td colSpan={10} textAlign="center" py={10} color="#667085" fontSize="14px">No data found</Td></Tr>
                       ) : (
                         studentsData.map((row, i) => (
                           <Tr key={row.student_id + "_" + row.course_id + "_" + i} _hover={{ bg: "#FAFAFA" }}>
@@ -742,37 +726,23 @@ const EnrollmentStatusReportPage = () => {
                             </Td>
                             <Td {...CellStyle} px={4} whiteSpace="nowrap">{fmt(row.enrollment_date)}</Td>
                             <Td {...CellStyle} px={4}>
-                              <Badge colorScheme={studentStatusScheme(row.student_status)} borderRadius="full" px={2}>
-                                {row.student_status}
-                              </Badge>
+                              <Badge colorScheme={studentStatusScheme(row.student_status)} borderRadius="full" px={2}>{row.student_status}</Badge>
                             </Td>
                             <Td {...CellStyle} px={4}>
-                              <Badge colorScheme={engagementStatusScheme(row.engagement_status)} borderRadius="full" px={2}>
-                                {row.engagement_status}
-                              </Badge>
+                              <Badge colorScheme={engagementStatusScheme(row.engagement_status)} borderRadius="full" px={2}>{row.engagement_status}</Badge>
                             </Td>
                             <Td {...CellStyle} px={4} whiteSpace="nowrap">{fmt(row.last_active_date)}</Td>
                             <Td {...CellStyle} px={4} textAlign="center">{row.days_since_active ?? "—"}</Td>
                             <Td {...CellStyle} px={4} minW="120px">
                               <Flex align="center" gap={2}>
-                                <Progress
-                                  value={row.progress_percentage ?? 0}
-                                  size="sm"
-                                  colorScheme="purple"
-                                  borderRadius="full"
-                                  flex={1}
-                                />
-                                <ChakraText fontSize="12px" color="#667085" flexShrink={0}>
-                                  {pct(row.progress_percentage)}
-                                </ChakraText>
+                                <Progress value={row.progress_percentage ?? 0} size="sm" colorScheme="purple" borderRadius="full" flex={1} />
+                                <ChakraText fontSize="12px" color="#667085" flexShrink={0}>{pct(row.progress_percentage)}</ChakraText>
                               </Flex>
                             </Td>
                             <Td {...CellStyle} px={4} textAlign="center">
-                              {row.dropout_flag ? (
-                                <Badge colorScheme="red" borderRadius="full" px={2}>Yes</Badge>
-                              ) : (
-                                <Badge colorScheme="green" borderRadius="full" px={2}>No</Badge>
-                              )}
+                              {row.dropout_flag
+                                ? <Badge colorScheme="red" borderRadius="full" px={2}>Yes</Badge>
+                                : <Badge colorScheme="green" borderRadius="full" px={2}>No</Badge>}
                             </Td>
                           </Tr>
                         ))
@@ -780,48 +750,77 @@ const EnrollmentStatusReportPage = () => {
                     </Tbody>
                   </Table>
                 </TableContainer>
-
                 <Paginator
                   page={studentsPage}
                   total={studentsTotal}
                   limit={LIMIT}
-                  onPrev={() => {
-                    const p = studentsPage - 1;
-                    setStudentsPage(p);
-                    fetchStudents(p, appliedStudentFilters);
-                  }}
-                  onNext={() => {
-                    const p = studentsPage + 1;
-                    setStudentsPage(p);
-                    fetchStudents(p, appliedStudentFilters);
-                  }}
+                  onPrev={() => { const p = studentsPage - 1; setStudentsPage(p); fetchStudents(p, appliedStudentFilters); }}
+                  onNext={() => { const p = studentsPage + 1; setStudentsPage(p); fetchStudents(p, appliedStudentFilters); }}
                 />
               </>
             )}
           </TabPanel>
 
-          {/* ── Courses Tab ─────────────────────────────────────────────── */}
+          {/* ── Courses Tab ──────────────────────────────────────────────── */}
           <TabPanel p={0} pt={5}>
-            <FilterBar
-              filters={[
-                ...sharedFilterDefs(courseFilters, setCourseFilters),
-                {
-                  key: "startDate",
-                  label: "From Date",
-                  type: "date",
-                  value: courseFilters.startDate,
-                },
-                {
-                  key: "endDate",
-                  label: "To Date",
-                  type: "date",
-                  value: courseFilters.endDate,
-                },
-              ]}
-              onChange={(key, val) => setCourseFilters((prev) => ({ ...prev, [key]: val }))}
-              onApply={applyCourseFilters}
-              onReset={resetCourseFilters}
-            />
+            <Flex gap={2} mb={3} alignItems="center">
+              <Button
+                secondary
+                onClick={() => setShowCourseFilters((v) => !v)}
+                style={{ height: "32px", fontSize: "13px", display: "flex", alignItems: "center", gap: "6px" }}
+              >
+                <FiFilter size={13} />
+                Filters{courseBoxActiveCount > 0 ? ` (${courseBoxActiveCount})` : ""}
+              </Button>
+              {/* <Button onClick={applyCourseFilters} style={{ height: "32px", fontSize: "13px" }}>Apply</Button>
+              <Button secondary onClick={resetCourseFilters} style={{ height: "32px", fontSize: "13px" }}>Reset</Button> */}
+            </Flex>
+
+            {showCourseFilters && (
+              <Box bg="gray.50" border="1px solid #E4E7EC" borderRadius="md" p={4} mb={4}>
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Course</FormLabel>
+                    <EntityCombobox
+                      fetchFn={fetchCourseOptions}
+                      value={courseFilters.courseId}
+                      onSelect={(opt) => setCourseFilters((p) => ({ ...p, courseId: opt ? opt.id : "" }))}
+                      placeholder="Search course..."
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Department</FormLabel>
+                    <EntityCombobox
+                      fetchFn={fetchDepartmentOptions}
+                      value={courseFilters.departmentId}
+                      onSelect={(opt) => setCourseFilters((p) => ({ ...p, departmentId: opt ? opt.id : "" }))}
+                      placeholder="Search department..."
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Instructor</FormLabel>
+                    <EntityCombobox
+                      fetchFn={fetchInstructorOptions}
+                      value={courseFilters.instructorId}
+                      onSelect={(opt) => setCourseFilters((p) => ({ ...p, instructorId: opt ? opt.id : "" }))}
+                      placeholder="Search instructor..."
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>From Date</FormLabel>
+                    <Input size="sm" borderRadius="md" type="date" value={courseFilters.startDate} onChange={(e) => setCourseFilters((p) => ({ ...p, startDate: e.target.value }))} />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>To Date</FormLabel>
+                    <Input size="sm" borderRadius="md" type="date" value={courseFilters.endDate} onChange={(e) => setCourseFilters((p) => ({ ...p, endDate: e.target.value }))} />
+                  </FormControl>
+                </SimpleGrid>
+                <Flex gap={2} mt={3}>
+                  <Button onClick={applyCourseFilters} style={{ height: "32px", fontSize: "13px" }}>Apply</Button>
+                  <Button secondary onClick={resetCourseFilters} style={{ height: "32px", fontSize: "13px" }}>Reset</Button>
+                </Flex>
+              </Box>
+            )}
 
             {coursesLoading ? (
               <Flex h="320px" justify="center" align="center" flexDir="column" gap={3}>
@@ -831,9 +830,7 @@ const EnrollmentStatusReportPage = () => {
             ) : coursesError ? (
               <Box bg="red.50" border="1px solid" borderColor="red.200" borderRadius="lg" p={6}>
                 <ChakraText color="red.700" mb={3}>{coursesError}</ChakraText>
-                <Button secondary onClick={() => fetchCourses(coursesPage, appliedCourseFilters)}>
-                  Try Again
-                </Button>
+                <Button secondary onClick={() => fetchCourses(coursesPage, appliedCourseFilters)}>Try Again</Button>
               </Box>
             ) : (
               <>
@@ -848,50 +845,22 @@ const EnrollmentStatusReportPage = () => {
                     </Thead>
                     <Tbody>
                       {coursesData.length === 0 ? (
-                        <EmptyRow cols={9} />
+                        <Tr><Td colSpan={9} textAlign="center" py={10} color="#667085" fontSize="14px">No data found</Td></Tr>
                       ) : (
                         coursesData.map((row, i) => (
                           <Tr key={row.course_id + "_" + i} _hover={{ bg: "#FAFAFA" }}>
                             <Td {...CellStyle} px={4} maxW="200px">
-                              <ChakraText fontWeight="500" noOfLines={2} title={row.course_title}>
-                                {row.course_title}
-                              </ChakraText>
+                              <ChakraText fontWeight="500" noOfLines={2} title={row.course_title}>{row.course_title}</ChakraText>
                             </Td>
                             <Td {...CellStyle} px={4}>{row.department_name || "—"}</Td>
-                            <Td {...CellStyle} px={4} textAlign="center" fontWeight="600">
-                              {row.total_enrollments ?? row.enrollment_count ?? "—"}
-                            </Td>
-                            <Td {...CellStyle} px={4} textAlign="center">
-                              <Badge colorScheme="blue" borderRadius="full" px={2}>
-                                {row.active_students ?? 0}
-                              </Badge>
-                            </Td>
-                            <Td {...CellStyle} px={4} textAlign="center">
-                              <Badge colorScheme="green" borderRadius="full" px={2}>
-                                {row.completed_students ?? 0}
-                              </Badge>
-                            </Td>
-                            <Td {...CellStyle} px={4} textAlign="center">
-                              <Badge colorScheme="orange" borderRadius="full" px={2}>
-                                {row.inactive_students ?? 0}
-                              </Badge>
-                            </Td>
-                            <Td {...CellStyle} px={4} textAlign="center">
-                              <Badge colorScheme="red" borderRadius="full" px={2}>
-                                {row.deactivated_students ?? 0}
-                              </Badge>
-                            </Td>
-                            <Td {...CellStyle} px={4} textAlign="center">
-                              {pct(row.dropout_rate)}
-                            </Td>
+                            <Td {...CellStyle} px={4} textAlign="center" fontWeight="600">{row.total_enrollments ?? row.enrollment_count ?? "—"}</Td>
+                            <Td {...CellStyle} px={4} textAlign="center"><Badge colorScheme="blue" borderRadius="full" px={2}>{row.active_students ?? 0}</Badge></Td>
+                            <Td {...CellStyle} px={4} textAlign="center"><Badge colorScheme="green" borderRadius="full" px={2}>{row.completed_students ?? 0}</Badge></Td>
+                            <Td {...CellStyle} px={4} textAlign="center"><Badge colorScheme="orange" borderRadius="full" px={2}>{row.inactive_students ?? 0}</Badge></Td>
+                            <Td {...CellStyle} px={4} textAlign="center"><Badge colorScheme="red" borderRadius="full" px={2}>{row.deactivated_students ?? 0}</Badge></Td>
+                            <Td {...CellStyle} px={4} textAlign="center">{pct(row.dropout_rate)}</Td>
                             <Td {...CellStyle} px={4}>
-                              <Badge
-                                colorScheme={trendScheme(row.enrollment_trend)}
-                                borderRadius="full"
-                                px={2}
-                              >
-                                {row.enrollment_trend || "—"}
-                              </Badge>
+                              <Badge colorScheme={trendScheme(row.enrollment_trend)} borderRadius="full" px={2}>{row.enrollment_trend || "—"}</Badge>
                             </Td>
                           </Tr>
                         ))
@@ -899,48 +868,77 @@ const EnrollmentStatusReportPage = () => {
                     </Tbody>
                   </Table>
                 </TableContainer>
-
                 <Paginator
                   page={coursesPage}
                   total={coursesTotal}
                   limit={LIMIT}
-                  onPrev={() => {
-                    const p = coursesPage - 1;
-                    setCoursesPage(p);
-                    fetchCourses(p, appliedCourseFilters);
-                  }}
-                  onNext={() => {
-                    const p = coursesPage + 1;
-                    setCoursesPage(p);
-                    fetchCourses(p, appliedCourseFilters);
-                  }}
+                  onPrev={() => { const p = coursesPage - 1; setCoursesPage(p); fetchCourses(p, appliedCourseFilters); }}
+                  onNext={() => { const p = coursesPage + 1; setCoursesPage(p); fetchCourses(p, appliedCourseFilters); }}
                 />
               </>
             )}
           </TabPanel>
 
-          {/* ── Trends Tab ──────────────────────────────────────────────── */}
+          {/* ── Trends Tab ───────────────────────────────────────────────── */}
           <TabPanel p={0} pt={5}>
-            <FilterBar
-              filters={[
-                ...sharedFilterDefs(trendFilters, setTrendFilters),
-                {
-                  key: "startDate",
-                  label: "From Date",
-                  type: "date",
-                  value: trendFilters.startDate,
-                },
-                {
-                  key: "endDate",
-                  label: "To Date",
-                  type: "date",
-                  value: trendFilters.endDate,
-                },
-              ]}
-              onChange={(key, val) => setTrendFilters((prev) => ({ ...prev, [key]: val }))}
-              onApply={applyTrendFilters}
-              onReset={resetTrendFilters}
-            />
+            <Flex gap={2} mb={3} alignItems="center">
+              <Button
+                secondary
+                onClick={() => setShowTrendFilters((v) => !v)}
+                style={{ height: "32px", fontSize: "13px", display: "flex", alignItems: "center", gap: "6px" }}
+              >
+                <FiFilter size={13} />
+                Filters{trendBoxActiveCount > 0 ? ` (${trendBoxActiveCount})` : ""}
+              </Button>
+              {/* <Button onClick={applyTrendFilters} style={{ height: "32px", fontSize: "13px" }}>Apply</Button>
+              <Button secondary onClick={resetTrendFilters} style={{ height: "32px", fontSize: "13px" }}>Reset</Button> */}
+            </Flex>
+
+            {showTrendFilters && (
+              <Box bg="gray.50" border="1px solid #E4E7EC" borderRadius="md" p={4} mb={4}>
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Course</FormLabel>
+                    <EntityCombobox
+                      fetchFn={fetchCourseOptions}
+                      value={trendFilters.courseId}
+                      onSelect={(opt) => setTrendFilters((p) => ({ ...p, courseId: opt ? opt.id : "" }))}
+                      placeholder="Search course..."
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Department</FormLabel>
+                    <EntityCombobox
+                      fetchFn={fetchDepartmentOptions}
+                      value={trendFilters.departmentId}
+                      onSelect={(opt) => setTrendFilters((p) => ({ ...p, departmentId: opt ? opt.id : "" }))}
+                      placeholder="Search department..."
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>Instructor</FormLabel>
+                    <EntityCombobox
+                      fetchFn={fetchInstructorOptions}
+                      value={trendFilters.instructorId}
+                      onSelect={(opt) => setTrendFilters((p) => ({ ...p, instructorId: opt ? opt.id : "" }))}
+                      placeholder="Search instructor..."
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>From Date</FormLabel>
+                    <Input size="sm" borderRadius="md" type="date" value={trendFilters.startDate} onChange={(e) => setTrendFilters((p) => ({ ...p, startDate: e.target.value }))} />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="12px" fontWeight="500" color="#667085" mb={1}>To Date</FormLabel>
+                    <Input size="sm" borderRadius="md" type="date" value={trendFilters.endDate} onChange={(e) => setTrendFilters((p) => ({ ...p, endDate: e.target.value }))} />
+                  </FormControl>
+                </SimpleGrid>
+                <Flex gap={2} mt={3}>
+                  <Button onClick={applyTrendFilters} style={{ height: "32px", fontSize: "13px" }}>Apply</Button>
+                  <Button secondary onClick={resetTrendFilters} style={{ height: "32px", fontSize: "13px" }}>Reset</Button>
+                </Flex>
+              </Box>
+            )}
 
             {trendsLoading ? (
               <Flex h="320px" justify="center" align="center" flexDir="column" gap={3}>
@@ -950,50 +948,33 @@ const EnrollmentStatusReportPage = () => {
             ) : trendsError ? (
               <Box bg="red.50" border="1px solid" borderColor="red.200" borderRadius="lg" p={6}>
                 <ChakraText color="red.700" mb={3}>{trendsError}</ChakraText>
-                <Button secondary onClick={() => fetchTrends(appliedTrendFilters)}>
-                  Try Again
-                </Button>
+                <Button secondary onClick={() => fetchTrends(appliedTrendFilters)}>Try Again</Button>
               </Box>
             ) : (
               <>
-                {/* Enrollment Growth */}
                 <Box bg="white" border="1px solid #E4E7EC" borderRadius="xl" p={5} mb={5}>
-                  <ChakraText fontWeight="600" color="#101928" mb={4}>
-                    Enrollment Growth Over Time
-                  </ChakraText>
+                  <ChakraText fontWeight="600" color="#101928" mb={4}>Enrollment Growth Over Time</ChakraText>
                   {(trendsData?.enrollment_growth ?? []).length === 0 ? (
-                    <Flex h="160px" align="center" justify="center">
-                      <ChakraText color="#9CA3AF" fontSize="14px">No enrollment growth data available</ChakraText>
-                    </Flex>
+                    <Flex h="160px" align="center" justify="center"><ChakraText color="#9CA3AF" fontSize="14px">No enrollment growth data available</ChakraText></Flex>
                   ) : (
                     <Line data={enrollmentGrowthChart} options={chartOptions} height={80} />
                   )}
                 </Box>
 
-                {/* Engagement Trend per Course */}
                 <Box bg="white" border="1px solid #E4E7EC" borderRadius="xl" p={5} mb={5}>
-                  <ChakraText fontWeight="600" color="#101928" mb={4}>
-                    Engagement Trend per Course
-                  </ChakraText>
+                  <ChakraText fontWeight="600" color="#101928" mb={4}>Engagement Trend per Course</ChakraText>
                   {(trendsData?.engagement_trend_per_course ?? []).length === 0 ? (
-                    <Flex h="160px" align="center" justify="center">
-                      <ChakraText color="#9CA3AF" fontSize="14px">No engagement trend data available</ChakraText>
-                    </Flex>
+                    <Flex h="160px" align="center" justify="center"><ChakraText color="#9CA3AF" fontSize="14px">No engagement trend data available</ChakraText></Flex>
                   ) : (
                     <Bar data={engagementTrendChart} options={barGroupedOptions} height={80} />
                   )}
                 </Box>
 
-                <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={5}>
-                  {/* Dropout Patterns */}
+                {/* <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={5}>
                   <Box bg="white" border="1px solid #E4E7EC" borderRadius="xl" p={5}>
-                    <ChakraText fontWeight="600" color="#101928" mb={4}>
-                      Dropout Patterns by Course
-                    </ChakraText>
+                    <ChakraText fontWeight="600" color="#101928" mb={4}>Dropout Patterns by Course</ChakraText>
                     {(trendsData?.dropout_patterns ?? []).length === 0 ? (
-                      <Flex h="120px" align="center" justify="center">
-                        <ChakraText color="#9CA3AF" fontSize="14px">No dropout data available</ChakraText>
-                      </Flex>
+                      <Flex h="120px" align="center" justify="center"><ChakraText color="#9CA3AF" fontSize="14px">No dropout data available</ChakraText></Flex>
                     ) : (
                       <TableContainer>
                         <Table variant="simple" size="sm">
@@ -1008,9 +989,7 @@ const EnrollmentStatusReportPage = () => {
                               <Tr key={d.course_id + "_" + i} _hover={{ bg: "#FAFAFA" }}>
                                 <Td {...CellStyle} py={2}>{d.course_title}</Td>
                                 <Td {...CellStyle} py={2} textAlign="center">
-                                  <Badge colorScheme={d.dropout_count > 0 ? "red" : "green"} borderRadius="full" px={2}>
-                                    {d.dropout_count}
-                                  </Badge>
+                                  <Badge colorScheme={d.dropout_count > 0 ? "red" : "green"} borderRadius="full" px={2}>{d.dropout_count}</Badge>
                                 </Td>
                               </Tr>
                             ))}
@@ -1020,15 +999,10 @@ const EnrollmentStatusReportPage = () => {
                     )}
                   </Box>
 
-                  {/* Activity Heatmap */}
                   <Box bg="white" border="1px solid #E4E7EC" borderRadius="xl" p={5}>
-                    <ChakraText fontWeight="600" color="#101928" mb={4}>
-                      Activity Distribution (Active vs Inactive)
-                    </ChakraText>
+                    <ChakraText fontWeight="600" color="#101928" mb={4}>Activity Distribution (Active vs Inactive)</ChakraText>
                     {(trendsData?.activity_heatmap ?? []).length === 0 ? (
-                      <Flex h="120px" align="center" justify="center">
-                        <ChakraText color="#9CA3AF" fontSize="14px">No activity data available</ChakraText>
-                      </Flex>
+                      <Flex h="120px" align="center" justify="center"><ChakraText color="#9CA3AF" fontSize="14px">No activity data available</ChakraText></Flex>
                     ) : (
                       <TableContainer maxH="320px" overflowY="auto">
                         <Table variant="simple" size="sm">
@@ -1049,9 +1023,7 @@ const EnrollmentStatusReportPage = () => {
                                   <ChakraText noOfLines={1} title={d.course_title}>{d.course_title}</ChakraText>
                                 </Td>
                                 <Td {...CellStyle} py={2} textAlign="center">
-                                  <Badge colorScheme={engagementStatusScheme(d.status)} borderRadius="full" px={2} fontSize="11px">
-                                    {d.status}
-                                  </Badge>
+                                  <Badge colorScheme={engagementStatusScheme(d.status)} borderRadius="full" px={2} fontSize="11px">{d.status}</Badge>
                                 </Td>
                                 <Td {...CellStyle} py={2} textAlign="center">{pct(d.progress_percentage)}</Td>
                                 <Td {...CellStyle} py={2} textAlign="center">
@@ -1066,7 +1038,7 @@ const EnrollmentStatusReportPage = () => {
                       </TableContainer>
                     )}
                   </Box>
-                </SimpleGrid>
+                </SimpleGrid> */}
               </>
             )}
           </TabPanel>

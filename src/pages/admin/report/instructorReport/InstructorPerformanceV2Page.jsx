@@ -38,8 +38,7 @@ import {
   useDisclosure,
   useToast,
 } from "@chakra-ui/react";
-import { Tabs, Tab, makeStyles } from "@material-ui/core";
-import { FiDownload, FiTrendingUp, FiRefreshCw, FiChevronDown, FiX } from "react-icons/fi";
+import { FiDownload, FiFilter, FiRefreshCw, FiChevronDown, FiX } from "react-icons/fi";
 import dayjs from "dayjs";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { DashboardMetricCard } from "../../../../components";
@@ -49,13 +48,7 @@ import {
   createExportReport,
   adminGetDepartmentListing,
   adminGetInstructorReportDirectory,
-  adminGetCourseListing,
 } from "../../../../services";
-
-const useStyles = makeStyles(() => ({
-  tabs: { borderBottom: "1px solid #e2e8f0", marginBottom: 16 },
-  tab: { textTransform: "none", fontWeight: 600, fontSize: 14 },
-}));
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
 
@@ -369,15 +362,13 @@ function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const InstructorPerformanceV2Page = () => {
-  const classes = useStyles();
   const toast = useToast();
-  const [tab, setTab] = useState(0);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Filters
   const [filters, setFilters] = useState({
     departmentId: "",
     instructorId: "",
-    courseId: "",
     startDate: "",
     endDate: "",
     period: "quarterly",
@@ -419,11 +410,6 @@ const InstructorPerformanceV2Page = () => {
       label: i.name ?? `${i.firstName ?? ""} ${i.lastName ?? ""}`.trim() ?? i.instructor_name,
       sublabel: i.email ?? i.instructor_email ?? null,
     }));
-  }, []);
-
-  const fetchCourses = useCallback(async (query) => {
-    const res = await adminGetCourseListing({ search: query });
-    return (res.courses ?? []).map((c) => ({ id: c.id, label: c.title }));
   }, []);
 
   // ── Fetch report ─────────────────────────────────────────────────────────────
@@ -522,15 +508,32 @@ const InstructorPerformanceV2Page = () => {
         <DashboardMetricCard title="Avg Grading Days" value={loading ? "..." : summary?.average_grading_days != null ? `${summary.average_grading_days} days` : "—"} />
       </SimpleGrid>
 
-      {/* Tabs */}
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} className={classes.tabs}>
-        <Tab label="All Instructors" className={classes.tab} />
-        <Tab label={`Filters${activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ""}`} className={classes.tab} />
-      </Tabs>
+      {/* Search + Filter toggle row */}
+      <Flex gap={3} mb={4} alignItems="center">
+        <Box flex={1} maxW="340px">
+          <EntityCombobox
+            fetchFn={fetchInstructors}
+            value={filters.instructorId}
+            onSelect={(opt) => setFilters((p) => ({ ...p, instructorId: opt ? opt.id : "" }))}
+            placeholder="Search instructor..."
+          />
+        </Box>
+        <Button
+          size="sm"
+          leftIcon={<FiFilter />}
+          variant="outline"
+          onClick={() => setShowFilters((v) => !v)}
+          colorScheme={activeFiltersCount > 0 ? "blue" : "gray"}
+          bg="white"
+          flexShrink={0}
+        >
+          Filters{activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ""}
+        </Button>
+      </Flex>
 
       {/* Filter panel */}
-      {tab === 1 && (
-        <Box bg="gray.50" p={4} borderRadius="md" mb={4}>
+      {showFilters && (
+        <Box bg="gray.50" border="1px" borderColor="gray.200" p={4} borderRadius="md" mb={4}>
           <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
             <FormControl>
               <FormLabel fontSize="sm">Start Date</FormLabel>
@@ -541,7 +544,7 @@ const InstructorPerformanceV2Page = () => {
               <Input size="sm" type="date" value={filters.endDate} onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))} />
             </FormControl>
             <FormControl>
-              <FormLabel fontSize="sm">Trend Period</FormLabel>
+              <FormLabel fontSize="sm">Period</FormLabel>
               <Select size="sm" value={filters.period} onChange={(e) => setFilters((p) => ({ ...p, period: e.target.value }))}>
                 <option value="monthly">Monthly</option>
                 <option value="quarterly">Quarterly</option>
@@ -557,36 +560,18 @@ const InstructorPerformanceV2Page = () => {
                 placeholder="Search department..."
               />
             </FormControl>
-            <FormControl>
-              <FormLabel fontSize="sm">Instructor</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchInstructors}
-                value={filters.instructorId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, instructorId: opt ? opt.id : "" }))}
-                placeholder="Search instructor..."
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel fontSize="sm">Course</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchCourses}
-                value={filters.courseId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "" }))}
-                placeholder="Search course..."
-              />
-            </FormControl>
           </SimpleGrid>
           <Flex mt={3} gap={2}>
             <Button size="sm" colorScheme="blue" onClick={() => { setPage(1); fetchReport(); }}>Apply Filters</Button>
-            <Button size="sm" variant="outline" onClick={() => setFilters({ departmentId: "", instructorId: "", courseId: "", startDate: "", endDate: "", period: "quarterly" })}>Clear</Button>
+            <Button size="sm" variant="outline" onClick={() => { setFilters({ departmentId: "", instructorId: "", startDate: "", endDate: "", period: "quarterly" }); }}>Clear</Button>
           </Flex>
         </Box>
       )}
 
       {/* Table */}
-      <Box overflowX="auto">
+      <Box overflowX="auto" bg="white" borderRadius="md">
         <Table size="sm" variant="simple">
-          <Thead bg="gray.50">
+          <Thead bg="white">
             <Tr>
               <Th>Instructor</Th>
               <Th>Department</Th>
@@ -600,20 +585,19 @@ const InstructorPerformanceV2Page = () => {
               <Th>Combined</Th>
               <Th>Grading Days</Th>
               <Th>Rating</Th>
-              <Th>Trend</Th>
             </Tr>
           </Thead>
           <Tbody>
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <Tr key={i}>
-                  {Array.from({ length: 13 }).map((__, j) => (
+                  {Array.from({ length: 12 }).map((__, j) => (
                     <Td key={j}><Skeleton height="14px" /></Td>
                   ))}
                 </Tr>
               ))
             ) : rows.length === 0 ? (
-              <Tr><Td colSpan={13} textAlign="center" py={10} color="gray.500">No instructor data found.</Td></Tr>
+              <Tr><Td colSpan={12} textAlign="center" py={10} color="gray.500">No instructor data found.</Td></Tr>
             ) : (
               rows.map((row) => (
                 <Tr
@@ -646,12 +630,6 @@ const InstructorPerformanceV2Page = () => {
                     <Badge colorScheme={ratingColor(row.feedback_rating)}>
                       {fmt(row.feedback_rating, "/5")}
                     </Badge>
-                  </Td>
-                  <Td>
-                    <Flex alignItems="center" gap={1} color="blue.500">
-                      <FiTrendingUp size={14} />
-                      <Text fontSize="xs">{Array.isArray(row.score_trend) ? row.score_trend.length : 0} pts</Text>
-                    </Flex>
                   </Td>
                 </Tr>
               ))
