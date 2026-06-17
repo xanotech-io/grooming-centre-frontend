@@ -215,7 +215,7 @@ export const links = [
     links: [
       {
         href: "/admin/report/project-grading",
-        text: "Project Grading",
+        text: "Assignment Grading Summary",
       },
       {
         href: "/admin/report/exam-integrity",
@@ -231,7 +231,7 @@ export const links = [
       },
       {
         href: "/admin/compliance",
-        text: "Compliance Monitor",
+        text: "Compliance & Non-Compliance Training Monitor",
       },
       {
         href: "/admin/export-reports",

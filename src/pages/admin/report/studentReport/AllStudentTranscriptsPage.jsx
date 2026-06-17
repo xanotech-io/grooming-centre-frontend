@@ -157,7 +157,7 @@ const AllStudentTranscriptsPage = () => {
         <Breadcrumb
           item2={
             <BreadcrumbItem isCurrentPage>
-              <Link href="/admin/report/studentTranscripts">Student Transcripts</Link>
+              <Link href="/admin/report/studentTranscripts">Students Transcripts</Link>
             </BreadcrumbItem>
           }
         />

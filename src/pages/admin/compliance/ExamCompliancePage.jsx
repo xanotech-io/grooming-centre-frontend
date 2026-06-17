@@ -17,7 +17,6 @@ import {
   Th,
   Td,
   Tooltip,
-  Tag,
   Drawer,
   DrawerOverlay,
   DrawerContent,
@@ -42,6 +41,7 @@ import {
   useToast,
   Switch,
   Grid,
+  Collapse,
 } from "@chakra-ui/react";
 import { Tabs, Tab, makeStyles } from "@material-ui/core";
 import {
@@ -49,8 +49,9 @@ import {
   FiRefreshCw,
   FiSend,
   FiArrowUp,
-  FiCheckCircle,
-  FiXCircle,
+  FiChevronDown,
+  FiChevronUp,
+  FiFilter,
 } from "react-icons/fi";
 import dayjs from "dayjs";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
@@ -59,14 +60,12 @@ import {
   getComplianceNotificationKpis,
   getComplianceNotifications,
   getComplianceNotificationById,
-  getComplianceNotificationReport,
   sendComplianceNotification,
-  evaluateComplianceNotifications,
   resendComplianceNotification,
   escalateComplianceNotification,
-  assignComplianceTraining,
-  completeComplianceTraining,
-  getComplianceTrainingReport,
+  adminGetUserListing,
+  adminGetCourseListing,
+  adminGetStandaloneExaminationListing,
 } from "../../../services";
 
 const useStyles = makeStyles(() => ({
@@ -202,24 +201,6 @@ const MOCK_NOTIFICATIONS = [
   },
 ];
 
-const MOCK_REPORT = {
-  kpis: MOCK_KPIS,
-  notifications: MOCK_NOTIFICATIONS,
-  recipient_compliance_summary: [
-    { recipientId: "rec-001", name: "John Doe", totalNotifications: 5, complianceStatus: "Non-Compliant", reminderCount: 3 },
-    { recipientId: "rec-002", name: "Alice Brown", totalNotifications: 2, complianceStatus: "Compliant", reminderCount: 1 },
-  ],
-  escalated_cases: [MOCK_NOTIFICATIONS[2]],
-};
-
-const MOCK_TRAINING_REPORT = {
-  records: [
-    { id: "a-001", userId: "rec-001", courseId: "c-001", assignedDate: "2026-01-15", dueDate: "2026-03-15", trainingType: "Mandatory", status: "Overdue", overdueDays: 66, completionDate: null, score: null, certificateIssued: false, notes: "", employee: { firstName: "John", lastName: "Doe", email: "john.doe@example.com" }, course: { title: "Workplace Ethics" } },
-    { id: "a-002", userId: "rec-002", courseId: "c-002", assignedDate: "2026-01-10", dueDate: "2026-03-10", trainingType: "Mandatory", status: "Completed", overdueDays: 0, completionDate: "2026-03-05", score: 88, certificateIssued: true, notes: "", employee: { firstName: "Alice", lastName: "Brown", email: "alice.brown@example.com" }, course: { title: "Health & Safety Training" } },
-  ],
-  kpis: { complianceCompletionRate: 71, overdueCount: 18, nonComplianceRatio: 29 },
-};
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const fmtDate = (v) => (v ? dayjs(v).format("MMM D, YYYY") : "—");
@@ -259,8 +240,6 @@ const DetailRow = ({ label, value }) => (
 // ─── KPI Section ─────────────────────────────────────────────────────────────
 
 const KpiSection = ({ kpis, loading }) => {
-  const compColor = kpis?.compliance_rate_percent < 50 ? "red.500" : kpis?.compliance_rate_percent < 70 ? "orange.400" : "green.500";
-
   const cards = [
     { label: "Total Notifications", value: kpis?.total_notifications ?? 0 },
     { label: "Compliant Users", value: kpis?.compliant_count ?? 0 },
@@ -269,13 +248,6 @@ const KpiSection = ({ kpis, loading }) => {
     { label: "Escalated Cases", value: kpis?.escalated_count ?? 0, color: (kpis?.escalated_count ?? 0) > 0 ? "red.500" : undefined },
     { label: "Delivery Success", value: kpis?.delivery_success_count ?? 0 },
     { label: "Delivery Failed", value: kpis?.delivery_failed_count ?? 0, color: (kpis?.delivery_failed_count ?? 0) > 0 ? "orange.400" : undefined },
-    { label: "Compliance Rate", value: `${kpis?.compliance_rate_percent ?? 0}%`, color: compColor },
-    { label: "On-Time Completion", value: `${kpis?.on_time_completion_rate_percent ?? 0}%` },
-    { label: "Delivery Success Rate", value: `${kpis?.delivery_success_rate_percent ?? 0}%` },
-    { label: "Escalation Rate", value: `${kpis?.escalation_rate_percent ?? 0}%` },
-    { label: "Avg Days to Comply", value: `${kpis?.avg_days_to_compliance ?? 0} days` },
-    { label: "Completion Rate", value: `${kpis?.complianceCompletionRate ?? 0}%` },
-    { label: "Non-Compliance Ratio", value: `${kpis?.nonComplianceRatio ?? 0}%` },
   ];
 
   return (
@@ -289,22 +261,6 @@ const KpiSection = ({ kpis, loading }) => {
           )
         )}
       </SimpleGrid>
-      {!loading && kpis && (
-        <Flex gap={4} flexWrap="wrap">
-          <Flex gap={2} align="center">
-            <Text fontSize="xs" fontWeight={700} color="gray.600">By Type:</Text>
-            {Object.entries(kpis.by_notification_type ?? {}).map(([k, v]) => (
-              <Tag key={k} colorScheme={notifTypeBadgeColor(k)} size="sm">{k}: {v}</Tag>
-            ))}
-          </Flex>
-          <Flex gap={2} align="center">
-            <Text fontSize="xs" fontWeight={700} color="gray.600">By Channel:</Text>
-            {Object.entries(kpis.by_channel ?? {}).map(([k, v]) => (
-              <Tag key={k} colorScheme="cyan" size="sm">{k}: {v}</Tag>
-            ))}
-          </Flex>
-        </Flex>
-      )}
     </Box>
   );
 };
@@ -455,8 +411,11 @@ const NotifDetailDrawer = ({ notifId, isOpen, onClose, onActionDone }) => {
 
 // ─── Log Table Tab ────────────────────────────────────────────────────────────
 
+const EMPTY_FILTERS = { complianceStatus: "", completionStatus: "", notificationType: "", deliveryStatus: "", entityType: "", escalationFlag: "", startDate: "", endDate: "", page: 1, limit: 20 };
+
 const LogTableTab = ({ onOpenDetail, refreshKey }) => {
-  const [filters, setFilters] = useState({ complianceStatus: "", completionStatus: "", notificationType: "", deliveryStatus: "", entityType: "", escalationFlag: "", startDate: "", endDate: "", page: 1, limit: 20 });
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -495,36 +454,57 @@ const LogTableTab = ({ onOpenDetail, refreshKey }) => {
     } catch { toast({ title: "Resend failed.", status: "error", duration: 3000 }); }
   };
 
+  const activeFilterCount = [filters.complianceStatus, filters.completionStatus, filters.notificationType, filters.deliveryStatus, filters.entityType, filters.escalationFlag, filters.startDate, filters.endDate].filter(Boolean).length;
+
   return (
     <Box>
-      <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4, 1fr)" }} gap={3} mb={4}>
-        <Select placeholder="All Compliance" size="sm" value={filters.complianceStatus} onChange={(e) => setFilter("complianceStatus", e.target.value)}>
-          <option value="Compliant">Compliant</option>
-          <option value="Non-Compliant">Non-Compliant</option>
-        </Select>
-        <Select placeholder="All Completion" size="sm" value={filters.completionStatus} onChange={(e) => setFilter("completionStatus", e.target.value)}>
-          {["Completed", "Incomplete", "Overdue", "Failed", "In Progress"].map((s) => <option key={s} value={s}>{s}</option>)}
-        </Select>
-        <Select placeholder="All Types" size="sm" value={filters.notificationType} onChange={(e) => setFilter("notificationType", e.target.value)}>
-          {["Reminder", "Warning", "Final Notice", "Confirmation", "Escalation"].map((t) => <option key={t} value={t}>{t}</option>)}
-        </Select>
-        <Select placeholder="All Delivery" size="sm" value={filters.deliveryStatus} onChange={(e) => setFilter("deliveryStatus", e.target.value)}>
-          <option value="Sent">Sent</option>
-          <option value="Failed">Failed</option>
-        </Select>
-        <Select placeholder="All Entities" size="sm" value={filters.entityType} onChange={(e) => setFilter("entityType", e.target.value)}>
-          <option value="Course">Course</option>
-          <option value="Exam">Exam</option>
-        </Select>
-        <Flex align="center" gap={2} px={2}>
-          <Switch size="sm" isChecked={filters.escalationFlag === "true"} onChange={(e) => setFilter("escalationFlag", e.target.checked ? "true" : "")} />
-          <Text fontSize="sm">Escalated Only</Text>
-        </Flex>
-        <Input type="date" size="sm" value={filters.startDate} onChange={(e) => setFilter("startDate", e.target.value)} />
-        <Input type="date" size="sm" value={filters.endDate} onChange={(e) => setFilter("endDate", e.target.value)} />
-        <Button size="sm" variant="outline" onClick={() => setFilters({ complianceStatus: "", completionStatus: "", notificationType: "", deliveryStatus: "", entityType: "", escalationFlag: "", startDate: "", endDate: "", page: 1, limit: 20 })}>Clear</Button>
+      <Flex align="center" justify="space-between" mb={3}>
+        <Button
+          size="sm"
+          variant="outline"
+          leftIcon={<FiFilter />}
+          rightIcon={filtersOpen ? <FiChevronUp /> : <FiChevronDown />}
+          onClick={() => setFiltersOpen((o) => !o)}
+          colorScheme={activeFilterCount > 0 ? "blue" : "gray"}
+        >
+          Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+        </Button>
         <Button size="sm" colorScheme="blue" leftIcon={<FiRefreshCw />} onClick={fetchData}>Refresh</Button>
-      </Grid>
+      </Flex>
+
+      <Collapse in={filtersOpen} animateOpacity>
+        <Box bg="gray.50" border="1px solid" borderColor="gray.200" borderRadius="md" p={4} mb={4}>
+          <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4, 1fr)" }} gap={3}>
+            <Select placeholder="All Compliance" size="sm" value={filters.complianceStatus} onChange={(e) => setFilter("complianceStatus", e.target.value)}>
+              <option value="Compliant">Compliant</option>
+              <option value="Non-Compliant">Non-Compliant</option>
+            </Select>
+            <Select placeholder="All Completion" size="sm" value={filters.completionStatus} onChange={(e) => setFilter("completionStatus", e.target.value)}>
+              {["Completed", "Incomplete", "Overdue", "Failed", "In Progress"].map((s) => <option key={s} value={s}>{s}</option>)}
+            </Select>
+            <Select placeholder="All Types" size="sm" value={filters.notificationType} onChange={(e) => setFilter("notificationType", e.target.value)}>
+              {["Reminder", "Warning", "Final Notice", "Confirmation", "Escalation"].map((t) => <option key={t} value={t}>{t}</option>)}
+            </Select>
+            <Select placeholder="All Delivery" size="sm" value={filters.deliveryStatus} onChange={(e) => setFilter("deliveryStatus", e.target.value)}>
+              <option value="Sent">Sent</option>
+              <option value="Failed">Failed</option>
+            </Select>
+            <Select placeholder="All Entities" size="sm" value={filters.entityType} onChange={(e) => setFilter("entityType", e.target.value)}>
+              <option value="Course">Course</option>
+              <option value="Exam">Exam</option>
+            </Select>
+            <Flex align="center" gap={2} px={2}>
+              <Switch size="sm" isChecked={filters.escalationFlag === "true"} onChange={(e) => setFilter("escalationFlag", e.target.checked ? "true" : "")} />
+              <Text fontSize="sm">Escalated Only</Text>
+            </Flex>
+            <Input type="date" size="sm" value={filters.startDate} onChange={(e) => setFilter("startDate", e.target.value)} />
+            <Input type="date" size="sm" value={filters.endDate} onChange={(e) => setFilter("endDate", e.target.value)} />
+          </Grid>
+          <Flex justify="flex-end" mt={3}>
+            <Button size="sm" variant="outline" onClick={() => setFilters(EMPTY_FILTERS)}>Clear Filters</Button>
+          </Flex>
+        </Box>
+      </Collapse>
 
       {loading ? (
         <Flex direction="column" gap={2}>{[...Array(5)].map((_, i) => <Skeleton key={i} height="38px" />)}</Flex>
@@ -587,168 +567,157 @@ const LogTableTab = ({ onOpenDetail, refreshKey }) => {
   );
 };
 
-// ─── Report Tab ───────────────────────────────────────────────────────────────
+// ─── Searchable Select ────────────────────────────────────────────────────────
 
-const ReportTab = () => {
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [dateErr, setDateErr] = useState("");
-  const [report, setReport] = useState(null);
+const SearchableSelect = ({ placeholder, fetchOptions, onSelect, selectedLabel, isInvalid }) => {
+  const [query, setQuery] = useState("");
+  const [options, setOptions] = useState([]);
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const containerRef = React.useRef(null);
 
-  const fetchReport = useCallback(async (sd, ed) => {
-    setLoading(true);
-    const params = {};
-    if (sd) params.start_date = sd;
-    if (ed) params.end_date = ed;
-    try {
-      const res = await getComplianceNotificationReport(params);
-      setReport(res?.data ?? res);
-    } catch {
-      console.warn("[ExamCompliance] GET /compliance-notifications/report failed, using mock");
-      setReport(MOCK_REPORT);
-    } finally { setLoading(false); }
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => { if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  useEffect(() => { fetchReport("", ""); }, [fetchReport]);
+  // Debounced fetch — triggers on query change and also on initial open (empty query = fetch all)
+  const doFetch = useCallback(async (q) => {
+    setLoading(true);
+    try { setOptions(await fetchOptions(q)); }
+    catch { setOptions([]); }
+    finally { setLoading(false); }
+  }, [fetchOptions]);
 
-  const handleApply = () => {
-    if ((startDate && !endDate) || (!startDate && endDate)) { setDateErr("Please provide both start and end dates."); return; }
-    if (startDate && endDate && endDate < startDate) { setDateErr("End date must be on or after start date."); return; }
-    setDateErr("");
-    fetchReport(startDate, endDate);
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(() => doFetch(query), query ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [query, open, doFetch]);
+
+  const handleSelect = (opt) => {
+    onSelect(opt.id, opt.label);
+    setQuery("");
+    setOptions([]);
+    setOpen(false);
   };
 
-  const kpis = report?.kpis;
+  const handleClear = () => {
+    onSelect("", "");
+    setQuery("");
+    setOptions([]);
+  };
 
   return (
-    <Box>
-      <Flex gap={3} mb={5} align="flex-end" flexWrap="wrap">
-        <FormControl isInvalid={!!dateErr} maxW="180px">
-          <FormLabel fontSize="xs">Start Date</FormLabel>
-          <Input type="date" size="sm" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        </FormControl>
-        <FormControl isInvalid={!!dateErr} maxW="180px">
-          <FormLabel fontSize="xs">End Date</FormLabel>
-          <Input type="date" size="sm" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          {dateErr && <FormErrorMessage>{dateErr}</FormErrorMessage>}
-        </FormControl>
-        <Button size="sm" colorScheme="blue" onClick={handleApply} isLoading={loading}>Apply</Button>
-        <Button size="sm" variant="outline" onClick={() => { setStartDate(""); setEndDate(""); setDateErr(""); fetchReport("", ""); }}>Reset</Button>
-      </Flex>
-
-      {loading ? (
-        <Flex direction="column" gap={3}>{[...Array(5)].map((_, i) => <Skeleton key={i} height="50px" />)}</Flex>
-      ) : report ? (
-        <>
-          {kpis && (
-            <>
-              <Text fontWeight={700} mb={3} color="gray.700">KPI Summary</Text>
-              <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3} mb={6}>
-                {[
-                  { label: "Compliance Rate", value: `${kpis.compliance_rate_percent ?? 0}%` },
-                  { label: "Overdue", value: kpis.overdue_count ?? 0 },
-                  { label: "Escalated", value: kpis.escalated_count ?? 0 },
-                  { label: "Delivery Success Rate", value: `${kpis.delivery_success_rate_percent ?? 0}%` },
-                  { label: "Non-Compliant", value: kpis.non_compliant_count ?? 0 },
-                  { label: "Escalation Rate", value: `${kpis.escalation_rate_percent ?? 0}%` },
-                  { label: "Completion Rate", value: `${kpis.complianceCompletionRate ?? 0}%` },
-                  { label: "Non-Compliance Ratio", value: `${kpis.nonComplianceRatio ?? 0}%` },
-                ].map((c) => <DashboardMetricCard key={c.label} title={c.label} value={c.value} />)}
-              </SimpleGrid>
-            </>
-          )}
-
-          <Text fontWeight={700} mb={3} color="gray.700">Notifications (up to 100)</Text>
-          <Box overflowX="auto" mb={6}>
-            <Table size="sm" variant="striped">
-              <Thead>
-                <Tr><Th>Recipient</Th><Th>Entity</Th><Th>Compliance</Th><Th>Type</Th><Th>Channel</Th><Th>Delivery</Th><Th>Sent At</Th><Th>Esc.</Th></Tr>
-              </Thead>
-              <Tbody>
-                {(report.notifications ?? []).length === 0 ? (
-                  <Tr><Td colSpan={8} textAlign="center" color="gray.400" py={6}>No data in range.</Td></Tr>
-                ) : (report.notifications ?? []).map((n) => (
-                  <Tr key={n.id}>
-                    <Td fontSize="xs">{n.recipient?.firstName} {n.recipient?.lastName}</Td>
-                    <Td fontSize="xs">{n.entityTitle}</Td>
-                    <Td><Badge colorScheme={complianceBadgeColor(n.complianceStatus)} fontSize="xs">{n.complianceStatus}</Badge></Td>
-                    <Td><Badge colorScheme={notifTypeBadgeColor(n.notificationType)} fontSize="xs">{n.notificationType}</Badge></Td>
-                    <Td fontSize="xs">{n.notificationChannel}</Td>
-                    <Td><Badge colorScheme={deliveryBadgeColor(n.deliveryStatus)} fontSize="xs">{n.deliveryStatus}</Badge></Td>
-                    <Td fontSize="xs" whiteSpace="nowrap">{fmtDateTime(n.sentAt)}</Td>
-                    <Td>{n.escalationFlag ? <FiAlertTriangle color="red" /> : "—"}</Td>
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </Box>
-
-          {(report.recipient_compliance_summary ?? []).length > 0 && (
-            <>
-              <Text fontWeight={700} mb={3} color="gray.700">Per-Recipient Summary (top 20)</Text>
-              <Box overflowX="auto" mb={6}>
-                <Table size="sm" variant="striped">
-                  <Thead><Tr><Th>Employee</Th><Th>Total Notifications</Th><Th>Compliance Status</Th><Th>Reminder Count</Th></Tr></Thead>
-                  <Tbody>
-                    {report.recipient_compliance_summary.map((r) => (
-                      <Tr key={r.recipientId}>
-                        <Td fontSize="xs">{r.name}</Td>
-                        <Td fontSize="xs">{r.totalNotifications}</Td>
-                        <Td><Badge colorScheme={complianceBadgeColor(r.complianceStatus)} fontSize="xs">{r.complianceStatus}</Badge></Td>
-                        <Td fontSize="xs">{r.reminderCount}</Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              </Box>
-            </>
-          )}
-
-          {(report.escalated_cases ?? []).length > 0 && (
-            <>
-              <Text fontWeight={700} mb={3} color="red.600">Escalated Cases</Text>
-              <Box overflowX="auto">
-                <Table size="sm" variant="striped" colorScheme="red">
-                  <Thead><Tr><Th>Recipient</Th><Th>Entity</Th><Th>Due Date</Th><Th>Remarks</Th></Tr></Thead>
-                  <Tbody>
-                    {report.escalated_cases.map((c) => (
-                      <Tr key={c.id}>
-                        <Td fontSize="xs">{c.recipient?.firstName} {c.recipient?.lastName}</Td>
-                        <Td fontSize="xs">{c.entityTitle}</Td>
-                        <Td fontSize="xs" color="red.500">{fmtDate(c.dueDate)}</Td>
-                        <Td fontSize="xs">{c.remarks ?? "—"}</Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              </Box>
-            </>
-          )}
-        </>
-      ) : null}
+    <Box ref={containerRef} position="relative">
+      {selectedLabel ? (
+        <Flex
+          align="center"
+          justify="space-between"
+          border="1px solid"
+          borderColor={isInvalid ? "red.500" : "gray.200"}
+          borderRadius="md"
+          px={3}
+          py="6px"
+          bg="white"
+          fontSize="sm"
+        >
+          <Text fontSize="sm" color="gray.800" isTruncated>{selectedLabel}</Text>
+          <Text
+            fontSize="xs"
+            color="gray.400"
+            cursor="pointer"
+            ml={2}
+            _hover={{ color: "gray.700" }}
+            onClick={handleClear}
+            flexShrink={0}
+          >✕</Text>
+        </Flex>
+      ) : (
+        <Input
+          size="sm"
+          placeholder={placeholder}
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          borderColor={isInvalid ? "red.500" : undefined}
+          autoComplete="off"
+        />
+      )}
+      {open && (
+        <Box
+          position="absolute"
+          top="100%"
+          left={0}
+          right={0}
+          zIndex={999}
+          bg="white"
+          border="1px solid"
+          borderColor="gray.200"
+          borderRadius="md"
+          boxShadow="md"
+          maxH="200px"
+          overflowY="auto"
+          mt="2px"
+        >
+          {loading ? (
+            <Box px={3} py={2}><Text fontSize="sm" color="gray.400">Searching…</Text></Box>
+          ) : options.length === 0 ? (
+            <Box px={3} py={2}><Text fontSize="sm" color="gray.400">No results found.</Text></Box>
+          ) : options.map((opt) => (
+            <Box
+              key={opt.id}
+              px={3}
+              py={2}
+              cursor="pointer"
+              _hover={{ bg: "blue.50" }}
+              onMouseDown={() => handleSelect(opt)}
+            >
+              <Text fontSize="sm">{opt.label}</Text>
+              {opt.sub && <Text fontSize="xs" color="gray.400">{opt.sub}</Text>}
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 };
 
 // ─── Send / Evaluate Tab ──────────────────────────────────────────────────────
 
+const fetchStudentOptions = async (query) => {
+  const res = await adminGetUserListing({ search: query, limit: 10 });
+  return (res.users ?? []).map((u) => ({ id: u.id, label: `${u.firstName} ${u.lastName}`, sub: u.email }));
+};
+
+const fetchCourseOptions = async (query) => {
+  const res = await adminGetCourseListing({ search: query, limit: 10 });
+  return (res.courses ?? []).map((c) => ({ id: c.id, label: c.title }));
+};
+
+const fetchExamOptions = async (query) => {
+  const res = await adminGetStandaloneExaminationListing({ search: query, limit: 10 });
+  return (res.examinations ?? []).map((e) => ({ id: e.id, label: e.title }));
+};
+
 const SendEvaluateTab = ({ onDone }) => {
   const toast = useToast();
-  const [single, setSingle] = useState({ recipientId: "", entityType: "Course", courseId: "", examId: "", notificationType: "", notificationChannel: "", remarks: "", templateUsed: "" });
+  const [single, setSingle] = useState({ recipientId: "", recipientLabel: "", entityType: "Course", courseId: "", courseLabel: "", examId: "", examLabel: "", notificationType: "", notificationChannel: "", remarks: "" });
   const [singleErrors, setSingleErrors] = useState({});
   const [sending, setSending] = useState(false);
 
-  const [bulk, setBulk] = useState({ entityType: "", notificationChannel: "Both", daysAhead: 7, escalateAfterDays: 14, templateUsed: "" });
-  const [bulkResult, setBulkResult] = useState(null);
-  const [evaluating, setEvaluating] = useState(false);
+  // const [bulk, setBulk] = useState({ entityType: "", notificationChannel: "Both", daysAhead: 7, escalateAfterDays: 14 });
+  // const [bulkResult, setBulkResult] = useState(null);
+  // const [evaluating, setEvaluating] = useState(false);
 
   const validateSingle = () => {
     const errs = {};
-    if (!single.recipientId.trim()) errs.recipientId = "Required";
+    if (!single.recipientId) errs.recipientId = "Please select a student.";
     if (!single.entityType) errs.entityType = "Required";
-    if (single.entityType === "Course" && !single.courseId.trim()) errs.courseId = "Please select a course.";
-    if (single.entityType === "Exam" && !single.examId.trim()) errs.examId = "Please select an exam.";
+    if (single.entityType === "Course" && !single.courseId) errs.courseId = "Please select a course.";
+    if (single.entityType === "Exam" && !single.examId) errs.examId = "Please select an exam.";
     if (!single.notificationType) errs.notificationType = "Required";
     setSingleErrors(errs);
     return Object.keys(errs).length === 0;
@@ -757,10 +726,19 @@ const SendEvaluateTab = ({ onDone }) => {
   const handleSendSingle = async () => {
     if (!validateSingle()) return;
     setSending(true);
+    const payload = {
+      recipientId: single.recipientId,
+      entityType: single.entityType,
+      courseId: single.entityType === "Course" ? single.courseId : undefined,
+      examId: single.entityType === "Exam" ? single.examId : undefined,
+      notificationType: single.notificationType,
+      notificationChannel: single.notificationChannel || undefined,
+      remarks: single.remarks || undefined,
+    };
     try {
-      await sendComplianceNotification(single);
+      await sendComplianceNotification(payload);
       toast({ title: "Notification sent.", status: "success", duration: 3000 });
-      setSingle({ recipientId: "", entityType: "Course", courseId: "", examId: "", notificationType: "", notificationChannel: "", remarks: "", templateUsed: "" });
+      setSingle({ recipientId: "", recipientLabel: "", entityType: "Course", courseId: "", courseLabel: "", examId: "", examLabel: "", notificationType: "", notificationChannel: "", remarks: "" });
       onDone();
     } catch (err) {
       const msg = err?.response?.status === 404 ? "Recipient or course/exam not found." : err?.response?.data?.message ?? "Something went wrong.";
@@ -768,23 +746,22 @@ const SendEvaluateTab = ({ onDone }) => {
     } finally { setSending(false); }
   };
 
-  const handleEvaluate = async () => {
-    const { daysAhead, escalateAfterDays } = bulk;
-    if (daysAhead < 0) { toast({ title: "Days ahead must be 0 or greater.", status: "error", duration: 3000 }); return; }
-    if (escalateAfterDays < 1) { toast({ title: "Escalation threshold must be a positive number.", status: "error", duration: 3000 }); return; }
-    setEvaluating(true);
-    setBulkResult(null);
-    try {
-      const res = await evaluateComplianceNotifications({ ...bulk, daysAhead: Number(daysAhead), escalateAfterDays: Number(escalateAfterDays) });
-      const d = res?.data ?? res;
-      setBulkResult(d);
-      toast({ title: `${d.sent} sent, ${d.failed} failed, ${d.skipped} skipped.`, status: d.failed > 0 ? "warning" : "success", duration: 5000 });
-      onDone();
-    } catch (err) {
-      console.warn("[ExamCompliance] POST /compliance-notifications/evaluate failed, using mock response");
-      setBulkResult({ total: 98, sent: 90, failed: 4, skipped: 4 });
-    } finally { setEvaluating(false); }
-  };
+  // const handleEvaluate = async () => {
+  //   const { daysAhead, escalateAfterDays } = bulk;
+  //   if (daysAhead < 0) { toast({ title: "Days ahead must be 0 or greater.", status: "error", duration: 3000 }); return; }
+  //   if (escalateAfterDays < 1) { toast({ title: "Escalation threshold must be a positive number.", status: "error", duration: 3000 }); return; }
+  //   setEvaluating(true);
+  //   setBulkResult(null);
+  //   try {
+  //     const res = await evaluateComplianceNotifications({ ...bulk, daysAhead: Number(daysAhead), escalateAfterDays: Number(escalateAfterDays) });
+  //     const d = res?.data ?? res;
+  //     setBulkResult(d);
+  //     toast({ title: `${d.sent} sent, ${d.failed} failed, ${d.skipped} skipped.`, status: d.failed > 0 ? "warning" : "success", duration: 5000 });
+  //     onDone();
+  //   } catch {
+  //     setBulkResult({ total: 98, sent: 90, failed: 4, skipped: 4 });
+  //   } finally { setEvaluating(false); }
+  // };
 
   return (
     <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={8}>
@@ -792,31 +769,53 @@ const SendEvaluateTab = ({ onDone }) => {
       <Box p={5} border="1px solid" borderColor="gray.200" borderRadius="md">
         <Text fontWeight={700} mb={4} color="gray.700">Send Single Notification</Text>
         <Flex direction="column" gap={4}>
+
           <FormControl isInvalid={!!singleErrors.recipientId}>
-            <FormLabel fontSize="sm">Recipient ID (UUID)</FormLabel>
-            <Input size="sm" placeholder="Employee UUID" value={single.recipientId} onChange={(e) => setSingle((s) => ({ ...s, recipientId: e.target.value }))} />
-            <FormErrorMessage>{singleErrors.recipientId}</FormErrorMessage>
+            <FormLabel fontSize="sm">Student</FormLabel>
+            <SearchableSelect
+              placeholder="Search student by name…"
+              fetchOptions={fetchStudentOptions}
+              selectedLabel={single.recipientLabel}
+              onSelect={(id, label) => setSingle((s) => ({ ...s, recipientId: id, recipientLabel: label }))}
+              isInvalid={!!singleErrors.recipientId}
+            />
+            {singleErrors.recipientId && <Text fontSize="xs" color="red.500" mt={1}>{singleErrors.recipientId}</Text>}
           </FormControl>
+
           <FormControl isInvalid={!!singleErrors.entityType}>
             <FormLabel fontSize="sm">Entity Type</FormLabel>
-            <Select size="sm" value={single.entityType} onChange={(e) => setSingle((s) => ({ ...s, entityType: e.target.value, courseId: "", examId: "" }))}>
+            <Select size="sm" value={single.entityType} onChange={(e) => setSingle((s) => ({ ...s, entityType: e.target.value, courseId: "", courseLabel: "", examId: "", examLabel: "" }))}>
               <option value="Course">Course</option>
               <option value="Exam">Exam</option>
             </Select>
           </FormControl>
+
           {single.entityType === "Course" ? (
             <FormControl isInvalid={!!singleErrors.courseId}>
-              <FormLabel fontSize="sm">Course ID (UUID)</FormLabel>
-              <Input size="sm" placeholder="Course UUID" value={single.courseId} onChange={(e) => setSingle((s) => ({ ...s, courseId: e.target.value }))} />
-              <FormErrorMessage>{singleErrors.courseId}</FormErrorMessage>
+              <FormLabel fontSize="sm">Course</FormLabel>
+              <SearchableSelect
+                placeholder="Search course by name…"
+                fetchOptions={fetchCourseOptions}
+                selectedLabel={single.courseLabel}
+                onSelect={(id, label) => setSingle((s) => ({ ...s, courseId: id, courseLabel: label }))}
+                isInvalid={!!singleErrors.courseId}
+              />
+              {singleErrors.courseId && <Text fontSize="xs" color="red.500" mt={1}>{singleErrors.courseId}</Text>}
             </FormControl>
           ) : (
             <FormControl isInvalid={!!singleErrors.examId}>
-              <FormLabel fontSize="sm">Exam ID (UUID)</FormLabel>
-              <Input size="sm" placeholder="Exam UUID" value={single.examId} onChange={(e) => setSingle((s) => ({ ...s, examId: e.target.value }))} />
-              <FormErrorMessage>{singleErrors.examId}</FormErrorMessage>
+              <FormLabel fontSize="sm">Exam</FormLabel>
+              <SearchableSelect
+                placeholder="Search exam by name…"
+                fetchOptions={fetchExamOptions}
+                selectedLabel={single.examLabel}
+                onSelect={(id, label) => setSingle((s) => ({ ...s, examId: id, examLabel: label }))}
+                isInvalid={!!singleErrors.examId}
+              />
+              {singleErrors.examId && <Text fontSize="xs" color="red.500" mt={1}>{singleErrors.examId}</Text>}
             </FormControl>
           )}
+
           <FormControl isInvalid={!!singleErrors.notificationType}>
             <FormLabel fontSize="sm">Notification Type</FormLabel>
             <Select size="sm" placeholder="Select type" value={single.notificationType} onChange={(e) => setSingle((s) => ({ ...s, notificationType: e.target.value }))}>
@@ -824,6 +823,7 @@ const SendEvaluateTab = ({ onDone }) => {
             </Select>
             <FormErrorMessage>{singleErrors.notificationType}</FormErrorMessage>
           </FormControl>
+
           <FormControl>
             <FormLabel fontSize="sm">Channel</FormLabel>
             <Select size="sm" placeholder="Default (system)" value={single.notificationChannel} onChange={(e) => setSingle((s) => ({ ...s, notificationChannel: e.target.value }))}>
@@ -832,279 +832,19 @@ const SendEvaluateTab = ({ onDone }) => {
               <option value="Both">Both</option>
             </Select>
           </FormControl>
+
           <FormControl>
             <FormLabel fontSize="sm">Remarks (optional)</FormLabel>
             <Textarea size="sm" placeholder="Admin notes…" value={single.remarks} onChange={(e) => setSingle((s) => ({ ...s, remarks: e.target.value }))} />
           </FormControl>
+
           <Button colorScheme="blue" leftIcon={<FiSend />} size="sm" onClick={handleSendSingle} isLoading={sending} loadingText="Sending…">Send Notification</Button>
         </Flex>
       </Box>
 
       {/* Bulk Evaluate */}
-      <Box p={5} border="1px solid" borderColor="gray.200" borderRadius="md">
-        <Text fontWeight={700} mb={4} color="gray.700">Auto-Evaluate & Bulk Notify</Text>
-        <Flex direction="column" gap={4}>
-          <FormControl>
-            <FormLabel fontSize="sm">Entity Type (blank = both)</FormLabel>
-            <Select size="sm" placeholder="Course + Exam" value={bulk.entityType} onChange={(e) => setBulk((b) => ({ ...b, entityType: e.target.value }))}>
-              <option value="Course">Course only</option>
-              <option value="Exam">Exam only</option>
-            </Select>
-          </FormControl>
-          <FormControl>
-            <FormLabel fontSize="sm">Delivery Channel</FormLabel>
-            <Select size="sm" value={bulk.notificationChannel} onChange={(e) => setBulk((b) => ({ ...b, notificationChannel: e.target.value }))}>
-              <option value="Email">Email</option>
-              <option value="In-App">In-App</option>
-              <option value="Both">Both</option>
-            </Select>
-          </FormControl>
-          <Flex gap={3}>
-            <FormControl>
-              <FormLabel fontSize="sm">Days Ahead</FormLabel>
-              <Input size="sm" type="number" min={0} value={bulk.daysAhead} onChange={(e) => setBulk((b) => ({ ...b, daysAhead: e.target.value }))} />
-            </FormControl>
-            <FormControl>
-              <FormLabel fontSize="sm">Escalate After (days)</FormLabel>
-              <Input size="sm" type="number" min={1} value={bulk.escalateAfterDays} onChange={(e) => setBulk((b) => ({ ...b, escalateAfterDays: e.target.value }))} />
-            </FormControl>
-          </Flex>
-          <Button colorScheme="purple" size="sm" onClick={handleEvaluate} isLoading={evaluating} loadingText="Evaluating…">Run Evaluation</Button>
-          {bulkResult && (
-            <Alert status={bulkResult.failed > 0 ? "warning" : "success"} borderRadius="md">
-              <AlertIcon />
-              <Box>
-                <Text fontSize="sm" fontWeight={700}>{bulkResult.sent} sent, {bulkResult.failed} failed, {bulkResult.skipped} skipped out of {bulkResult.total} evaluated.</Text>
-              </Box>
-            </Alert>
-          )}
-        </Flex>
-      </Box>
+     
     </Grid>
-  );
-};
-
-// ─── Training Assignments Tab ─────────────────────────────────────────────────
-
-const TrainingTab = () => {
-  const toast = useToast();
-  const [assign, setAssign] = useState({ userId: "", courseId: "", assignedDate: "", dueDate: "", trainingType: "Mandatory", notes: "" });
-  const [assignErrors, setAssignErrors] = useState({});
-  const [assigning, setAssigning] = useState(false);
-
-  const [report, setReport] = useState(null);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportFilters, setReportFilters] = useState({ status: "", trainingType: "", startDate: "", endDate: "" });
-
-  const [completeForm, setCompleteForm] = useState({ assignmentId: "", completionDate: "", score: "", certificateIssued: false });
-  const [completing, setCompleting] = useState(false);
-  const { isOpen: isCompleteOpen, onOpen: openComplete, onClose: closeComplete } = useDisclosure();
-
-  const fetchTrainingReport = useCallback(async () => {
-    setReportLoading(true);
-    const params = {};
-    Object.entries(reportFilters).forEach(([k, v]) => { if (v) params[k] = v; });
-    try {
-      const res = await getComplianceTrainingReport(params);
-      setReport(res?.data ?? res);
-    } catch {
-      console.warn("[ExamCompliance] GET /compliance-training/report failed, using mock");
-      setReport(MOCK_TRAINING_REPORT);
-    } finally { setReportLoading(false); }
-  }, [reportFilters]);
-
-  useEffect(() => { fetchTrainingReport(); }, [fetchTrainingReport]);
-
-  const validateAssign = () => {
-    const errs = {};
-    if (!assign.userId.trim()) errs.userId = "Required";
-    if (!assign.courseId.trim()) errs.courseId = "Required";
-    if (!assign.assignedDate) errs.assignedDate = "Required";
-    if (!assign.dueDate) errs.dueDate = "Required";
-    if (assign.assignedDate && assign.dueDate && assign.dueDate <= assign.assignedDate) errs.dueDate = "Due date must be after the assigned date.";
-    setAssignErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const handleAssign = async () => {
-    if (!validateAssign()) return;
-    setAssigning(true);
-    try {
-      await assignComplianceTraining(assign);
-      toast({ title: "Training assigned successfully.", status: "success", duration: 3000 });
-      setAssign({ userId: "", courseId: "", assignedDate: "", dueDate: "", trainingType: "Mandatory", notes: "" });
-      fetchTrainingReport();
-    } catch (err) {
-      toast({ title: err?.response?.data?.message ?? "Failed to assign training.", status: "error", duration: 4000 });
-    } finally { setAssigning(false); }
-  };
-
-  const handleMarkComplete = async () => {
-    if (!completeForm.completionDate) { toast({ title: "Completion date is required.", status: "error", duration: 3000 }); return; }
-    setCompleting(true);
-    try {
-      await completeComplianceTraining(completeForm.assignmentId, {
-        completionDate: completeForm.completionDate,
-        score: completeForm.score ? Number(completeForm.score) : undefined,
-        certificateIssued: completeForm.certificateIssued,
-      });
-      toast({ title: "Training marked as completed.", status: "success", duration: 3000 });
-      closeComplete();
-      fetchTrainingReport();
-    } catch (err) {
-      toast({ title: err?.response?.data?.message ?? "Failed to mark complete.", status: "error", duration: 4000 });
-    } finally { setCompleting(false); }
-  };
-
-  const records = Array.isArray(report?.records) ? report.records : [];
-  const trainingKpis = report?.kpis;
-
-  return (
-    <Box>
-      <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={8} mb={8}>
-        {/* Assign Training Form */}
-        <Box p={5} border="1px solid" borderColor="gray.200" borderRadius="md">
-          <Text fontWeight={700} mb={4} color="gray.700">Assign Compliance Training</Text>
-          <Flex direction="column" gap={4}>
-            <FormControl isInvalid={!!assignErrors.userId}>
-              <FormLabel fontSize="sm">Employee ID (UUID)</FormLabel>
-              <Input size="sm" placeholder="User UUID" value={assign.userId} onChange={(e) => setAssign((a) => ({ ...a, userId: e.target.value }))} />
-              <FormErrorMessage>{assignErrors.userId}</FormErrorMessage>
-            </FormControl>
-            <FormControl isInvalid={!!assignErrors.courseId}>
-              <FormLabel fontSize="sm">Course ID (UUID)</FormLabel>
-              <Input size="sm" placeholder="Course UUID" value={assign.courseId} onChange={(e) => setAssign((a) => ({ ...a, courseId: e.target.value }))} />
-              <FormErrorMessage>{assignErrors.courseId}</FormErrorMessage>
-            </FormControl>
-            <Flex gap={3}>
-              <FormControl isInvalid={!!assignErrors.assignedDate}>
-                <FormLabel fontSize="sm">Assigned Date</FormLabel>
-                <Input type="date" size="sm" value={assign.assignedDate} onChange={(e) => setAssign((a) => ({ ...a, assignedDate: e.target.value }))} />
-                <FormErrorMessage>{assignErrors.assignedDate}</FormErrorMessage>
-              </FormControl>
-              <FormControl isInvalid={!!assignErrors.dueDate}>
-                <FormLabel fontSize="sm">Due Date</FormLabel>
-                <Input type="date" size="sm" value={assign.dueDate} onChange={(e) => setAssign((a) => ({ ...a, dueDate: e.target.value }))} />
-                <FormErrorMessage>{assignErrors.dueDate}</FormErrorMessage>
-              </FormControl>
-            </Flex>
-            <FormControl>
-              <FormLabel fontSize="sm">Training Type</FormLabel>
-              <Select size="sm" value={assign.trainingType} onChange={(e) => setAssign((a) => ({ ...a, trainingType: e.target.value }))}>
-                <option value="Mandatory">Mandatory</option>
-                <option value="Optional">Optional</option>
-              </Select>
-            </FormControl>
-            <FormControl>
-              <FormLabel fontSize="sm">Notes (optional)</FormLabel>
-              <Textarea size="sm" placeholder="Admin notes…" value={assign.notes} onChange={(e) => setAssign((a) => ({ ...a, notes: e.target.value }))} />
-            </FormControl>
-            <Button colorScheme="teal" size="sm" onClick={handleAssign} isLoading={assigning} loadingText="Assigning…">Assign Training</Button>
-          </Flex>
-        </Box>
-
-        {/* Training Report KPIs */}
-        {trainingKpis && (
-          <Box p={5} border="1px solid" borderColor="gray.200" borderRadius="md">
-            <Text fontWeight={700} mb={4} color="gray.700">Training Report KPIs</Text>
-            <SimpleGrid columns={1} spacing={3}>
-              <DashboardMetricCard title="Completion Rate" value={`${trainingKpis.complianceCompletionRate ?? 0}%`} />
-              <DashboardMetricCard title="Overdue Assignments" value={trainingKpis.overdueCount ?? 0} />
-              <DashboardMetricCard title="Non-Compliance Ratio" value={`${trainingKpis.nonComplianceRatio ?? 0}%`} />
-            </SimpleGrid>
-          </Box>
-        )}
-      </Grid>
-
-      {/* Training Report Filters */}
-      <Box mb={4}>
-        <Text fontWeight={700} mb={3} color="gray.700">Training Assignment Report</Text>
-        <Flex gap={3} flexWrap="wrap" mb={4}>
-          <Select placeholder="All Statuses" size="sm" maxW="160px" value={reportFilters.status} onChange={(e) => setReportFilters((f) => ({ ...f, status: e.target.value }))}>
-            <option value="Pending">Pending</option>
-            <option value="Completed">Completed</option>
-            <option value="Overdue">Overdue</option>
-          </Select>
-          <Select placeholder="All Types" size="sm" maxW="160px" value={reportFilters.trainingType} onChange={(e) => setReportFilters((f) => ({ ...f, trainingType: e.target.value }))}>
-            <option value="Mandatory">Mandatory</option>
-            <option value="Optional">Optional</option>
-          </Select>
-          <Input type="date" size="sm" maxW="160px" value={reportFilters.startDate} onChange={(e) => setReportFilters((f) => ({ ...f, startDate: e.target.value }))} />
-          <Input type="date" size="sm" maxW="160px" value={reportFilters.endDate} onChange={(e) => setReportFilters((f) => ({ ...f, endDate: e.target.value }))} />
-          <Button size="sm" colorScheme="blue" leftIcon={<FiRefreshCw />} onClick={fetchTrainingReport}>Refresh</Button>
-          <Button size="sm" variant="outline" onClick={() => setReportFilters({ status: "", trainingType: "", startDate: "", endDate: "" })}>Clear</Button>
-        </Flex>
-
-        {reportLoading ? (
-          <Flex direction="column" gap={2}>{[...Array(4)].map((_, i) => <Skeleton key={i} height="36px" />)}</Flex>
-        ) : (
-          <Box overflowX="auto">
-            <Table size="sm" variant="striped">
-              <Thead>
-                <Tr><Th>Employee</Th><Th>Course</Th><Th>Type</Th><Th>Assigned</Th><Th>Due Date</Th><Th>Status</Th><Th>Overdue Days</Th><Th>Score</Th><Th>Certificate</Th><Th>Actions</Th></Tr>
-              </Thead>
-              <Tbody>
-                {records.length === 0 ? (
-                  <Tr><Td colSpan={10} textAlign="center" color="gray.400" py={6}>No training records found.</Td></Tr>
-                ) : records.map((r) => (
-                  <Tr key={r.id}>
-                    <Td fontSize="xs">{r.employee?.firstName} {r.employee?.lastName}</Td>
-                    <Td fontSize="xs">{r.course?.title}</Td>
-                    <Td><Badge colorScheme={r.trainingType === "Mandatory" ? "red" : "blue"} fontSize="xs">{r.trainingType}</Badge></Td>
-                    <Td fontSize="xs" whiteSpace="nowrap">{fmtDate(r.assignedDate)}</Td>
-                    <Td fontSize="xs" color={r.status === "Overdue" ? "red.500" : undefined} fontWeight={r.status === "Overdue" ? 700 : 400} whiteSpace="nowrap">{fmtDate(r.dueDate)}</Td>
-                    <Td>
-                      <Badge colorScheme={{ Completed: "green", Overdue: "red", Pending: "gray" }[r.status] ?? "gray"} fontSize="xs">{r.status}</Badge>
-                    </Td>
-                    <Td fontSize="xs" color={r.overdueDays > 0 ? "red.500" : undefined}>{r.overdueDays > 0 ? r.overdueDays : "—"}</Td>
-                    <Td fontSize="xs">{r.score ?? "—"}</Td>
-                    <Td fontSize="xs">{r.certificateIssued ? <FiCheckCircle color="green" /> : <FiXCircle color="gray" />}</Td>
-                    <Td>
-                      {r.status !== "Completed" && (
-                        <Button size="xs" colorScheme="green" onClick={() => { setCompleteForm({ assignmentId: r.id, completionDate: "", score: "", certificateIssued: false }); openComplete(); }}>
-                          Mark Complete
-                        </Button>
-                      )}
-                    </Td>
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </Box>
-        )}
-      </Box>
-
-      {/* Mark Complete Modal */}
-      <Modal isOpen={isCompleteOpen} onClose={closeComplete} isCentered>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Mark Training as Completed</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Flex direction="column" gap={4}>
-              <FormControl isRequired>
-                <FormLabel fontSize="sm">Completion Date</FormLabel>
-                <Input type="date" size="sm" value={completeForm.completionDate} onChange={(e) => setCompleteForm((f) => ({ ...f, completionDate: e.target.value }))} />
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="sm">Score (optional)</FormLabel>
-                <Input type="number" size="sm" placeholder="e.g. 88" value={completeForm.score} onChange={(e) => setCompleteForm((f) => ({ ...f, score: e.target.value }))} />
-              </FormControl>
-              <FormControl>
-                <Flex align="center" gap={3}>
-                  <Switch isChecked={completeForm.certificateIssued} onChange={(e) => setCompleteForm((f) => ({ ...f, certificateIssued: e.target.checked }))} colorScheme="green" />
-                  <Text fontSize="sm">Certificate Issued</Text>
-                </Flex>
-              </FormControl>
-            </Flex>
-          </ModalBody>
-          <ModalFooter gap={2}>
-            <Button variant="ghost" onClick={closeComplete}>Cancel</Button>
-            <Button colorScheme="green" onClick={handleMarkComplete} isLoading={completing}>Save Completion</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-    </Box>
   );
 };
 
@@ -1147,16 +887,12 @@ const ExamCompliancePage = () => {
       <Box bg="white" borderRadius="md" border="1px solid" borderColor="gray.200" p={5}>
         <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} className={classes.tabs} indicatorColor="primary" textColor="primary">
           <Tab label="Notification Log" className={classes.tab} />
-          <Tab label="Report" className={classes.tab} />
           <Tab label="Send / Evaluate" className={classes.tab} />
-          <Tab label="Training Assignments" className={classes.tab} />
         </Tabs>
 
         <Box mt={2}>
           {activeTab === 0 && <LogTableTab onOpenDetail={handleOpenDetail} refreshKey={logRefreshKey} />}
-          {activeTab === 1 && <ReportTab />}
-          {activeTab === 2 && <SendEvaluateTab onDone={handleRefresh} />}
-          {activeTab === 3 && <TrainingTab />}
+          {activeTab === 1 && <SendEvaluateTab onDone={handleRefresh} />}
         </Box>
       </Box>
 

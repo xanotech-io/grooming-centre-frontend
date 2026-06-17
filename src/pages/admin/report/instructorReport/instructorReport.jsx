@@ -97,8 +97,8 @@ const InstructorReport = () => {
       const response = await adminGetInstructorReportDirectory(
         props?.params || {},
       );
-      const rows = (response.rows || []).map(mapInstructorToRow);
-      setTotalCount(response.totalDocumentsCount || rows.length);
+      const rows = (response.data || []).map(mapInstructorToRow);
+      setTotalCount(response.total || rows.length);
       return {
         rows,
         showingDocumentsCount: response.showingDocumentsCount || rows.length,

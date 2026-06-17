@@ -96,7 +96,7 @@ const AssessmentOverviewPage = () => {
       if (instructorsRes.status === "fulfilled") {
         const raw = instructorsRes.value;
         setInstructors(
-          (raw.rows ?? (Array.isArray(raw) ? raw : [])).map((i) => ({
+          (raw.data ?? []).map((i) => ({
             id: i.id,
             name: i.firstName && i.lastName
               ? `${i.firstName} ${i.lastName}`.trim()

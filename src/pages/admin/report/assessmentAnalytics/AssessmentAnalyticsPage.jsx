@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Route } from "react-router-dom";
 import {
   Box,
@@ -28,23 +28,19 @@ import {
   AlertIcon,
   FormControl,
   FormLabel,
+  Grid,
+  Spinner,
   useDisclosure,
-  useToast,
 } from "@chakra-ui/react";
-import { Tabs, Tab, makeStyles } from "@material-ui/core";
-import { FiSearch, FiRefreshCw, FiAlertTriangle } from "react-icons/fi";
+import { FiRefreshCw, FiAlertTriangle, FiFilter } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { DashboardMetricCard } from "../../../../components";
 import {
   getAssessmentAnalyticsReport,
-  getAssessmentAnalyticsByExam,
   getAssessmentAnalyticsThresholds,
+  adminGetCourseListing,
+  adminGetStandaloneExaminationListing,
 } from "../../../../services";
-
-const useStyles = makeStyles(() => ({
-  tabs: { borderBottom: "1px solid #e2e8f0", marginBottom: 16 },
-  tab: { textTransform: "none", fontWeight: 600, fontSize: 14 },
-}));
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
 
@@ -187,11 +183,6 @@ const MOCK_ASSESSMENT_STATS = [
   { assessmentId: "a-002", assessmentTitle: "Module 2 Assessment", totalQuestions: 12, averageSuccessRate: 81.2 },
 ];
 
-const MOCK_STANDALONE_STATS = [
-  { examId: "s-001", examTitle: "General Knowledge Exam", totalQuestions: 20, averageSuccessRate: 69.0 },
-  { examId: "s-002", examTitle: "Financial Compliance Exam", totalQuestions: 15, averageSuccessRate: 76.3 },
-];
-
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
 const STATUS_COLORS = {
@@ -217,6 +208,115 @@ const TYPE_LABELS = {
 };
 
 const fmt = (val, suffix = "") => (val != null ? `${val}${suffix}` : "—");
+
+// ─── EntityCombobox ─────────────────────────────────────────────────────────
+
+function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
+  const [inputValue, setInputValue] = useState("");
+  const [options, setOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  const selectedOption = useMemo(() => options.find((o) => o.id === value) ?? null, [options, value]);
+
+  useEffect(() => { if (!value) setInputValue(""); }, [value]);
+
+  const filtered = useMemo(() => {
+    if (!inputValue || selectedOption) return options;
+    const q = inputValue.toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(q) || (o.sublabel ?? "").toLowerCase().includes(q));
+  }, [options, inputValue, selectedOption]);
+
+  useEffect(() => {
+    const handler = (e) => { if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const doFetch = useCallback(async (query) => {
+    setLoading(true);
+    try { setOptions(await fetchFn(query)); } catch { setOptions([]); } finally { setLoading(false); }
+  }, [fetchFn]);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputValue(val);
+    if (value) onSelect(null);
+    setIsOpen(true);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doFetch(val), 350);
+  };
+
+  const handleFocus = () => {
+    if (!value) { setIsOpen(true); if (options.length === 0) doFetch(""); }
+  };
+
+  const displayValue = selectedOption
+    ? `${selectedOption.label}${selectedOption.sublabel ? ` — ${selectedOption.sublabel}` : ""}`
+    : value || inputValue;
+
+  return (
+    <Box ref={containerRef} position="relative">
+      <Flex border="1px solid" borderColor="gray.200" borderRadius="md" alignItems="center" px={2} bg="white" h="32px">
+        <Input
+          value={displayValue}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          placeholder={placeholder}
+          border="none"
+          outline="none"
+          _focus={{ boxShadow: "none" }}
+          size="sm"
+          px={0}
+          fontSize="sm"
+        />
+        {loading && <Spinner size="xs" color="gray.400" flexShrink={0} />}
+        {value && (
+          <Text
+            fontSize="xs"
+            color="gray.400"
+            cursor="pointer"
+            flexShrink={0}
+            onClick={() => { onSelect(null); setInputValue(""); setOptions([]); }}
+            _hover={{ color: "gray.600" }}
+          >✕</Text>
+        )}
+      </Flex>
+      {isOpen && filtered.length > 0 && (
+        <Box
+          position="absolute"
+          top="calc(100% + 4px)"
+          left={0}
+          right={0}
+          zIndex={10}
+          bg="white"
+          border="1px solid"
+          borderColor="gray.200"
+          borderRadius="md"
+          shadow="lg"
+          maxH="200px"
+          overflowY="auto"
+        >
+          {filtered.map((opt) => (
+            <Box
+              key={opt.id}
+              px={3}
+              py={2}
+              cursor="pointer"
+              _hover={{ bg: "blue.50" }}
+              onClick={() => { onSelect(opt); setInputValue(opt.label); setIsOpen(false); }}
+            >
+              <Text fontSize="sm">{opt.label}</Text>
+              {opt.sublabel && <Text fontSize="xs" color="gray.500">{opt.sublabel}</Text>}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+}
 
 const PaginationBar = ({ page, totalPages, onPrev, onNext, limit, onLimitChange }) => (
   <Flex justifyContent="space-between" alignItems="center" mt={4} flexWrap="wrap" gap={2}>
@@ -248,9 +348,6 @@ const DetailRow = ({ label, value }) => (
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const AssessmentAnalyticsPage = () => {
-  const classes = useStyles();
-  const toast = useToast();
-  const [tab, setTab] = useState(0);
 
   // Thresholds
   const [thresholds, setThresholds] = useState(null);
@@ -259,7 +356,6 @@ const AssessmentAnalyticsPage = () => {
   const [summary, setSummary] = useState(null);
   const [rows, setRows] = useState([]);
   const [assessmentStats, setAssessmentStats] = useState([]);
-  const [standaloneStats, setStandaloneStats] = useState([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
@@ -277,16 +373,41 @@ const AssessmentAnalyticsPage = () => {
     endDate: "",
   });
 
-  // Exam drill-down tab
-  const [drillExamId, setDrillExamId] = useState("");
-  const [drillSummary, setDrillSummary] = useState(null);
-  const [drillRows, setDrillRows] = useState([]);
-  const [drillLoading, setDrillLoading] = useState(false);
-  const [drillError, setDrillError] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Question detail drawer
   const { isOpen: isDetailOpen, onOpen: openDetail, onClose: closeDetail } = useDisclosure();
   const [detailQuestion, setDetailQuestion] = useState(null);
+
+  // ── Combobox fetch helpers ────────────────────────────────────────────────
+
+  const fetchCourseOptions = useCallback(async (query) => {
+    const res = await adminGetCourseListing({ search: query, limit: 50 });
+    return (res?.courses ?? []).map((c) => ({ id: c.id, label: c.title }));
+  }, []);
+
+  const fetchExamOptions = useCallback(async () => {
+    const uniqueExams = [];
+    const seen = new Set();
+    rows.forEach((r) => {
+      if (r.exam_id && r.exam_title && !seen.has(r.exam_id)) {
+        seen.add(r.exam_id);
+        uniqueExams.push({ id: r.exam_id, label: r.exam_title });
+      }
+    });
+    return uniqueExams;
+  }, [rows]);
+
+  const fetchAssessmentOptions = useCallback(async () => {
+    return assessmentStats.map((a) => ({ id: a.assessmentId, label: a.assessmentTitle }));
+  }, [assessmentStats]);
+
+  const fetchStandaloneOptions = useCallback(async (query) => {
+    const res = await adminGetStandaloneExaminationListing({ search: query, limit: 50 });
+    return (res?.examinations ?? []).map((e) => ({ id: e.id, label: e.title }));
+  }, []);
+
+  const activeFilterCount = Object.entries(filters).filter(([, v]) => v).length;
 
   // ── Fetch thresholds once ─────────────────────────────────────────────────
 
@@ -312,7 +433,6 @@ const AssessmentAnalyticsPage = () => {
       const computed = Math.ceil((payload?.total ?? list.length) / limit) || 1;
       setTotalPages(payload?.totalPages ?? computed);
       setAssessmentStats(Array.isArray(payload?.assessment_level_stats) ? payload.assessment_level_stats : []);
-      setStandaloneStats(Array.isArray(payload?.standalone_stats) ? payload.standalone_stats : []);
     } catch {
       console.warn("[AssessmentAnalytics] GET /assessment-analytics-v2/report failed, using mock");
       setSummary(MOCK_SUMMARY);
@@ -320,54 +440,21 @@ const AssessmentAnalyticsPage = () => {
       setTotal(MOCK_QUESTIONS.length);
       setTotalPages(1);
       setAssessmentStats(MOCK_ASSESSMENT_STATS);
-      setStandaloneStats(MOCK_STANDALONE_STATS);
     } finally { setLoading(false); }
   }, [page, limit, filters]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
-  // ── Exam drill-down ───────────────────────────────────────────────────────
-
-  const handleDrillDown = async () => {
-    if (!drillExamId.trim()) {
-      toast({ title: "Please enter an Exam ID.", status: "warning", duration: 3000 });
-      return;
-    }
-    setDrillLoading(true);
-    setDrillError(null);
-    setDrillSummary(null);
-    setDrillRows([]);
-    try {
-      const res = await getAssessmentAnalyticsByExam(drillExamId.trim());
-      const payload = res?.data ?? res;
-      setDrillSummary(payload?.summary ?? null);
-      setDrillRows(Array.isArray(payload?.data) ? payload.data : []);
-    } catch (err) {
-      const status = err?.response?.status;
-      if (status === 404) {
-        setDrillError("No analytics data found for this exam ID.");
-      } else {
-        console.warn("[AssessmentAnalytics] exam drill-down failed, using mock subset");
-        const subset = MOCK_QUESTIONS.filter((q) => q.exam_id === drillExamId.trim()).length
-          ? MOCK_QUESTIONS.filter((q) => q.exam_id === drillExamId.trim())
-          : MOCK_QUESTIONS.slice(0, 3);
-        setDrillSummary(MOCK_SUMMARY);
-        setDrillRows(subset);
-      }
-    } finally { setDrillLoading(false); }
-  };
-
   // ── Questions table ───────────────────────────────────────────────────────
 
   const QuestionsTable = ({ data, loadingState }) => (
-    <Box overflowX="auto">
-      <Table size="sm" variant="simple">
-        <Thead bg="gray.50">
+    <Box overflowX="auto" bg="white">
+      <Table size="sm" variant="simple" bg="white">
+        <Thead bg="white">
           <Tr>
             <Th>Question</Th>
             <Th>Type</Th>
-            <Th>Set Difficulty</Th>
-            <Th>Derived</Th>
+            <Th>Difficulty</Th>
             <Th>Exam / Assessment</Th>
             <Th>Attempts</Th>
             <Th>Success Rate</Th>
@@ -379,10 +466,10 @@ const AssessmentAnalyticsPage = () => {
         <Tbody>
           {loadingState ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <Tr key={i}>{Array.from({ length: 10 }).map((__, j) => <Td key={j}><Skeleton height="14px" /></Td>)}</Tr>
+              <Tr key={i}>{Array.from({ length: 9 }).map((__, j) => <Td key={j}><Skeleton height="14px" /></Td>)}</Tr>
             ))
           ) : data.length === 0 ? (
-            <Tr><Td colSpan={10} textAlign="center" py={10} color="gray.500">No question analytics found.</Td></Tr>
+            <Tr><Td colSpan={9} textAlign="center" py={10} color="gray.500">No question analytics found.</Td></Tr>
           ) : (
             data.map((row) => (
               <Tr
@@ -398,12 +485,6 @@ const AssessmentAnalyticsPage = () => {
                 </Td>
                 <Td><Badge colorScheme="gray" fontSize="xs">{TYPE_LABELS[row.question_type] ?? row.question_type}</Badge></Td>
                 <Td><Badge colorScheme={DIFFICULTY_COLORS[row.difficulty_level] ?? "gray"}>{row.difficulty_level ?? "—"}</Badge></Td>
-                <Td>
-                  {row.derived_difficulty && row.derived_difficulty !== row.difficulty_level
-                    ? <Tooltip label="Differs from instructor-set difficulty — candidate for recalibration"><Badge colorScheme={DIFFICULTY_COLORS[row.derived_difficulty]}>{row.derived_difficulty} <FiAlertTriangle style={{ display: "inline" }} size={10} /></Badge></Tooltip>
-                    : <Badge colorScheme={DIFFICULTY_COLORS[row.derived_difficulty] ?? "gray"}>{row.derived_difficulty ?? "—"}</Badge>
-                  }
-                </Td>
                 <Td>
                   <Text fontSize="xs">{row.exam_title ?? "—"}</Text>
                 </Td>
@@ -452,170 +533,68 @@ const AssessmentAnalyticsPage = () => {
         />
       </SimpleGrid>
 
-      {/* Difficulty + Status distribution chips */}
-      {summary && !loading && (
-        <Flex gap={6} mb={6} flexWrap="wrap">
-          <Box>
-            <Text fontSize="xs" fontWeight="semibold" color="gray.500" mb={2}>DIFFICULTY DISTRIBUTION</Text>
-            <Flex gap={2} flexWrap="wrap">
-              {Object.entries(summary.difficulty_distribution ?? {}).map(([k, v]) => (
-                <Badge key={k} colorScheme={DIFFICULTY_COLORS[k] ?? "gray"} px={3} py={1} borderRadius="full" fontSize="sm">{k}: {v}</Badge>
-              ))}
-            </Flex>
-          </Box>
-          <Box>
-            <Text fontSize="xs" fontWeight="semibold" color="gray.500" mb={2}>STATUS DISTRIBUTION</Text>
-            <Flex gap={2} flexWrap="wrap">
-              {Object.entries(summary.status_distribution ?? {}).filter(([, v]) => v > 0).map(([k, v]) => (
-                <Badge key={k} colorScheme={STATUS_COLORS[k] ?? "gray"} px={3} py={1} borderRadius="full" fontSize="sm">{k}: {v}</Badge>
-              ))}
-            </Flex>
-          </Box>
-        </Flex>
-      )}
+      {/* Filter toggle */}
+      <Flex mb={3} alignItems="center">
+        <Button
+          size="sm"
+          leftIcon={<FiFilter />}
+          variant="outline"
+          bg="white"
+          colorScheme={activeFilterCount > 0 ? "blue" : "gray"}
+          onClick={() => setShowFilters((v) => !v)}
+        >
+          Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+        </Button>
+      </Flex>
 
-      {/* Tabs */}
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} className={classes.tabs}>
-        <Tab label="All Questions" className={classes.tab} />
-        <Tab label="Exam Drill-Down" className={classes.tab} />
-        <Tab label="Assessment Stats" className={classes.tab} />
-        <Tab label="Standalone Stats" className={classes.tab} />
-        <Tab label="Filters" className={classes.tab} />
-      </Tabs>
-
-      {/* ── Tab 0: All Questions ─────────────────────────────────────────────── */}
-      {tab === 0 && (
-        <Box>
-          <QuestionsTable data={rows} loadingState={loading} />
-          <PaginationBar page={page} totalPages={totalPages} onPrev={() => setPage((p) => p - 1)} onNext={() => setPage((p) => p + 1)} limit={limit} onLimitChange={(v) => { setLimit(v); setPage(1); }} />
-          <Text fontSize="sm" color="gray.500" mt={2}>Total: {total} question{total !== 1 ? "s" : ""}</Text>
-        </Box>
-      )}
-
-      {/* ── Tab 1: Exam Drill-Down ───────────────────────────────────────────── */}
-      {tab === 1 && (
-        <Box>
-          <Flex gap={3} mb={4} alignItems="flex-end">
-            <FormControl maxW="360px">
-              <FormLabel fontSize="sm">Course Exam ID</FormLabel>
-              <Input size="sm" placeholder="Enter exam UUID" value={drillExamId} onChange={(e) => setDrillExamId(e.target.value)} />
-            </FormControl>
-            <Button size="sm" leftIcon={<FiSearch />} colorScheme="blue" onClick={handleDrillDown} isLoading={drillLoading}>Analyse</Button>
-          </Flex>
-
-          {drillError && (
-            <Alert status="warning" borderRadius="md" mb={4}>
-              <AlertIcon />{drillError}
-            </Alert>
-          )}
-
-          {drillSummary && (
-            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4} mb={4}>
-              <DashboardMetricCard title="Questions" value={drillSummary.total_questions ?? "—"} />
-              <DashboardMetricCard title="Avg Success Rate" value={drillSummary.average_success_rate != null ? `${drillSummary.average_success_rate}%` : "—"} />
-              <DashboardMetricCard title="Reliability Index" value={drillSummary.reliability_index != null ? drillSummary.reliability_index.toFixed(2) : "—"} />
-              <DashboardMetricCard title="Validity" value={drillSummary.assessment_validity ?? "—"} colorScheme={VALIDITY_COLORS[drillSummary.assessment_validity] ?? "gray"} />
-            </SimpleGrid>
-          )}
-
-          {drillRows.length > 0 && <QuestionsTable data={drillRows} loadingState={drillLoading} />}
-
-          {!drillSummary && !drillLoading && !drillError && (
-            <Box textAlign="center" py={10} color="gray.400">
-              <Text>Enter a Course Exam ID above and click Analyse to drill down into per-question metrics.</Text>
-            </Box>
-          )}
-        </Box>
-      )}
-
-      {/* ── Tab 2: Assessment Stats ──────────────────────────────────────────── */}
-      {tab === 2 && (
-        <Box overflowX="auto">
-          <Table size="sm" variant="simple">
-            <Thead bg="gray.50">
-              <Tr>
-                <Th>Assessment Title</Th>
-                <Th>Total Questions</Th>
-                <Th>Avg Success Rate</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {loading ? (
-                Array.from({ length: 3 }).map((_, i) => <Tr key={i}>{[0, 1, 2].map((j) => <Td key={j}><Skeleton height="14px" /></Td>)}</Tr>)
-              ) : assessmentStats.length === 0 ? (
-                <Tr><Td colSpan={3} textAlign="center" py={8} color="gray.500">No assessment-level data available.</Td></Tr>
-              ) : (
-                assessmentStats.map((a) => (
-                  <Tr key={a.assessmentId}>
-                    <Td fontWeight="medium">{a.assessmentTitle}</Td>
-                    <Td>{a.totalQuestions}</Td>
-                    <Td><Badge colorScheme={a.averageSuccessRate >= 75 ? "green" : a.averageSuccessRate >= 60 ? "yellow" : "red"}>{a.averageSuccessRate}%</Badge></Td>
-                  </Tr>
-                ))
-              )}
-            </Tbody>
-          </Table>
-        </Box>
-      )}
-
-      {/* ── Tab 3: Standalone Stats ──────────────────────────────────────────── */}
-      {tab === 3 && (
-        <Box overflowX="auto">
-          <Table size="sm" variant="simple">
-            <Thead bg="gray.50">
-              <Tr>
-                <Th>Standalone Exam Title</Th>
-                <Th>Total Questions</Th>
-                <Th>Avg Success Rate</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {loading ? (
-                Array.from({ length: 3 }).map((_, i) => <Tr key={i}>{[0, 1, 2].map((j) => <Td key={j}><Skeleton height="14px" /></Td>)}</Tr>)
-              ) : standaloneStats.length === 0 ? (
-                <Tr><Td colSpan={3} textAlign="center" py={8} color="gray.500">No standalone exam data available.</Td></Tr>
-              ) : (
-                standaloneStats.map((s) => (
-                  <Tr key={s.examId}>
-                    <Td fontWeight="medium">{s.examTitle}</Td>
-                    <Td>{s.totalQuestions}</Td>
-                    <Td><Badge colorScheme={s.averageSuccessRate >= 75 ? "green" : s.averageSuccessRate >= 60 ? "yellow" : "red"}>{s.averageSuccessRate}%</Badge></Td>
-                  </Tr>
-                ))
-              )}
-            </Tbody>
-          </Table>
-        </Box>
-      )}
-
-      {/* ── Tab 4: Filters ───────────────────────────────────────────────────── */}
-      {tab === 4 && (
-        <Box bg="gray.50" p={4} borderRadius="md">
-          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+      {/* Filter panel */}
+      {showFilters && (
+        <Box bg="gray.50" border="1px" borderColor="gray.200" p={4} borderRadius="md" mb={4}>
+          <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }} gap={3}>
             <FormControl>
-              <FormLabel fontSize="sm">Course ID</FormLabel>
-              <Input size="sm" placeholder="UUID" value={filters.courseId} onChange={(e) => setFilters((p) => ({ ...p, courseId: e.target.value }))} />
+              <FormLabel fontSize="xs">Course</FormLabel>
+              <EntityCombobox
+                fetchFn={fetchCourseOptions}
+                value={filters.courseId}
+                onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "" }))}
+                placeholder="Search course..."
+              />
             </FormControl>
             <FormControl>
-              <FormLabel fontSize="sm">Exam ID</FormLabel>
-              <Input size="sm" placeholder="UUID" value={filters.examId} onChange={(e) => setFilters((p) => ({ ...p, examId: e.target.value }))} />
+              <FormLabel fontSize="xs">Exam</FormLabel>
+              <EntityCombobox
+                fetchFn={fetchExamOptions}
+                value={filters.examId}
+                onSelect={(opt) => setFilters((p) => ({ ...p, examId: opt ? opt.id : "" }))}
+                placeholder="Search exam..."
+              />
             </FormControl>
             <FormControl>
-              <FormLabel fontSize="sm">Assessment ID</FormLabel>
-              <Input size="sm" placeholder="UUID" value={filters.assessmentId} onChange={(e) => setFilters((p) => ({ ...p, assessmentId: e.target.value }))} />
+              <FormLabel fontSize="xs">Assessment</FormLabel>
+              <EntityCombobox
+                fetchFn={fetchAssessmentOptions}
+                value={filters.assessmentId}
+                onSelect={(opt) => setFilters((p) => ({ ...p, assessmentId: opt ? opt.id : "" }))}
+                placeholder="Search assessment..."
+              />
             </FormControl>
             <FormControl>
-              <FormLabel fontSize="sm">Standalone Exam ID</FormLabel>
-              <Input size="sm" placeholder="UUID" value={filters.standaloneExamId} onChange={(e) => setFilters((p) => ({ ...p, standaloneExamId: e.target.value }))} />
+              <FormLabel fontSize="xs">Standalone Exam</FormLabel>
+              <EntityCombobox
+                fetchFn={fetchStandaloneOptions}
+                value={filters.standaloneExamId}
+                onSelect={(opt) => setFilters((p) => ({ ...p, standaloneExamId: opt ? opt.id : "" }))}
+                placeholder="Search standalone exam..."
+              />
             </FormControl>
             <FormControl>
-              <FormLabel fontSize="sm">Question Type</FormLabel>
+              <FormLabel fontSize="xs">Question Type</FormLabel>
               <Select size="sm" placeholder="Any" value={filters.questionType} onChange={(e) => setFilters((p) => ({ ...p, questionType: e.target.value }))}>
                 {Object.entries(TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </Select>
             </FormControl>
             <FormControl>
-              <FormLabel fontSize="sm">Difficulty Level</FormLabel>
+              <FormLabel fontSize="xs">Difficulty Level</FormLabel>
               <Select size="sm" placeholder="Any" value={filters.difficultyLevel} onChange={(e) => setFilters((p) => ({ ...p, difficultyLevel: e.target.value }))}>
                 <option value="Easy">Easy</option>
                 <option value="Medium">Medium</option>
@@ -623,20 +602,30 @@ const AssessmentAnalyticsPage = () => {
               </Select>
             </FormControl>
             <FormControl>
-              <FormLabel fontSize="sm">Start Date</FormLabel>
+              <FormLabel fontSize="xs">Start Date</FormLabel>
               <Input size="sm" type="date" value={filters.startDate} onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))} />
             </FormControl>
             <FormControl>
-              <FormLabel fontSize="sm">End Date</FormLabel>
+              <FormLabel fontSize="xs">End Date</FormLabel>
               <Input size="sm" type="date" value={filters.endDate} onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))} />
             </FormControl>
-          </SimpleGrid>
-          <Flex mt={4} gap={2}>
-            <Button size="sm" colorScheme="blue" onClick={() => { setPage(1); setTab(0); fetchReport(); }}>Apply & View</Button>
-            <Button size="sm" variant="outline" onClick={() => setFilters({ courseId: "", examId: "", assessmentId: "", standaloneExamId: "", questionType: "", difficultyLevel: "", startDate: "", endDate: "" })}>Clear</Button>
+          </Grid>
+          <Flex mt={3} gap={2}>
+            <Button size="sm" colorScheme="blue" onClick={() => { setPage(1); setShowFilters(false); fetchReport(); }}>Apply Filters</Button>
+            <Button size="sm" variant="outline" onClick={() => {
+              setFilters({ courseId: "", examId: "", assessmentId: "", standaloneExamId: "", questionType: "", difficultyLevel: "", startDate: "", endDate: "" });
+              setShowFilters(false);
+            }}>Clear</Button>
           </Flex>
         </Box>
       )}
+
+      {/* All Questions */}
+      <Box>
+        <QuestionsTable data={rows} loadingState={loading} />
+        <PaginationBar page={page} totalPages={totalPages} onPrev={() => setPage((p) => p - 1)} onNext={() => setPage((p) => p + 1)} limit={limit} onLimitChange={(v) => { setLimit(v); setPage(1); }} />
+        <Text fontSize="sm" color="gray.500" mt={2}>Total: {total} question{total !== 1 ? "s" : ""}</Text>
+      </Box>
 
       {/* ── Thresholds legend ─────────────────────────────────────────────────── */}
       {thresholds && (

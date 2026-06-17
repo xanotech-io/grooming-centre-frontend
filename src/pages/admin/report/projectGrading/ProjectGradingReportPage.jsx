@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useMemo, useState } from "react";
 import { Route } from "react-router-dom";
 import {
   Badge,
@@ -15,10 +15,15 @@ import {
   FormLabel,
   Grid,
   Input,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
   Progress,
   Select,
   SimpleGrid,
   Skeleton,
+  Spinner,
   Table,
   TableContainer,
   Tbody,
@@ -32,8 +37,11 @@ import {
 } from "@chakra-ui/react";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import {
+  FiChevronDown,
   FiChevronLeft,
   FiChevronRight,
+  FiDownload,
+  FiFilter,
   FiRefreshCw,
   FiX,
 } from "react-icons/fi";
@@ -51,7 +59,7 @@ import {
   getProjectGradingReport,
   getProjectGradingDetail,
   adminGetCourseListing,
-  adminGetUserListing,
+  adminGetInstructorReportDirectory,
 } from "../../../../services";
 import dayjs from "dayjs";
 
@@ -223,6 +231,168 @@ const buildReportParams = (filters, page, limit, sort) => {
   }
   return p;
 };
+
+// ─── Entity Combobox ──────────────────────────────────────────────────────────
+
+function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
+  const [inputValue, setInputValue] = useState("");
+  const [options, setOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  const selectedOption = useMemo(
+    () => options.find((o) => o.id === value) ?? null,
+    [options, value],
+  );
+
+  useEffect(() => {
+    if (!value) setInputValue("");
+  }, [value]);
+
+  const filtered = useMemo(() => {
+    if (!inputValue || selectedOption) return options;
+    const q = inputValue.toLowerCase();
+    return options.filter(
+      (o) =>
+        o.label.toLowerCase().includes(q) ||
+        (o.sublabel ?? "").toLowerCase().includes(q),
+    );
+  }, [options, inputValue, selectedOption]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const doFetch = useCallback(
+    async (query) => {
+      setLoading(true);
+      try {
+        setOptions(await fetchFn(query));
+      } catch {
+        setOptions([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchFn],
+  );
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputValue(val);
+    if (value) onSelect(null);
+    setIsOpen(true);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doFetch(val), 350);
+  };
+
+  const handleFocus = () => {
+    if (!value) {
+      setIsOpen(true);
+      if (options.length === 0) doFetch("");
+    }
+  };
+
+  const displayValue = selectedOption
+    ? `${selectedOption.label}${selectedOption.sublabel ? ` — ${selectedOption.sublabel}` : ""}`
+    : value || inputValue;
+
+  return (
+    <Box ref={containerRef} position="relative">
+      <Flex
+        border="1px solid"
+        borderColor="gray.200"
+        borderRadius="md"
+        alignItems="center"
+        px={2}
+        bg="white"
+        h="32px"
+        _focusWithin={{ borderColor: "blue.500", boxShadow: "0 0 0 1px #3182ce" }}
+      >
+        <Input
+          border="none"
+          px={0}
+          size="sm"
+          h="auto"
+          _focus={{ boxShadow: "none" }}
+          value={displayValue}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          placeholder={placeholder || "Search..."}
+          readOnly={!!value}
+        />
+        {loading && <Spinner size="xs" color="gray.400" mr={1} />}
+        {value ? (
+          <Box
+            as="button"
+            type="button"
+            onClick={() => { onSelect(null); setInputValue(""); setOptions([]); setIsOpen(false); }}
+            color="gray.400"
+            _hover={{ color: "gray.600" }}
+            ml={1}
+            flexShrink={0}
+          >
+            <FiX size={12} />
+          </Box>
+        ) : (
+          <Box color="gray.400" ml={1} flexShrink={0}><FiChevronDown size={12} /></Box>
+        )}
+      </Flex>
+
+      {isOpen && (
+        <Box
+          position="absolute"
+          top="calc(100% + 4px)"
+          left={0}
+          right={0}
+          bg="white"
+          border="1px solid #E2E8F0"
+          borderRadius="md"
+          boxShadow="md"
+          zIndex={1500}
+          maxH="220px"
+          overflowY="auto"
+        >
+          {loading && (
+            <Flex alignItems="center" gap={2} px={3} py={2}>
+              <Spinner size="xs" />
+              <Text fontSize="12px" color="gray.500">Loading...</Text>
+            </Flex>
+          )}
+          {!loading && filtered.length === 0 && (
+            <Text fontSize="12px" color="gray.500" px={3} py={2}>No results found</Text>
+          )}
+          {!loading && filtered.map((opt) => (
+            <Box
+              key={opt.id}
+              px={3}
+              py="6px"
+              cursor="pointer"
+              _hover={{ bg: "blue.50" }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelect(opt);
+                setInputValue("");
+                setIsOpen(false);
+              }}
+            >
+              <Text fontSize="13px" fontWeight="500">{opt.label}</Text>
+              {opt.sublabel && <Text fontSize="11px" color="gray.500">{opt.sublabel}</Text>}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+}
 
 // ─── Progress Cell ─────────────────────────────────────────────────────────────
 
@@ -458,20 +628,26 @@ const ProjectGradingReportPage = () => {
 
   const [sort, setSort] = useState({ key: "", dir: "asc" });
   const [selectedProjectId, setSelectedProjectId] = useState(null);
-
-  const [courses, setCourses] = useState([]);
-  const [instructors, setInstructors] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   const [exporting, setExporting] = useState(false);
 
-  // Load dropdown data
-  useEffect(() => {
-    adminGetCourseListing({ page: 1, limit: 200 })
-      .then((res) => setCourses(res?.courses ?? []))
-      .catch(() => {});
-    adminGetUserListing({ page: 1, limit: 200, role: "INSTRUCTOR" })
-      .then((res) => setInstructors(res?.rows ?? res?.users ?? []))
-      .catch(() => {});
+  const fetchCourseOptions = useCallback(async (query) => {
+    const res = await adminGetCourseListing({ search: query, limit: 50 });
+    return (res?.courses ?? []).map((c) => ({
+      id: c.courseId || c.id,
+      label: c.courseTitle || c.title || c.name,
+    }));
+  }, []);
+
+  const fetchInstructorOptions = useCallback(async (query) => {
+    const res = await adminGetInstructorReportDirectory({ search: query, limit: 50 });
+    const list = res?.data ?? [];
+    return list.map((u) => ({
+      id: u.userId || u.id,
+      label: u.fullName || u.name || `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+      sublabel: u.email ?? null,
+    }));
   }, []);
 
   const validateDates = useCallback((start, end) => {
@@ -706,135 +882,53 @@ const ProjectGradingReportPage = () => {
           }
         />
         <Flex gap={2}>
-          <Button
-            secondary
-            onClick={clearFilters}
-            isDisabled={!hasActiveFilters}
-            leftIcon={<FiX />}
-          >
-            Clear Filters
-          </Button>
-          <Select
-            size="sm"
-            placeholder="Export"
-            width="130px"
-            isDisabled={exporting || rows.length === 0}
-            onChange={(e) => {
-              if (e.target.value) handleExport(e.target.value);
-              e.target.value = "";
-            }}
-          >
-            <option value="csv">Export CSV</option>
-            <option value="xlsx">Export Excel</option>
-          </Select>
+         
+          <Menu>
+            <Button
+          size="sm"
+          secondary
+          onClick={() => {
+            fetchKpi(filters);
+            fetchTable(filters, page, limit, sort);
+          }}
+          leftIcon={<FiRefreshCw />}
+        >
+          Refresh
+        </Button>
+            <MenuButton
+              as="button"
+              disabled={exporting || rows.length === 0}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                backgroundColor: exporting || rows.length === 0 ? "#CBD5E0" : "#3182CE",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                padding: "0 12px",
+                height: "32px",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: exporting || rows.length === 0 ? "not-allowed" : "pointer",
+              }}
+            >
+              
+              <FiDownload size={14} />
+              Export
+              <FiChevronDown size={12} />
+            </MenuButton>
+            <MenuList>
+              <MenuItem onClick={() => handleExport("csv")}>Export CSV</MenuItem>
+              <MenuItem onClick={() => handleExport("xlsx")}>Export Excel</MenuItem>
+            </MenuList>
+          </Menu>
         </Flex>
       </Flex>
 
       <Heading level="2" mb={6}>
-        Project Grading Summary Report
+        Assignment Grading Summary 
       </Heading>
-
-      {/* ── Filter Bar ── */}
-      <Box bg="white" borderRadius="lg" p={4} mb={6} boxShadow="sm">
-        <Grid
-          templateColumns={{
-            base: "1fr",
-            md: "repeat(3, 1fr)",
-            lg: "repeat(6, 1fr)",
-          }}
-          gap={3}
-        >
-          <FormControl>
-            <FormLabel fontSize="xs">Course</FormLabel>
-            <Select
-              size="sm"
-              placeholder="All Courses"
-              value={filters.courseId}
-              onChange={(e) => handleFilterChange("courseId", e.target.value)}
-            >
-              {courses.map((c) => (
-                <option key={c.courseId || c.id} value={c.courseId || c.id}>
-                  {c.courseTitle || c.title || c.name}
-                </option>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl>
-            <FormLabel fontSize="xs">Instructor</FormLabel>
-            <Select
-              size="sm"
-              placeholder="All Instructors"
-              value={filters.instructorId}
-              onChange={(e) =>
-                handleFilterChange("instructorId", e.target.value)
-              }
-            >
-              {instructors.map((u) => (
-                <option key={u.userId || u.id} value={u.userId || u.id}>
-                  {u.fullName || u.name || u.email}
-                </option>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl isInvalid={!!dateError}>
-            <FormLabel fontSize="xs">Start Date</FormLabel>
-            <Input
-              size="sm"
-              type="date"
-              value={filters.startDate}
-              onChange={(e) => handleFilterChange("startDate", e.target.value)}
-            />
-          </FormControl>
-
-          <FormControl isInvalid={!!dateError}>
-            <FormLabel fontSize="xs">End Date</FormLabel>
-            <Input
-              size="sm"
-              type="date"
-              value={filters.endDate}
-              onChange={(e) => handleFilterChange("endDate", e.target.value)}
-            />
-          </FormControl>
-
-          <FormControl>
-            <FormLabel fontSize="xs">Grading Status</FormLabel>
-            <Select
-              size="sm"
-              value={filters.gradingStatus}
-              onChange={(e) =>
-                handleFilterChange("gradingStatus", e.target.value)
-              }
-            >
-              <option value="all">All</option>
-              <option value="pending">Pending</option>
-              <option value="graded">Graded</option>
-            </Select>
-          </FormControl>
-
-          <FormControl>
-            <FormLabel fontSize="xs">Refresh</FormLabel>
-            <Button
-              size="sm"
-              secondary
-              onClick={() => {
-                fetchKpi(filters);
-                fetchTable(filters, page, limit, sort);
-              }}
-              leftIcon={<FiRefreshCw />}
-            >
-              Refresh
-            </Button>
-          </FormControl>
-        </Grid>
-
-        {dateError && (
-          <Text color="red.500" fontSize="sm" mt={2}>
-            {dateError}
-          </Text>
-        )}
-      </Box>
 
       {/* ── KPI Cards ── */}
       {kpiError ? (
@@ -860,27 +954,23 @@ const ProjectGradingReportPage = () => {
           ) : (
             <>
               <DashboardMetricCard
-                label="Total Projects"
-                value={kpiData?.totalProjects ?? "—"}
+                title="Total Projects"
+                value={String(kpiData?.totalProjects ?? "—")}
               />
               <DashboardMetricCard
-                label="Total Submissions"
-                value={kpiData?.totalSubmissions ?? "—"}
+                title="Total Submissions"
+                value={String(kpiData?.totalSubmissions ?? "—")}
               />
               <DashboardMetricCard
-                label="Graded Submissions"
-                value={kpiData?.gradedSubmissions ?? "—"}
-                color="green"
+                title="Graded Submissions"
+                value={String(kpiData?.gradedSubmissions ?? "—")}
               />
               <DashboardMetricCard
-                label="Pending Grading"
-                value={kpiData?.pendingGrading ?? "—"}
-                color={
-                  (kpiData?.pendingGrading ?? 0) > 0 ? "orange" : undefined
-                }
+                title="Pending Grading"
+                value={String(kpiData?.pendingGrading ?? "—")}
               />
               <DashboardMetricCard
-                label="Avg Project Score"
+                title="Avg Project Score"
                 value={
                   kpiData?.averageProjectScore != null
                     ? `${kpiData.averageProjectScore}%`
@@ -888,23 +978,114 @@ const ProjectGradingReportPage = () => {
                 }
               />
               <DashboardMetricCard
-                label="Feedback Coverage"
+                title="Feedback Coverage"
                 value={
                   kpiData?.feedbackCoverage != null
                     ? `${kpiData.feedbackCoverage}%`
                     : "—"
                 }
-                color={
-                  kpiData?.feedbackCoverage < 50
-                    ? "red"
-                    : kpiData?.feedbackCoverage < 80
-                      ? "orange"
-                      : undefined
-                }
               />
             </>
           )}
         </SimpleGrid>
+      )}
+
+      {/* ── Filter Toggle ── */}
+      <Flex gap={3} mb={4} alignItems="center">
+        <Button
+          size="sm"
+          secondary
+          leftIcon={<FiFilter />}
+          onClick={() => setShowFilters((v) => !v)}
+          colorScheme={hasActiveFilters ? "blue" : "gray"}
+          bg="white"
+        >
+          Filters{hasActiveFilters ? ` (${Object.entries(filters).filter(([k, v]) => v && !(k === "gradingStatus" && v === "all")).length})` : ""}
+        </Button>
+        
+      </Flex>
+
+      {/* ── Filter Panel ── */}
+      {showFilters && (
+        <Box bg="gray.50" border="1px" borderColor="gray.200" p={4} borderRadius="md" mb={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "repeat(3, 1fr)",
+              lg: "repeat(5, 1fr)",
+            }}
+            gap={3}
+          >
+            <FormControl>
+              <FormLabel fontSize="xs">Course</FormLabel>
+              <EntityCombobox
+                fetchFn={fetchCourseOptions}
+                value={filters.courseId}
+                onSelect={(opt) => handleFilterChange("courseId", opt ? opt.id : "")}
+                placeholder="Search course..."
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel fontSize="xs">Instructor</FormLabel>
+              <EntityCombobox
+                fetchFn={fetchInstructorOptions}
+                value={filters.instructorId}
+                onSelect={(opt) => handleFilterChange("instructorId", opt ? opt.id : "")}
+                placeholder="Search instructor..."
+              />
+            </FormControl>
+
+            <FormControl isInvalid={!!dateError}>
+              <FormLabel fontSize="xs">Start Date</FormLabel>
+              <Input
+                size="sm"
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => handleFilterChange("startDate", e.target.value)}
+              />
+            </FormControl>
+
+            <FormControl isInvalid={!!dateError}>
+              <FormLabel fontSize="xs">End Date</FormLabel>
+              <Input
+                size="sm"
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => handleFilterChange("endDate", e.target.value)}
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel fontSize="xs">Grading Status</FormLabel>
+              <Select
+                size="sm"
+                value={filters.gradingStatus}
+                onChange={(e) => handleFilterChange("gradingStatus", e.target.value)}
+              >
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="graded">Graded</option>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {dateError && (
+            <Text color="red.500" fontSize="sm" mt={2}>
+              {dateError}
+            </Text>
+          )}
+
+          <Flex mt={3} gap={2}>
+            <Button
+              size="sm"
+              onClick={() => { setPage(1); fetchKpi(filters); fetchTable(filters, 1, limit, sort); }}
+            >
+              Apply Filters
+            </Button>
+            <Button size="sm" secondary onClick={clearFilters}>Clear</Button>
+          </Flex>
+        </Box>
       )}
 
       {/* ── Table ── */}
@@ -973,7 +1154,7 @@ const ProjectGradingReportPage = () => {
             <Table size="sm">
               <Thead bg="gray.50">
                 <Tr>
-                  <Th>Project Title</Th>
+                  <Th>Assessment Title</Th>
                   <Th>Module</Th>
                   <Th>Course</Th>
                   <Th>Instructor</Th>
@@ -1019,7 +1200,7 @@ const ProjectGradingReportPage = () => {
                     Feedback % <SortIcon colKey="feedbackProvidedPercentage" />
                   </Th>
                   <Th>Grading Status</Th>
-                  <Th>Project Status</Th>
+                  <Th>Assessment Status</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -1032,9 +1213,7 @@ const ProjectGradingReportPage = () => {
                   >
                     <Td>
                       <Text
-                        color="blue.600"
                         fontWeight="medium"
-                        _hover={{ textDecoration: "underline" }}
                         noOfLines={2}
                         maxW="200px"
                       >

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Route } from "react-router-dom";
 import {
   Box,
@@ -36,9 +36,9 @@ import { Button, Heading, Spinner } from "../../../../components";
 import {
   adminGetEnrollmentStatusStudents,
   adminGetEnrollmentStatusCourses,
-  adminListCoursesForReport,
+  adminGetCourseListing,
   adminGetDepartmentListing,
-  adminGetUserListing,
+  adminGetInstructorReportDirectory,
 } from "../../../../services";
 import dayjs from "dayjs";
 
@@ -93,6 +93,92 @@ const KpiCard = ({ icon: Icon, label, value, iconColor = "#660066" }) => (
     <ChakraText fontSize="26px" fontWeight="700" color="#101928">{value ?? "—"}</ChakraText>
   </Box>
 );
+
+const SearchableSelect = ({ value, options, onChange, placeholder }) => {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
+
+  useEffect(() => {
+    setQuery(value ? selectedLabel : "");
+  }, [value, selectedLabel]);
+
+  const filtered = query
+    ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setQuery(value ? selectedLabel : "");
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [value, selectedLabel]);
+
+  return (
+    <Box ref={containerRef} position="relative">
+      <Input
+        size="sm"
+        borderRadius="md"
+        bg="white"
+        value={query}
+        placeholder={placeholder}
+        autoComplete="off"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIsOpen(true);
+          if (e.target.value === "") onChange("");
+        }}
+        onFocus={() => setIsOpen(true)}
+      />
+      {isOpen && (
+        <Box
+          position="absolute"
+          top="100%"
+          left={0}
+          right={0}
+          zIndex={200}
+          bg="white"
+          border="1px solid #E4E7EC"
+          borderRadius="md"
+          boxShadow="md"
+          maxH="200px"
+          overflowY="auto"
+          mt="2px"
+        >
+          {filtered.length === 0 ? (
+            <Box px={3} py={2} fontSize="13px" color="#667085">No results</Box>
+          ) : (
+            filtered.map((o) => (
+              <Box
+                key={o.value}
+                px={3}
+                py="7px"
+                fontSize="13px"
+                cursor="pointer"
+                bg={o.value === value ? "#F3E8FF" : "white"}
+                _hover={{ bg: o.value === value ? "#F3E8FF" : "#F9FAFB" }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(o.value);
+                  setQuery(o.label);
+                  setIsOpen(false);
+                }}
+              >
+                {o.label}
+              </Box>
+            ))
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
 
 const CollapsibleFilterBar = ({ filters, onChange, onApply, onReset, isOpen, onToggle }) => {
   const activeCount = filters.filter((f) => f.value && f.value !== "").length;
@@ -164,7 +250,17 @@ const CollapsibleFilterBar = ({ filters, onChange, onApply, onReset, isOpen, onT
         >
           <Flex gap={3} flexWrap="wrap" align="flex-end">
             {filters.map((f) =>
-              f.type === "select" ? (
+              f.type === "searchable-select" ? (
+                <Box key={f.key} minW="200px">
+                  <ChakraText fontSize="12px" fontWeight="500" color="#667085" mb={1}>{f.label}</ChakraText>
+                  <SearchableSelect
+                    value={f.value}
+                    options={f.options}
+                    onChange={(val) => onChange(f.key, val)}
+                    placeholder={`Search ${f.label}…`}
+                  />
+                </Box>
+              ) : f.type === "select" ? (
                 <Box key={f.key} minW="160px">
                   <ChakraText fontSize="12px" fontWeight="500" color="#667085" mb={1}>{f.label}</ChakraText>
                   <Select size="sm" borderRadius="md" value={f.value} onChange={(e) => onChange(f.key, e.target.value)} placeholder={`All ${f.label}`} bg="white">
@@ -277,13 +373,13 @@ const CourseCompletionReportPage = () => {
 
   useEffect(() => {
     Promise.allSettled([
-      adminListCoursesForReport(),
+      adminGetCourseListing({ page: 1, limit: 200 }),
       adminGetDepartmentListing(),
-      adminGetUserListing({ page: 1, limit: 200, role: "INSTRUCTOR" }),
+      adminGetInstructorReportDirectory({ limit: 200 }),
     ]).then(([coursesRes, deptsRes, usersRes]) => {
-      if (coursesRes.status === "fulfilled") setCourses(coursesRes.value?.rows ?? []);
+      if (coursesRes.status === "fulfilled") setCourses(coursesRes.value?.courses ?? []);
       if (deptsRes.status === "fulfilled") setDepartments(deptsRes.value?.departments ?? []);
-      if (usersRes.status === "fulfilled") setInstructors(usersRes.value?.users ?? []);
+      if (usersRes.status === "fulfilled") setInstructors(usersRes.value?.data ?? []);
     });
   }, []);
 
@@ -382,9 +478,9 @@ const CourseCompletionReportPage = () => {
   }));
 
   const sharedFilterDefs = (filters) => [
-    { key: "courseId", label: "Course", type: "select", value: filters.courseId, options: courseOptions },
-    { key: "departmentId", label: "Department", type: "select", value: filters.departmentId, options: departmentOptions },
-    { key: "instructorId", label: "Instructor", type: "select", value: filters.instructorId, options: instructorOptions },
+    { key: "courseId", label: "Course", type: "searchable-select", value: filters.courseId, options: courseOptions },
+    { key: "departmentId", label: "Department", type: "searchable-select", value: filters.departmentId, options: departmentOptions },
+    { key: "instructorId", label: "Instructor", type: "searchable-select", value: filters.instructorId, options: instructorOptions },
   ];
 
   // ── Render ────────────────────────────────────────────────────────────────
