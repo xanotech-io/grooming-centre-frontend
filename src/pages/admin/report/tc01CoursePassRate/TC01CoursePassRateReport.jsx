@@ -181,7 +181,7 @@ const TC01CoursePassRateReport = () => {
     ]).then(([coursesRes, deptsRes, usersRes]) => {
       if (coursesRes.status === "fulfilled") setCourses(coursesRes.value?.rows ?? []);
       if (deptsRes.status === "fulfilled") setDepartments(deptsRes.value?.departments ?? []);
-      if (usersRes.status === "fulfilled") setInstructors(usersRes.value?.rows ?? usersRes.value?.instructors ?? (Array.isArray(usersRes.value) ? usersRes.value : []));
+      if (usersRes.status === "fulfilled") setInstructors(usersRes.value?.data ?? []);
     });
   }, []);
 

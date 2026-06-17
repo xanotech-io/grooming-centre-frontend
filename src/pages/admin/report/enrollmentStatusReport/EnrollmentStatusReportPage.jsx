@@ -352,7 +352,7 @@ const EnrollmentStatusReportPage = () => {
     ]).then(([coursesRes, deptsRes, instructorsRes]) => {
       if (coursesRes.status === "fulfilled") setCourses(coursesRes.value?.rows ?? []);
       if (deptsRes.status === "fulfilled") setDepartments(deptsRes.value?.departments ?? []);
-      if (instructorsRes.status === "fulfilled") setInstructors(instructorsRes.value?.rows ?? instructorsRes.value?.instructors ?? (Array.isArray(instructorsRes.value) ? instructorsRes.value : []));
+      if (instructorsRes.status === "fulfilled") setInstructors(instructorsRes.value?.data ?? []);
     });
   }, []);
 

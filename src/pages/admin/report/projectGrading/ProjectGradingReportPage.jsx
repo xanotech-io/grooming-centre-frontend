@@ -470,7 +470,7 @@ const ProjectGradingReportPage = () => {
       .then((res) => setCourses(res?.courses ?? []))
       .catch(() => {});
     adminGetInstructorReportDirectory({ limit: 200 })
-      .then((res) => setInstructors(res?.rows ?? res?.instructors ?? (Array.isArray(res) ? res : [])))
+      .then((res) => setInstructors(res?.data ?? []))
       .catch(() => {});
   }, []);
 

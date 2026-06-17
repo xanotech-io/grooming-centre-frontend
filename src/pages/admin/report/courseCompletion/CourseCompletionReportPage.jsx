@@ -379,7 +379,7 @@ const CourseCompletionReportPage = () => {
     ]).then(([coursesRes, deptsRes, usersRes]) => {
       if (coursesRes.status === "fulfilled") setCourses(coursesRes.value?.courses ?? []);
       if (deptsRes.status === "fulfilled") setDepartments(deptsRes.value?.departments ?? []);
-      if (usersRes.status === "fulfilled") setInstructors(usersRes.value?.rows ?? usersRes.value?.instructors ?? (Array.isArray(usersRes.value) ? usersRes.value : []));
+      if (usersRes.status === "fulfilled") setInstructors(usersRes.value?.data ?? []);
     });
   }, []);
 

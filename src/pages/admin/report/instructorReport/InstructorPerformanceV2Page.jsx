@@ -413,7 +413,7 @@ const InstructorPerformanceV2Page = () => {
 
   const fetchInstructors = useCallback(async (query) => {
     const res = await adminGetInstructorReportDirectory({ search: query, limit: 50 });
-    const list = res?.rows ?? res?.instructors ?? (Array.isArray(res) ? res : []);
+    const list = res?.data ?? [];
     return list.map((i) => ({
       id: i.id ?? i.instructor_id,
       label: i.name ?? `${i.firstName ?? ""} ${i.lastName ?? ""}`.trim() ?? i.instructor_name,
