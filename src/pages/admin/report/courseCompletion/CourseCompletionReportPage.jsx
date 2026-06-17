@@ -478,9 +478,9 @@ const CourseCompletionReportPage = () => {
   }));
 
   const sharedFilterDefs = (filters) => [
-    { key: "courseId", label: "Course", type: "searchable-select", value: filters.courseId, options: [{ value: "", label: "All Courses" }, ...courseOptions] },
-    { key: "departmentId", label: "Department", type: "select", value: filters.departmentId, options: departmentOptions },
-    { key: "instructorId", label: "Instructor", type: "searchable-select", value: filters.instructorId, options: [{ value: "", label: "All Instructors" }, ...instructorOptions] },
+    { key: "courseId", label: "Course", type: "searchable-select", value: filters.courseId, options: courseOptions },
+    { key: "departmentId", label: "Department", type: "searchable-select", value: filters.departmentId, options: departmentOptions },
+    { key: "instructorId", label: "Instructor", type: "searchable-select", value: filters.instructorId, options: instructorOptions },
   ];
 
   // ── Render ────────────────────────────────────────────────────────────────
