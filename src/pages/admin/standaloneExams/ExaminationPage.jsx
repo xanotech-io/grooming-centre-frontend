@@ -120,12 +120,12 @@ const StatCard = ({ label, value, sub, subColor }) => (
 const COLUMNS = [
   { label: "Exam Title", flex: "2" },
   { label: "Marking Mode", flex: "1.2" },
-  { label: "Duration (mins)", flex: "1" },
-  { label: "Questions", flex: "1" },
-  { label: "Participants", flex: "1" },
+  { label: "Duration (mins)", flex: "1", align: "right" },
+  { label: "Questions", flex: "1", align: "right" },
+  { label: "Participants", flex: "1", align: "right" },
   { label: "Start Date", flex: "1.5" },
-  { label: "Status", flex: "1.2" },
-  { label: "Action", flex: "0.5", align: "center" },
+  { label: "Status", flex: "1.2", align: "center" },
+  { label: "Action", flex: "1.5", align: "center" },
 ];
 
 const ExaminationPage = () => {
@@ -299,7 +299,7 @@ const ExaminationPage = () => {
 
         {!loading && !error && examinations.length > 0 && (
           <Box overflowX="auto">
-            <Box minW="900px">
+            <Box minW="1100px">
               {/* Header row */}
               <Flex
                 px={4}
@@ -373,19 +373,19 @@ const ExaminationPage = () => {
                       </Text>
                     </Box>
                     {/* Duration */}
-                    <Box flex="1">
+                    <Box flex="1" textAlign="right">
                       <Text fontSize="14px" color="#1A202C">
                         {exam.duration != null ? `${exam.duration}` : "—"}
                       </Text>
                     </Box>
                     {/* Questions */}
-                    <Box flex="1">
+                    <Box flex="1" textAlign="right">
                       <Text fontSize="14px" color="#1A202C">
                         {exam.amountOfQuestions ?? "—"}
                       </Text>
                     </Box>
                     {/* Participants */}
-                    <Box flex="1">
+                    <Box flex="1" textAlign="right">
                       <Text fontSize="14px" color="#1A202C">
                         {exam.noOfUsers ?? 0}
                       </Text>
@@ -399,28 +399,25 @@ const ExaminationPage = () => {
                       </Text>
                     </Box>
                     {/* Status */}
-                    <Box flex="1.2">
+                    <Box flex="1.2" display="flex" justifyContent="center">
                       <StatusBadge
                         active={exam.active}
                         isPublished={exam.isPublished}
                       />
                     </Box>
                     {/* Action */}
-                    <Box flex="0.5" display="flex" justifyContent="center">
-                      {/* <ActionMenu
-                                                rowIndex={i}
-                                                openMenu={openMenu}
-                                                setOpenMenu={setOpenMenu}
-                                                analysisHref={`/admin/exam-result-analysis/${exam.id}`}
-                                                onClick={() => setOpenMenu(i === openMenu ? null : i)}
-                                            /> */}
-
-                      <Button bg="#6b006b" className="bg-[#6b006b] text-white">
-                        <RouterLink
-                          to={`/admin/exam-result-analysis/${exam.id}`}
-                        >
-                          View Analysis
-                        </RouterLink>
+                    <Box flex="1.5" display="flex" justifyContent="center">
+                      <Button
+                        as={RouterLink}
+                        to={`/admin/exam-result-analysis/${exam.id}`}
+                        bg="#6b006b"
+                        color="white"
+                        size="sm"
+                        fontSize="13px"
+                        whiteSpace="nowrap"
+                        _hover={{ bg: "#5a0059", textDecoration: "none" }}
+                      >
+                        View Analysis
                       </Button>
                     </Box>
                   </Flex>

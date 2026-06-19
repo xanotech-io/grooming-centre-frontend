@@ -112,7 +112,7 @@ function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
 
   return (
     <Box ref={containerRef} position="relative">
-      <Flex border="1px solid" borderColor="gray.200" borderRadius="md" alignItems="center" px={2} bg="white" h="32px"
+      <Flex border="1px solid" borderColor="gray.200" borderRadius="md" alignItems="center" px={2} bg="white" h="38px"
         _focusWithin={{ borderColor: "purple.400", boxShadow: "0 0 0 1px #660066" }}>
         <Input border="none" px={0} size="sm" h="auto" _focus={{ boxShadow: "none" }}
           value={displayValue} onChange={handleInputChange} onFocus={handleFocus}
@@ -127,7 +127,7 @@ function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
       </Flex>
       {isOpen && (
         <Box position="absolute" top="calc(100% + 4px)" left={0} right={0} bg="white"
-          border="1px solid #E2E8F0" borderRadius="md" boxShadow="md" zIndex={1500} maxH="220px" overflowY="auto">
+          border="1px solid #E2E8F0" borderRadius="md" boxShadow="md" zIndex={1500} maxH="320px" overflowY="auto">
           {loading && (
             <Flex alignItems="center" gap={2} px={3} py={2}>
               <ChakraSpinner size="xs" />

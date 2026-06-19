@@ -1,8 +1,16 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useMemo, useState } from "react";
 import { Route } from "react-router-dom";
 import AssessmentTabBar from "./AssessmentTabBar";
 import { Box, Flex, SimpleGrid } from "@chakra-ui/layout";
-import { BreadcrumbItem, Select, Tag, useToast } from "@chakra-ui/react";
+import {
+  BreadcrumbItem,
+  Input,
+  Select,
+  Spinner as ChakraSpinner,
+  Tag,
+  useToast,
+} from "@chakra-ui/react";
+import { FiChevronDown, FiX } from "react-icons/fi";
 import {
   Breadcrumb,
   Button,
@@ -16,10 +24,10 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import {
   adminGetAssessmentOverview,
   adminGetDepartmentListing,
+  adminGetInstructorReportDirectory,
+  adminGetStudents,
   adminListCoursesForReport,
   adminListModules,
-  adminGetStudents,
-  adminGetInstructorReportDirectory,
 } from "../../../../services";
 import dayjs from "dayjs";
 
@@ -52,24 +60,168 @@ const TD = ({ children }) => (
   </Box>
 );
 
+// ── EntityCombobox ─────────────────────────────────────────────────────────────
+
+function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
+  const [inputValue, setInputValue] = useState("");
+  const [options, setOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  const selectedOption = useMemo(
+    () => options.find((o) => o.id === value) ?? null,
+    [options, value],
+  );
+
+  useEffect(() => {
+    if (!value) setInputValue("");
+  }, [value]);
+
+  const filtered = useMemo(() => {
+    if (!inputValue || selectedOption) return options;
+    const q = inputValue.toLowerCase();
+    return options.filter(
+      (o) => o.label.toLowerCase().includes(q) || (o.sublabel ?? "").toLowerCase().includes(q),
+    );
+  }, [options, inputValue, selectedOption]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const doFetch = useCallback(async (query) => {
+    setLoading(true);
+    try { setOptions(await fetchFn(query)); }
+    catch { setOptions([]); }
+    finally { setLoading(false); }
+  }, [fetchFn]);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputValue(val);
+    if (value) onSelect(null);
+    setIsOpen(true);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doFetch(val), 350);
+  };
+
+  const handleFocus = () => {
+    if (!value) { setIsOpen(true); if (options.length === 0) doFetch(""); }
+  };
+
+  const displayValue = selectedOption
+    ? `${selectedOption.label}${selectedOption.sublabel ? ` — ${selectedOption.sublabel}` : ""}`
+    : value || inputValue;
+
+  return (
+    <Box ref={containerRef} position="relative">
+      <Flex
+        border="1px solid"
+        borderColor="gray.200"
+        borderRadius="md"
+        alignItems="center"
+        px={2}
+        bg="white"
+        h="32px"
+        _focusWithin={{ borderColor: "purple.400", boxShadow: "0 0 0 1px #660066" }}
+      >
+        <Input
+          border="none"
+          px={0}
+          size="sm"
+          h="auto"
+          _focus={{ boxShadow: "none" }}
+          value={displayValue}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          placeholder={placeholder || "Search..."}
+          readOnly={!!value}
+        />
+        {loading && <ChakraSpinner size="xs" color="gray.400" mr={1} />}
+        {value ? (
+          <Box
+            as="button"
+            type="button"
+            onClick={() => { onSelect(null); setInputValue(""); setOptions([]); setIsOpen(false); }}
+            color="gray.400"
+            _hover={{ color: "gray.600" }}
+            ml={1}
+            flexShrink={0}
+          >
+            <FiX size={12} />
+          </Box>
+        ) : (
+          <Box color="gray.400" ml={1} flexShrink={0}><FiChevronDown size={12} /></Box>
+        )}
+      </Flex>
+      {isOpen && (
+        <Box
+          position="absolute"
+          top="calc(100% + 4px)"
+          left={0}
+          right={0}
+          bg="white"
+          border="1px solid #E2E8F0"
+          borderRadius="md"
+          boxShadow="md"
+          zIndex={1500}
+          maxH="220px"
+          overflowY="auto"
+        >
+          {loading && (
+            <Flex alignItems="center" gap={2} px={3} py={2}>
+              <ChakraSpinner size="xs" />
+              <Text fontSize="12px" color="gray.500">Loading...</Text>
+            </Flex>
+          )}
+          {!loading && filtered.length === 0 && (
+            <Text fontSize="12px" color="gray.500" px={3} py={2}>No results found</Text>
+          )}
+          {!loading && filtered.map((opt) => (
+            <Box
+              key={opt.id}
+              px={3}
+              py="6px"
+              cursor="pointer"
+              _hover={{ bg: "purple.50" }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelect(opt);
+                setInputValue("");
+                setIsOpen(false);
+              }}
+            >
+              <Text fontSize="13px" fontWeight="500">{opt.label}</Text>
+              {opt.sublabel && <Text fontSize="11px" color="gray.500">{opt.sublabel}</Text>}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────────
+
 const AssessmentOverviewPage = () => {
   const toast = useToast();
 
-  // Filter option lists
-  const [courses, setCourses] = useState([]);
-  const [modules, setModules] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [students, setStudents] = useState([]);
-  const [instructors, setInstructors] = useState([]);
-  const [filtersLoading, setFiltersLoading] = useState(true);
-  const [modulesLoading, setModulesLoading] = useState(false);
-
-  // Active filter values
+  // Filter values
   const [courseId, setCourseId] = useState("");
   const [moduleId, setModuleId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [studentId, setStudentId] = useState("");
   const [instructorId, setInstructorId] = useState("");
+
+  // Modules (loaded after course selection)
+  const [modules, setModules] = useState([]);
+  const [modulesLoading, setModulesLoading] = useState(false);
 
   // Report data
   const [loading, setLoading] = useState(true);
@@ -82,32 +234,39 @@ const AssessmentOverviewPage = () => {
   const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
   const pageSlice = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // Load static filter options on mount
-  useEffect(() => {
-    Promise.allSettled([
-      adminListCoursesForReport(),
-      adminGetDepartmentListing(),
-      adminGetStudents({ limit: 500 }),
-      adminGetInstructorReportDirectory({ limit: 500 }),
-    ]).then(([coursesRes, deptsRes, studentsRes, instructorsRes]) => {
-      if (coursesRes.status === "fulfilled") setCourses(coursesRes.value.rows ?? []);
-      if (deptsRes.status === "fulfilled") setDepartments(deptsRes.value.departments ?? []);
-      if (studentsRes.status === "fulfilled") setStudents(studentsRes.value.students ?? []);
-      if (instructorsRes.status === "fulfilled") {
-        const raw = instructorsRes.value;
-        setInstructors(
-          (raw.data ?? []).map((i) => ({
-            id: i.id,
-            name: i.firstName && i.lastName
-              ? `${i.firstName} ${i.lastName}`.trim()
-              : i.name ?? "—",
-          }))
-        );
-      }
-    }).finally(() => setFiltersLoading(false));
+  // ── Combobox fetch functions ─────────────────────────────────────────────────
+
+  const fetchCourseOptions = useCallback(async (query) => {
+    const res = await adminListCoursesForReport({ search: query, limit: 50 });
+    return (res?.rows ?? []).map((c) => ({ id: c.id, label: c.title }));
   }, []);
 
-  // Fetch modules whenever the selected course changes
+  const fetchDepartmentOptions = useCallback(async (query) => {
+    const res = await adminGetDepartmentListing({ search: query });
+    return (res?.departments ?? []).map((d) => ({ id: d.id, label: d.name }));
+  }, []);
+
+  const fetchStudentOptions = useCallback(async (query) => {
+    const res = await adminGetStudents({ search: query, limit: 50 });
+    return (res?.students ?? []).map((s) => ({
+      id: s.id ?? s.userId,
+      label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.email,
+      sublabel: s.email ?? null,
+    }));
+  }, []);
+
+  const fetchInstructorOptions = useCallback(async (query) => {
+    const res = await adminGetInstructorReportDirectory({ search: query, limit: 50 });
+    const list = res?.data ?? [];
+    return list.map((i) => ({
+      id: i.id ?? i.instructor_id,
+      label: (i.name ?? `${i.firstName ?? ""} ${i.lastName ?? ""}`.trim()) || i.instructor_name,
+      sublabel: i.email ?? i.instructor_email ?? null,
+    }));
+  }, []);
+
+  // ── Load modules when course changes ────────────────────────────────────────
+
   useEffect(() => {
     setModuleId("");
     setModules([]);
@@ -219,27 +378,22 @@ const AssessmentOverviewPage = () => {
           Filter Report
         </Text>
         <Flex gap={4} flexWrap="wrap" alignItems="flex-end">
+
           {/* Course */}
-          <Box minW={{ base: "100%", md: "200px" }} flex="1">
+          <Box minW={{ base: "100%", md: "180px" }} flex="1">
             <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
               Course
             </Text>
-            <Select
-              placeholder={filtersLoading ? "Loading..." : "All courses"}
+            <EntityCombobox
+              fetchFn={fetchCourseOptions}
               value={courseId}
-              onChange={(e) => setCourseId(e.target.value)}
-              isDisabled={filtersLoading}
-              size="sm"
-              borderRadius="md"
-            >
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>{c.title}</option>
-              ))}
-            </Select>
+              onSelect={(opt) => setCourseId(opt ? opt.id : "")}
+              placeholder="Search course..."
+            />
           </Box>
 
           {/* Course Module */}
-          <Box minW={{ base: "100%", md: "200px" }} flex="1">
+          <Box minW={{ base: "100%", md: "180px" }} flex="1">
             <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
               Course Module
             </Text>
@@ -268,18 +422,12 @@ const AssessmentOverviewPage = () => {
             <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
               Department
             </Text>
-            <Select
-              placeholder={filtersLoading ? "Loading..." : "All departments"}
+            <EntityCombobox
+              fetchFn={fetchDepartmentOptions}
               value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              isDisabled={filtersLoading}
-              size="sm"
-              borderRadius="md"
-            >
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </Select>
+              onSelect={(opt) => setDepartmentId(opt ? opt.id : "")}
+              placeholder="Search department..."
+            />
           </Box>
 
           {/* Student */}
@@ -287,41 +435,25 @@ const AssessmentOverviewPage = () => {
             <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
               Student
             </Text>
-            <Select
-              placeholder={filtersLoading ? "Loading..." : "All students"}
+            <EntityCombobox
+              fetchFn={fetchStudentOptions}
               value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              isDisabled={filtersLoading}
-              size="sm"
-              borderRadius="md"
-            >
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.firstName && s.lastName
-                    ? `${s.firstName} ${s.lastName}`.trim()
-                    : s.name ?? s.email ?? s.id}
-                </option>
-              ))}
-            </Select>
+              onSelect={(opt) => setStudentId(opt ? opt.id : "")}
+              placeholder="Search student..."
+            />
           </Box>
 
-          {/* Course Instructor */}
+          {/* Instructor */}
           <Box minW={{ base: "100%", md: "180px" }} flex="1">
             <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
               Instructor
             </Text>
-            <Select
-              placeholder={filtersLoading ? "Loading..." : "All instructors"}
+            <EntityCombobox
+              fetchFn={fetchInstructorOptions}
               value={instructorId}
-              onChange={(e) => setInstructorId(e.target.value)}
-              isDisabled={filtersLoading}
-              size="sm"
-              borderRadius="md"
-            >
-              {instructors.map((i) => (
-                <option key={i.id} value={i.id}>{i.name}</option>
-              ))}
-            </Select>
+              onSelect={(opt) => setInstructorId(opt ? opt.id : "")}
+              placeholder="Search instructor..."
+            />
           </Box>
 
           <Flex gap={2} alignSelf="flex-end">

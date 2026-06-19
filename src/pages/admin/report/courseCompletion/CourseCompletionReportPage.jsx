@@ -123,7 +123,7 @@ const SearchableSelect = ({ value, options, onChange, placeholder }) => {
   return (
     <Box ref={containerRef} position="relative">
       <Input
-        size="sm"
+        size="md"
         borderRadius="md"
         bg="white"
         value={query}
@@ -147,7 +147,7 @@ const SearchableSelect = ({ value, options, onChange, placeholder }) => {
           border="1px solid #E4E7EC"
           borderRadius="md"
           boxShadow="md"
-          maxH="200px"
+          maxH="400px"
           overflowY="auto"
           mt="2px"
         >
@@ -240,13 +240,14 @@ const CollapsibleFilterBar = ({ filters, onChange, onApply, onReset, isOpen, onT
         )}
       </Flex>
 
-      <Collapse in={isOpen} animateOpacity>
+      <Collapse in={isOpen} animateOpacity style={{ overflow: "visible" }}>
         <Box
           mt={2}
           p={4}
           bg="#FAFAFA"
           border="1px solid #E4E7EC"
           borderRadius="lg"
+          overflow="visible"
         >
           <Flex gap={3} flexWrap="wrap" align="flex-end">
             {filters.map((f) =>
