@@ -452,15 +452,15 @@ const AssessmentAnalyticsPage = () => {
       <Table size="sm" variant="simple" bg="white">
         <Thead bg="white">
           <Tr>
-            <Th>Question</Th>
-            <Th>Type</Th>
-            <Th>Difficulty</Th>
+            <Th w="280px">Question</Th>
+            <Th textAlign="center" whiteSpace="nowrap">Type</Th>
+            <Th textAlign="center" whiteSpace="nowrap">Difficulty</Th>
             <Th>Exam / Assessment</Th>
-            <Th>Attempts</Th>
-            <Th>Success Rate</Th>
-            <Th>Avg Time</Th>
-            <Th>Disc. Index</Th>
-            <Th>Status</Th>
+            <Th isNumeric whiteSpace="nowrap">Attempts</Th>
+            <Th isNumeric whiteSpace="nowrap">Success Rate</Th>
+            <Th isNumeric whiteSpace="nowrap">Avg Time</Th>
+            <Th isNumeric whiteSpace="nowrap">Disc. Index</Th>
+            <Th textAlign="center" whiteSpace="nowrap">Status</Th>
           </Tr>
         </Thead>
         <Tbody>
@@ -478,21 +478,21 @@ const AssessmentAnalyticsPage = () => {
                 cursor="pointer"
                 onClick={() => { setDetailQuestion(row); openDetail(); }}
               >
-                <Td maxW="260px">
+                <Td maxW="280px">
                   <Tooltip label={row.question_text} placement="top">
                     <Text fontSize="sm" noOfLines={2}>{row.question_text}</Text>
                   </Tooltip>
                 </Td>
-                <Td><Badge colorScheme="gray" fontSize="xs">{TYPE_LABELS[row.question_type] ?? row.question_type}</Badge></Td>
-                <Td><Badge colorScheme={DIFFICULTY_COLORS[row.difficulty_level] ?? "gray"}>{row.difficulty_level ?? "—"}</Badge></Td>
+                <Td textAlign="center"><Badge colorScheme="gray" fontSize="xs">{TYPE_LABELS[row.question_type] ?? row.question_type}</Badge></Td>
+                <Td textAlign="center"><Badge colorScheme={DIFFICULTY_COLORS[row.difficulty_level] ?? "gray"}>{row.difficulty_level ?? "—"}</Badge></Td>
                 <Td>
                   <Text fontSize="xs">{row.exam_title ?? "—"}</Text>
                 </Td>
-                <Td>{fmt(row.total_attempts)}</Td>
-                <Td>{row.correct_response_rate != null ? `${row.correct_response_rate}%` : "—"}</Td>
-                <Td>{row.average_time_seconds != null ? `${row.average_time_seconds}s` : "—"}</Td>
-                <Td>{row.discrimination_index != null ? row.discrimination_index.toFixed(2) : "—"}</Td>
-                <Td><Badge colorScheme={STATUS_COLORS[row.status] ?? "gray"}>{row.status}</Badge></Td>
+                <Td isNumeric>{fmt(row.total_attempts)}</Td>
+                <Td isNumeric>{row.correct_response_rate != null ? `${row.correct_response_rate}%` : "—"}</Td>
+                <Td isNumeric>{row.average_time_seconds != null ? `${row.average_time_seconds}s` : "—"}</Td>
+                <Td isNumeric>{row.discrimination_index != null ? row.discrimination_index.toFixed(2) : "—"}</Td>
+                <Td textAlign="center"><Badge colorScheme={STATUS_COLORS[row.status] ?? "gray"}>{row.status}</Badge></Td>
               </Tr>
             ))
           )}
@@ -560,6 +560,15 @@ const AssessmentAnalyticsPage = () => {
                 placeholder="Search course..."
               />
             </FormControl>
+             <FormControl>
+              <FormLabel fontSize="xs">Assessment</FormLabel>
+              <EntityCombobox
+                fetchFn={fetchAssessmentOptions}
+                value={filters.assessmentId}
+                onSelect={(opt) => setFilters((p) => ({ ...p, assessmentId: opt ? opt.id : "" }))}
+                placeholder="Search assessment..."
+              />
+            </FormControl>
             <FormControl>
               <FormLabel fontSize="xs">Exam</FormLabel>
               <EntityCombobox
@@ -569,15 +578,7 @@ const AssessmentAnalyticsPage = () => {
                 placeholder="Search exam..."
               />
             </FormControl>
-            <FormControl>
-              <FormLabel fontSize="xs">Assessment</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchAssessmentOptions}
-                value={filters.assessmentId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, assessmentId: opt ? opt.id : "" }))}
-                placeholder="Search assessment..."
-              />
-            </FormControl>
+           
             <FormControl>
               <FormLabel fontSize="xs">Standalone Exam</FormLabel>
               <EntityCombobox

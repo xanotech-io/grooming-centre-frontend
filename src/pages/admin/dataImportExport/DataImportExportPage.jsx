@@ -39,7 +39,6 @@ import {
   createExportReport,
   getDataImport,
   getDataImportExportKpis,
-  getDataImports,
   getExportReport,
   getExportReports,
   uploadDataImport,
@@ -53,7 +52,6 @@ import {
   FiChevronRight,
   FiEye,
   FiDatabase,
-  FiFileText,
   FiFilter,
 } from "react-icons/fi";
 import dayjs from "dayjs";
@@ -164,7 +162,6 @@ const KpiTab = () => {
 
   const exp = kpis?.exports ?? {};
   const imp = kpis?.imports ?? {};
-  const failed = (exp.failed ?? 0) + (imp.failed ?? 0);
 
   return (
     <Box>
@@ -192,28 +189,14 @@ const KpiTab = () => {
           <Grid templateColumns="repeat(auto-fill, minmax(200px, 1fr))" gap={4} mb={8}>
             <DashboardMetricCard title="Total Operations" value={kpis.totalOperations ?? "—"} change="imports + exports + extractions" changeColor="#6b006b" />
             <DashboardMetricCard title="Overall Success Rate" value={`${kpis.successRate ?? 0}%`} change="all operations" changeColor="#38A169" />
-            <DashboardMetricCard title="Failed Transfers" value={failed} change="exports + imports failed" changeColor="#E53E3E" />
-          </Grid>
-
-          <Text fontSize="12px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider" mb="12px">
-            Exports & Extractions
-          </Text>
-          <Grid templateColumns="repeat(auto-fill, minmax(200px, 1fr))" gap={4} mb={8}>
-            <DashboardMetricCard title="Total Exports" value={exp.total ?? "—"} change={`${exp.failed ?? 0} failed`} changeColor="#3182CE" />
-            <DashboardMetricCard title="Export Success Rate" value={`${exp.successRate ?? 0}%`} change="completed exports" changeColor="#38A169" />
+            {/* <DashboardMetricCard title="Failed Transfers" value={failed} change="exports + imports failed" changeColor="#E53E3E" /> */}
+             <DashboardMetricCard title="Total Exports" value={exp.total ?? "—"} change={`${exp.failed ?? 0} failed`} changeColor="#3182CE" />
+            {/* <DashboardMetricCard title="Export Success Rate" value={`${exp.successRate ?? 0}%`} change="completed exports" changeColor="#38A169" /> */}
             <DashboardMetricCard title="Avg File Size" value={`${exp.avgFileSizeMb ?? "—"} MB`} change="per export" changeColor="#6b006b" />
+             <DashboardMetricCard title="Total Imports" value={imp.total ?? "—"} change={`${imp.failed ?? 0} failed`} changeColor="#3182CE" />
           </Grid>
 
-          <Text fontSize="12px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider" mb="12px">
-            Imports
-          </Text>
-          <Grid templateColumns="repeat(auto-fill, minmax(200px, 1fr))" gap={4}>
-            <DashboardMetricCard title="Total Imports" value={imp.total ?? "—"} change={`${imp.failed ?? 0} failed`} changeColor="#3182CE" />
-            <DashboardMetricCard title="Import Success Rate" value={`${imp.successRate ?? 0}%`} change="completed imports" changeColor="#38A169" />
-            <DashboardMetricCard title="Rows Processed" value={imp.totalRowsProcessed?.toLocaleString() ?? "—"} change="total rows across all imports" changeColor="#6b006b" />
-            <DashboardMetricCard title="Data Accuracy Rate" value={`${imp.dataAccuracyRate ?? 0}%`} change="row-level quality" changeColor="#38A169" />
-            <DashboardMetricCard title="Avg Processing Time" value={`${((imp.avgProcessingTimeMs ?? 0) / 1000).toFixed(1)}s`} change="per import" changeColor="#DD6B20" />
-          </Grid>
+          
         </>
       ) : (
         <Text color="gray.400" textAlign="center" py="40px">No KPI data available</Text>
@@ -754,12 +737,12 @@ const HistoryTab = () => {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selected, setSelected] = useState(null);
-  const [drawerType, setDrawerType] = useState("export");
 
-  const [view, setView] = useState("exports");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
+  const [formatFilter, setFormatFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const totalPages = Math.ceil(total / LIMIT) || 1;
@@ -769,9 +752,11 @@ const HistoryTab = () => {
     try {
       const params = { page, limit: LIMIT };
       if (statusFilter) params.status = statusFilter;
-      const res = view === "imports" ? await getDataImports(params) : await getExportReports(params);
+      if (formatFilter) params.exportFormat = formatFilter;
+      if (typeFilter) params.operationType = typeFilter;
+      const res = await getExportReports(params);
       const d = res?.data ?? res;
-      const list = Array.isArray(d) ? d : (d?.data ?? d?.exports ?? d?.imports ?? d?.records ?? []);
+      const list = Array.isArray(d) ? d : (d?.data ?? d?.exports ?? d?.records ?? []);
       setRows(list);
       setTotal(d?.total ?? d?.totalCount ?? list.length);
     } catch {
@@ -779,51 +764,46 @@ const HistoryTab = () => {
     } finally {
       setLoading(false);
     }
-  }, [view, page, statusFilter, toast]);
+  }, [page, statusFilter, formatFilter, typeFilter, toast]);
 
-  useEffect(() => { setPage(1); }, [view, statusFilter]);
+  useEffect(() => { setPage(1); }, [statusFilter, formatFilter, typeFilter]);
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const openDetail = (row) => {
     setSelected(row);
-    setDrawerType(view === "imports" ? "import" : "export");
     onOpen();
   };
 
-  const statusMap = view === "imports" ? IMPORT_STATUS : EXPORT_STATUS;
-  const statusOptions = view === "imports"
-    ? ["pending", "validating", "completed", "failed", "partial"]
-    : ["pending", "completed", "failed"];
-
   return (
     <Box>
-      <Flex gap="8px" mb={4} alignItems="center" flexWrap="wrap">
-        <Flex bg="#F7FAFC" borderRadius="8px" p="4px" border="1px solid #E2E8F0">
-          {["exports", "imports"].map((v) => (
-            <Box
-              key={v}
-              as="button"
-              px="14px" py="6px"
-              borderRadius="6px"
-              fontSize="13px"
-              fontWeight="500"
-              bg={view === v ? "white" : "transparent"}
-              color={view === v ? "#6b006b" : "gray.500"}
-              boxShadow={view === v ? "sm" : "none"}
-              onClick={() => setView(v)}
-              textTransform="capitalize"
-            >
-              {v}
-            </Box>
-          ))}
+      <Box bg="#F7FAFC" border="1px solid #E2E8F0" borderRadius="8px" p="16px" mb={4}>
+        <Flex gap="12px" alignItems="flex-end" flexWrap="wrap">
+          <FormControl w="160px">
+            <FormLabel fontSize="12px" color="gray.500" mb="4px">Type</FormLabel>
+            <Select size="sm" bg="white" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+              <option value="">All Types</option>
+              <option value="export">Export</option>
+              <option value="extraction">Extraction</option>
+            </Select>
+          </FormControl>
+          <FormControl w="160px">
+            <FormLabel fontSize="12px" color="gray.500" mb="4px">Format</FormLabel>
+            <Select size="sm" bg="white" value={formatFilter} onChange={(e) => setFormatFilter(e.target.value)}>
+              <option value="">All Formats</option>
+              {EXPORT_FORMATS.map((f) => <option key={f} value={f}>{f.toUpperCase()}</option>)}
+            </Select>
+          </FormControl>
+          <FormControl w="160px">
+            <FormLabel fontSize="12px" color="gray.500" mb="4px">Status</FormLabel>
+            <Select size="sm" bg="white" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">All Statuses</option>
+              {["pending", "completed", "failed"].map((s) => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </FormControl>
+          <IconButton icon={<FiRefreshCw size={13} />} size="sm" variant="ghost" onClick={fetchData} isLoading={loading} aria-label="Refresh" mt="20px" />
+          <Text fontSize="13px" color="gray.400" ml="auto" alignSelf="flex-end">{total} total</Text>
         </Flex>
-        <Select w="180px" size="sm" borderRadius="6px" bg="white" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">All Statuses</option>
-          {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-        </Select>
-        <IconButton icon={<FiRefreshCw size={13} />} size="sm" variant="ghost" onClick={fetchData} isLoading={loading} aria-label="Refresh" />
-        <Text fontSize="13px" color="gray.400" ml="auto">{total} total</Text>
-      </Flex>
+      </Box>
 
       <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" overflow="hidden">
         {loading ? (
@@ -835,43 +815,33 @@ const HistoryTab = () => {
             <Table variant="simple" size="sm">
               <Thead bg="#F7FAFC">
                 <Tr>
-                  {view === "imports"
-                    ? ["Report Name", "File Format", "Target Module", "Total Rows", "Success", "Failed", "Status", "Created", ""].map((h) => (
-                        <Th key={h} py="12px" fontSize="11px" color="gray.500" fontWeight="600" textTransform="none">{h}</Th>
-                      ))
-                    : ["Report Name", "Type", "Format", "Records", "File Size", "Status", "Expires", "Created", ""].map((h) => (
-                        <Th key={h} py="12px" fontSize="11px" color="gray.500" fontWeight="600" textTransform="none">{h}</Th>
-                      ))}
+                  {["Report Name", "Type", "Format", "Records", "File Size", "Status", "Expires", "Created", ""].map((h) => (
+                    <Th key={h} py="12px" fontSize="11px" color="gray.500" fontWeight="600" textTransform="none">{h}</Th>
+                  ))}
                 </Tr>
               </Thead>
               <Tbody>
                 {rows.map((r, i) => (
                   <Tr key={r.id ?? i} _hover={{ bg: "#FAFAFA" }}>
-                    {view === "imports" ? (
-                      <>
-                        <Td py="12px" maxW="200px"><Text fontSize="13px" fontWeight="500" noOfLines={1}>{r.reportName ?? r.sourceFile ?? "—"}</Text></Td>
-                        <Td py="12px" fontSize="12px" textTransform="uppercase">{r.fileFormat ?? "—"}</Td>
-                        <Td py="12px" fontSize="12px">{r.targetModule ?? "—"}</Td>
-                        <Td py="12px" fontSize="12px" fontWeight="600">{r.totalRows ?? "—"}</Td>
-                        <Td py="12px" fontSize="12px" color="#38A169" fontWeight="600">{r.successfulRows ?? "—"}</Td>
-                        <Td py="12px" fontSize="12px" color="#E53E3E" fontWeight="600">{r.failedRows ?? "—"}</Td>
-                        <Td py="12px"><StatusBadge status={r.status} map={statusMap} /></Td>
-                        <Td py="12px" fontSize="12px" color="gray.400" whiteSpace="nowrap">{r.createdAt ? dayjs(r.createdAt).format("DD/MM/YYYY") : "—"}</Td>
-                      </>
-                    ) : (
-                      <>
-                        <Td py="12px" maxW="200px"><Text fontSize="13px" fontWeight="500" noOfLines={1}>{r.reportName ?? r.fileName ?? "—"}</Text></Td>
-                        <Td py="12px" fontSize="12px">{r.operationType ?? "—"}</Td>
-                        <Td py="12px" fontSize="12px" textTransform="uppercase">{r.exportFormat ?? "—"}</Td>
-                        <Td py="12px" fontSize="12px" fontWeight="600">{r.totalRecords?.toLocaleString() ?? "—"}</Td>
-                        <Td py="12px" fontSize="12px">{r.fileSizeMb != null ? `${r.fileSizeMb} MB` : "—"}</Td>
-                        <Td py="12px"><StatusBadge status={r.status} map={statusMap} /></Td>
-                        <Td py="12px" fontSize="12px" color={isExpired(r.expiryDate) ? "red.400" : "gray.400"} whiteSpace="nowrap">
-                          {r.expiryDate ? dayjs(r.expiryDate).format("DD/MM/YYYY") : "—"}
-                        </Td>
-                        <Td py="12px" fontSize="12px" color="gray.400" whiteSpace="nowrap">{r.createdAt ? dayjs(r.createdAt).format("DD/MM/YYYY") : "—"}</Td>
-                      </>
-                    )}
+                    <Td py="12px" maxW="200px">
+                      <Text fontSize="13px" fontWeight="500" noOfLines={1}>{r.reportName ?? r.fileName ?? "—"}</Text>
+                      {(r.exporter ?? r.uploader) && (
+                        <Text fontSize="11px" color="gray.400" noOfLines={1}>
+                          {r.exporter
+                            ? `${r.exporter.firstName} ${r.exporter.lastName}`
+                            : `${r.uploader.firstName} ${r.uploader.lastName}`}
+                        </Text>
+                      )}
+                    </Td>
+                    <Td py="12px" fontSize="12px">{r.operationType ?? "—"}</Td>
+                    <Td py="12px" fontSize="12px" textTransform="uppercase">{r.exportFormat ?? "—"}</Td>
+                    <Td py="12px" fontSize="12px" fontWeight="600">{r.totalRecords?.toLocaleString() ?? "—"}</Td>
+                    <Td py="12px" fontSize="12px">{r.fileSizeMb != null ? `${r.fileSizeMb} MB` : "—"}</Td>
+                    <Td py="12px"><StatusBadge status={r.status} /></Td>
+                    <Td py="12px" fontSize="12px" color={isExpired(r.expiryDate) ? "red.400" : "gray.400"} whiteSpace="nowrap">
+                      {r.expiryDate ? dayjs(r.expiryDate).format("DD/MM/YYYY") : "—"}
+                    </Td>
+                    <Td py="12px" fontSize="12px" color="gray.400" whiteSpace="nowrap">{r.createdAt ? dayjs(r.createdAt).format("DD/MM/YYYY") : "—"}</Td>
                     <Td py="12px">
                       <IconButton
                         icon={<FiEye size={13} />}
@@ -898,10 +868,24 @@ const HistoryTab = () => {
         )}
       </Box>
 
-      <DetailDrawer isOpen={isOpen} onClose={onClose} record={selected} type={drawerType} />
+      <DetailDrawer isOpen={isOpen} onClose={onClose} record={selected} type="export" />
     </Box>
   );
 };
+
+// ─── Dashboard Tab (KPIs + History) ──────────────────────────────────────────
+
+const DashboardTab = () => (
+  <Box>
+    <KpiTab />
+    <Box mt={8}>
+      <Text fontSize="12px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider" mb={4}>
+        Transfer History
+      </Text>
+      <HistoryTab />
+    </Box>
+  </Box>
+);
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -910,7 +894,6 @@ const TABS = [
   { key: "import",  label: "Import",     icon: <FiUpload size={14} /> },
   { key: "export",  label: "Export",     icon: <FiDownload size={14} /> },
   { key: "extract", label: "Extract",    icon: <FiFilter size={14} /> },
-  { key: "history", label: "History",    icon: <FiFileText size={14} /> },
 ];
 
 const DataImportExportPage = () => {
@@ -947,11 +930,10 @@ const DataImportExportPage = () => {
 
       <Divider mb={0} display="none" />
 
-      {activeTab === "kpis"    && <KpiTab />}
+      {activeTab === "kpis"    && <DashboardTab />}
       {activeTab === "import"  && <ImportTab />}
       {activeTab === "export"  && <ExportExtractTab operationType="export" />}
       {activeTab === "extract" && <ExportExtractTab operationType="extraction" />}
-      {activeTab === "history" && <HistoryTab />}
     </AdminMainAreaWrapper>
   );
 };
