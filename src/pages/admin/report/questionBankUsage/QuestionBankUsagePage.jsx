@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Route } from "react-router-dom";
 import {
   Badge,
@@ -832,6 +832,92 @@ const SortIcon = ({ colKey, sort }) => {
   );
 };
 
+const SearchableSelect = ({ value, options, onChange, placeholder, maxW }) => {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const selectedLabel = options.find((o) => String(o.value) === String(value))?.label ?? "";
+
+  useEffect(() => {
+    setQuery(value ? selectedLabel : "");
+  }, [value, selectedLabel]);
+
+  const filtered = query
+    ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setQuery(value ? selectedLabel : "");
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [value, selectedLabel]);
+
+  return (
+    <Box ref={containerRef} position="relative" maxW={maxW}>
+      <Input
+        size="sm"
+        borderRadius="md"
+        bg="white"
+        value={query}
+        placeholder={placeholder}
+        autoComplete="off"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIsOpen(true);
+          if (e.target.value === "") onChange("");
+        }}
+        onFocus={() => setIsOpen(true)}
+      />
+      {isOpen && (
+        <Box
+          position="absolute"
+          top="100%"
+          left={0}
+          right={0}
+          zIndex={200}
+          bg="white"
+          border="1px solid #E4E7EC"
+          borderRadius="md"
+          boxShadow="md"
+          maxH="200px"
+          overflowY="auto"
+          mt="2px"
+        >
+          {filtered.length === 0 ? (
+            <Box px={3} py={2} fontSize="13px" color="#667085">No results</Box>
+          ) : (
+            filtered.map((o) => (
+              <Box
+                key={o.value}
+                px={3}
+                py="7px"
+                fontSize="13px"
+                cursor="pointer"
+                bg={String(o.value) === String(value) ? "#F3E8FF" : "white"}
+                _hover={{ bg: String(o.value) === String(value) ? "#F3E8FF" : "#F9FAFB" }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(o.value);
+                  setQuery(o.label);
+                  setIsOpen(false);
+                }}
+              >
+                {o.label}
+              </Box>
+            ))
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 const QuestionBankUsagePage = () => {
   const classes = useStyles();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -1022,13 +1108,6 @@ const QuestionBankUsagePage = () => {
     </Th>
   );
 
-  const correctRateKpiColor =
-    kpi?.overallCorrectRate < 30
-      ? "red"
-      : kpi?.overallCorrectRate < 50
-        ? "orange"
-        : undefined;
-
   return (
     <AdminMainAreaWrapper>
       <Flex justify="space-between" align="center" mb={6}>
@@ -1054,7 +1133,7 @@ const QuestionBankUsagePage = () => {
       </Flex>
 
       <Heading level="2" mb={2}>
-        Question Bank Usage Analytics
+        Question Bank Usage Report
       </Heading>
       <Text color="gray.500" mb={6}>
         Track question performance, difficulty, reliability, and reuse patterns
@@ -1073,18 +1152,12 @@ const QuestionBankUsagePage = () => {
         >
           <FormControl>
             <FormLabel fontSize="xs">Course</FormLabel>
-            <Select
-              size="sm"
-              placeholder="All Courses"
+            <SearchableSelect
               value={filters.courseId}
-              onChange={(e) => handleFilterChange("courseId", e.target.value)}
-            >
-              {courses.map((c) => (
-                <option key={c.courseId || c.id} value={c.courseId || c.id}>
-                  {c.courseTitle || c.title || c.name}
-                </option>
-              ))}
-            </Select>
+              onChange={(val) => handleFilterChange("courseId", val)}
+              options={courses.map((c) => ({ value: String(c.courseId || c.id), label: c.courseTitle || c.title || c.name }))}
+              placeholder="Search course…"
+            />
           </FormControl>
 
           <FormControl>
@@ -1157,39 +1230,35 @@ const QuestionBankUsagePage = () => {
       ) : (
         <SimpleGrid columns={{ base: 2, md: 4, lg: 7 }} spacing={4} mb={6}>
           <DashboardMetricCard
-            label="Total Questions"
+            title="Total Questions"
             value={kpi?.totalQuestions ?? "—"}
           />
           <DashboardMetricCard
-            label="Easy"
+            title="Easy"
             value={kpi?.difficultyDistribution?.Easy ?? "—"}
-            color="green"
           />
           <DashboardMetricCard
-            label="Medium"
+            title="Medium"
             value={kpi?.difficultyDistribution?.Medium ?? "—"}
-            color="orange"
           />
           <DashboardMetricCard
-            label="Hard"
+            title="Hard"
             value={kpi?.difficultyDistribution?.Hard ?? "—"}
-            color="red"
           />
           <DashboardMetricCard
-            label="Untagged"
+            title="Untagged"
             value={kpi?.difficultyDistribution?.untagged ?? "—"}
           />
           <DashboardMetricCard
-            label="Overall Correct Rate"
+            title="Overall Correct Rate"
             value={
               kpi?.overallCorrectRate != null
                 ? `${kpi.overallCorrectRate}%`
                 : "—"
             }
-            color={correctRateKpiColor}
           />
           <DashboardMetricCard
-            label="Total Attempts"
+            title="Total Attempts"
             value={kpi?.totalAttempts?.toLocaleString() ?? "—"}
           />
         </SimpleGrid>
@@ -1259,21 +1328,10 @@ const QuestionBankUsagePage = () => {
                     <Th>Course</Th>
                     <Th>Exam</Th>
                     <Th>Difficulty</Th>
-                    <SortTh col="usageFrequency" isNumeric>
-                      Usage
-                    </SortTh>
-                    <Th isNumeric>Attempts</Th>
                     <SortTh col="correctResponseRate" isNumeric>
                       Correct Rate
                     </SortTh>
-                    <SortTh col="averageTimeSpent" isNumeric>
-                      Avg Time
-                    </SortTh>
-                    <SortTh col="reliabilityIndex" isNumeric>
-                      Reliability
-                    </SortTh>
                     <SortTh col="lastUsedDate">Last Used</SortTh>
-                    <Th>Flags</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -1338,8 +1396,6 @@ const QuestionBankUsagePage = () => {
                           {q.difficultyLevel ?? "—"}
                         </Badge>
                       </Td>
-                      <Td isNumeric>{q.usageFrequency ?? "—"}</Td>
-                      <Td isNumeric>{q.totalAttempts ?? "—"}</Td>
                       <Td isNumeric>
                         <Text
                           fontWeight="medium"
@@ -1350,29 +1406,7 @@ const QuestionBankUsagePage = () => {
                             : "—"}
                         </Text>
                       </Td>
-                      <Td isNumeric>
-                        {q.averageTimeSpent != null
-                          ? `${q.averageTimeSpent}s`
-                          : "—"}
-                      </Td>
-                      <Td isNumeric>
-                        <Text
-                          fontWeight="medium"
-                          color={
-                            q.reliabilityIndex != null
-                              ? reliabilityLabel(q.reliabilityIndex).color
-                              : "gray.500"
-                          }
-                        >
-                          {q.reliabilityIndex != null
-                            ? q.reliabilityIndex.toFixed(2)
-                            : "—"}
-                        </Text>
-                      </Td>
                       <Td>{fmtDate(q.lastUsedDate)}</Td>
-                      <Td>
-                        <FlagBadges flags={q.flags ?? []} />
-                      </Td>
                     </Tr>
                   ))}
                 </Tbody>

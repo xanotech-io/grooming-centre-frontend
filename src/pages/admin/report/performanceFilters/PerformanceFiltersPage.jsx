@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box, Flex, Grid, GridItem, VStack, HStack,
   Input, InputGroup, InputLeftElement, Select,
@@ -132,6 +132,95 @@ const FormField = ({ label, children, required }) => (
     {children}
   </VStack>
 );
+
+const SearchableSelect = ({ value, options, onChange, placeholder, isDisabled }) => {
+  const [query, setQuery] = useState("");
+  const [isOpen, setDropOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const selectedLabel = options.find((o) => String(o.value) === String(value))?.label ?? "";
+
+  useEffect(() => {
+    setQuery(value ? selectedLabel : "");
+  }, [value, selectedLabel]);
+
+  const filtered = query
+    ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setDropOpen(false);
+        setQuery(value ? selectedLabel : "");
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [value, selectedLabel]);
+
+  return (
+    <Box ref={containerRef} position="relative">
+      <Input
+        bg="#F9FAFB"
+        border="1px solid #E4E7EC"
+        h="42px"
+        fontSize="13px"
+        borderRadius="md"
+        value={query}
+        placeholder={placeholder}
+        autoComplete="off"
+        isDisabled={isDisabled}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setDropOpen(true);
+          if (e.target.value === "") onChange("");
+        }}
+        onFocus={() => !isDisabled && setDropOpen(true)}
+      />
+      {isOpen && !isDisabled && (
+        <Box
+          position="absolute"
+          top="100%"
+          left={0}
+          right={0}
+          zIndex={200}
+          bg="white"
+          border="1px solid #E4E7EC"
+          borderRadius="md"
+          boxShadow="md"
+          maxH="200px"
+          overflowY="auto"
+          mt="2px"
+        >
+          {filtered.length === 0 ? (
+            <Box px={3} py={2} fontSize="13px" color="#667085">No results</Box>
+          ) : (
+            filtered.map((o) => (
+              <Box
+                key={o.value}
+                px={3}
+                py="7px"
+                fontSize="13px"
+                cursor="pointer"
+                bg={String(o.value) === String(value) ? "#F3E8FF" : "white"}
+                _hover={{ bg: String(o.value) === String(value) ? "#F3E8FF" : "#F9FAFB" }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(o.value);
+                  setQuery(o.label);
+                  setDropOpen(false);
+                }}
+              >
+                {o.label}
+              </Box>
+            ))
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
 
 const fieldStyle = {
   bg: '#F9FAFB',
@@ -675,75 +764,51 @@ const PerformanceFiltersPage = () => {
                 <Text fontSize="15px" fontWeight="700" color="#101928" mb={4}>Scope Criteria</Text>
                 <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }} gap={4}>
                   <FormField label="Course">
-                    <Select
-                      {...fieldStyle}
-                      placeholder="All courses"
+                    <SearchableSelect
                       value={form.criteria.courseId}
-                      onChange={e => patchCriteria('courseId', e.target.value)}
-                    >
-                      {courseOptions.map(c => (
-                        <option key={c.id} value={c.id}>{c.title}</option>
-                      ))}
-                    </Select>
+                      onChange={val => patchCriteria('courseId', val)}
+                      options={courseOptions.map(c => ({ value: String(c.id), label: c.title }))}
+                      placeholder="Search courses…"
+                    />
                   </FormField>
                   <FormField label="Module">
-                    <Select
-                      {...fieldStyle}
+                    <SearchableSelect
+                      value={form.criteria.moduleId}
+                      onChange={val => patchCriteria('moduleId', val)}
+                      options={moduleOptions.map(m => ({ value: String(m.id), label: m.title }))}
                       placeholder={
                         !form.criteria.courseId
                           ? 'Select a course first'
                           : modulesLoading
                           ? 'Loading…'
-                          : 'All modules'
+                          : 'Search modules…'
                       }
-                      value={form.criteria.moduleId}
                       isDisabled={!form.criteria.courseId || modulesLoading}
-                      onChange={e => patchCriteria('moduleId', e.target.value)}
-                    >
-                      {moduleOptions.map(m => (
-                        <option key={m.id} value={m.id}>{m.title}</option>
-                      ))}
-                    </Select>
+                    />
                   </FormField>
                   <FormField label="Student">
-                    <Select
-                      {...fieldStyle}
-                      placeholder="All students"
+                    <SearchableSelect
                       value={form.criteria.studentId}
-                      onChange={e => patchCriteria('studentId', e.target.value)}
-                    >
-                      {studentOptions.map(u => (
-                        <option key={u.id} value={u.id}>
-                          {u.firstName} {u.lastName}
-                        </option>
-                      ))}
-                    </Select>
+                      onChange={val => patchCriteria('studentId', val)}
+                      options={studentOptions.map(u => ({ value: String(u.id), label: `${u.firstName} ${u.lastName}` }))}
+                      placeholder="Search students…"
+                    />
                   </FormField>
                   <FormField label="Department">
-                    <Select
-                      {...fieldStyle}
-                      placeholder="All departments"
+                    <SearchableSelect
                       value={form.criteria.departmentId}
-                      onChange={e => patchCriteria('departmentId', e.target.value)}
-                    >
-                      {departmentOptions.map(d => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                    </Select>
+                      onChange={val => patchCriteria('departmentId', val)}
+                      options={departmentOptions.map(d => ({ value: String(d.id), label: d.name }))}
+                      placeholder="Search departments…"
+                    />
                   </FormField>
                   <FormField label="Instructor">
-                    <Select
-                      {...fieldStyle}
-                      placeholder="All instructors"
+                    <SearchableSelect
                       value={form.criteria.instructorId}
-                      onChange={e => patchCriteria('instructorId', e.target.value)}
-                    >
-                      {instructorOptions.map(u => (
-                        <option key={u.id} value={u.id}>
-                          {u.firstName} {u.lastName}
-                        </option>
-                      ))}
-                    </Select>
+                      onChange={val => patchCriteria('instructorId', val)}
+                      options={instructorOptions.map(u => ({ value: String(u.id), label: `${u.firstName} ${u.lastName}` }))}
+                      placeholder="Search instructors…"
+                    />
                   </FormField>
                 </Grid>
               </Box>

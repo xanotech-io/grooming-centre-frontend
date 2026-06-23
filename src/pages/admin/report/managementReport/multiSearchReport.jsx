@@ -1,7 +1,7 @@
 
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Box, Flex, Grid, VStack, Accordion, AccordionItem, AccordionButton, AccordionPanel, AccordionIcon } from "@chakra-ui/react";
-import { useState } from "react";
+import { Box, Flex, Grid, VStack, Accordion, AccordionItem, AccordionButton, AccordionPanel, AccordionIcon, Input as ChakraInput } from "@chakra-ui/react";
+import { useState, useEffect, useRef } from "react";
 import {
   Button,
   Table,
@@ -20,6 +20,93 @@ import { mockMultiSearchReportsResponse } from "../../../../mocks/server/control
 // import { FiPlus } from "react-icons/fi";
 
 dayjs.extend(relativeTime);
+
+const SearchableSelect = ({ value, options, onChange, placeholder }) => {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const selectedLabel = options.find((o) => String(o.value) === String(value))?.label ?? "";
+
+  useEffect(() => {
+    setQuery(value ? selectedLabel : "");
+  }, [value, selectedLabel]);
+
+  const filtered = query
+    ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setQuery(value ? selectedLabel : "");
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [value, selectedLabel]);
+
+  return (
+    <Box ref={containerRef} position="relative">
+      <ChakraInput
+        size="md"
+        borderRadius="md"
+        bg="#F9FAFB"
+        border="none"
+        value={query}
+        placeholder={placeholder}
+        autoComplete="off"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIsOpen(true);
+          if (e.target.value === "") onChange("");
+        }}
+        onFocus={() => setIsOpen(true)}
+      />
+      {isOpen && (
+        <Box
+          position="absolute"
+          top="100%"
+          left={0}
+          right={0}
+          zIndex={200}
+          bg="white"
+          border="1px solid #E4E7EC"
+          borderRadius="md"
+          boxShadow="md"
+          maxH="200px"
+          overflowY="auto"
+          mt="2px"
+        >
+          {filtered.length === 0 ? (
+            <Box px={3} py={2} fontSize="13px" color="#667085">No results</Box>
+          ) : (
+            filtered.map((o) => (
+              <Box
+                key={o.value}
+                px={3}
+                py="7px"
+                fontSize="13px"
+                cursor="pointer"
+                bg={String(o.value) === String(value) ? "#F3E8FF" : "white"}
+                _hover={{ bg: String(o.value) === String(value) ? "#F3E8FF" : "#F9FAFB" }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(o.value);
+                  setQuery(o.label);
+                  setIsOpen(false);
+                }}
+              >
+                {o.label}
+              </Box>
+            ))
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
 
 const ReportSettingsPanel = () => {
   const [status, setStatus] = useState("draft");
@@ -144,6 +231,8 @@ const MultiSearchReport = () => {
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
+  const [criteriaDepId, setCriteriaDepId] = useState("");
+  const [criteriaCourseId, setCriteriaCourseId] = useState("");
   // const [filters, setFilters] = useState([
   //   { id: 1, field: "", value: "" },
   //   { id: 2, field: "", value: "" },
@@ -347,11 +436,21 @@ const MultiSearchReport = () => {
           <Grid templateColumns="1fr 1fr" gap={6} mb={4}>
             <Box>
               <Text mb={2} fontSize="sm" color="gray.600">Department</Text>
-              <Select placeholder="Select Department" />
+              <SearchableSelect
+                value={criteriaDepId}
+                onChange={setCriteriaDepId}
+                options={[]}
+                placeholder="Search department…"
+              />
             </Box>
             <Box>
               <Text mb={2} fontSize="sm" color="gray.600">Course</Text>
-              <Select placeholder="Select Course" />
+              <SearchableSelect
+                value={criteriaCourseId}
+                onChange={setCriteriaCourseId}
+                options={[]}
+                placeholder="Search course…"
+              />
             </Box>
           </Grid>
 

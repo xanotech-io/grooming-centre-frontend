@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Route } from "react-router-dom";
 import {
   Badge,
@@ -13,6 +13,7 @@ import {
   Flex,
   FormControl,
   FormLabel,
+  Input,
   Progress,
   Select,
   SimpleGrid,
@@ -28,17 +29,6 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import { BreadcrumbItem } from "@chakra-ui/react";
-import { Tabs, Tab, makeStyles } from "@material-ui/core";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
-import { Bar } from "react-chartjs-2";
 import {
   FiChevronLeft,
   FiChevronRight,
@@ -52,19 +42,9 @@ import {
   getExamIntegrityList,
   getExamIntegrityDetail,
   getExamIrregularityLogs,
-  getExamIntegrityChartData,
   adminGetCourseListing,
 } from "../../../../services";
 import dayjs from "dayjs";
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-);
 
 // ─── Mock Data (fallback when API is unavailable) ─────────────────────────────
 // TODO: remove once GET /v1/exam-integrity-v2/* endpoints are live
@@ -73,6 +53,7 @@ const MOCK_EXAMS = [
   {
     examId: "exam-001",
     examTitle: "Microfinance Midterm",
+    course: { id: "course-001", title: "Microfinance Principles" },
     randomizationMethod: "full",
     totalAttempts: 100,
     duplicateDetectionCount: 2,
@@ -85,6 +66,7 @@ const MOCK_EXAMS = [
   {
     examId: "exam-002",
     examTitle: "Data Privacy Final",
+    course: { id: "course-002", title: "Data Privacy & Compliance" },
     randomizationMethod: "full",
     totalAttempts: 80,
     duplicateDetectionCount: 0,
@@ -97,6 +79,7 @@ const MOCK_EXAMS = [
   {
     examId: "exam-003",
     examTitle: "Network Security Quiz",
+    course: { id: "course-003", title: "Network Security" },
     randomizationMethod: "partial",
     totalAttempts: 55,
     duplicateDetectionCount: 6,
@@ -109,6 +92,7 @@ const MOCK_EXAMS = [
   {
     examId: "exam-004",
     examTitle: "Introduction to Cybersecurity",
+    course: { id: "course-004", title: "Cybersecurity Fundamentals" },
     randomizationMethod: "none",
     totalAttempts: 120,
     duplicateDetectionCount: 15,
@@ -121,6 +105,7 @@ const MOCK_EXAMS = [
   {
     examId: "exam-005",
     examTitle: "Ethics in Technology",
+    course: { id: "course-005", title: "Tech Ethics & Society" },
     randomizationMethod: "partial",
     totalAttempts: 40,
     duplicateDetectionCount: 1,
@@ -133,6 +118,7 @@ const MOCK_EXAMS = [
   {
     examId: "exam-006",
     examTitle: "Cloud Computing Fundamentals",
+    course: { id: "course-006", title: "Cloud Computing" },
     randomizationMethod: "full",
     totalAttempts: 65,
     duplicateDetectionCount: 0,
@@ -201,62 +187,6 @@ const MOCK_DETAIL = {
   irregularityLogs: MOCK_LOGS,
 };
 
-const MOCK_CHART_DATA = {
-  randomizationDistribution: [
-    { method: "full", examCount: 8, avgEffectiveness: 85 },
-    { method: "partial", examCount: 3, avgEffectiveness: 60 },
-    { method: "none", examCount: 1, avgEffectiveness: 0 },
-  ],
-  duplicateHeatmap: [
-    { location: "Lagos", duplicateCount: 5 },
-    { location: "Abuja", duplicateCount: 2 },
-    { location: "Port Harcourt", duplicateCount: 3 },
-    { location: "Kano", duplicateCount: 1 },
-    { location: "Ibadan", duplicateCount: 4 },
-  ],
-  irregularLogsTable: [
-    {
-      logId: "log-001",
-      studentId: "stu-001",
-      student: {
-        firstName: "John",
-        lastName: "Doe",
-        email: "john.doe@example.com",
-      },
-      anomalyTypes: ["same_ip", "duplicate_answers"],
-      geolocation: "Lagos, Nigeria",
-      timestamp: "2026-04-10T10:15:00Z",
-      status: "Flagged",
-    },
-    {
-      logId: "log-002",
-      studentId: "stu-002",
-      student: {
-        firstName: "Mary",
-        lastName: "Johnson",
-        email: "mary.j@example.com",
-      },
-      anomalyTypes: ["same_ip"],
-      geolocation: "Abuja, Nigeria",
-      timestamp: "2026-04-10T10:18:00Z",
-      status: "Flagged",
-    },
-    {
-      logId: "log-003",
-      studentId: "stu-003",
-      student: {
-        firstName: "James",
-        lastName: "Smith",
-        email: "james.s@example.com",
-      },
-      anomalyTypes: ["fast_completion"],
-      geolocation: "Port Harcourt, Nigeria",
-      timestamp: "2026-04-11T09:03:00Z",
-      status: "Flagged",
-    },
-  ],
-};
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmt = (d) => (d ? dayjs(d).format("MMM D, YYYY, h:mm A") : "—");
@@ -299,10 +229,6 @@ const anomalyScheme = {
   fast_completion: "purple",
   same_device: "cyan",
 };
-
-const useStyles = makeStyles(() => ({
-  tab: { textTransform: "none", fontWeight: 500, minWidth: 120 },
-}));
 
 // ─── Anomaly Badges ────────────────────────────────────────────────────────────
 
@@ -755,187 +681,99 @@ const ExamDetailDrawer = ({ examId, isOpen, onClose }) => {
   );
 };
 
-// ─── Analytics Tab ─────────────────────────────────────────────────────────────
 
-const AnalyticsTab = ({ courseId }) => {
-  const [chartData, setChartData] = useState(null);
-  const [loading, setLoading] = useState(true);
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 
-  const fetch = useCallback(() => {
-    setLoading(true);
-    const params = courseId ? { courseId } : {};
-    getExamIntegrityChartData(params)
-      .then((res) => setChartData(res?.data ?? res))
-      .catch(() => {
-        // TODO: endpoint GET /v1/exam-integrity-v2/chart-data not yet live — using mock
-        console.warn(
-          "[ExamIntegrity] /chart-data failed, falling back to mock data",
-        );
-        setChartData(MOCK_CHART_DATA);
-      })
-      .finally(() => setLoading(false));
-  }, [courseId]);
+const SearchableSelect = ({ value, options, onChange, placeholder, maxW }) => {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const selectedLabel = options.find((o) => String(o.value) === String(value))?.label ?? "";
 
   useEffect(() => {
-    fetch();
-  }, [fetch]);
+    setQuery(value ? selectedLabel : "");
+  }, [value, selectedLabel]);
 
-  if (loading) {
-    return (
-      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6} mt={6}>
-        {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} height="240px" borderRadius="lg" />
-        ))}
-      </SimpleGrid>
-    );
-  }
+  const filtered = query
+    ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
 
-  if (!chartData) return null;
-
-  const dist = chartData.randomizationDistribution ?? [];
-  const heatmap = chartData.duplicateHeatmap ?? [];
-  const logsTable = chartData.irregularLogsTable ?? [];
-
-  const distChartData = {
-    labels: dist.map(
-      (d) => d.method.charAt(0).toUpperCase() + d.method.slice(1),
-    ),
-    datasets: [
-      {
-        label: "Exam Count",
-        data: dist.map((d) => d.examCount),
-        backgroundColor: "rgba(66, 153, 225, 0.7)",
-        borderRadius: 4,
-      },
-      {
-        label: "Avg Effectiveness (%)",
-        data: dist.map((d) => d.avgEffectiveness),
-        backgroundColor: "rgba(72, 187, 120, 0.7)",
-        borderRadius: 4,
-      },
-    ],
-  };
-
-  const heatmapChartData = {
-    labels: heatmap.map((h) => h.location),
-    datasets: [
-      {
-        label: "Duplicate Attempts",
-        data: heatmap.map((h) => h.duplicateCount),
-        backgroundColor: heatmap.map((h) =>
-          h.duplicateCount >= 4
-            ? "rgba(229, 62, 62, 0.7)"
-            : h.duplicateCount >= 2
-              ? "rgba(237, 137, 54, 0.7)"
-              : "rgba(236, 201, 75, 0.7)",
-        ),
-        borderRadius: 4,
-      },
-    ],
-  };
-
-  const chartOptions = (titleText) => ({
-    responsive: true,
-    plugins: {
-      legend: { position: "top" },
-      title: {
-        display: true,
-        text: titleText,
-        font: { size: 14, weight: "600" },
-      },
-    },
-    scales: { y: { beginAtZero: true } },
-  });
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setQuery(value ? selectedLabel : "");
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [value, selectedLabel]);
 
   return (
-    <Box mt={6}>
-      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6} mb={8}>
-        {/* Chart 1 – Randomization Distribution */}
-        <Box bg="white" borderRadius="lg" boxShadow="sm" p={5}>
-          <Bar
-            data={distChartData}
-            options={chartOptions("Randomization Distribution")}
-          />
+    <Box ref={containerRef} position="relative" maxW={maxW}>
+      <Input
+        size="sm"
+        borderRadius="md"
+        bg="white"
+        value={query}
+        placeholder={placeholder}
+        autoComplete="off"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIsOpen(true);
+          if (e.target.value === "") onChange("");
+        }}
+        onFocus={() => setIsOpen(true)}
+      />
+      {isOpen && (
+        <Box
+          position="absolute"
+          top="100%"
+          left={0}
+          right={0}
+          zIndex={200}
+          bg="white"
+          border="1px solid #E4E7EC"
+          borderRadius="md"
+          boxShadow="md"
+          maxH="200px"
+          overflowY="auto"
+          mt="2px"
+        >
+          {filtered.length === 0 ? (
+            <Box px={3} py={2} fontSize="13px" color="#667085">No results</Box>
+          ) : (
+            filtered.map((o) => (
+              <Box
+                key={o.value}
+                px={3}
+                py="7px"
+                fontSize="13px"
+                cursor="pointer"
+                bg={String(o.value) === String(value) ? "#F3E8FF" : "white"}
+                _hover={{ bg: String(o.value) === String(value) ? "#F3E8FF" : "#F9FAFB" }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(o.value);
+                  setQuery(o.label);
+                  setIsOpen(false);
+                }}
+              >
+                {o.label}
+              </Box>
+            ))
+          )}
         </Box>
-
-        {/* Chart 2 – Duplicate Heatmap (bar) */}
-        <Box bg="white" borderRadius="lg" boxShadow="sm" p={5}>
-          <Bar
-            data={heatmapChartData}
-            options={{
-              ...chartOptions("Duplicate Attempts by Location"),
-              indexAxis: "y",
-            }}
-          />
-        </Box>
-      </SimpleGrid>
-
-      {/* Chart 3 – Cross-exam Irregular Logs Table */}
-      <Box bg="white" borderRadius="lg" boxShadow="sm" overflow="hidden">
-        <Box px={5} py={4} borderBottomWidth="1px">
-          <Text fontWeight="semibold">Cross-Exam Irregular Sessions</Text>
-          <Text fontSize="sm" color="gray.500">
-            All flagged student sessions across all exams
-          </Text>
-        </Box>
-        {logsTable.length === 0 ? (
-          <Box p={8} textAlign="center">
-            <Text color="gray.500">No flagged sessions found.</Text>
-          </Box>
-        ) : (
-          <TableContainer>
-            <Table size="sm">
-              <Thead bg="gray.50">
-                <Tr>
-                  <Th>Student</Th>
-                  <Th>Anomaly Types</Th>
-                  <Th>Geolocation</Th>
-                  <Th>Timestamp</Th>
-                  <Th>Status</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {logsTable.map((log) => (
-                  <Tr key={log.logId}>
-                    <Td>
-                      <Text fontWeight="medium">
-                        {log.student?.firstName} {log.student?.lastName}
-                      </Text>
-                      <Text fontSize="xs" color="gray.500">
-                        {log.student?.email}
-                      </Text>
-                    </Td>
-                    <Td>
-                      <AnomalyBadges types={log.anomalyTypes ?? []} />
-                    </Td>
-                    <Td fontSize="sm">{log.geolocation || "—"}</Td>
-                    <Td fontSize="sm" whiteSpace="nowrap">
-                      {fmt(log.timestamp)}
-                    </Td>
-                    <Td>
-                      <Badge colorScheme="red" borderRadius="full" px={2}>
-                        {log.status}
-                      </Badge>
-                    </Td>
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </TableContainer>
-        )}
-      </Box>
+      )}
     </Box>
   );
 };
 
-// ─── Main Page ─────────────────────────────────────────────────────────────────
-
 const LIMIT_OPTIONS = [10, 20, 50];
 
 const ExamIntegrityPage = () => {
-  const classes = useStyles();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [tab, setTab] = useState(0);
   const [courseId, setCourseId] = useState("");
   const [courses, setCourses] = useState([]);
   const [exams, setExams] = useState([]);
@@ -1023,7 +861,7 @@ const ExamIntegrityPage = () => {
       </Flex>
 
       <Heading level="2" mb={2}>
-        Randomization &amp; Exam Integrity Monitoring
+        Randomization &amp; Exam Integrity Report 
       </Heading>
       <Text color="gray.500" mb={6}>
         Track question randomization, detect duplicate exam sets, and monitor
@@ -1035,18 +873,13 @@ const ExamIntegrityPage = () => {
         <Flex align="flex-end" gap={4} flexWrap="wrap">
           <FormControl maxW="280px">
             <FormLabel fontSize="xs">Course</FormLabel>
-            <Select
-              size="sm"
-              placeholder="All Courses"
+            <SearchableSelect
               value={courseId}
-              onChange={(e) => handleCourseChange(e.target.value)}
-            >
-              {courses.map((c) => (
-                <option key={c.courseId || c.id} value={c.courseId || c.id}>
-                  {c.courseTitle || c.title || c.name}
-                </option>
-              ))}
-            </Select>
+              onChange={handleCourseChange}
+              options={courses.map((c) => ({ value: String(c.courseId || c.id), label: c.courseTitle || c.title || c.name }))}
+              placeholder="Search course…"
+              maxW="280px"
+            />
           </FormControl>
           {courseId && (
             <Button
@@ -1069,16 +902,7 @@ const ExamIntegrityPage = () => {
         </Flex>
       </Box>
 
-      {/* ── Tabs ── */}
-      <Box borderBottomWidth="1px" mb={6}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-          <Tab label="Exam List" className={classes.tab} />
-          <Tab label="Analytics" className={classes.tab} />
-        </Tabs>
-      </Box>
-
-      {tab === 0 && (
-        <Box bg="white" borderRadius="lg" boxShadow="sm" overflow="hidden">
+      <Box bg="white" borderRadius="lg" boxShadow="sm" overflow="hidden">
           <Flex
             justify="space-between"
             align="center"
@@ -1118,12 +942,11 @@ const ExamIntegrityPage = () => {
                 <Thead bg="gray.50">
                   <Tr>
                     <Th>Exam Title</Th>
+                    <Th>Course</Th>
                     <Th>Randomization</Th>
                     <Th isNumeric>Attempts</Th>
                     <Th isNumeric>Dup. Sets</Th>
                     <Th isNumeric>Dup. Rate</Th>
-                    <Th isNumeric>Avg Overlap</Th>
-                    <Th minW="140px">Effectiveness</Th>
                     <Th isNumeric>Irregular</Th>
                     <Th>Integrity</Th>
                   </Tr>
@@ -1150,6 +973,11 @@ const ExamIntegrityPage = () => {
                               {exam.examTitle}
                             </Text>
                           </Flex>
+                        </Td>
+                        <Td>
+                          <Text fontSize="sm" color="gray.700" noOfLines={1}>
+                            {exam.course?.title ?? "—"}
+                          </Text>
                         </Td>
                         <Td>
                           <Badge
@@ -1196,28 +1024,6 @@ const ExamIntegrityPage = () => {
                           </Text>
                         </Td>
                         <Td isNumeric>
-                          {exam.avgQuestionOverlap != null
-                            ? `${exam.avgQuestionOverlap}%`
-                            : "—"}
-                        </Td>
-                        <Td>
-                          <Box minW="110px">
-                            <Flex justify="space-between" mb={1}>
-                              <Text fontSize="xs">
-                                {exam.randomizationEffectiveness ?? 0}%
-                              </Text>
-                            </Flex>
-                            <Progress
-                              size="xs"
-                              value={exam.randomizationEffectiveness ?? 0}
-                              colorScheme={effectivenessColor(
-                                exam.randomizationEffectiveness ?? 0,
-                              )}
-                              borderRadius="full"
-                            />
-                          </Box>
-                        </Td>
-                        <Td isNumeric>
                           {(exam.irregularAttemptsCount ?? 0) > 0 ? (
                             <Badge colorScheme="red" borderRadius="full" px={2}>
                               {exam.irregularAttemptsCount}
@@ -1256,10 +1062,7 @@ const ExamIntegrityPage = () => {
               limitOptions={LIMIT_OPTIONS}
             />
           )}
-        </Box>
-      )}
-
-      {tab === 1 && <AnalyticsTab courseId={courseId} />}
+      </Box>
 
       {/* Exam Detail Drawer */}
       <ExamDetailDrawer
