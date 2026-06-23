@@ -101,7 +101,7 @@ const AdminStudentCourseProgressPage = () => {
               </Link>
             </BreadcrumbItem>
           }
-          item5={
+          item3={
             <BreadcrumbItem isCurrentPage>
               <Link href="#">Course Detail</Link>
             </BreadcrumbItem>

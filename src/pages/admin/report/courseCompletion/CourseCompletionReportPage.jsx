@@ -22,6 +22,7 @@ import {
   TableContainer,
   Text as ChakraText,
   Collapse,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import {
   FiTrendingUp,
@@ -32,7 +33,7 @@ import {
   FiChevronUp,
 } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Button, Heading, Spinner } from "../../../../components";
+import { Breadcrumb, Button, Heading, Link, Spinner } from "../../../../components";
 import {
   adminGetEnrollmentStatusStudents,
   adminGetEnrollmentStatusCourses,
@@ -488,6 +489,12 @@ const CourseCompletionReportPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/report/studentReport">Reports</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Course Completion &amp; Pass Rate</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex justify="space-between" align="flex-start" mb={6}>
         <Box>

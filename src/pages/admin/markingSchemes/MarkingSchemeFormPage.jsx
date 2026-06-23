@@ -18,9 +18,10 @@ import {
   Spinner,
   IconButton,
   useToast,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FiArrowLeft, FiPlus, FiTrash2 } from "react-icons/fi";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { capitalizeFirstLetter } from "../../../utils";
 import {
@@ -674,6 +675,20 @@ const MarkingSchemeFormPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/marking-schemes">Marking Schemes</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">New Scheme</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box marginX="22px" marginY="30px">
         {/* ── Page Header ── */}
         <Flex align="center" mb="24px" gap="12px">

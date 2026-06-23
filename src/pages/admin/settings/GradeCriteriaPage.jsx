@@ -13,7 +13,10 @@ import {
   Input,
   SkeletonText,
   Text,
+  Breadcrumb,
+  Link,
 } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { useFetch } from "../../../hooks";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
@@ -76,6 +79,12 @@ const GradeCriteriaPage = () => {
 
   return (
     <AdminMainAreaWrapper paddingY={8}>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/settings">Settings</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Grade Criteria</Link></BreadcrumbItem>}
+        />
+      </Flex>
       <Heading fontSize="heading.h3" marginBottom={4} marginTop={6}>
         Grade Criteria
       </Heading>

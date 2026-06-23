@@ -42,6 +42,7 @@ import {
   FormLabel,
   Divider,
   VStack,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import {
   FiSearch,
@@ -60,6 +61,7 @@ import {
   adminDeleteMISReport,
 } from "../../../services";
 import { AdminMainAreaWrapper } from "../../../layouts";
+import { Breadcrumb, Link } from "../../../components";
 import { motion } from "framer-motion";
 import ScheduleReportModal from "./components/ScheduleReportModal";
 
@@ -483,6 +485,12 @@ const MISReportsPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/report/studentReport">Reports</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">MIS Reports</Link></BreadcrumbItem>}
+        />
+      </Flex>
       <Box
         mb={6} mt={6}
         as={motion.div}

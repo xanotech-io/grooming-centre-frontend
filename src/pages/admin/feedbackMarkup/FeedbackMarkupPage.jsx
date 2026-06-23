@@ -22,6 +22,7 @@ import {
   InputGroup,
   InputLeftElement,
   Input,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import {
   FaSearch,
@@ -30,7 +31,8 @@ import {
   FaChevronRight,
 } from "react-icons/fa";
 import { FiMoreVertical } from "react-icons/fi";
-import { Button, Heading, Select } from "../../../components";
+import { Button, Heading, Select, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import { adminGetFeedbackMarkups } from "../../../services";
 
@@ -104,7 +106,17 @@ export const FeedbackMarkupPage = () => {
   const resolvedCount = markups.filter((m) => m.status === "Resolved").length;
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Feedback Markup</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" mb="30px">
         <Heading as="h2" size="lg" color="#1A202C">
@@ -372,6 +384,7 @@ export const FeedbackMarkupPage = () => {
         </Flex>
       </Box>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

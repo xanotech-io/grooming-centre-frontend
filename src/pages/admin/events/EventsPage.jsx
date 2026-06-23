@@ -1,13 +1,15 @@
 import { Box, Flex, HStack } from '@chakra-ui/layout';
 import { Menu, MenuButton, MenuItem, MenuList } from '@chakra-ui/menu';
+import { BreadcrumbItem } from '@chakra-ui/react';
 import { useCallback, useEffect } from 'react';
 import { BiGridSmall, BiRightArrowAlt } from 'react-icons/bi';
 import { BsArrowUpLeft, BsClockHistory } from 'react-icons/bs';
 import { GoIssueClosed } from 'react-icons/go';
 import { HiDotsVertical } from 'react-icons/hi';
 import { Route, useHistory } from 'react-router-dom';
-import { Button } from '../../../components';
+import { Breadcrumb, Button, Link } from '../../../components';
 import { useQueryParams, useTab } from '../../../hooks';
+import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
 import { adminGetEventListing } from '../../../services';
 import { isUpcoming } from '../../../utils';
 import {
@@ -84,9 +86,20 @@ const EventsPage = () => {
   }, [tabQuery]);
 
   return (
-    <Flex marginTop="16" justifyContent="center">
-      {currentTab && <Content currentTab={currentTab} />}
-    </Flex>
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Events</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Flex marginTop="16" justifyContent="center">
+        {currentTab && <Content currentTab={currentTab} />}
+      </Flex>
+    </AdminMainAreaWrapper>
   );
 };
 

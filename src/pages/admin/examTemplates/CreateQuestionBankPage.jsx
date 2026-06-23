@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
+  BreadcrumbItem,
   Flex,
   Grid,
   Text,
@@ -15,7 +16,8 @@ import {
   NumberDecrementStepper,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
-import { Button, Heading, Input, Select } from "../../../components";
+import { Breadcrumb, Button, Heading, Input, Link, Select } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { adminCreateQuestionBank } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
 
@@ -174,6 +176,21 @@ export const CreateQuestionBankPage = () => {
     ["MCQ", "TRUE_FALSE", "MATCHING"].includes(type);
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/marking-templates">Marking Templates</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Create Question Bank</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <Box
       paddingX={{ base: "20px", lg: "40px" }}
       paddingY="30px"
@@ -453,6 +470,7 @@ export const CreateQuestionBankPage = () => {
         </Button>
       </Flex>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

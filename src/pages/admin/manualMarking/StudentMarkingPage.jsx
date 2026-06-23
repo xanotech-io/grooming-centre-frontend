@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
-import { Box, Flex, Badge, Grid, Progress, Spinner } from "@chakra-ui/react";
-import { Text, Button } from "../../../components";
+import { Box, BreadcrumbItem, Flex, Badge, Grid, Progress, Spinner } from "@chakra-ui/react";
+import { Breadcrumb, Text, Button, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { RichTextToView } from "../../../components";
 import {
   getStudentSubmission,
@@ -369,6 +370,21 @@ const StudentMarkingPage = () => {
       .join(" ") || "—";
 
   return (
+    <AdminMainAreaWrapper>
+    <Flex justify="space-between" align="center" mb={6} px={6} pt={4}>
+      <Breadcrumb
+        item2={
+          <BreadcrumbItem>
+            <Link href="/admin/manual-marking">Manual Marking</Link>
+          </BreadcrumbItem>
+        }
+        item3={
+          <BreadcrumbItem isCurrentPage>
+            <Link href="#">Mark Student</Link>
+          </BreadcrumbItem>
+        }
+      />
+    </Flex>
     <Box minH="calc(100vh - 160px)" display="flex" flexDirection="column">
       {/* Sticky header */}
       <Box
@@ -701,6 +717,7 @@ const StudentMarkingPage = () => {
         </Box>
       </Grid>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

@@ -21,10 +21,12 @@ import {
   Spinner,
   Progress,
   useToast,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { FiMoreVertical } from "react-icons/fi";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import {
   adminGetMarkingJobDetails,
@@ -199,6 +201,21 @@ export const MarkingJobDetailsPage = () => {
   };
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/examination-marking">Exam Marking</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Job Details</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <Box
       paddingX={{ base: "20px", lg: "40px" }}
       paddingY="30px"
@@ -535,6 +552,7 @@ export const MarkingJobDetailsPage = () => {
         </>
       )}
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

@@ -19,7 +19,8 @@ import {
   Tr,
   useToast,
 } from "@chakra-ui/react";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { downloadBatchImportTemplate, uploadBatchImport } from "../../../services";
 import { FiArrowLeft, FiChevronDown, FiChevronUp, FiDownload, FiUpload, FiX } from "react-icons/fi";
 
@@ -211,6 +212,12 @@ const BatchImportPage = () => {
 
   return (
     <Box marginX="22px" marginY="20px" maxW="860px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/examination">Examination Analysis</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Batch Import</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex alignItems="center" justifyContent="space-between" mb="20px" flexWrap="wrap" gap="12px">
         <Flex alignItems="center" gap="12px">

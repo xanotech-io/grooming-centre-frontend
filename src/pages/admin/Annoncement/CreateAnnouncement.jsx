@@ -1,8 +1,8 @@
-import { Box, useToast } from "@chakra-ui/react";
+import { Box, BreadcrumbItem, Flex, useToast } from "@chakra-ui/react";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Route, useHistory } from "react-router-dom";
-import { Select, Textarea } from "../../../components";
+import { Breadcrumb, Link, Select, Textarea } from "../../../components";
 import { useApp } from "../../../contexts";
 import { CreatePageLayout } from "../../../layouts";
 import {
@@ -96,6 +96,20 @@ const CreateAnnouncement = () => {
       //   isSubmitting || isLoading || hasError || disableSubmit
       // }
     >
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/announcement">Announcements</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Create Announcement</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box
         as="div"
         display={{ lg: "grid", base: "flex", md: "flex" }}

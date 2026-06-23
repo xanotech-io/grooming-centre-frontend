@@ -51,11 +51,11 @@ export const links = [
     text: "Standalone Exams",
     icon: <TiPen />,
   },
-  {
-    href: "/admin/examination",
-    text: "Examination Analysis",
-    icon: <TiPen />,
-  },
+  // {
+  //   href: "/admin/examination",
+  //   text: "Examination Result Analysis",
+  //   icon: <TiPen />,
+  // },
   {
     href: "/admin/polls",
     text: "Polls",
@@ -178,6 +178,11 @@ export const links = [
         href: "/admin/report/report-builder",
         text: "Report Builder",
       },
+        {
+    href: "/admin/examination",
+    text: "Examination Result Analysis",
+    icon: <TiPen />,
+  },
       {
         href: "/admin/report/assessment-overview",
         text: "Assessment & Quiz Result Report",

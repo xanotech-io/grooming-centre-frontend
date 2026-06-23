@@ -22,6 +22,7 @@ import {
   useDisclosure,
   useToast,
   Link,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import {
   FaArrowLeft,
@@ -32,7 +33,8 @@ import {
   FaDownload,
   FaBan,
 } from "react-icons/fa";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link as BreadcrumbLink } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import {
   adminGetDocumentById,
@@ -292,6 +294,21 @@ const UserDocumentDetailsPage = () => {
   };
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/admin/user-documents">Document Verification</BreadcrumbLink>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <BreadcrumbLink href="#">Document Details</BreadcrumbLink>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <Box marginX="22px" marginY="20px">
       {/* Header */}
       <Flex alignItems="center" gap="12px" mb="24px">
@@ -513,6 +530,7 @@ const UserDocumentDetailsPage = () => {
         onSuccess={() => {}}
       />
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

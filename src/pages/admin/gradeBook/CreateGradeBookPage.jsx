@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
+  BreadcrumbItem,
   Flex,
   Grid,
   Text,
@@ -21,7 +22,8 @@ import {
   TableContainer,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
-import { Button, Heading, Input } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
+import { Breadcrumb, Button, Heading, Input, Link } from "../../../components";
 import { adminCreateGradeBook } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
 
@@ -147,12 +149,27 @@ export const CreateGradeBookPage = () => {
   };
 
   return (
-    <Box
-      paddingX={{ base: "20px", lg: "40px" }}
-      paddingY="30px"
-      bg="#FAFAFA"
-      minHeight="100vh"
-    >
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/grade-book">Grade Book</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Create Grade Book</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box
+        paddingX={{ base: "20px", lg: "40px" }}
+        paddingY="30px"
+        bg="#FAFAFA"
+        minHeight="100vh"
+      >
       {/* Go Back */}
       <Flex
         alignItems="center"
@@ -461,6 +478,7 @@ export const CreateGradeBookPage = () => {
         </Button>
       </Flex>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

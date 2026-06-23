@@ -5,7 +5,8 @@ import { Checkbox, Tag, IconButton, Input as ChakraInput } from "@chakra-ui/reac
 import { useHistory } from "react-router-dom";
 import { FaArrowLeft, FaSearch, FaSlidersH, FaChevronLeft, FaChevronRight, FaEllipsisV } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { Button } from "../../../components";
+import { Button, Breadcrumb, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 const MOCK_TEMPLATES = [
@@ -167,6 +168,12 @@ const TemplateLibraryPage = () => {
 
     return (
         <AdminMainAreaWrapper>
+            <Flex justify="space-between" align="center" mb={6}>
+                <Breadcrumb
+                    item2={<BreadcrumbItem><Link href="/admin/standalone-exams">Standalone Exams</Link></BreadcrumbItem>}
+                    item3={<BreadcrumbItem isCurrentPage><Link href="#">Template Library</Link></BreadcrumbItem>}
+                />
+            </Flex>
             {/* ── Go Back & Header ──────────────────────────── */}
             <Flex alignItems="center" gap="8px" mb={4} cursor="pointer" onClick={() => push("/admin/standalone-exams")} width="fit-content">
                 <FaArrowLeft size="14px" color="#4A5568" />

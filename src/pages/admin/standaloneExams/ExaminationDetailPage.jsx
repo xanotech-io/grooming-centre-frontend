@@ -19,6 +19,8 @@ import {
     adminGetExamFullReport,
     adminGetStudentExamResultAnalysis,
 } from "../../../services";
+import { Breadcrumb, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import dayjs from "dayjs";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -278,6 +280,12 @@ const ExaminationDetailPage = () => {
 
     return (
         <AdminMainAreaWrapper>
+            <Flex justify="space-between" align="center" mb={6}>
+                <Breadcrumb
+                    item2={<BreadcrumbItem><Link href="/admin/examination">Examination Analysis</Link></BreadcrumbItem>}
+                    item3={<BreadcrumbItem isCurrentPage><Link href="#">Exam Details</Link></BreadcrumbItem>}
+                />
+            </Flex>
             {/* Header */}
             <Flex justifyContent="space-between" alignItems="flex-start" mb={6} mt={2} flexWrap="wrap" gap={3}>
                 <Box>

@@ -25,9 +25,10 @@ import {
   FormControl,
   FormLabel,
   useDisclosure,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FiArrowLeft, FiLock, FiEdit2, FiTrash2, FiBarChart2, FiPlay } from "react-icons/fi";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { capitalizeFirstLetter } from "../../../utils";
 import {
@@ -472,6 +473,20 @@ const MarkingSchemeDetailPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/marking-schemes">Marking Schemes</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Scheme Details</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box
         paddingX={{ base: "20px", lg: "40px" }}
         paddingY="30px"

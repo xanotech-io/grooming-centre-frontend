@@ -1,9 +1,12 @@
 import { useCallback, useEffect } from "react";
 import { Route } from "react-router-dom";
 import { Flex, Box } from "@chakra-ui/layout";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import {
+  Breadcrumb,
   Button,
   DashboardMetricCard,
+  Link,
   Spinner,
   Text,
 } from "../../../components";
@@ -46,6 +49,20 @@ const AcademicMetricsDashboard = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin">Dashboard</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Academic Metrics</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box my={4}>
         <Text fontSize="heading.h3" bold>
           Academic Metrics Dashboard

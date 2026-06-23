@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
-import { Box, Flex, Grid, Spinner, Text } from "@chakra-ui/react";
-import { Heading } from "../../../components";
+import { Box, BreadcrumbItem, Flex, Grid, Spinner, Text } from "@chakra-ui/react";
+import { Breadcrumb, Heading, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { adminGetBadgeKPIs } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
 import { FiArrowLeft } from "react-icons/fi";
@@ -59,7 +60,22 @@ const BadgeKPIPage = () => {
   }, []);
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/badge-support">Badge Support</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Badge KPIs</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       <Flex alignItems="center" gap="16px" mb="28px">
         <Flex
           as="button"
@@ -211,6 +227,7 @@ const BadgeKPIPage = () => {
         </Flex>
       )}
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

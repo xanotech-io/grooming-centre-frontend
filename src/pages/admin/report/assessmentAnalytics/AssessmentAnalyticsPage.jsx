@@ -31,10 +31,11 @@ import {
   Grid,
   Spinner,
   useDisclosure,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FiRefreshCw, FiAlertTriangle, FiFilter } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { DashboardMetricCard } from "../../../../components";
+import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
 import {
   getAssessmentAnalyticsReport,
   getAssessmentAnalyticsThresholds,
@@ -503,6 +504,12 @@ const AssessmentAnalyticsPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/report/studentReport">Reports</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Assessment Analytics</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" borderBottom="1px" borderColor="gray.200" pb={4} mb={6}>
         <Box>

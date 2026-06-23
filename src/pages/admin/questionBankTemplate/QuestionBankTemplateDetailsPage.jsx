@@ -33,7 +33,8 @@ import {
   Select,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaClone, FaTrash, FaEdit } from "react-icons/fa";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { useFetch } from "../../../hooks";
 import {
   adminGetQuestionTemplateById,
@@ -370,6 +371,12 @@ const QuestionBankTemplateDetailsPage = () => {
 
   return (
     <Box marginX="22px" marginY="20px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/question-bank-templates">Question Bank Templates</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Template Details</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex alignItems="center" gap="12px" mb="24px" flexWrap="wrap">
         <IconButton

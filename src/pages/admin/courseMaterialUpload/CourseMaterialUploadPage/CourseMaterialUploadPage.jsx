@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Route } from "react-router-dom";
-import { Box, useDisclosure, useToast } from "@chakra-ui/react";
+import { Box, BreadcrumbItem, Flex, useDisclosure, useToast } from "@chakra-ui/react";
 import { useFetch } from "../../../../hooks";
 import {
   adminGetAllCourseMaterials,
@@ -9,6 +9,8 @@ import {
   adminGetCourseListing,
 } from "../../../../services";
 
+import { Breadcrumb, Link } from "../../../../components";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import MaterialsHeader from "./components/MaterialsHeader";
 import MaterialsFilters from "./components/MaterialsFilters";
 import MaterialsTable from "./components/MaterialsTable";
@@ -100,7 +102,17 @@ const CourseMaterialUploadPage = () => {
   const pagination = resource.data?.pagination ?? {};
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Course Materials</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+
       <MaterialsHeader stats={kpis} onUploadClick={uploadModal.onOpen} />
 
       <Box bg="white" borderRadius="8px" border="1px solid #E2E8F0" overflow="hidden">
@@ -140,7 +152,7 @@ const CourseMaterialUploadPage = () => {
         onClose={viewModal.onClose}
         material={selectedMaterial}
       />
-    </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

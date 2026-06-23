@@ -42,6 +42,7 @@ import {
   Switch,
   Grid,
   Collapse,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { Tabs, Tab, makeStyles } from "@material-ui/core";
 import {
@@ -55,7 +56,7 @@ import {
 } from "react-icons/fi";
 import dayjs from "dayjs";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { DashboardMetricCard } from "../../../components";
+import { Breadcrumb, Link, DashboardMetricCard } from "../../../components";
 import {
   getComplianceNotificationKpis,
   getComplianceNotifications,
@@ -877,6 +878,15 @@ const ExamCompliancePage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Compliance Monitor</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box mb={6}>
         <Text fontSize="2xl" fontWeight={700} color="gray.800">Compliance & Non-Compliance Monitor</Text>
         <Text fontSize="sm" color="gray.500" mt={1}>Monitor course and exam compliance obligations, dispatch notifications, and manage escalations</Text>

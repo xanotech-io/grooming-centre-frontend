@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import { Box, Flex, Grid, Spinner, Text } from "@chakra-ui/react";
-import { Heading } from "../../../components";
+import { Breadcrumb, Heading, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { getMultimediaExamStats } from "../../../services";
 import { FiArrowLeft, FiCheckCircle, FiAlertTriangle } from "react-icons/fi";
 import { FaImage, FaMicrophone, FaVideo } from "react-icons/fa";
@@ -63,6 +64,12 @@ const MultimediaStatsPage = () => {
 
   return (
     <Box marginX="22px" marginY="20px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/examination">Examination Analysis</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Multimedia Stats</Link></BreadcrumbItem>}
+        />
+      </Flex>
       <Flex alignItems="center" gap="16px" mb="28px">
         <Flex
           as="button"

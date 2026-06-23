@@ -40,7 +40,8 @@ import {
   FaDownload,
   FaExclamationTriangle,
 } from "react-icons/fa";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { useFetch } from "../../../hooks";
 import {
   adminGetAllQuestionImports,
@@ -335,6 +336,11 @@ const QuestionImportPage = () => {
 
   return (
     <Box marginX="22px" marginY="20px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem isCurrentPage><Link href="#">Question Upload</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" mb="24px">
         <Heading fontSize="22px" fontWeight="600">

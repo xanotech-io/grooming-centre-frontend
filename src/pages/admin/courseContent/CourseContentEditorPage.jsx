@@ -18,11 +18,13 @@ import {
   TabList,
   TabPanels,
   TabPanel,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaSave, FaEye, FaEdit } from "react-icons/fa";
 import { convertFromRaw } from "draft-js";
 import { stateToHTML } from "draft-js-export-html";
-import { Button, Heading, RichText, RichTextToView } from "../../../components";
+import { Button, Heading, RichText, RichTextToView, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch, useRichText } from "../../../hooks";
 import {
   getCourseContent,
@@ -227,7 +229,22 @@ const CourseContentEditorPage = () => {
   }
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/courses">Courses</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Course Content Editor</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       {/* Header */}
       <Flex alignItems="center" gap="12px" mb="24px">
         <Button
@@ -583,6 +600,7 @@ const CourseContentEditorPage = () => {
         </Box>
       </Grid>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
+  BreadcrumbItem,
   Flex,
   Text,
   Table,
@@ -16,7 +17,8 @@ import {
   IconButton,
 } from "@chakra-ui/react";
 import { FaPlus, FaArrowLeft, FaEdit } from "react-icons/fa";
-import { Button, Heading } from "../../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../../components";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../../hooks";
 import { adminGetBulkCourseV2Templates } from "../../../../services";
 
@@ -36,7 +38,22 @@ const TemplatesListingPage = () => {
   const templates = resource.data?.templates ?? [];
 
   return (
+    <AdminMainAreaWrapper>
     <Box marginX="22px" marginY="20px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/bulk-courses">Bulk Course Creation</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Templates</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Flex alignItems="center" gap="12px" mb="24px">
         <IconButton
           aria-label="Go back"
@@ -128,6 +145,7 @@ const TemplatesListingPage = () => {
         )}
       </Box>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

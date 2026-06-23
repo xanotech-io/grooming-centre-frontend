@@ -23,10 +23,11 @@ import {
   MenuList,
   MenuItem,
   useToast,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FaSearch, FaLock, FaPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { FiMoreVertical } from "react-icons/fi";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { capitalizeFirstLetter } from "../../../utils";
 import { listMarkingSchemes, deleteMarkingScheme } from "../../../services";
@@ -146,6 +147,15 @@ const MarkingSchemesListPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Marking Schemes</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box marginX="22px" marginY="30px">
         {/* Page header */}
         <Flex

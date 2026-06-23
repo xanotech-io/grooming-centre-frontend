@@ -39,6 +39,7 @@ import {
   useDisclosure,
   useToast,
   Grid,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { Tabs, Tab, makeStyles } from "@material-ui/core";
 import {
@@ -49,7 +50,7 @@ import {
 } from "react-icons/fi";
 import dayjs from "dayjs";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { DashboardMetricCard } from "../../../components";
+import { Breadcrumb, DashboardMetricCard, Link } from "../../../components";
 import {
   createExportReport,
   getExportReports,
@@ -513,6 +514,15 @@ const ExportReportsPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Export Reports</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" borderBottom="1px" borderColor="gray.200" pb={4} mb={6}>
         <Box>

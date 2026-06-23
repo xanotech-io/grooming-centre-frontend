@@ -3,7 +3,7 @@ import {
   Box, Flex, Grid, GridItem, VStack, HStack,
   Input, InputGroup, InputLeftElement, Select,
   Checkbox, IconButton, Table, Thead, Tbody, Tr, Th, Td,
-  Badge, Spinner, useToast, SimpleGrid,
+  Badge, Spinner, useToast, SimpleGrid, BreadcrumbItem,
 } from '@chakra-ui/react';
 import {
   FiSearch, FiPlus, FiSave, FiPlay, FiEdit2, FiTrash2,
@@ -11,7 +11,7 @@ import {
 } from 'react-icons/fi';
 import { Route } from 'react-router-dom';
 import { AdminMainAreaWrapper } from '../../../../layouts';
-import { Text } from '../../../../components';
+import { Breadcrumb, Link, Text } from '../../../../components';
 
 import {
   createPerformanceFilter,
@@ -1102,6 +1102,12 @@ const PerformanceFiltersPage = () => {
   // ════════════════════════════════════════════════════════════════
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/report/studentReport">Reports</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Performance Filters</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" mb={6} mt={4}>
         <Box>

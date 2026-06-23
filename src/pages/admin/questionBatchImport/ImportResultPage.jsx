@@ -15,7 +15,8 @@ import {
   Thead,
   Tr,
 } from "@chakra-ui/react";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { getBatchImportDetail } from "../../../services";
 import { FiArrowLeft, FiFileText, FiRefreshCw, FiUpload } from "react-icons/fi";
 import dayjs from "dayjs";
@@ -106,6 +107,12 @@ const ImportResultPage = () => {
 
   return (
     <Box marginX="22px" marginY="20px" maxW="1000px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/examination">Examination Analysis</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Import Results</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex alignItems="center" justifyContent="space-between" mb="24px" flexWrap="wrap" gap="12px">
         <Flex alignItems="center" gap="12px">

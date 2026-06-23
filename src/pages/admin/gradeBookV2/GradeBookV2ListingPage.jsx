@@ -7,9 +7,11 @@ import {
   Grid,
   Input as ChakraInput,
   useToast,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FaPlus, FaSearch, FaBook } from "react-icons/fa";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { gradeBookV2GetByCourse } from "../../../services";
 
 const GradeBookV2ListingPage = () => {
@@ -44,7 +46,17 @@ const GradeBookV2ListingPage = () => {
   };
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Advanced Grade Book</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       <Flex justifyContent="space-between" alignItems="center" mb="30px">
         <Heading fontSize="22px" fontWeight="600">
           Advanced Grade Book
@@ -170,6 +182,7 @@ const GradeBookV2ListingPage = () => {
         </Button>
       </Box>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

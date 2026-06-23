@@ -23,7 +23,8 @@ import {
   Tr,
   useToast,
 } from "@chakra-ui/react";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { deleteBatchImport, listBatchImports } from "../../../services";
 import { useApp } from "../../../contexts/App/useApp";
 import { FiArrowLeft, FiChevronLeft, FiChevronRight, FiEye, FiFileText, FiTrash2 } from "react-icons/fi";
@@ -120,6 +121,11 @@ const BatchHistoryPage = () => {
 
   return (
     <Box marginX="22px" marginY="20px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem isCurrentPage><Link href="#">Question Imports</Link></BreadcrumbItem>}
+        />
+      </Flex>
       <Flex alignItems="center" justifyContent="space-between" mb="24px" flexWrap="wrap" gap="12px">
         <Flex alignItems="center" gap="12px">
           <Flex as="button" alignItems="center" gap="6px" color="#6b006b" onClick={() => history.goBack()} _hover={{ opacity: 0.8 }}>

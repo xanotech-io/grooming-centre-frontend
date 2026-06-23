@@ -10,7 +10,8 @@ import {
   Text,
   Textarea,
 } from "@chakra-ui/react";
-import { Button } from "../../../components";
+import { Breadcrumb, Button, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { previewMultimediaQuestion } from "../../../services";
 import { FiArrowLeft, FiChevronDown, FiChevronUp } from "react-icons/fi";
 
@@ -241,6 +242,12 @@ const QuestionPreviewPage = () => {
 
   return (
     <Box marginX="22px" marginY="20px" maxW="760px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/examination">Examination Analysis</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Question Preview</Link></BreadcrumbItem>}
+        />
+      </Flex>
       <Flex alignItems="center" gap="12px" mb="24px">
         <Flex
           as="button"

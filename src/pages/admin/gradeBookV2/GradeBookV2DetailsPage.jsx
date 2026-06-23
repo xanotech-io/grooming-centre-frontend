@@ -39,6 +39,7 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import {
   FaArrowLeft,
@@ -51,7 +52,8 @@ import {
   FaDownload,
   FaSlidersH,
 } from "react-icons/fa";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import {
   gradeBookV2GetById,
@@ -821,7 +823,22 @@ const GradeBookV2DetailsPage = () => {
   };
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/grade-book-v2">Advanced Grade Book</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Grade Book Details</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       <Flex alignItems="center" gap="12px" mb="24px">
         <IconButton
           aria-label="Go back"
@@ -1037,6 +1054,7 @@ const GradeBookV2DetailsPage = () => {
         </AlertDialogOverlay>
       </AlertDialog>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

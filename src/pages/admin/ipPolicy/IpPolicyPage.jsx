@@ -54,6 +54,7 @@ import {
   NumberInputStepper,
   NumberIncrementStepper,
   NumberDecrementStepper,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import {
   FiPlus,
@@ -68,6 +69,7 @@ import {
   FiZap,
 } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
+import { Breadcrumb, Link } from "../../../components";
 import {
   listIpPolicies,
   getActiveIpPolicy,
@@ -986,6 +988,15 @@ function IpPolicyPage() {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">IP Auth Policy</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box p={6}>
         <Flex justify="space-between" align="center" mb={6}>
           <Box>

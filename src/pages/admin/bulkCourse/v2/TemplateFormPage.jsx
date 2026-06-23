@@ -17,9 +17,11 @@ import {
   TagCloseButton,
   Wrap,
   WrapItem,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
-import { Button, Heading } from "../../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../../components";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminCreateBulkCourseV2Template,
   adminGetBulkCourseV2TemplateById,
@@ -170,6 +172,26 @@ const TemplateFormPage = () => {
   }
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/bulk-courses">Bulk Course Creation</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem>
+              <Link href="/admin/bulk-courses/templates">Templates</Link>
+            </BreadcrumbItem>
+          }
+          item4={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Template Form</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <Box marginX="22px" marginY="20px">
       <Flex alignItems="center" gap="12px" mb="24px">
         <IconButton
@@ -334,6 +356,7 @@ const TemplateFormPage = () => {
         </Box>
       </Box>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

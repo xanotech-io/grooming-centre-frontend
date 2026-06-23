@@ -46,9 +46,11 @@ import {
   Stack,
   Checkbox,
   CheckboxGroup,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiRefreshCw, FiChevronDown, FiX } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
+import { Breadcrumb, Link } from "../../../components";
 import {
   getCustomFieldsKpis,
   listCustomFields,
@@ -947,6 +949,15 @@ function CustomFieldsPage() {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Custom Fields</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box p={6}>
         <Flex justify="space-between" align="center" mb={6}>
           <Box>

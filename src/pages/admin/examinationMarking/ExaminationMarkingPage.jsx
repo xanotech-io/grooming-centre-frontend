@@ -23,6 +23,7 @@ import {
   InputLeftElement,
   Input,
   Progress,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import {
   FaSearch,
@@ -31,7 +32,8 @@ import {
   FaPlus,
 } from "react-icons/fa";
 import { FiMoreVertical } from "react-icons/fi";
-import { Button, Heading, Select } from "../../../components";
+import { Button, Heading, Select, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import { adminGetMarkingJobs } from "../../../services";
 
@@ -178,7 +180,17 @@ export const ExaminationMarkingPage = () => {
   const inProgressCount = jobs.filter((j) => j.status === "In Progress").length;
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Exam Marking</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       {/* Header */}
       <Flex
         justifyContent="space-between"
@@ -444,6 +456,7 @@ export const ExaminationMarkingPage = () => {
         </Flex>
       </Box>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

@@ -1,9 +1,12 @@
 /* eslint-disable no-unused-vars */
 
 import { Route, Switch } from 'react-router-dom';
+import { Flex } from '@chakra-ui/react';
+import { BreadcrumbItem } from '@chakra-ui/react';
 
 import { useQueryParams } from '../../../hooks';
 import { AdminMainAreaWrapper } from '../../../layouts';
+import { Breadcrumb, Link } from '../../../components';
 
 // Added a new header component
 import StandAloneHeader from '../courses/AssessmentPage/layout/StandAloneHeader';
@@ -27,6 +30,12 @@ export const CreateStandaloneExamPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/standalone-exams">Standalone Exams</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Create Exam</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* commented out previous header and box components */}
       {/* <Header /> */}
       <StandAloneHeader assessment={assessment} />
