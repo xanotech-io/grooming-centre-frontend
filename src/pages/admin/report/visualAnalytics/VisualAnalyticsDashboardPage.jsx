@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Route } from "react-router-dom";
 import { Box, Flex, Grid, SimpleGrid } from "@chakra-ui/layout";
 import { Badge, Divider, Select, Tag, useToast } from "@chakra-ui/react";
@@ -28,6 +28,8 @@ import {
 import {
   getVisualAnalyticsDashboard,
   getVisualAnalyticsReport,
+  adminGetCourseListing,
+  adminListModules,
 } from "../../../../services";
 
 ChartJS.register(
@@ -84,6 +86,113 @@ const IndicatorDot = ({ indicator, size = 3 }) => (
   />
 );
 
+// ── Searchable Select ─────────────────────────────────────────────────────────
+
+const SearchableSelect = ({ options = [], value, onChange, placeholder = "Search…", isDisabled = false }) => {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  const selected = options.find((o) => o.value === value);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = options.filter((o) =>
+    o.label.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const handleSelect = (opt) => {
+    onChange(opt.value);
+    setQuery("");
+    setOpen(false);
+  };
+
+  const handleClear = (e) => {
+    e.stopPropagation();
+    onChange("");
+    setQuery("");
+    setOpen(false);
+  };
+
+  return (
+    <Box ref={ref} position="relative" minW="200px">
+      <Flex
+        align="center"
+        border="1px solid"
+        borderColor={open ? "blue.400" : "gray.200"}
+        borderRadius="6px"
+        bg={isDisabled ? "gray.50" : "white"}
+        px={2}
+        h="32px"
+        cursor={isDisabled ? "not-allowed" : "pointer"}
+        onClick={() => { if (!isDisabled) setOpen((o) => !o); }}
+        gap={1}
+      >
+        {open ? (
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); }}
+            onClick={(e) => e.stopPropagation()}
+            placeholder="Type to search…"
+            style={{ flex: 1, border: "none", outline: "none", fontSize: "13px", background: "transparent", minWidth: 0 }}
+          />
+        ) : (
+          <Box flex={1} fontSize="13px" color={selected ? "gray.800" : "gray.400"} noOfLines={1} overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
+            {selected ? selected.label : placeholder}
+          </Box>
+        )}
+        {value && !isDisabled ? (
+          <Box as="span" color="gray.400" fontSize="14px" lineHeight={1} onClick={handleClear} cursor="pointer" px={1}>✕</Box>
+        ) : (
+          <Box as="span" color="gray.400" fontSize="10px" ml={1}>▾</Box>
+        )}
+      </Flex>
+
+      {open && (
+        <Box
+          position="absolute"
+          top="36px"
+          left={0}
+          right={0}
+          bg="white"
+          border="1px solid"
+          borderColor="gray.200"
+          borderRadius="6px"
+          boxShadow="md"
+          zIndex={100}
+          maxH="220px"
+          overflowY="auto"
+        >
+          {filtered.length === 0 ? (
+            <Box px={3} py={2} fontSize="13px" color="gray.400">No results</Box>
+          ) : (
+            filtered.map((opt) => (
+              <Box
+                key={opt.value}
+                px={3}
+                py={2}
+                fontSize="13px"
+                color="gray.800"
+                cursor="pointer"
+                bg={opt.value === value ? "blue.50" : "white"}
+                _hover={{ bg: "gray.50" }}
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(opt); }}
+              >
+                {opt.label}
+              </Box>
+            ))
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 const VisualAnalyticsDashboardPage = () => {
@@ -96,7 +205,12 @@ const VisualAnalyticsDashboardPage = () => {
   const [totalRows, setTotalRows] = useState(0);
   const [page, setPage] = useState(1);
 
+  const [courses, setCourses] = useState([]);
+  const [modules, setModules] = useState([]);
+
   const [filters, setFilters] = useState({
+    courseId: "",
+    moduleId: "",
     startDate: "",
     endDate: "",
     achievementCategory: "",
@@ -142,11 +256,25 @@ const VisualAnalyticsDashboardPage = () => {
 
   const buildParams = () => {
     const p = {};
+    if (filters.courseId) p.courseId = filters.courseId;
+    if (filters.moduleId) p.moduleId = filters.moduleId;
     if (filters.startDate) p.startDate = filters.startDate;
     if (filters.endDate) p.endDate = filters.endDate;
     if (filters.achievementCategory) p.achievementCategory = filters.achievementCategory;
     if (filters.visualIndicator) p.visualIndicator = filters.visualIndicator;
     return p;
+  };
+
+  const handleCourseChange = async (courseId) => {
+    setFilters((f) => ({ ...f, courseId, moduleId: "" }));
+    setModules([]);
+    if (!courseId) return;
+    try {
+      const res = await adminListModules(courseId);
+      setModules(res?.modules ?? []);
+    } catch {
+      // silently fail — module dropdown just stays empty
+    }
   };
 
   const handleApply = () => {
@@ -157,8 +285,16 @@ const VisualAnalyticsDashboardPage = () => {
   };
 
   const handleReset = () => {
-    const cleared = { startDate: "", endDate: "", achievementCategory: "", visualIndicator: "" };
+    const cleared = {
+      courseId: "",
+      moduleId: "",
+      startDate: "",
+      endDate: "",
+      achievementCategory: "",
+      visualIndicator: "",
+    };
     setFilters(cleared);
+    setModules([]);
     setPage(1);
     fetchDashboard({});
     fetchReport(1, {});
@@ -172,6 +308,7 @@ const VisualAnalyticsDashboardPage = () => {
   useEffect(() => {
     fetchDashboard({});
     fetchReport(1, {});
+    adminGetCourseListing().then((res) => setCourses(res?.courses ?? [])).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -269,6 +406,34 @@ const VisualAnalyticsDashboardPage = () => {
           Filters
         </Text>
         <Flex gap={4} flexWrap="wrap" alignItems="flex-end">
+          {/* Course */}
+          <Box>
+            <Text as="level5" color="gray.500" mb={1}>
+              Course
+            </Text>
+            <SearchableSelect
+              options={courses.map((c) => ({ value: c.id, label: c.title }))}
+              value={filters.courseId}
+              onChange={(val) => handleCourseChange(val)}
+              placeholder="All courses"
+            />
+          </Box>
+
+          {/* Module */}
+          <Box>
+            <Text as="level5" color="gray.500" mb={1}>
+              Module
+            </Text>
+            <SearchableSelect
+              options={modules.map((m) => ({ value: m.id, label: m.title }))}
+              value={filters.moduleId}
+              onChange={(val) => setFilters((f) => ({ ...f, moduleId: val }))}
+              placeholder={filters.courseId ? "All modules" : "Select a course first"}
+              isDisabled={!filters.courseId}
+            />
+          </Box>
+
+          {/* Date range */}
           <Box>
             <Text as="level5" color="gray.500" mb={1}>
               Start Date
@@ -307,6 +472,7 @@ const VisualAnalyticsDashboardPage = () => {
               }}
             />
           </Box>
+
           <Flex gap={2} mt={{ base: 2, md: 0 }}>
             <Button onClick={handleApply}>Apply</Button>
             <Button secondary onClick={handleReset}>

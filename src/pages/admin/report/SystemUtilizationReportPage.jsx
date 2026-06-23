@@ -1,7 +1,15 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Route } from "react-router-dom";
 import { Box, Flex, SimpleGrid } from "@chakra-ui/layout";
-import { BreadcrumbItem, Tag, useToast } from "@chakra-ui/react";
+import {
+  BreadcrumbItem,
+  Tag,
+  useToast,
+  Select,
+  Collapse,
+  Text as ChakraText,
+  Input,
+} from "@chakra-ui/react";
 import {
   Breadcrumb,
   Button,
@@ -14,12 +22,25 @@ import {
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../hooks";
 import { getSystemUtilizationReport } from "../../../services";
+import { FiFilter, FiChevronDown, FiChevronUp } from "react-icons/fi";
 
 const deviceColorMap = {
   Mobile: "blue",
   Desktop: "purple",
   Tablet: "orange",
 };
+
+const ROLE_OPTIONS = [
+  { value: "student", label: "Student" },
+  { value: "instructor", label: "Instructor" },
+  { value: "admin", label: "Admin" },
+];
+
+const GROUP_BY_OPTIONS = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
 
 const mapToRow = (item) => ({
   id: item.userId,
@@ -40,10 +61,33 @@ const SystemUtilizationReportPage = () => {
   const toast = useToast();
   const [summary, setSummary] = useState(null);
   const [totalCount, setTotalCount] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState({ role: "", groupBy: "", startDate: "", endDate: "" });
+  const appliedFiltersRef = useRef({ role: "", groupBy: "", startDate: "", endDate: "" });
+
+  const applyFilters = () => {
+    appliedFiltersRef.current = { ...filters };
+  };
+
+  const resetFilters = () => {
+    const empty = { role: "", groupBy: "", startDate: "", endDate: "" };
+    setFilters(empty);
+    appliedFiltersRef.current = empty;
+    setFilterOpen(false);
+    fetchRowItems();
+  };
 
   const fetchReport = async (params = {}) => {
     try {
-      const result = await getSystemUtilizationReport(params);
+      const { role, groupBy, startDate, endDate } = appliedFiltersRef.current;
+      const mergedParams = {
+        ...params,
+        ...(role ? { role } : {}),
+        ...(groupBy ? { groupBy } : {}),
+        ...(startDate ? { startDate } : {}),
+        ...(endDate ? { endDate } : {}),
+      };
+      const result = await getSystemUtilizationReport(mergedParams);
       const reportData = result?.data ?? {};
       const rows = (reportData.data ?? []).map(mapToRow);
       const page = Number(params.page) || 1;
@@ -78,61 +122,152 @@ const SystemUtilizationReportPage = () => {
     }
   };
 
+  const fetcher = (props) => async () => fetchReport(props?.params);
+  const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
+  const activeFilterCount = Object.values(appliedFiltersRef.current).filter(Boolean).length;
+
+  const filterTrigger = (
+    <Box
+      as="button"
+      onClick={() => setFilterOpen((v) => !v)}
+      display="inline-flex"
+      alignItems="center"
+      gap={2}
+      px={3}
+      h="34px"
+      border="1px solid #D0D5DD"
+      borderRadius="md"
+      bg="white"
+      fontSize="13px"
+      fontWeight="500"
+      color="#344054"
+      cursor="pointer"
+      _hover={{ bg: "#F9FAFB" }}
+      transition="background 0.15s"
+      flexShrink={0}
+    >
+      <FiFilter size={14} />
+      Filter
+      {activeFilterCount > 0 && (
+        <Box
+          as="span"
+          bg="#660066"
+          color="white"
+          borderRadius="full"
+          fontSize="11px"
+          fontWeight="600"
+          px={1.5}
+          py={0}
+          lineHeight="18px"
+          minW="18px"
+          textAlign="center"
+        >
+          {activeFilterCount}
+        </Box>
+      )}
+      {filterOpen ? <FiChevronUp size={13} /> : <FiChevronDown size={13} />}
+    </Box>
+  );
+
+  const filterPanel = (
+    <Collapse in={filterOpen} animateOpacity style={{ overflow: "visible" }}>
+      <Box
+        mt={2}
+        p={4}
+        bg="#FAFAFA"
+        border="1px solid #E4E7EC"
+        borderRadius="lg"
+        overflow="visible"
+      >
+        <Flex gap={3} flexWrap="wrap" align="flex-end">
+          <Box minW="160px">
+            <ChakraText fontSize="12px" fontWeight="500" color="#667085" mb={1}>
+              Role
+            </ChakraText>
+            <Select
+              size="sm"
+              borderRadius="md"
+              value={filters.role}
+              onChange={(e) => setFilters((prev) => ({ ...prev, role: e.target.value }))}
+              placeholder="All Roles"
+              bg="white"
+            >
+              {ROLE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </Select>
+          </Box>
+
+          <Box minW="160px">
+            <ChakraText fontSize="12px" fontWeight="500" color="#667085" mb={1}>
+              Group By
+            </ChakraText>
+            <Select
+              size="sm"
+              borderRadius="md"
+              value={filters.groupBy}
+              onChange={(e) => setFilters((prev) => ({ ...prev, groupBy: e.target.value }))}
+              placeholder="All Periods"
+              bg="white"
+            >
+              {GROUP_BY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </Select>
+          </Box>
+
+          <Box minW="150px">
+            <ChakraText fontSize="12px" fontWeight="500" color="#667085" mb={1}>
+              Start Date
+            </ChakraText>
+            <Input
+              size="sm"
+              borderRadius="md"
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => setFilters((prev) => ({ ...prev, startDate: e.target.value }))}
+              bg="white"
+            />
+          </Box>
+
+          <Box minW="150px">
+            <ChakraText fontSize="12px" fontWeight="500" color="#667085" mb={1}>
+              End Date
+            </ChakraText>
+            <Input
+              size="sm"
+              borderRadius="md"
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => setFilters((prev) => ({ ...prev, endDate: e.target.value }))}
+              bg="white"
+            />
+          </Box>
+
+          <Flex gap={2} mb="1px">
+            <Button
+              onClick={() => {
+                applyFilters();
+                setFilterOpen(false);
+                fetchRowItems();
+              }}
+              style={{ height: "32px", fontSize: "13px" }}
+            >
+              Apply
+            </Button>
+            <Button secondary onClick={resetFilters} style={{ height: "32px", fontSize: "13px" }}>
+              Reset
+            </Button>
+          </Flex>
+        </Flex>
+      </Box>
+    </Collapse>
+  );
+
   const tableProps = {
     searchKey: "search",
-    filterControls: [
-      {
-        triggerText: "Role",
-        queryKey: "role",
-        width: "180px",
-        body: {
-          checks: [
-            { label: "Student", queryValue: "student" },
-            { label: "Instructor", queryValue: "instructor" },
-            { label: "Admin", queryValue: "admin" },
-          ],
-        },
-      },
-      {
-        triggerText: "Device Type",
-        queryKey: "deviceType",
-        width: "180px",
-        body: {
-          checks: [
-            { label: "Mobile", queryValue: "Mobile" },
-            { label: "Desktop", queryValue: "Desktop" },
-            { label: "Tablet", queryValue: "Tablet" },
-          ],
-        },
-      },
-      {
-        triggerText: "Browser",
-        queryKey: "browserType",
-        width: "180px",
-        body: {
-          checks: [
-            { label: "Chrome", queryValue: "Chrome" },
-            { label: "Firefox", queryValue: "Firefox" },
-            { label: "Safari", queryValue: "Safari" },
-            { label: "Edge", queryValue: "Edge" },
-          ],
-        },
-      },
-      {
-        triggerText: "Group By",
-        queryKey: "groupBy",
-        width: "160px",
-        body: {
-          checks: [
-            { label: "Daily", queryValue: "daily" },
-            { label: "Weekly", queryValue: "weekly" },
-            { label: "Monthly", queryValue: "monthly" },
-          ],
-        },
-      },
-    ],
     options: {
-      dateFilter: true,
       selection: false,
       pagination: true,
     },
@@ -208,9 +343,6 @@ const SystemUtilizationReportPage = () => {
       },
     ],
   };
-
-  const fetcher = (props) => async () => fetchReport(props?.params);
-  const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
   return (
     <AdminMainAreaWrapper>
@@ -293,6 +425,8 @@ const SystemUtilizationReportPage = () => {
         handleFetch={fetchRowItems}
         placeholder="Search by user name or email..."
         totalCount={totalCount}
+        headerExtra={filterTrigger}
+        belowHeader={filterPanel}
       />
     </AdminMainAreaWrapper>
   );

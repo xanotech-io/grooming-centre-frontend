@@ -190,6 +190,8 @@ export const Table = ({
   generalRowStyles,
   handleFetch,
   onSelectionChange,
+  headerExtra,
+  belowHeader,
   // Calc from the width of the aside and margins
   width = "100%",
   maxWidth = "100%",
@@ -248,7 +250,10 @@ export const Table = ({
         setParams={manager.setParams}
         setCanFilter={manager.setCanFilter}
         showDateFilter={commonProps.options?.dateFilter}
+        headerExtra={headerExtra}
       />
+
+      {belowHeader}
 
       <Box paddingTop={3} marginTop={3} borderTop="1px" borderColor="accent.2">
         {manager.selectedRows.length ? (

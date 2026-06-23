@@ -14,6 +14,7 @@ const Header = ({
   setParams,
   setCanFilter,
   showDateFilter,
+  headerExtra,
 }) => {
   const [tags, setTags] = useState({});
 
@@ -117,6 +118,7 @@ const Header = ({
             setTags={setTags}
           />
         )}
+        {headerExtra}
       </Box>
 
       {showDateFilter && <DateFilterButton setParams={setParams} />}

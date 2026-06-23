@@ -14,7 +14,7 @@ import {
   FaChevronRight,
 } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { adminGetStandaloneExaminationListing } from "../../../services";
+import { adminGetCombinedExamAnalysisListing } from "../../../services";
 import { Breadcrumb, Link } from "../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import dayjs from "dayjs";
@@ -119,8 +119,37 @@ const StatCard = ({ label, value, sub, subColor }) => (
 );
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
+const TYPE_OPTIONS = [
+  { value: "", label: "All Types" },
+  { value: "standalone", label: "Standalone" },
+  { value: "course", label: "Course" },
+];
+
+const TypeBadge = ({ type }) => {
+  const isStandalone = (type ?? "").toLowerCase() === "standalone";
+  return (
+    <Tag
+      size="sm"
+      borderRadius="full"
+      px={3}
+      py={1}
+      bg={isStandalone ? "#EBF8FF" : "#FAF5FF"}
+      color={isStandalone ? "#2B6CB0" : "#6b006b"}
+      fontWeight="500"
+      fontSize="13px"
+      whiteSpace="nowrap"
+      textTransform="capitalize"
+    >
+      {type ?? "—"}
+    </Tag>
+  );
+};
+
 const COLUMNS = [
   { label: "Exam Title", flex: "2" },
+  { label: "Course", flex: "1.5" },
+  { label: "Type", flex: "1", align: "center" },
+  { label: "Attempts", flex: "1", align: "center" },
   { label: "Marking Mode", flex: "1.2" },
   { label: "Duration (mins)", flex: "1", align: "right" },
   { label: "Questions", flex: "1", align: "right" },
@@ -132,6 +161,7 @@ const COLUMNS = [
 
 const ExaminationPage = () => {
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [selectedRows, setSelectedRows] = useState([]);
   // const [openMenu, setOpenMenu] = useState(null);
   const [rowsPerPage, setRowsPerPage] = useState(8);
@@ -147,22 +177,37 @@ const ExaminationPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await adminGetStandaloneExaminationListing({
+      const result = await adminGetCombinedExamAnalysisListing({
         page: currentPage,
         limit: rowsPerPage,
         ...(search ? { search } : {}),
+        ...(typeFilter ? { type: typeFilter } : {}),
       });
-      setExaminations(result.examinations ?? []);
-      setTotalItems(result.totalDocumentsCount ?? 0);
-      setTotalPages(
-        Math.max(1, Math.ceil((result.totalDocumentsCount ?? 0) / rowsPerPage)),
-      );
+      const rows = result?.data?.exams ?? [];
+      const count = result?.data?.total ?? rows.length;
+      const examList = rows.map((exam) => ({
+        id: exam.examId,
+        title: exam.examTitle,
+        course: exam.courseTitle ?? null,
+        type: exam.type ?? null,
+        attempts: exam.totalAttempts ?? 0,
+        duration: exam.duration,
+        amountOfQuestions: exam.amountOfQuestions,
+        startTime: exam.startTime,
+        markingMode: exam.markingMode,
+        active: exam.active,
+        noOfUsers: exam.totalAttempts ?? 0,
+        isPublished: exam.isPublished,
+      }));
+      setExaminations(examList);
+      setTotalItems(count);
+      setTotalPages(Math.max(1, Math.ceil(count / rowsPerPage)));
     } catch {
       setError("Failed to load examinations. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [currentPage, rowsPerPage, search]);
+  }, [currentPage, rowsPerPage, search, typeFilter]);
 
   useEffect(() => {
     fetchExams();
@@ -170,7 +215,7 @@ const ExaminationPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search]);
+  }, [search, typeFilter]);
 
   const allSelected =
     examinations.length > 0 &&
@@ -255,7 +300,7 @@ const ExaminationPage = () => {
             </Box>
             <ChakraInput
               pl="32px"
-              placeholder="Search exams..."
+              placeholder="Search by exam title or course..."
               fontSize="14px"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -265,20 +310,26 @@ const ExaminationPage = () => {
               _focus={{ borderColor: "#6b006b", boxShadow: "none" }}
             />
           </Box>
-          <Flex
-            alignItems="center"
-            gap="6px"
-            border="1px solid #E2E8F0"
-            borderRadius="8px"
-            px={3}
-            height="38px"
-            cursor="pointer"
-            _hover={{ bg: "#F7FAFC" }}
-          >
+          <Flex alignItems="center" gap="6px">
             <FaSlidersH size="14px" color="#4A5568" />
-            <Text fontSize="14px" color="#4A5568">
-              Filter
-            </Text>
+            <Box
+              as="select"
+              border="1px solid #E2E8F0"
+              borderRadius="8px"
+              px={3}
+              height="38px"
+              fontSize="14px"
+              color="#4A5568"
+              bg="white"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              cursor="pointer"
+              _focus={{ outline: "none", borderColor: "#6b006b" }}
+            >
+              {TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </Box>
           </Flex>
         </Flex>
 
@@ -306,7 +357,7 @@ const ExaminationPage = () => {
 
         {!loading && !error && examinations.length > 0 && (
           <Box overflowX="auto">
-            <Box minW="1100px">
+            <Box minW="1400px">
               {/* Header row */}
               <Flex
                 px={4}
@@ -368,6 +419,22 @@ const ExaminationPage = () => {
                           {exam.title ?? "—"}
                         </Text>
                       </RouterLink>
+                    </Box>
+                    {/* Course */}
+                    <Box flex="1.5">
+                      <Text fontSize="14px" color="#1A202C" noOfLines={1}>
+                        {exam.course ?? "—"}
+                      </Text>
+                    </Box>
+                    {/* Type */}
+                    <Box flex="1" display="flex" justifyContent="center">
+                      {exam.type ? <TypeBadge type={exam.type} /> : <Text fontSize="14px" color="#1A202C">—</Text>}
+                    </Box>
+                    {/* Attempts */}
+                    <Box flex="1" display="flex" justifyContent="center">
+                      <Text fontSize="14px" color="#1A202C">
+                        {exam.attempts ?? 0}
+                      </Text>
                     </Box>
                     {/* Marking Mode */}
                     <Box flex="1.2">
