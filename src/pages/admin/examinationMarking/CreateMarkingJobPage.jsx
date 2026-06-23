@@ -10,10 +10,12 @@ import {
   useToast,
   IconButton,
   Switch as ChakraSwitch,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
 import { useForm } from "react-hook-form";
-import { Button, Heading, Input, Select } from "../../../components";
+import { Button, Heading, Input, Select, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { adminCreateMarkingJob } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
 
@@ -88,12 +90,27 @@ export const CreateMarkingJobPage = () => {
   };
 
   return (
-    <Box
-      paddingX={{ base: "20px", lg: "40px" }}
-      paddingY="30px"
-      bg="#FAFAFA"
-      minHeight="100vh"
-    >
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/examination-marking">Exam Marking</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Create Marking Job</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box
+        paddingX={{ base: "20px", lg: "40px" }}
+        paddingY="30px"
+        bg="#FAFAFA"
+        minHeight="100vh"
+      >
       {/* Go Back */}
       <Flex
         alignItems="center"
@@ -336,6 +353,7 @@ export const CreateMarkingJobPage = () => {
         </Flex>
       </Box>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

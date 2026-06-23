@@ -17,9 +17,11 @@ import {
   Wrap,
   WrapItem,
   Tag,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FaArrowLeft } from "react-icons/fa";
-import { Heading } from "../../../components";
+import { Heading, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import { adminGetMarkingTemplateById } from "../../../services";
 
@@ -64,6 +66,21 @@ export const ExamTemplateDetailsPage = () => {
   const scopeStyle = SCOPE_BADGE[template?.usageScope] || { bg: "#F7FAFC", color: "#718096" };
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/marking-templates">Marking Templates</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Template Details</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <Box paddingX={{ base: "20px", lg: "40px" }} paddingY="30px" bg="#FAFAFA" minHeight="100vh">
       {/* Go Back */}
       <Flex
@@ -277,6 +294,7 @@ export const ExamTemplateDetailsPage = () => {
         </>
       )}
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

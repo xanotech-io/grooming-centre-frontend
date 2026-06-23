@@ -30,6 +30,9 @@ import {
   Storage,
   Error as ErrorIcon,
 } from "@material-ui/icons";
+import { BreadcrumbItem, Flex } from "@chakra-ui/react";
+import { Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFileManagement } from "./hooks/useFileManagement";
 import FileDetailsModal from "./components/FileDetailsModal";
 import FileStatsCard from "./components/FileStatsCard";
@@ -253,7 +256,17 @@ const DocumentsPage = () => {
   }
 
   return (
-    <Container maxWidth="lg" className={classes.container}>
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Documents</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Container maxWidth="lg" className={classes.container}>
       {/* Header */}
       <Box className={classes.header}>
         <Typography variant="h4" component="h1" gutterBottom>
@@ -514,6 +527,7 @@ const DocumentsPage = () => {
         onDownload={handleDownload}
       />
     </Container>
+    </AdminMainAreaWrapper>
   );
 };
 

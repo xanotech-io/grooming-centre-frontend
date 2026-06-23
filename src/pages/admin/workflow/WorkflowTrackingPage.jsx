@@ -25,7 +25,8 @@ import {
 } from "@chakra-ui/react";
 import { FaSearch, FaFilter, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { FiMoreVertical } from "react-icons/fi";
-import { Button, Heading, Select } from "../../../components";
+import { Button, Heading, Select, Breadcrumb, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { useFetch } from "../../../hooks";
 import { useApp } from "../../../contexts";
 import { adminTrackWorkflows, adminGetWorkflowReport } from "../../../services";
@@ -143,6 +144,11 @@ const WorkflowTrackingPage = () => {
 
   return (
     <Box marginX="22px" marginY="20px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem isCurrentPage><Link href="#">Workflow Tracking</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" marginBottom="30px">
         <Heading as="h2" size="lg" color="#1A202C">

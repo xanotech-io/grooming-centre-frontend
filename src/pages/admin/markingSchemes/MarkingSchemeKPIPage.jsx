@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
-import { Box, Flex, Grid, Text, Spinner } from "@chakra-ui/react";
+import { Box, Flex, Grid, Text, Spinner, BreadcrumbItem } from "@chakra-ui/react";
 import { FiArrowLeft } from "react-icons/fi";
-import { Heading } from "../../../components";
+import { Heading, Breadcrumb, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { getMarkingSchemeKPIs } from "../../../services";
 
@@ -73,6 +73,20 @@ const MarkingSchemeKPIPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/marking-schemes">Marking Schemes</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">KPIs</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box marginX="22px" marginY="30px">
         {/* Header */}
         <Flex align="center" mb="28px" gap="12px">

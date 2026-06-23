@@ -35,7 +35,8 @@ import {
   Divider,
 } from "@chakra-ui/react";
 import { FaSearch, FaPlus, FaClone, FaTrash, FaEye } from "react-icons/fa";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { useFetch } from "../../../hooks";
 import {
   adminGetAllQuestionTemplates,
@@ -449,6 +450,11 @@ const QuestionBankTemplatesPage = () => {
 
   return (
     <Box marginX="22px" marginY="20px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem isCurrentPage><Link href="#">Question Bank Templates</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex
         justifyContent="space-between"

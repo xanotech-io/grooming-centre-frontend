@@ -29,6 +29,7 @@ import {
   useDisclosure,
   useToast,
   Grid,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FiRefreshCw, FiXCircle, FiPlus } from "react-icons/fi";
 import {
@@ -38,6 +39,8 @@ import {
   certV2ReissueCertificate,
   certV2GetSummaryReport,
 } from "../../../../services";
+import { Breadcrumb, Link } from "../../../../components";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -254,6 +257,16 @@ const CertificateManagementPage = () => {
   const totalPages = pagination.totalPages ?? 1;
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Certificate Management</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <Box marginX="22px" marginY="20px">
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="flex-start" mb="20px">
@@ -438,6 +451,7 @@ const CertificateManagementPage = () => {
         onSuccess={refresh}
       />
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

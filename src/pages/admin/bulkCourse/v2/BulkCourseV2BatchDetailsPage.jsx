@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogOverlay,
   Box,
+  BreadcrumbItem,
   Flex,
   Grid,
   Text,
@@ -28,7 +29,8 @@ import {
   Tooltip,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaRedo, FaGlobe } from "react-icons/fa";
-import { Button, Heading } from "../../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../../components";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../../hooks";
 import {
   adminGetBulkCourseV2BatchDetails,
@@ -130,7 +132,22 @@ const BulkCourseV2BatchDetailsPage = () => {
   const filteredItems = itemFilter === "all" ? items : items.filter((item) => item.status === itemFilter);
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/bulk-courses">Bulk Course Creation</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Batch Details</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       <Flex alignItems="center" gap="12px" mb="24px">
         <IconButton
           aria-label="Go back"
@@ -348,7 +365,8 @@ const BulkCourseV2BatchDetailsPage = () => {
           </Box>
         </>
       )}
-    </Box>
+      </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

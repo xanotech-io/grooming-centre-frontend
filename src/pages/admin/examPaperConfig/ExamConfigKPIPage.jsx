@@ -2,13 +2,15 @@ import React, { useEffect, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
+  BreadcrumbItem,
   Flex,
   Grid,
   Progress,
   Spinner,
   Text,
 } from "@chakra-ui/react";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { getExamPaperConfigKPIs } from "../../../services";
 import { FiArrowLeft, FiRefreshCw } from "react-icons/fi";
 
@@ -46,6 +48,16 @@ const ExamConfigKPIPage = () => {
   const usageRate = Number(data?.randomizationUsageRate ?? 0);
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Exam Config KPIs</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <Box marginX="22px" marginY="20px">
       <Flex alignItems="center" justifyContent="space-between" mb="24px" flexWrap="wrap" gap="12px">
         <Flex alignItems="center" gap="12px">
@@ -133,6 +145,7 @@ const ExamConfigKPIPage = () => {
         </Flex>
       )}
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

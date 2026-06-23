@@ -5,7 +5,8 @@ import { Tag } from "@chakra-ui/react";
 import { useHistory } from "react-router-dom";
 import { FaArrowLeft } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { Button } from "../../../components";
+import { Button, Breadcrumb, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 
 // ─── Mock questions ────────────────────────────────────────────────────────────
 const MOCK_QUESTIONS = [
@@ -144,6 +145,12 @@ const SingleExaminationPage = () => {
 
     return (
         <AdminMainAreaWrapper>
+            <Flex justify="space-between" align="center" mb={6}>
+                <Breadcrumb
+                    item2={<BreadcrumbItem><Link href="/admin/examination">Examination Analysis</Link></BreadcrumbItem>}
+                    item3={<BreadcrumbItem isCurrentPage><Link href="#">Student Examination</Link></BreadcrumbItem>}
+                />
+            </Flex>
             {/* ── Go Back ─────────────────────────────────── */}
             <Flex
                 alignItems="center"

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import {
   Box,
+  BreadcrumbItem,
   Flex,
   Grid,
   Text,
@@ -24,7 +25,8 @@ import {
   NumberDecrementStepper,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus, FaCheck, FaChartBar } from "react-icons/fa";
-import { Button, Heading, Input, Select } from "../../../components";
+import { Breadcrumb, Button, Heading, Input, Link, Select } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import {
   adminGetMarkupsByDocument,
@@ -308,6 +310,21 @@ export const SubmissionReviewPage = () => {
   };
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/feedback-markup">Feedback Markup</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Submission Review</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <Box
       paddingX={{ base: "20px", lg: "40px" }}
       paddingY="30px"
@@ -959,6 +976,7 @@ export const SubmissionReviewPage = () => {
         </ModalContent>
       </Modal>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

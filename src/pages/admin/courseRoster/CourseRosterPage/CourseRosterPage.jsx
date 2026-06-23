@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Route } from "react-router-dom";
-import { Box, useDisclosure, useToast } from "@chakra-ui/react";
+import { Box, BreadcrumbItem, Flex, useDisclosure, useToast } from "@chakra-ui/react";
 import { useFetch } from "../../../../hooks";
 import {
   adminGetCourseRoster,
   adminExportCourseRoster,
   adminGetCourseListing,
 } from "../../../../services";
+import { Breadcrumb, Link } from "../../../../components";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 
 import RosterHeader from "./components/RosterHeader";
 import RosterStats from "./components/RosterStats";
@@ -109,7 +111,17 @@ const CourseRosterPage = () => {
   };
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Course Roster</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       <RosterHeader
         courseName={roster?.courseName}
         semester={roster?.semester}
@@ -151,7 +163,8 @@ const CourseRosterPage = () => {
         onExport={handleExport}
         isExporting={isExporting}
       />
-    </Box>
+      </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

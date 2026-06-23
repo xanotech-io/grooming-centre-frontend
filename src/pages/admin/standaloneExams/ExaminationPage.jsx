@@ -15,6 +15,8 @@ import {
 } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { adminGetStandaloneExaminationListing } from "../../../services";
+import { Breadcrumb, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import dayjs from "dayjs";
 
 // ─── Status helpers ────────────────────────────────────────────────────────────
@@ -184,6 +186,11 @@ const ExaminationPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem isCurrentPage><Link href="#">Examination Analysis</Link></BreadcrumbItem>}
+        />
+      </Flex>
       <Text fontSize="26px" fontWeight="700" color="#1A202C" my={6}>
         Examination Analysis
       </Text>

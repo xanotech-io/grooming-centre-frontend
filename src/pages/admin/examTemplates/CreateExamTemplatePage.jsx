@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
+  BreadcrumbItem,
   Flex,
   Grid,
   Text,
@@ -22,7 +23,8 @@ import {
   WrapItem,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus } from "react-icons/fa";
-import { Button, Heading, Input, Select } from "../../../components";
+import { Breadcrumb, Button, Heading, Input, Link, Select } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { adminCreateMarkingTemplate } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
 
@@ -177,6 +179,21 @@ export const CreateExamTemplatePage = () => {
   };
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/marking-templates">Marking Templates</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Create Template</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <Box paddingX={{ base: "20px", lg: "40px" }} paddingY="30px" bg="#FAFAFA" minHeight="100vh">
       {/* Go Back */}
       <Flex
@@ -510,6 +527,7 @@ export const CreateExamTemplatePage = () => {
         </Box>
       </Grid>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

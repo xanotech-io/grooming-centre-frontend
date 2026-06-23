@@ -11,9 +11,11 @@ import {
   useToast,
   Select as ChakraSelect,
   Input as ChakraInput,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
-import { Button, Heading, Input } from "../../../components";
+import { Button, Heading, Input, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import { adminGetCourseListing, gradeBookV2Setup, gradeBookV2Update, gradeBookV2GetById } from "../../../services";
 
@@ -155,7 +157,22 @@ const SetupGradeBookV2Page = () => {
   };
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/grade-book-v2">Advanced Grade Book</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Setup</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       <Flex alignItems="center" gap="12px" mb="24px">
         <IconButton
           aria-label="Go back"
@@ -359,6 +376,7 @@ const SetupGradeBookV2Page = () => {
         </Button>
       </Flex>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

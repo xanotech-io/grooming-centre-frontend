@@ -13,13 +13,15 @@ import {
   Td,
   TableContainer,
   Badge,
+  BreadcrumbItem,
   Spinner,
   Select as ChakraSelect,
   IconButton,
   useToast,
 } from "@chakra-ui/react";
 import { FaChevronLeft, FaChevronRight, FaPlus, FaRedo, FaLayerGroup } from "react-icons/fa";
-import { Button, Heading } from "../../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../../components";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../../hooks";
 import {
   adminGetBulkCourseV2Batches,
@@ -88,7 +90,17 @@ const BulkCourseV2ListingPage = () => {
   };
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Bulk Course Creation</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       <Flex justifyContent="space-between" alignItems="center" mb="24px">
         <Heading fontSize="22px" fontWeight="600">
           Bulk Course Creation
@@ -242,6 +254,7 @@ const BulkCourseV2ListingPage = () => {
         )}
       </Box>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

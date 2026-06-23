@@ -30,6 +30,7 @@ import {
   FormLabel,
   Select as ChakraSelect,
   Tooltip,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import {
   FaChevronLeft,
@@ -40,7 +41,8 @@ import {
   FaDownload,
   FaBan,
 } from "react-icons/fa";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import {
   adminGetPendingDocuments,
@@ -393,6 +395,16 @@ const UserDocumentsPage = () => {
   });
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Document Verification</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <Box marginX="22px" marginY="20px">
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" mb="24px">
@@ -891,6 +903,7 @@ const UserDocumentsPage = () => {
         onSuccess={onActionSuccess}
       />
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

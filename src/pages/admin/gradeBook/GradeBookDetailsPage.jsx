@@ -31,6 +31,7 @@ import {
   IconButton,
   Textarea,
   Progress,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import {
   FaArrowLeft,
@@ -40,7 +41,8 @@ import {
   FaFileImport,
   FaTrash,
 } from "react-icons/fa";
-import { Button, Heading, Input, Select } from "../../../components";
+import { Breadcrumb, Button, Heading, Input, Link, Select } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import {
   adminGetGradeBookById,
@@ -291,12 +293,27 @@ export const GradeBookDetailsPage = () => {
   };
 
   return (
-    <Box
-      paddingX={{ base: "20px", lg: "40px" }}
-      paddingY="30px"
-      bg="#FAFAFA"
-      minHeight="100vh"
-    >
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/grade-book">Grade Book</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Grade Book Details</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box
+        paddingX={{ base: "20px", lg: "40px" }}
+        paddingY="30px"
+        bg="#FAFAFA"
+        minHeight="100vh"
+      >
       {/* Go Back */}
       <Flex
         alignItems="center"
@@ -1011,6 +1028,7 @@ export const GradeBookDetailsPage = () => {
         </ModalContent>
       </Modal>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Route } from "react-router-dom";
-import { Box, Flex, Badge, useDisclosure, useToast } from "@chakra-ui/react";
+import { Box, Flex, Badge, BreadcrumbItem, useDisclosure, useToast } from "@chakra-ui/react";
 import { useFetch } from "../../../../hooks";
+import { Breadcrumb, Link } from "../../../../components";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminGetPendingDocuments,
   adminGetAllDocuments,
@@ -152,7 +154,17 @@ const CertificateUploadPage = () => {
   };
 
   return (
+    <AdminMainAreaWrapper>
     <Box marginX="22px" marginY="20px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Certificate Upload</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <PageHeader
         stats={stats}
         onUploadClick={uploadModal.onOpen}
@@ -247,6 +259,7 @@ const CertificateUploadPage = () => {
         onSuccess={refreshCurrentTab}
       />
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

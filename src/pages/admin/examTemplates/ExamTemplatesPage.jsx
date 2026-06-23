@@ -22,10 +22,12 @@ import {
   InputGroup,
   InputLeftElement,
   Input,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FaSearch, FaPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { FiMoreVertical } from "react-icons/fi";
-import { Button, Heading, Select } from "../../../components";
+import { Button, Heading, Select, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import { adminGetMarkingTemplates } from "../../../services";
 
@@ -73,7 +75,17 @@ export const ExamTemplatesPage = () => {
   const standaloneCount = templates.filter((t) => t.usageScope === "Standalone Exam").length;
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Marking Templates</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" mb="30px">
         <Heading as="h2" size="lg" color="#1A202C">
@@ -267,6 +279,7 @@ export const ExamTemplatesPage = () => {
         </Flex>
       </Box>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

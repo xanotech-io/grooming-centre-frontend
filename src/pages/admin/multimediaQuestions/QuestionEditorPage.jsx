@@ -32,7 +32,8 @@ import {
   useDisclosure,
   useToast,
 } from "@chakra-ui/react";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import {
   addQuestionMedia,
   createMultimediaQuestion,
@@ -669,6 +670,12 @@ const QuestionEditorPage = () => {
 
   return (
     <Box marginX="22px" marginY="20px" maxW="900px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/examination">Examination Analysis</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Question Editor</Link></BreadcrumbItem>}
+        />
+      </Flex>
       <Flex alignItems="center" gap="12px" mb="24px">
         <Flex
           as="button"

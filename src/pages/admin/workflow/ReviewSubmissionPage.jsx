@@ -29,7 +29,8 @@ import {
   FaArrowUp,
   FaBookOpen,
 } from "react-icons/fa";
-import { Button, Heading, Select } from "../../../components";
+import { Button, Heading, Select, Breadcrumb, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { useFetch } from "../../../hooks";
 import { useApp } from "../../../contexts";
 import {
@@ -311,6 +312,12 @@ const ReviewSubmissionPage = () => {
       bg="#FAFAFA"
       minHeight="100vh"
     >
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/workflow">Approval Workflow</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Review Submission</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Go Back */}
       <Flex
         alignItems="center"

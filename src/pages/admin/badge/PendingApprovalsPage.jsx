@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
+  BreadcrumbItem,
   Flex,
   Spinner,
   Text,
@@ -25,7 +26,8 @@ import {
   useDisclosure,
   useToast,
 } from "@chakra-ui/react";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
   adminGetPendingBadgeApprovals,
   adminApproveBadge,
@@ -145,7 +147,7 @@ const PendingApprovalsPage = () => {
   };
 
   return (
-    <>
+    <AdminMainAreaWrapper>
       {selectedRecord && (
         <ApproveModal
           isOpen={approveModal.isOpen}
@@ -154,6 +156,21 @@ const PendingApprovalsPage = () => {
           onSuccess={handleApproved}
         />
       )}
+
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/badge-support">Badge Support</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Pending Approvals</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
 
       <Box marginX="22px" marginY="20px">
         <Flex alignItems="center" gap="16px" mb="28px">
@@ -340,7 +357,7 @@ const PendingApprovalsPage = () => {
           </Box>
         )}
       </Box>
-    </>
+    </AdminMainAreaWrapper>
   );
 };
 

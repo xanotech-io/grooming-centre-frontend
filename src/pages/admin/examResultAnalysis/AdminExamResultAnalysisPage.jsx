@@ -26,6 +26,7 @@ import {
   DrawerCloseButton,
   useDisclosure,
   useToast,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { motion } from "framer-motion";
 import {
@@ -47,7 +48,7 @@ import {
   FiUsers,
   FiBarChart2,
 } from "react-icons/fi";
-import { Heading, Spinner, Text, Button } from "../../../components";
+import { Heading, Spinner, Text, Button, Breadcrumb, Link } from "../../../components";
 import {
   adminGetExamFullReport,
   adminGetExamLeaderboard,
@@ -683,6 +684,20 @@ const AdminExamResultAnalysisPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/examination">Examination Analysis</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Exam Result Analysis</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       {/* Page header */}
       <Flex justifyContent="space-between" alignItems="flex-start" mb={6} mt={2} flexWrap="wrap" gap={3}>
         <Box>

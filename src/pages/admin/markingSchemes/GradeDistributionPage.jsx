@@ -14,6 +14,7 @@ import {
   Th,
   Td,
   TableContainer,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { Bar } from "react-chartjs-2";
 import {
@@ -26,7 +27,7 @@ import {
   Legend,
 } from "chart.js";
 import { FiArrowLeft, FiDownload } from "react-icons/fi";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { getGradeDistribution } from "../../../services";
 
@@ -161,6 +162,20 @@ const GradeDistributionPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/marking-schemes">Marking Schemes</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Grade Distribution</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box marginX="22px" marginY="30px">
         {/* Header */}
         <Flex align="center" justify="space-between" mb="28px" flexWrap="wrap" gap="12px">

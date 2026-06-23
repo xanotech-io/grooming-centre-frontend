@@ -39,6 +39,7 @@ import {
   FormControl,
   FormLabel,
   FormErrorMessage,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { Tabs, Tab, makeStyles } from "@material-ui/core";
 import {
@@ -53,7 +54,7 @@ import {
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { DashboardMetricCard } from "../../../components";
+import { Breadcrumb, Link, DashboardMetricCard } from "../../../components";
 import {
   getExamNotificationKpis,
   getExamNotifications,
@@ -1009,6 +1010,15 @@ const ExamNotificationsPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Exam Notifications</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box mb={6}>
         <Text fontSize="2xl" fontWeight={700} color="gray.800">Exam Notifications</Text>
         <Text fontSize="sm" color="gray.500" mt={1}>Manage and monitor exam schedule and result notifications</Text>

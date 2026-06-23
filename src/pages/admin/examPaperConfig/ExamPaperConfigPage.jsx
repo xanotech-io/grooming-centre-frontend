@@ -17,6 +17,7 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerOverlay,
+  BreadcrumbItem,
   Flex,
   FormControl,
   FormLabel,
@@ -37,7 +38,8 @@ import {
   useDisclosure,
   useToast,
 } from "@chakra-ui/react";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
   getExamPaperConfigPreview,
   getExaminationById,
@@ -966,7 +968,17 @@ const ExamPaperConfigPage = () => {
   }
 
   return (
+    <AdminMainAreaWrapper>
     <Box marginX="22px" marginY="20px" maxW="900px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Exam Paper Config</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       {/* Header */}
       <Flex alignItems="center" gap="12px" mb="20px">
         <Flex
@@ -1498,6 +1510,7 @@ const ExamPaperConfigPage = () => {
         </AlertDialogOverlay>
       </AlertDialog>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

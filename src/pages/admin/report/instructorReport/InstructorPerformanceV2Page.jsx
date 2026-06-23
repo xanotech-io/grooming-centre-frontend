@@ -37,11 +37,12 @@ import {
   Spinner,
   useDisclosure,
   useToast,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FiDownload, FiFilter, FiRefreshCw, FiChevronDown, FiX } from "react-icons/fi";
 import dayjs from "dayjs";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { DashboardMetricCard } from "../../../../components";
+import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
 import {
   getInstructorPerformanceReportV2,
   getInstructorPerformanceDrillDown,
@@ -486,6 +487,12 @@ const InstructorPerformanceV2Page = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/report/studentReport">Reports</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Instructor Performance</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" borderBottom="1px" borderColor="gray.200" pb={4} mb={6}>
         <Box>

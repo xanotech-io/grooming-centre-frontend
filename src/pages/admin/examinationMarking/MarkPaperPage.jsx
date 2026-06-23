@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import {
   Box,
+  BreadcrumbItem,
   Flex,
   Grid,
   Text,
@@ -16,7 +17,8 @@ import {
   NumberDecrementStepper,
 } from "@chakra-ui/react";
 import { FaArrowLeft } from "react-icons/fa";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import { adminGetPaperForMarking, adminMarkPaper } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
@@ -122,12 +124,27 @@ export const MarkPaperPage = () => {
   };
 
   return (
-    <Box
-      paddingX={{ base: "20px", lg: "40px" }}
-      paddingY="30px"
-      bg="#FAFAFA"
-      minHeight="100vh"
-    >
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/examination-marking">Exam Marking</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Mark Paper</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box
+        paddingX={{ base: "20px", lg: "40px" }}
+        paddingY="30px"
+        bg="#FAFAFA"
+        minHeight="100vh"
+      >
       {/* Go Back */}
       <Flex
         alignItems="center"
@@ -385,7 +402,8 @@ export const MarkPaperPage = () => {
           </Grid>
         </>
       )}
-    </Box>
+      </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

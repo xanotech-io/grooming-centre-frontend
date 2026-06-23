@@ -20,10 +20,12 @@ import {
   MenuItem,
   Spinner,
   Progress,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FaPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { FiMoreVertical } from "react-icons/fi";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import { adminGetGradeBooks } from "../../../services";
 
@@ -73,7 +75,17 @@ export const GradeBookListingPage = () => {
   );
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Grade Book</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" mb="30px">
         <Heading as="h2" size="lg" color="#1A202C">
@@ -338,6 +350,7 @@ export const GradeBookListingPage = () => {
         </Flex>
       </Box>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

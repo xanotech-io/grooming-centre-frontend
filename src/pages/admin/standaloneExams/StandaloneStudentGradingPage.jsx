@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
-import { Box, Flex, Grid, Progress, Spinner, Badge } from "@chakra-ui/react";
-import { Text, Button } from "../../../components";
+import { Box, Flex, Grid, Progress, Spinner, Badge, BreadcrumbItem } from "@chakra-ui/react";
+import { Text, Button, Breadcrumb, Link } from "../../../components";
 import { RichTextToView } from "../../../components";
 import { getSAExamAnswerSheet, saExamManualGrade } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
@@ -314,6 +314,12 @@ const StandaloneStudentGradingPage = () => {
 
   return (
     <Box minH="calc(100vh - 160px)" display="flex" flexDirection="column">
+      <Flex justify="space-between" align="center" mb={6} px={6} pt={4}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/standalone-exams">Standalone Exams</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Grade Student</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Sticky header */}
       <Box
         bg="white"

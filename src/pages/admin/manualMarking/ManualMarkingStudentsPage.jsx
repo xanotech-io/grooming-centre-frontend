@@ -2,6 +2,7 @@ import React, { useCallback, useEffect } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import {
   Box,
+  BreadcrumbItem,
   Flex,
   Text,
   Table,
@@ -17,7 +18,8 @@ import {
   Progress,
 } from "@chakra-ui/react";
 import { FaArrowLeft } from "react-icons/fa";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import { getManualMarkingStudents } from "../../../services";
 
@@ -46,7 +48,22 @@ const ManualMarkingStudentsPage = () => {
   };
 
   return (
+    <AdminMainAreaWrapper>
     <Box marginX="22px" marginY="20px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/manual-marking">Manual Marking</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Students</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Flex alignItems="center" gap="12px" mb="24px">
         <IconButton
           aria-label="Go back"
@@ -129,6 +146,7 @@ const ManualMarkingStudentsPage = () => {
         )}
       </Box>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

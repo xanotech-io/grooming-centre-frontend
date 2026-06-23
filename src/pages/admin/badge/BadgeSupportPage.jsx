@@ -40,11 +40,12 @@ import {
     DrawerHeader,
     DrawerBody,
     Spinner,
+    BreadcrumbItem,
 } from '@chakra-ui/react';
 import { FaSearch, FaFilter, FaChevronLeft, FaChevronRight, FaRegCalendarAlt } from 'react-icons/fa';
 import { MdClose } from 'react-icons/md';
 import { FiMoreVertical } from 'react-icons/fi';
-import { Button, Heading, Select } from '../../../components';
+import { Breadcrumb, Button, Heading, Link, Select } from '../../../components';
 import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
 import { capitalizeFirstLetter } from '../../../utils';
 import {
@@ -791,6 +792,15 @@ const BadgeSupportPage = () => {
                 onDone={handleDrawerDone}
             />
             <AdminMainAreaWrapper>
+                <Flex justify="space-between" align="center" mb={6}>
+                    <Breadcrumb
+                        item2={
+                            <BreadcrumbItem isCurrentPage>
+                                <Link href="#">Badge Support</Link>
+                            </BreadcrumbItem>
+                        }
+                    />
+                </Flex>
                 <Box marginX="22px" marginY="30px">
                     {/* Header Section */}
                     <Flex justifyContent="space-between" alignItems="center" marginBottom="30px">

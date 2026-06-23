@@ -24,6 +24,7 @@ import {
   Text as ChakraText,
   FormControl,
   FormLabel,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import {
   Chart as ChartJS,
@@ -40,7 +41,7 @@ import {
 import { Bar, Line } from "react-chartjs-2";
 import { FiUserCheck, FiTrendingUp, FiActivity,  FiAlertCircle, FiBarChart2, FiFilter, FiChevronDown, FiX } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Button, Heading, Spinner } from "../../../../components";
+import { Breadcrumb, Button, Heading, Link, Spinner } from "../../../../components";
 import {
   adminGetEnrollmentStatusStudents,
   adminGetEnrollmentStatusCourses,
@@ -571,6 +572,11 @@ const EnrollmentStatusReportPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem isCurrentPage><Link href="#">Enrollment Status Report</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex justify="space-between" align="flex-start" mb={6}>
         <Box>

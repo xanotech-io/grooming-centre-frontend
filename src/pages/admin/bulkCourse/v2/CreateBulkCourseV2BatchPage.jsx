@@ -19,9 +19,11 @@ import {
   TabPanels,
   TabPanel,
   Code,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { FaPlus, FaTrash, FaArrowLeft, FaUpload, FaDownload } from "react-icons/fa";
-import { Button, Heading } from "../../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../../components";
+import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminGetBulkCourseV2Templates,
   adminCreateBulkCourseV2Batch,
@@ -168,7 +170,22 @@ const CreateBulkCourseV2BatchPage = () => {
   }
 
   return (
-    <Box marginX="22px" marginY="20px">
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/bulk-courses">Bulk Course Creation</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Create Batch</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
       <Flex alignItems="center" gap="12px" mb="24px">
         <IconButton
           aria-label="Go back"
@@ -450,6 +467,7 @@ const CreateBulkCourseV2BatchPage = () => {
         </TabPanels>
       </Tabs>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

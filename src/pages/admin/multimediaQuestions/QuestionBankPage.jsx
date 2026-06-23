@@ -16,7 +16,8 @@ import {
   Tr,
   useToast,
 } from "@chakra-ui/react";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { getMultimediaQuestions } from "../../../services";
 import { FiBarChart2, FiChevronLeft, FiChevronRight, FiEdit2, FiEye, FiImage } from "react-icons/fi";
 
@@ -107,6 +108,12 @@ const QuestionBankPage = () => {
 
   return (
     <Box marginX="22px" marginY="20px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/examination">Examination Analysis</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Question Bank</Link></BreadcrumbItem>}
+        />
+      </Flex>
       <Flex alignItems="flex-start" justifyContent="space-between" mb="24px" flexWrap="wrap" gap="12px">
         <Box>
           <Heading fontSize="22px" fontWeight="600">Multimedia Question Bank</Heading>

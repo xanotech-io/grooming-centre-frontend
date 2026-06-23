@@ -1,16 +1,20 @@
 import { Box } from "@chakra-ui/layout";
+import { BreadcrumbItem, Flex } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Route, useHistory, useParams } from "react-router-dom";
 import { useAdminEventsPage } from "..";
 import {
+  Breadcrumb,
   DateTimePicker,
   Input,
+  Link,
   Select,
   Textarea,
   Upload,
 } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useApp, useCache } from "../../../contexts";
 import { useDateTimePicker, useUpload } from "../../../hooks";
 import { CreatePageLayout } from "../../../layouts";
@@ -171,6 +175,21 @@ const CreateEventPage = () => {
   };
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/events">Events</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Create Event</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <CreatePageLayout
       title={`${isEditMode ? "Edit" : "Create"} Event`}
       submitButtonText={isEditMode ? "Update" : "Submit"}
@@ -298,6 +317,7 @@ const CreateEventPage = () => {
         />
       </Box>
     </CreatePageLayout>
+    </AdminMainAreaWrapper>
   );
 };
 

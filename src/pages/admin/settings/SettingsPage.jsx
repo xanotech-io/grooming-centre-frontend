@@ -13,7 +13,10 @@ import {
   Select,
   Text,
   Upload,
+  Breadcrumb,
+  Link,
 } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { useApp } from "../../../contexts";
 import { useUpload, useGoBack } from "../../../hooks";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
@@ -201,6 +204,11 @@ export const AccountPage = ({ onCallToActionClick }) => {
 
   return (
     <AdminMainAreaWrapper bg="#fff">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem isCurrentPage><Link href="#">Settings</Link></BreadcrumbItem>}
+        />
+      </Flex>
       <Box as="form" paddingY={2} onSubmit={handleSubmit(onSubmit)}>
         {!onCallToActionClick && (
           <Heading fontSize="heading.h3" paddingBottom={4}>

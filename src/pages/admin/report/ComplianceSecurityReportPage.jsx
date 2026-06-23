@@ -12,6 +12,7 @@ import {
   Checkbox,
   Badge,
   useDisclosure,
+  BreadcrumbItem,
 } from '@chakra-ui/react';
 import { Route, useHistory } from 'react-router-dom';
 import {
@@ -24,6 +25,7 @@ import {
   FiChevronDown,
 } from 'react-icons/fi';
 import { AdminMainAreaWrapper } from '../../../layouts';
+import { Breadcrumb, Link } from '../../../components';
 import ScheduleReportModal from './components/ScheduleReportModal';
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
@@ -168,6 +170,12 @@ const ComplianceSecurityReportPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/report/studentReport">Reports</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">Compliance &amp; Security</Link></BreadcrumbItem>}
+        />
+      </Flex>
       {/* Header */}
       <Flex justifyContent="space-between" alignItems="center" mb={6} mt={6}>
         <HStack>

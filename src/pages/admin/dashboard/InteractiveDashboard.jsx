@@ -28,6 +28,7 @@ import {
   HStack,
   VStack,
   Text as CText,
+  BreadcrumbItem,
 } from '@chakra-ui/react';
 import { FiDownload, FiAlertTriangle } from 'react-icons/fi';
 import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
@@ -40,7 +41,7 @@ import {
   adminGetDashboardKPIs,
   adminExportDashboard,
 } from '../../../services';
-import { Text, Heading } from '../../../components';
+import { Text, Heading, Breadcrumb, Link } from '../../../components';
 
 ChartJS.register(
   CategoryScale, LinearScale, BarElement,
@@ -672,6 +673,20 @@ const InteractiveDashboard = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin">Dashboard</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Interactive Dashboard</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Flex justify="space-between" align="center" mb={5}>
         <Box>
           <Heading as="h1" fontSize="heading.h3">Interactive Dashboard</Heading>

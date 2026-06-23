@@ -13,8 +13,10 @@ import {
   Td,
   TableContainer,
   Badge,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
-import { Button, Heading } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { adminGetBadgeReport } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
 import { FiArrowLeft, FiChevronDown, FiChevronRight, FiDownload } from "react-icons/fi";
@@ -108,6 +110,21 @@ const BadgeReportPage = () => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
   return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/badge-support">Badge Support</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Badge Report</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
     <Box marginX="22px" marginY="20px">
       <Flex alignItems="center" gap="16px" mb="28px">
         <Flex
@@ -318,6 +335,7 @@ const BadgeReportPage = () => {
         </Box>
       )}
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

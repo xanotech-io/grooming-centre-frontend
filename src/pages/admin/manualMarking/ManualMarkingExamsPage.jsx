@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
+  BreadcrumbItem,
   Flex,
   Text,
   Table,
@@ -14,7 +15,8 @@ import {
   Badge,
   Spinner,
 } from "@chakra-ui/react";
-import { Heading } from "../../../components";
+import { Breadcrumb, Heading, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import { getManualMarkingExams } from "../../../services";
 
@@ -186,7 +188,17 @@ const ManualMarkingExamsPage = () => {
   const [activeTab, setActiveTab] = useState("exams");
 
   return (
+    <AdminMainAreaWrapper>
     <Box marginX="22px" marginY="20px">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Manual Marking</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Flex justifyContent="space-between" alignItems="center" mb="24px">
         <Heading fontSize="22px" fontWeight="600">Manual Marking</Heading>
       </Flex>
@@ -209,6 +221,7 @@ const ManualMarkingExamsPage = () => {
         {activeTab === "exams" ? <ExamsTab /> : <AssessmentsTab />}
       </Box>
     </Box>
+    </AdminMainAreaWrapper>
   );
 };
 

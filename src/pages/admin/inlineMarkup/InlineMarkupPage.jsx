@@ -11,13 +11,14 @@ import {
   Tabs, TabList, TabPanels, Tab, TabPanel,
   SimpleGrid, Spinner, Divider,
   HStack, VStack, Tag, TagLabel,
-  Stat, StatLabel, StatNumber,
+  Stat, StatLabel, StatNumber, BreadcrumbItem,
 } from "@chakra-ui/react";
 import {
   FiPlus, FiEdit2, FiTrash2, FiSend, FiEye,
   FiCheckCircle, FiRefreshCw, FiArchive,
 } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
+import { Breadcrumb, Link } from "../../../components";
 import {
   getSubmissionMarkups,
   getSubmissionSummary,
@@ -112,6 +113,15 @@ export default function InlineMarkupPage() {
 
   return (
     <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Inline Markup Review</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box mb={5}>
         <Heading size="md" mb={1}>In-Line Markup — Feedback &amp; Review</Heading>
         <Text fontSize="sm" color="gray.500">
