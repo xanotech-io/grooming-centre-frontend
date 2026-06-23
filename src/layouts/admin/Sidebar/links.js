@@ -219,7 +219,7 @@ export const links = [
       },
       {
         href: "/admin/report/exam-integrity",
-        text: "Exam Integrity",
+        text: "Randomization and Integrity Report",
       },
       {
         href: "/admin/report/question-bank-usage",
@@ -233,10 +233,10 @@ export const links = [
         href: "/admin/compliance",
         text: "Compliance & Non-Compliance Training Monitor",
       },
-      {
-        href: "/admin/export-reports",
-        text: "Export Reports",
-      },
+      // {
+      //   href: "/admin/export-reports",
+      //   text: "Export Reports",
+      // },
       {
         href: "/admin/report/enrollment-status",
         text: "Enrollment Status Report",

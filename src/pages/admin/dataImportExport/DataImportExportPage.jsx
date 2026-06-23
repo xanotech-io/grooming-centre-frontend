@@ -24,7 +24,6 @@ import {
   Tbody,
   Td,
   Text,
-  Textarea,
   Th,
   Thead,
   Tr,
@@ -36,6 +35,7 @@ import { DashboardMetricCard } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
   adminGetCourseListing,
+  adminListModules,
   createExportReport,
   getDataImport,
   getDataImportExportKpis,
@@ -50,6 +50,8 @@ import {
   FiRefreshCw,
   FiChevronLeft,
   FiChevronRight,
+  FiChevronDown,
+  FiChevronUp,
   FiEye,
   FiDatabase,
   FiFilter,
@@ -74,19 +76,6 @@ const REPORT_TYPES = [
 const EXPORT_FORMATS = ["pdf", "excel", "csv", "json", "xml"];
 const IMPORT_FORMATS = ["csv", "excel"];
 
-const TARGET_MODULES = [
-  "Student Records",
-  "Course Information",
-  "Assessment Scores",
-  "Attendance Logs",
-  "Compliance Records",
-  "Performance Reports",
-  "User Records",
-  "Gradebook",
-  "Exam Results",
-  "Course Roster",
-];
-
 const LIMIT = 20;
 
 // ─── Shared UI Helpers ────────────────────────────────────────────────────────
@@ -105,11 +94,14 @@ const IMPORT_STATUS = {
   partial:    { bg: "#FEFCBF", color: "#B7791F" },
 };
 
+const STATUS_LABELS = { completed: "Successful" };
+
 const StatusBadge = ({ status, map }) => {
   const s = (map ?? EXPORT_STATUS)[status] ?? { bg: "#F7FAFC", color: "#718096" };
+  const label = STATUS_LABELS[status] ?? (status ? status.charAt(0).toUpperCase() + status.slice(1) : "—");
   return (
-    <Badge bg={s.bg} color={s.color} px="8px" py="2px" borderRadius="6px" textTransform="capitalize" fontSize="11px">
-      {status ?? "—"}
+    <Badge bg={s.bg} color={s.color} px="8px" py="2px" borderRadius="6px" fontSize="11px">
+      {label}
     </Badge>
   );
 };
@@ -136,12 +128,75 @@ const TabBtn = ({ active, onClick, icon, children }) => (
 
 const isExpired = (expiryDate) => expiryDate && dayjs().isAfter(dayjs(expiryDate));
 
+const SearchableSelect = ({ value, options, onChange, placeholder, isDisabled }) => {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
+
+  useEffect(() => { setQuery(value ? selectedLabel : ""); }, [value, selectedLabel]);
+
+  const filtered = query
+    ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setQuery(value ? selectedLabel : "");
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [value, selectedLabel]);
+
+  return (
+    <Box ref={containerRef} position="relative">
+      <Input
+        size="sm"
+        bg={isDisabled ? "gray.100" : "gray.50"}
+        value={query}
+        placeholder={placeholder}
+        autoComplete="off"
+        isDisabled={isDisabled}
+        onChange={(e) => { setQuery(e.target.value); setIsOpen(true); if (e.target.value === "") onChange(""); }}
+        onFocus={() => { if (!isDisabled) setIsOpen(true); }}
+      />
+      {isOpen && !isDisabled && (
+        <Box
+          position="absolute" top="100%" left={0} right={0} zIndex={200}
+          bg="white" border="1px solid #E4E7EC" borderRadius="md"
+          boxShadow="md" maxH="240px" overflowY="auto" mt="2px"
+        >
+          {filtered.length === 0 ? (
+            <Box px={3} py={2} fontSize="13px" color="#667085">No results</Box>
+          ) : (
+            filtered.map((o) => (
+              <Box
+                key={o.value} px={3} py="7px" fontSize="13px" cursor="pointer"
+                bg={o.value === value ? "#F3E8FF" : "white"}
+                _hover={{ bg: o.value === value ? "#F3E8FF" : "#F9FAFB" }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { onChange(o.value); setQuery(o.label); setIsOpen(false); }}
+              >
+                {o.label}
+              </Box>
+            ))
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 // ─── KPI Dashboard Tab ────────────────────────────────────────────────────────
 
 const KpiTab = () => {
   const toast = useToast();
   const [kpis, setKpis] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const now = dayjs();
   const [startDate, setStartDate] = useState(now.startOf("month").format("YYYY-MM-DD"));
   const [endDate, setEndDate] = useState(now.endOf("month").format("YYYY-MM-DD"));
@@ -165,26 +220,42 @@ const KpiTab = () => {
 
   return (
     <Box>
-      <Flex gap="12px" mb={6} alignItems="flex-end" flexWrap="wrap">
-        <FormControl w="180px">
-          <FormLabel fontSize="12px" color="gray.500" mb="4px">Start Date</FormLabel>
-          <Input type="date" size="sm" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        </FormControl>
-        <FormControl w="180px">
-          <FormLabel fontSize="12px" color="gray.500" mb="4px">End Date</FormLabel>
-          <Input type="date" size="sm" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-        </FormControl>
-        <Button secondary size="sm" leftIcon={<FiRefreshCw size={12} />} onClick={fetch} isLoading={loading}>
-          Apply
-        </Button>
-      </Flex>
+      <Box bg="#F7FAFC" border="1px solid #E2E8F0" borderRadius="8px" mb={6} overflow="hidden">
+        <Flex
+          px="16px" py="10px" alignItems="center" justifyContent="space-between"
+          cursor="pointer" onClick={() => setShowFilters((v) => !v)}
+          _hover={{ bg: "#EDF2F7" }}
+        >
+          <Text fontSize="12px" fontWeight="600" color="gray.500">
+            Date Range: {dayjs(startDate).format("DD/MM/YYYY")} — {dayjs(endDate).format("DD/MM/YYYY")}
+          </Text>
+          {showFilters ? <FiChevronUp size={14} color="#718096" /> : <FiChevronDown size={14} color="#718096" />}
+        </Flex>
+        {showFilters && (
+          <Box borderTop="1px solid #E2E8F0" p="16px">
+            <Flex gap="12px" alignItems="flex-end" flexWrap="wrap">
+              <FormControl w="180px">
+                <FormLabel fontSize="12px" color="gray.500" mb="4px">Start Date</FormLabel>
+                <Input type="date" size="sm" bg="white" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </FormControl>
+              <FormControl w="180px">
+                <FormLabel fontSize="12px" color="gray.500" mb="4px">End Date</FormLabel>
+                <Input type="date" size="sm" bg="white" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </FormControl>
+              <Button secondary size="sm" leftIcon={<FiRefreshCw size={12} />} onClick={fetch} isLoading={loading}>
+                Apply
+              </Button>
+            </Flex>
+          </Box>
+        )}
+      </Box>
 
       {loading ? (
         <Flex justifyContent="center" py="60px"><Spinner size="xl" color="#6b006b" /></Flex>
       ) : kpis ? (
         <>
           <Text fontSize="12px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider" mb="12px">
-            Overall
+            overview within selected timeline
           </Text>
           <Grid templateColumns="repeat(auto-fill, minmax(200px, 1fr))" gap={4} mb={8}>
             <DashboardMetricCard title="Total Operations" value={kpis.totalOperations ?? "—"} change="imports + exports + extractions" changeColor="#6b006b" />
@@ -300,12 +371,32 @@ const ImportTab = () => {
   const [file, setFile] = useState(null);
   const [fileFormat, setFileFormat] = useState("csv");
   const [reportName, setReportName] = useState("");
-  const [targetModule, setTargetModule] = useState("");
-  const [dataMapping, setDataMapping] = useState("");
+  const [courseId, setCourseId] = useState("");
+  const [moduleId, setModuleId] = useState("");
+  const [courses, setCourses] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [modulesLoading, setModulesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [polling, setPolling] = useState(false);
   const pollRef = useRef(null);
+
+  useEffect(() => {
+    adminGetCourseListing()
+      .then((res) => setCourses(res?.courses ?? []))
+      .catch(() => setCourses([]));
+  }, []);
+
+  useEffect(() => {
+    setModuleId("");
+    setModules([]);
+    if (!courseId) return;
+    setModulesLoading(true);
+    adminListModules(courseId)
+      .then((res) => setModules(res?.modules ?? []))
+      .catch(() => setModules([]))
+      .finally(() => setModulesLoading(false));
+  }, [courseId]);
 
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -345,11 +436,8 @@ const ImportTab = () => {
     formData.append("file", file);
     formData.append("fileFormat", fileFormat);
     if (reportName.trim()) formData.append("reportName", reportName.trim());
-    if (targetModule) formData.append("targetModule", targetModule);
-    if (dataMapping.trim()) {
-      try { JSON.parse(dataMapping); formData.append("dataMapping", dataMapping.trim()); }
-      catch { toast({ title: "Data mapping must be valid JSON", status: "error", duration: 3000, isClosable: true }); return; }
-    }
+    if (courseId) formData.append("courseId", courseId);
+    if (moduleId) formData.append("targetModule", moduleId);
     setSubmitting(true);
     setResult(null);
     stopPolling();
@@ -408,34 +496,32 @@ const ImportTab = () => {
           </Select>
         </FormControl>
         <FormControl>
-          <FormLabel fontSize="sm" fontWeight="500">Target Module <Text as="span" color="gray.400" fontWeight="400">(optional)</Text></FormLabel>
-          <Select size="sm" value={targetModule} onChange={(e) => setTargetModule(e.target.value)} bg="gray.50">
-            <option value="">— Select module —</option>
-            {TARGET_MODULES.map((m) => <option key={m} value={m}>{m}</option>)}
-          </Select>
+          <FormLabel fontSize="sm" fontWeight="500">Report Name <Text as="span" color="gray.400" fontWeight="400">(optional)</Text></FormLabel>
+          <Input size="sm" placeholder="Defaults to filename" value={reportName} onChange={(e) => setReportName(e.target.value)} />
         </FormControl>
       </Grid>
 
-      <FormControl mb={4}>
-        <FormLabel fontSize="sm" fontWeight="500">Report Name <Text as="span" color="gray.400" fontWeight="400">(optional)</Text></FormLabel>
-        <Input size="sm" placeholder="Defaults to filename" value={reportName} onChange={(e) => setReportName(e.target.value)} />
-      </FormControl>
-
-      <FormControl mb={6}>
-        <FormLabel fontSize="sm" fontWeight="500">
-          Column Mapping <Text as="span" color="gray.400" fontWeight="400">(optional JSON)</Text>
-        </FormLabel>
-        <Textarea
-          size="sm"
-          rows={4}
-          fontFamily="mono"
-          fontSize="12px"
-          placeholder={'{"Student_Email": "User.Email", "Score": "AssessmentScore"}'}
-          value={dataMapping}
-          onChange={(e) => setDataMapping(e.target.value)}
-          bg="gray.50"
-        />
-      </FormControl>
+      <Grid templateColumns="1fr 1fr" gap={4} mb={6}>
+        <FormControl>
+          <FormLabel fontSize="sm" fontWeight="500">Course <Text as="span" color="gray.400" fontWeight="400">(optional)</Text></FormLabel>
+          <SearchableSelect
+            value={courseId}
+            options={courses.map((c) => ({ value: c.id, label: c.title }))}
+            onChange={setCourseId}
+            placeholder="Search course…"
+          />
+        </FormControl>
+        <FormControl>
+          <FormLabel fontSize="sm" fontWeight="500">Module <Text as="span" color="gray.400" fontWeight="400">(optional)</Text></FormLabel>
+          <SearchableSelect
+            value={moduleId}
+            options={modules.map((m) => ({ value: m.id, label: m.title }))}
+            onChange={setModuleId}
+            placeholder={modulesLoading ? "Loading…" : courseId ? "Search module…" : "Select a course first"}
+            isDisabled={!courseId || modulesLoading}
+          />
+        </FormControl>
+      </Grid>
 
       <Button leftIcon={<FiUpload />} isLoading={submitting} loadingText="Uploading…" onClick={handleSubmit}>
         Upload & Import
@@ -779,9 +865,10 @@ const HistoryTab = () => {
       <Box bg="#F7FAFC" border="1px solid #E2E8F0" borderRadius="8px" p="16px" mb={4}>
         <Flex gap="12px" alignItems="flex-end" flexWrap="wrap">
           <FormControl w="160px">
-            <FormLabel fontSize="12px" color="gray.500" mb="4px">Type</FormLabel>
+            <FormLabel fontSize="12px" color="gray.500" mb="4px">Action Type</FormLabel>
             <Select size="sm" bg="white" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
               <option value="">All Types</option>
+              <option value="import">Import</option>
               <option value="export">Export</option>
               <option value="extraction">Extraction</option>
             </Select>
@@ -797,7 +884,7 @@ const HistoryTab = () => {
             <FormLabel fontSize="12px" color="gray.500" mb="4px">Status</FormLabel>
             <Select size="sm" bg="white" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">All Statuses</option>
-              {["pending", "completed", "failed"].map((s) => <option key={s} value={s}>{s}</option>)}
+              {["pending", "completed", "failed"].map((s) => <option key={s} value={s}>{STATUS_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
             </Select>
           </FormControl>
           <IconButton icon={<FiRefreshCw size={13} />} size="sm" variant="ghost" onClick={fetchData} isLoading={loading} aria-label="Refresh" mt="20px" />
@@ -815,7 +902,7 @@ const HistoryTab = () => {
             <Table variant="simple" size="sm">
               <Thead bg="#F7FAFC">
                 <Tr>
-                  {["Report Name", "Type", "Format", "Records", "File Size", "Status", "Expires", "Created", ""].map((h) => (
+                  {["Report Name", "Performed By", "Type", "Format", "Records", "File Size", "Status", "Expires", "Created", ""].map((h) => (
                     <Th key={h} py="12px" fontSize="11px" color="gray.500" fontWeight="600" textTransform="none">{h}</Th>
                   ))}
                 </Tr>
@@ -825,13 +912,11 @@ const HistoryTab = () => {
                   <Tr key={r.id ?? i} _hover={{ bg: "#FAFAFA" }}>
                     <Td py="12px" maxW="200px">
                       <Text fontSize="13px" fontWeight="500" noOfLines={1}>{r.reportName ?? r.fileName ?? "—"}</Text>
-                      {(r.exporter ?? r.uploader) && (
-                        <Text fontSize="11px" color="gray.400" noOfLines={1}>
-                          {r.exporter
-                            ? `${r.exporter.firstName} ${r.exporter.lastName}`
-                            : `${r.uploader.firstName} ${r.uploader.lastName}`}
-                        </Text>
-                      )}
+                    </Td>
+                    <Td py="12px" fontSize="12px" color="gray.600" whiteSpace="nowrap">
+                      {(r.exporter ?? r.uploader)
+                        ? `${(r.exporter ?? r.uploader).firstName} ${(r.exporter ?? r.uploader).lastName}`
+                        : "—"}
                     </Td>
                     <Td py="12px" fontSize="12px">{r.operationType ?? "—"}</Td>
                     <Td py="12px" fontSize="12px" textTransform="uppercase">{r.exportFormat ?? "—"}</Td>
@@ -890,7 +975,7 @@ const DashboardTab = () => (
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: "kpis",    label: "Dashboard",  icon: <FiDatabase size={14} /> },
+  { key: "kpis",    label: "Report Overview",  icon: <FiDatabase size={14} /> },
   { key: "import",  label: "Import",     icon: <FiUpload size={14} /> },
   { key: "export",  label: "Export",     icon: <FiDownload size={14} /> },
   { key: "extract", label: "Extract",    icon: <FiFilter size={14} /> },
