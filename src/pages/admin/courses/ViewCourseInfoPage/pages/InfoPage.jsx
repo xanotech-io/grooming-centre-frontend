@@ -3,7 +3,7 @@ import { BreadcrumbItem } from '@chakra-ui/react';
 import { useToast } from '@chakra-ui/toast';
 import { useEffect, useState } from 'react';
 import { AiOutlineClose } from 'react-icons/ai';
-import { FaEdit, FaSitemap } from 'react-icons/fa';
+import { FaEdit, FaSitemap, FaUserCheck } from 'react-icons/fa';
 import { HiBadgeCheck } from 'react-icons/hi';
 import { Route } from 'react-router-dom';
 import {
@@ -22,6 +22,7 @@ import {
   adminPublishCourse,
   adminUnpublishCourse,
 } from '../../../../../services';
+import ReassignInstructorModal from '../components/ReassignInstructorModal';
 import { capitalizeFirstLetter } from '../../../../../utils';
 import useCourseDetails from '../../../../user/Courses/CourseDetails/hooks/useCourseDetails';
 
@@ -39,6 +40,7 @@ const InfoPage = () => {
   const toast = useToast();
   const [isPublishing, setIsPublishing] = useState(false);
   const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
+  const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
   const handlePublishCourse = async () => {
     setIsPublishing(true);
     try {
@@ -129,6 +131,16 @@ const InfoPage = () => {
             >
               {courseDetailsData?.isPublished ? 'Unpublished' : 'Publish'} this
               course
+            </Button>
+            <Button
+              paddingLeft={2}
+              sizes="small"
+              rightIcon={<FaUserCheck />}
+              secondary
+              disabled={!courseDetailsData}
+              onClick={() => setIsReassignModalOpen(true)}
+            >
+              Assign Instructor
             </Button>
             <Button
               paddingLeft={2}
@@ -234,6 +246,13 @@ const InfoPage = () => {
         contentId={courseDetailsData?.id}
         contentTitle={courseDetailsData?.title}
         requestType="Course Content"
+        onSuccess={fetchCourseDetails}
+      />
+
+      <ReassignInstructorModal
+        isOpen={isReassignModalOpen}
+        onClose={() => setIsReassignModalOpen(false)}
+        courseId={courseDetailsData?.id}
         onSuccess={fetchCourseDetails}
       />
     </Box>
