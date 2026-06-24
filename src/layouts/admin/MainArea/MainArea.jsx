@@ -125,7 +125,6 @@ import { InstructorPerformanceV2PageRoute } from "../../../pages/admin/report/in
 import { AssessmentAnalyticsPageRoute } from "../../../pages/admin/report/assessmentAnalytics/AssessmentAnalyticsPage";
 import { AssignmentGradingRoute } from "../../../pages/admin/report/instructorReport/assignmentGrading";
 import { AssignmentAnalysisRoute } from "../../../pages/admin/report/instructorReport/assignmentAnalysis";
-import { StudentReportRoute } from "../../../pages/admin/report/studentReport/StudentReport";
 import { AllStudentTranscriptsPageRoute } from "../../../pages/admin/report/studentReport/AllStudentTranscriptsPage";
 import { StudentTranscriptDetailsPageRoute } from "../../../pages/admin/report/studentReport/StudentTranscriptDetailsPage";
 import { ParticipationMonitoringPageRoute } from "../../../pages/admin/report/studentReport/ParticipationMonitoringPage";
@@ -541,7 +540,6 @@ const MainArea = () => {
           exact
           path="/admin/report/instructorReport/:instructorId/assignmentAnalysis"
         />
-        <StudentReportRoute exact path="/admin/report/studentReport" />
         <InstructorReportRoute exact path="/admin/report/instructorReport" />
         <InstructorReportDetailsRoute
           exact

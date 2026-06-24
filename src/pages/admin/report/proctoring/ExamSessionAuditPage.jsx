@@ -209,17 +209,10 @@ const ExamSessionAuditPageContent = () => {
 
 export const ExamSessionAuditPageRoute = ({ ...rest }) => (
   <AdminMainAreaWrapper>
-    <Breadcrumb>
-      <BreadcrumbItem>
-        <Link to="/admin/report/studentReport">Reports</Link>
-      </BreadcrumbItem>
-      <BreadcrumbItem>
-        <Link to="/admin/report/proctoring-audit">Proctoring & Audit</Link>
-      </BreadcrumbItem>
-      <BreadcrumbItem isCurrentPage>
-        <Link to="#">Exam Session Audit</Link>
-      </BreadcrumbItem>
-    </Breadcrumb>
+    <Breadcrumb
+      item2={<BreadcrumbItem><Link href="/admin/report/proctoring-audit">Proctoring &amp; Audit</Link></BreadcrumbItem>}
+      item3={<BreadcrumbItem isCurrentPage><Link href="#">Exam Session Audit</Link></BreadcrumbItem>}
+    />
     <Heading mb={6}>Exam Session Audit</Heading>
     <Route {...rest} render={(props) => <ExamSessionAuditPageContent {...props} />} />
   </AdminMainAreaWrapper>

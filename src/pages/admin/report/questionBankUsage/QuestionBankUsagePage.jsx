@@ -1113,11 +1113,6 @@ const QuestionBankUsagePage = () => {
       <Flex justify="space-between" align="center" mb={6}>
         <Breadcrumb
           item2={
-            <BreadcrumbItem>
-              <Link href="/admin/report/studentReport">Reports</Link>
-            </BreadcrumbItem>
-          }
-          item3={
             <BreadcrumbItem isCurrentPage>
               <Link href="/admin/report/question-bank-usage">
                 Question Bank Usage

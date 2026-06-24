@@ -848,11 +848,6 @@ const ExamIntegrityPage = () => {
       <Flex justify="space-between" align="center" mb={6}>
         <Breadcrumb
           item2={
-            <BreadcrumbItem>
-              <Link href="/admin/report/studentReport">Reports</Link>
-            </BreadcrumbItem>
-          }
-          item3={
             <BreadcrumbItem isCurrentPage>
               <Link href="/admin/report/exam-integrity">Exam Integrity</Link>
             </BreadcrumbItem>

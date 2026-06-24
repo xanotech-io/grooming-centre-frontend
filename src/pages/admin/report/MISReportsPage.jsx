@@ -487,8 +487,7 @@ const MISReportsPage = () => {
     <AdminMainAreaWrapper>
       <Flex justify="space-between" align="center" mb={6}>
         <Breadcrumb
-          item2={<BreadcrumbItem><Link href="/admin/report/studentReport">Reports</Link></BreadcrumbItem>}
-          item3={<BreadcrumbItem isCurrentPage><Link href="#">MIS Reports</Link></BreadcrumbItem>}
+          item2={<BreadcrumbItem isCurrentPage><Link href="#">MIS Reports</Link></BreadcrumbItem>}
         />
       </Flex>
       <Box

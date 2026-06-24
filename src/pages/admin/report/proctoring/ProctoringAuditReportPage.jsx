@@ -149,14 +149,9 @@ const ProctoringAuditReportPage = () => {
 
 export const ProctoringAuditReportPageRoute = ({ ...rest }) => (
   <AdminMainAreaWrapper>
-    <Breadcrumb>
-      <BreadcrumbItem>
-        <Link to="/admin/report/studentReport">Reports</Link>
-      </BreadcrumbItem>
-      <BreadcrumbItem isCurrentPage>
-        <Link to="/admin/report/proctoring-audit">Proctoring & Audit</Link>
-      </BreadcrumbItem>
-    </Breadcrumb>
+    <Breadcrumb
+      item2={<BreadcrumbItem isCurrentPage><Link href="/admin/report/proctoring-audit">Proctoring &amp; Audit</Link></BreadcrumbItem>}
+    />
     <Heading mb={6}>Proctoring & Audit Report</Heading>
     <Route {...rest} render={(props) => <ProctoringAuditReportPage {...props} />} />
   </AdminMainAreaWrapper>

@@ -380,6 +380,11 @@ const ProgressReport = () => {
       >
         <Breadcrumb
           item2={
+            <BreadcrumbItem>
+              <Link href="/admin/report/student-progress">Student Progress Report</Link>
+            </BreadcrumbItem>
+          }
+          item3={
             <BreadcrumbItem isCurrentPage>
               <Link href="#">Progress Report</Link>
             </BreadcrumbItem>
