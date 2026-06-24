@@ -26,6 +26,12 @@ export const adminGetCourseListing = async (params) => {
         firstName: course.user?.firstName,
         lastName: course.user?.lastName,
       },
+      assignedInstructor: course.reassignedInstructor
+        ? {
+            firstName: course.reassignedInstructor.firstName,
+            lastName: course.reassignedInstructor.lastName,
+          }
+        : null,
       startDate: course.lesson[0] ? course.lesson[0].startTime : "not set",
       isPublished: course.isPublished,
     })),
@@ -257,4 +263,20 @@ export const adminGetCourseAdminDetails = async (courseId) => {
   } = await http.get(`/v1/course/admin/details/${courseId}`);
 
   return { courseDetails: data };
+};
+
+/**
+ * Reassign a course to another instructor
+ * @param {string} courseId - UUID of the course
+ * @param {{ reassignedInstructorId: string }} body - UUID of the target instructor
+ * @returns {Promise<{ message: string }>}
+ */
+export const adminReassignCourse = async (courseId, body) => {
+  const path = `/v1/course/${courseId}/reassign`;
+
+  const {
+    data: { message },
+  } = await http.patch(path, body);
+
+  return { message };
 };
