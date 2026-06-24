@@ -187,17 +187,10 @@ const ProctoringKpiSummaryPageContent = () => {
 
 export const ProctoringKpiSummaryPageRoute = ({ ...rest }) => (
   <AdminMainAreaWrapper>
-    <Breadcrumb>
-      <BreadcrumbItem>
-        <Link to="/admin/report/studentReport">Reports</Link>
-      </BreadcrumbItem>
-      <BreadcrumbItem>
-        <Link to="/admin/report/proctoring-audit">Proctoring & Audit</Link>
-      </BreadcrumbItem>
-      <BreadcrumbItem isCurrentPage>
-        <Link to="#">KPI Summary</Link>
-      </BreadcrumbItem>
-    </Breadcrumb>
+    <Breadcrumb
+      item2={<BreadcrumbItem><Link href="/admin/report/proctoring-audit">Proctoring &amp; Audit</Link></BreadcrumbItem>}
+      item3={<BreadcrumbItem isCurrentPage><Link href="#">KPI Summary</Link></BreadcrumbItem>}
+    />
     <Heading mb={6}>Proctoring KPI Summary</Heading>
     <Route {...rest} render={(props) => <ProctoringKpiSummaryPageContent {...props} />} />
   </AdminMainAreaWrapper>

@@ -491,8 +491,7 @@ const CourseCompletionReportPage = () => {
     <AdminMainAreaWrapper>
       <Flex justify="space-between" align="center" mb={6}>
         <Breadcrumb
-          item2={<BreadcrumbItem><Link href="/admin/report/studentReport">Reports</Link></BreadcrumbItem>}
-          item3={<BreadcrumbItem isCurrentPage><Link href="#">Course Completion &amp; Pass Rate</Link></BreadcrumbItem>}
+          item2={<BreadcrumbItem isCurrentPage><Link href="#">Course Completion &amp; Pass Rate</Link></BreadcrumbItem>}
         />
       </Flex>
       {/* Header */}
@@ -553,7 +552,7 @@ const CourseCompletionReportPage = () => {
                   <Table variant="simple" size="sm">
                     <Thead>
                       <Tr>
-                        {["Student", "Department", "Course", "Enrolled On", "Student Status", "Engagement", "Last Active", "Progress", "Dropout"].map((h) => (
+                        {["Student", "Department","Instructor", "Course", "Enrolled On", "Student Status", "Engagement", "Last Active", "Progress", "Dropout"].map((h) => (
                           <Th key={h} {...TH} py={3} px={4}>{h}</Th>
                         ))}
                       </Tr>
@@ -571,6 +570,7 @@ const CourseCompletionReportPage = () => {
                               </Box>
                             </Td>
                             <Td {...TD} px={4}>{row.department_name || "—"}</Td>
+                            <Td {...TD} px={4}>{row.instructor_name || "—"}</Td>
                             <Td {...TD} px={4} maxW="180px"><ChakraText noOfLines={2} title={row.course_title}>{row.course_title}</ChakraText></Td>
                             <Td {...TD} px={4} whiteSpace="nowrap">{fmt(row.enrollment_date)}</Td>
                             <Td {...TD} px={4}>

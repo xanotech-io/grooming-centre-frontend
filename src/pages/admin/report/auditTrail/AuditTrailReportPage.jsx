@@ -126,14 +126,9 @@ const AuditTrailReportPage = () => {
 
 export const AuditTrailReportPageRoute = ({ ...rest }) => (
   <AdminMainAreaWrapper>
-    <Breadcrumb>
-      <BreadcrumbItem>
-        <Link to="/admin/report/studentReport">Reports</Link>
-      </BreadcrumbItem>
-      <BreadcrumbItem isCurrentPage>
-        <Link to="/admin/report/audit-trail">Audit Trail Report</Link>
-      </BreadcrumbItem>
-    </Breadcrumb>
+    <Breadcrumb
+      item2={<BreadcrumbItem isCurrentPage><Link href="/admin/report/audit-trail">Audit Trail Report</Link></BreadcrumbItem>}
+    />
     <Heading mb={6}>Audit Trail Report</Heading>
     <Route {...rest} render={(props) => <AuditTrailReportPage {...props} />} />
   </AdminMainAreaWrapper>

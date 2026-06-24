@@ -124,7 +124,7 @@ export const links = [
   {
     text: "Report",
     icon: <AiOutlineAudit />,
-    href: "/admin/report/studentReport",
+    href: "/admin/report/student-progress",
     links: [
       // {
       //   href: "/admin/report/studentReport",

@@ -8,14 +8,9 @@ const ScheduledReportingPage = () => <ScheduledReportingScreen />;
 
 export const ScheduledReportingPageRoute = ({ ...rest }) => (
   <AdminMainAreaWrapper>
-    <Breadcrumb>
-      <BreadcrumbItem>
-        <Link to="/admin/report/studentReport">Reports</Link>
-      </BreadcrumbItem>
-      <BreadcrumbItem isCurrentPage>
-        <Link to="/admin/report/scheduled-reporting">Scheduled Reporting</Link>
-      </BreadcrumbItem>
-    </Breadcrumb>
+    <Breadcrumb
+      item2={<BreadcrumbItem isCurrentPage><Link href="/admin/report/scheduled-reporting">Scheduled Reporting</Link></BreadcrumbItem>}
+    />
     <Heading mb={6}>Scheduled Reporting</Heading>
     <Route {...rest} render={(props) => <ScheduledReportingPage {...props} />} />
   </AdminMainAreaWrapper>

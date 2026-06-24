@@ -39,7 +39,11 @@
       "Bash(node -e \"const fs = require\\('fs'\\); try { new Function\\(fs.readFileSync\\('src/pages/admin/report/assessmentAnalytics/AssessmentAnalyticsPage.jsx', 'utf8'\\)\\); console.log\\('OK'\\); } catch\\(e\\) { console.error\\(e.message\\); }\")",
       "Bash(npx --no-install eslint --no-eslintrc --rule '{\"no-undef\": \"error\"}' --parser-options=\"ecmaVersion:2020,sourceType:module,ecmaFeatures:{jsx:true}\" src/pages/admin/report/assessmentAnalytics/AssessmentAnalyticsPage.jsx)",
       "Bash(npx --no-install eslint src/pages/admin/report/assessmentAnalytics/AssessmentAnalyticsPage.jsx)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('eslintConfig', {}\\), indent=2\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('eslintConfig', {}\\), indent=2\\)\\)\")",
+      "Bash(xargs -I{} bash -c 'echo \"=== {} ===\" && grep -A8 \"<Breadcrumb\" {} | head -12')",
+      "Bash(git -C /home/cyberbot/grooming-centre-frontend diff HEAD -- src/pages/admin/report/auditTrail/AuditTrailReportPage.jsx src/pages/admin/report/courseCompletion/CourseCompletionReportPage.jsx src/pages/admin/report/scheduledReporting/ScheduledReportingPage.jsx)",
+      "Bash(git -C /home/cyberbot/grooming-centre-frontend diff HEAD -- src/pages/admin/report/proctoring/ExamSessionAuditPage.jsx src/pages/admin/report/proctoring/ProctoringAuditReportPage.jsx src/pages/admin/report/proctoring/ProctoringKpiSummaryPage.jsx)",
+      "Bash(git -C /home/cyberbot/grooming-centre-frontend diff HEAD -- src/pages/admin/report/studentReport/ProgressReport.jsx src/pages/admin/report/studentReport/StudentReportDetails.jsx)"
     ]
   }
 }

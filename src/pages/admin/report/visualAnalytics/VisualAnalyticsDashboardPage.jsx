@@ -368,11 +368,6 @@ const VisualAnalyticsDashboardPage = () => {
       <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
         <Breadcrumb
           item2={
-            <BreadcrumbItem>
-              <Link href="/admin/report/studentReport">Reports</Link>
-            </BreadcrumbItem>
-          }
-          item3={
             <BreadcrumbItem isCurrentPage>
               <Link href="#">Visual Analytics</Link>
             </BreadcrumbItem>
