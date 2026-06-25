@@ -38,6 +38,7 @@ import {
   adminListModules,
   createExportReport,
   getDataImport,
+  getDataImports,
   getDataImportExportKpis,
   getExportReport,
   getExportReports,
@@ -819,6 +820,14 @@ const DetailDrawer = ({ isOpen, onClose, record, type }) => {
 
 // ─── History Tab ──────────────────────────────────────────────────────────────
 
+const normalizeImportRecord = (r) => ({
+  ...r,
+  operationType: r.operationType ?? "import",
+  exportFormat: r.fileFormat ?? r.exportFormat,
+  totalRecords: r.totalRows ?? r.totalRecords,
+  exporter: r.uploader ?? r.exporter,
+});
+
 const HistoryTab = () => {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -839,12 +848,41 @@ const HistoryTab = () => {
       const params = { page, limit: LIMIT };
       if (statusFilter) params.status = statusFilter;
       if (formatFilter) params.exportFormat = formatFilter;
-      if (typeFilter) params.operationType = typeFilter;
-      const res = await getExportReports(params);
-      const d = res?.data ?? res;
-      const list = Array.isArray(d) ? d : (d?.data ?? d?.exports ?? d?.records ?? []);
+
+      let list = [];
+      let totalCount = 0;
+
+      if (typeFilter === "import") {
+        const res = await getDataImports(params);
+        const d = res?.data ?? res;
+        const raw = Array.isArray(d) ? d : (d?.data ?? d?.imports ?? d?.records ?? []);
+        list = raw.map(normalizeImportRecord);
+        totalCount = d?.total ?? d?.totalCount ?? list.length;
+      } else if (typeFilter) {
+        params.operationType = typeFilter;
+        const res = await getExportReports(params);
+        const d = res?.data ?? res;
+        list = Array.isArray(d) ? d : (d?.data ?? d?.exports ?? d?.records ?? []);
+        totalCount = d?.total ?? d?.totalCount ?? list.length;
+      } else {
+        // All Types: fetch exports and imports concurrently then merge
+        const [expRes, impRes] = await Promise.allSettled([
+          getExportReports(params),
+          getDataImports(params),
+        ]);
+        const expD = expRes.status === "fulfilled" ? (expRes.value?.data ?? expRes.value) : null;
+        const impD = impRes.status === "fulfilled" ? (impRes.value?.data ?? impRes.value) : null;
+        const expList = Array.isArray(expD) ? expD : (expD?.data ?? expD?.exports ?? expD?.records ?? []);
+        const impList = Array.isArray(impD) ? impD : (impD?.data ?? impD?.imports ?? impD?.records ?? []);
+        list = [
+          ...expList,
+          ...impList.map(normalizeImportRecord),
+        ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        totalCount = (expD?.total ?? expD?.totalCount ?? expList.length) + (impD?.total ?? impD?.totalCount ?? impList.length);
+      }
+
       setRows(list);
-      setTotal(d?.total ?? d?.totalCount ?? list.length);
+      setTotal(totalCount);
     } catch {
       toast({ title: "Failed to load records", status: "error", duration: 3000, isClosable: true });
     } finally {
@@ -902,7 +940,7 @@ const HistoryTab = () => {
             <Table variant="simple" size="sm">
               <Thead bg="#F7FAFC">
                 <Tr>
-                  {["Report Name", "Performed By", "Type", "Format", "Records", "File Size", "Status", "Expires", "Created", ""].map((h) => (
+                  {["Report Name", "Performed By", "Type", "Format", "Records","Record Successful", "Record Failed", "File Size", "Status", "Expires", "Created", ""].map((h) => (
                     <Th key={h} py="12px" fontSize="11px" color="gray.500" fontWeight="600" textTransform="none">{h}</Th>
                   ))}
                 </Tr>
@@ -920,7 +958,9 @@ const HistoryTab = () => {
                     </Td>
                     <Td py="12px" fontSize="12px">{r.operationType ?? "—"}</Td>
                     <Td py="12px" fontSize="12px" textTransform="uppercase">{r.exportFormat ?? "—"}</Td>
-                    <Td py="12px" fontSize="12px" fontWeight="600">{r.totalRecords?.toLocaleString() ?? "—"}</Td>
+                    <Td py="12px" fontSize="12px" fontWeight="600">{(r.totalRecords ?? r.totalRows)?.toLocaleString() ?? "—"}</Td>
+                    <Td py="12px" fontSize="12px" fontWeight="600" color="#38A169">{r.successfulRows?.toLocaleString() ?? "—"}</Td>
+                    <Td py="12px" fontSize="12px" fontWeight="600" color="#E53E3E">{r.failedRows?.toLocaleString() ?? "—"}</Td>
                     <Td py="12px" fontSize="12px">{r.fileSizeMb != null ? `${r.fileSizeMb} MB` : "—"}</Td>
                     <Td py="12px"><StatusBadge status={r.status} /></Td>
                     <Td py="12px" fontSize="12px" color={isExpired(r.expiryDate) ? "red.400" : "gray.400"} whiteSpace="nowrap">
@@ -953,7 +993,7 @@ const HistoryTab = () => {
         )}
       </Box>
 
-      <DetailDrawer isOpen={isOpen} onClose={onClose} record={selected} type="export" />
+      <DetailDrawer isOpen={isOpen} onClose={onClose} record={selected} type={selected?.operationType === "import" ? "import" : "export"} />
     </Box>
   );
 };

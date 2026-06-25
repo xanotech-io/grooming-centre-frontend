@@ -30,6 +30,11 @@ import {
   FormLabel,
   Grid,
   Spinner,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel,
   useDisclosure,
   BreadcrumbItem,
 } from "@chakra-ui/react";
@@ -41,6 +46,8 @@ import {
   getAssessmentAnalyticsThresholds,
   adminGetCourseListing,
   adminGetStandaloneExaminationListing,
+  adminListModules,
+  adminListModuleAssessments,
 } from "../../../../services";
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
@@ -212,7 +219,7 @@ const fmt = (val, suffix = "") => (val != null ? `${val}${suffix}` : "—");
 
 // ─── EntityCombobox ─────────────────────────────────────────────────────────
 
-function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
+function EntityCombobox({ fetchFn, value, onSelect, placeholder, isDisabled }) {
   const [inputValue, setInputValue] = useState("");
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -260,7 +267,7 @@ function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
 
   return (
     <Box ref={containerRef} position="relative">
-      <Flex border="1px solid" borderColor="gray.200" borderRadius="md" alignItems="center" px={2} bg="white" h="32px">
+      <Flex border="1px solid" borderColor="gray.200" borderRadius="md" alignItems="center" px={2} bg={isDisabled ? "gray.100" : "white"} h="32px">
         <Input
           value={displayValue}
           onChange={handleInputChange}
@@ -272,6 +279,8 @@ function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
           size="sm"
           px={0}
           fontSize="sm"
+          isDisabled={isDisabled}
+          cursor={isDisabled ? "not-allowed" : "text"}
         />
         {loading && <Spinner size="xs" color="gray.400" flexShrink={0} />}
         {value && (
@@ -319,21 +328,6 @@ function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
   );
 }
 
-const PaginationBar = ({ page, totalPages, onPrev, onNext, limit, onLimitChange }) => (
-  <Flex justifyContent="space-between" alignItems="center" mt={4} flexWrap="wrap" gap={2}>
-    <Flex alignItems="center" gap={2}>
-      <Text fontSize="sm" color="gray.500">Rows per page:</Text>
-      <Select size="sm" w="70px" value={limit} onChange={(e) => onLimitChange(Number(e.target.value))}>
-        {[20, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-      </Select>
-    </Flex>
-    <Flex alignItems="center" gap={2}>
-      <Button size="sm" onClick={onPrev} isDisabled={page <= 1} variant="outline">Prev</Button>
-      <Text fontSize="sm">Page {page} of {totalPages || 1}</Text>
-      <Button size="sm" onClick={onNext} isDisabled={page >= totalPages} variant="outline">Next</Button>
-    </Flex>
-  </Flex>
-);
 
 const DetailRow = ({ label, value }) => (
   <Flex justifyContent="space-between" alignItems="flex-start" py={2} borderBottom="1px" borderColor="gray.100">
@@ -355,16 +349,54 @@ const AssessmentAnalyticsPage = () => {
 
   // Main report
   const [summary, setSummary] = useState(null);
+  const [assessmentSummary, setAssessmentSummary] = useState(null);
   const [rows, setRows] = useState([]);
   const [assessmentStats, setAssessmentStats] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  const [standaloneStats, setStandaloneStats] = useState([]);
+  const [, setTotal] = useState(0);
+  const [, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(50);
+  const [limit] = useState(50);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(0);
+
+  const assessmentRows = useMemo(() => assessmentStats.map((a) => ({
+    question_id: a.assessment_id,
+    question_text: a.assessment_title ?? a.assessment_id,
+    question_type: a.type ?? "assessment",
+    difficulty_level: null,
+    derived_difficulty: null,
+    exam_id: a.assessment_id,
+    exam_title: a.assessment_title ?? "—",
+    course_id: null,
+    total_attempts: a.total_submissions,
+    correct_response_rate: a.average_score ?? a.pass_rate,
+    average_time_seconds: null,
+    discrimination_index: null,
+    status: a.pass_rate != null
+      ? a.pass_rate >= 75 ? "Excellent" : a.pass_rate >= 50 ? "Acceptable" : "Poor"
+      : "Insufficient Data",
+  })), [assessmentStats]);
+
+  const standaloneRows = useMemo(() => standaloneStats.map((e) => ({
+    question_id: e.exam_id,
+    question_text: e.exam_id,
+    question_type: e.type ?? "standalone",
+    difficulty_level: null,
+    derived_difficulty: null,
+    exam_id: e.exam_id,
+    exam_title: null,
+    course_id: null,
+    total_attempts: e.total_submissions,
+    correct_response_rate: null,
+    average_time_seconds: e.average_completion_time_seconds,
+    discrimination_index: null,
+    status: !e.total_submissions ? "Insufficient Data" : null,
+  })), [standaloneStats]);
 
   const [filters, setFilters] = useState({
     courseId: "",
+    moduleId: "",
     examId: "",
     assessmentId: "",
     standaloneExamId: "",
@@ -387,6 +419,18 @@ const AssessmentAnalyticsPage = () => {
     return (res?.courses ?? []).map((c) => ({ id: c.id, label: c.title }));
   }, []);
 
+  const fetchModuleOptions = useCallback(async () => {
+    if (!filters.courseId) return [];
+    const res = await adminListModules(filters.courseId);
+    return (res?.modules ?? []).map((m) => ({ id: m.id, label: m.title }));
+  }, [filters.courseId]);
+
+  const fetchAssessmentOptions = useCallback(async () => {
+    if (!filters.moduleId) return [];
+    const res = await adminListModuleAssessments(filters.moduleId);
+    return (res?.assessments ?? []).map((a) => ({ id: a.id, label: a.title }));
+  }, [filters.moduleId]);
+
   const fetchExamOptions = useCallback(async () => {
     const uniqueExams = [];
     const seen = new Set();
@@ -398,10 +442,6 @@ const AssessmentAnalyticsPage = () => {
     });
     return uniqueExams;
   }, [rows]);
-
-  const fetchAssessmentOptions = useCallback(async () => {
-    return assessmentStats.map((a) => ({ id: a.assessmentId, label: a.assessmentTitle }));
-  }, [assessmentStats]);
 
   const fetchStandaloneOptions = useCallback(async (query) => {
     const res = await adminGetStandaloneExaminationListing({ search: query, limit: 50 });
@@ -428,19 +468,23 @@ const AssessmentAnalyticsPage = () => {
       const res = await getAssessmentAnalyticsReport(params);
       const payload = res?.data ?? res;
       setSummary(payload?.summary ?? null);
+      setAssessmentSummary(payload?.assessment_summary ?? null);
       const list = Array.isArray(payload?.data) ? payload.data : [];
       setRows(list);
       setTotal(payload?.total ?? list.length);
       const computed = Math.ceil((payload?.total ?? list.length) / limit) || 1;
       setTotalPages(payload?.totalPages ?? computed);
       setAssessmentStats(Array.isArray(payload?.assessment_level_stats) ? payload.assessment_level_stats : []);
+      setStandaloneStats(Array.isArray(payload?.standalone_stats) ? payload.standalone_stats : []);
     } catch {
       console.warn("[AssessmentAnalytics] GET /assessment-analytics-v2/report failed, using mock");
       setSummary(MOCK_SUMMARY);
+      setAssessmentSummary(null);
       setRows(MOCK_QUESTIONS);
       setTotal(MOCK_QUESTIONS.length);
       setTotalPages(1);
       setAssessmentStats(MOCK_ASSESSMENT_STATS);
+      setStandaloneStats([]);
     } finally { setLoading(false); }
   }, [page, limit, filters]);
 
@@ -520,22 +564,18 @@ const AssessmentAnalyticsPage = () => {
 
       {/* KPI Cards */}
       <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mb={6}>
-        <DashboardMetricCard title="Total Questions" value={loading ? "..." : summary?.total_questions ?? "—"} />
+        <DashboardMetricCard title="Total Assessments" value={loading ? "..." : assessmentSummary?.total_assessments ?? "—"} />
+        <DashboardMetricCard title="Total Questions" value={loading ? "..." : assessmentSummary?.total_questions ?? summary?.total_questions ?? "—"} />
+        <DashboardMetricCard title="Total Submissions" value={loading ? "..." : assessmentSummary?.total_submissions ?? "—"} />
         <DashboardMetricCard
-          title="Avg Success Rate"
-          value={loading ? "..." : summary?.average_success_rate != null ? `${summary.average_success_rate}%` : "—"}
-          colorScheme={summary?.average_success_rate < 60 ? "red" : summary?.average_success_rate < 75 ? "yellow" : "green"}
-        />
-        <DashboardMetricCard title="Avg Time / Question" value={loading ? "..." : summary?.average_completion_time_seconds != null ? `${summary.average_completion_time_seconds}s` : "—"} />
-        <DashboardMetricCard
-          title="Reliability Index"
-          value={loading ? "..." : summary?.reliability_index != null ? summary.reliability_index.toFixed(2) : "—"}
-          colorScheme={summary?.reliability_index < 0.7 ? "red" : summary?.reliability_index < 0.8 ? "yellow" : "green"}
+          title="Avg Score"
+          value={loading ? "..." : assessmentSummary?.average_score != null ? `${assessmentSummary.average_score}%` : (summary?.average_success_rate != null ? `${summary.average_success_rate}%` : "—")}
+          colorScheme={(assessmentSummary?.average_score ?? summary?.average_success_rate) < 60 ? "red" : (assessmentSummary?.average_score ?? summary?.average_success_rate) < 75 ? "yellow" : "green"}
         />
         <DashboardMetricCard
           title="Assessment Validity"
-          value={loading ? "..." : summary?.assessment_validity ?? "—"}
-          colorScheme={VALIDITY_COLORS[summary?.assessment_validity] ?? "gray"}
+          value={loading ? "..." : assessmentSummary?.assessment_validity ?? summary?.assessment_validity ?? "—"}
+          colorScheme={VALIDITY_COLORS[assessmentSummary?.assessment_validity ?? summary?.assessment_validity] ?? "gray"}
         />
       </SimpleGrid>
 
@@ -562,17 +602,28 @@ const AssessmentAnalyticsPage = () => {
               <EntityCombobox
                 fetchFn={fetchCourseOptions}
                 value={filters.courseId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "" }))}
+                onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "", moduleId: "", assessmentId: "" }))}
                 placeholder="Search course..."
               />
             </FormControl>
-             <FormControl>
+            <FormControl>
+              <FormLabel fontSize="xs">Module</FormLabel>
+              <EntityCombobox
+                fetchFn={fetchModuleOptions}
+                value={filters.moduleId}
+                onSelect={(opt) => setFilters((p) => ({ ...p, moduleId: opt ? opt.id : "", assessmentId: "" }))}
+                placeholder={filters.courseId ? "Select module..." : "Select a course first"}
+                isDisabled={!filters.courseId}
+              />
+            </FormControl>
+            <FormControl>
               <FormLabel fontSize="xs">Assessment</FormLabel>
               <EntityCombobox
                 fetchFn={fetchAssessmentOptions}
                 value={filters.assessmentId}
                 onSelect={(opt) => setFilters((p) => ({ ...p, assessmentId: opt ? opt.id : "" }))}
-                placeholder="Search assessment..."
+                placeholder={filters.moduleId ? "Select assessment..." : "Select a module first"}
+                isDisabled={!filters.moduleId}
               />
             </FormControl>
             <FormControl>
@@ -620,19 +671,30 @@ const AssessmentAnalyticsPage = () => {
           <Flex mt={3} gap={2}>
             <Button size="sm" colorScheme="blue" onClick={() => { setPage(1); setShowFilters(false); fetchReport(); }}>Apply Filters</Button>
             <Button size="sm" variant="outline" onClick={() => {
-              setFilters({ courseId: "", examId: "", assessmentId: "", standaloneExamId: "", questionType: "", difficultyLevel: "", startDate: "", endDate: "" });
+              setFilters({ courseId: "", moduleId: "", examId: "", assessmentId: "", standaloneExamId: "", questionType: "", difficultyLevel: "", startDate: "", endDate: "" });
               setShowFilters(false);
             }}>Clear</Button>
           </Flex>
         </Box>
       )}
 
-      {/* All Questions */}
-      <Box>
-        <QuestionsTable data={rows} loadingState={loading} />
-        <PaginationBar page={page} totalPages={totalPages} onPrev={() => setPage((p) => p - 1)} onNext={() => setPage((p) => p + 1)} limit={limit} onLimitChange={(v) => { setLimit(v); setPage(1); }} />
-        <Text fontSize="sm" color="gray.500" mt={2}>Total: {total} question{total !== 1 ? "s" : ""}</Text>
-      </Box>
+      {/* Tabbed Table */}
+      <Tabs index={activeTab} onChange={setActiveTab} variant="enclosed" size="sm">
+        <TabList>
+          <Tab>Assessment ({assessmentRows.length})</Tab>
+          <Tab>Standalone ({standaloneRows.length})</Tab>
+        </TabList>
+        <TabPanels>
+          <TabPanel px={0} pb={0}>
+            <QuestionsTable data={assessmentRows} loadingState={loading} />
+            <Text fontSize="sm" color="gray.500" mt={2}>Total: {assessmentRows.length} assessment{assessmentRows.length !== 1 ? "s" : ""}</Text>
+          </TabPanel>
+          <TabPanel px={0} pb={0}>
+            <QuestionsTable data={standaloneRows} loadingState={loading} />
+            <Text fontSize="sm" color="gray.500" mt={2}>Total: {standaloneRows.length} standalone exam{standaloneRows.length !== 1 ? "s" : ""}</Text>
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
 
       {/* ── Thresholds legend ─────────────────────────────────────────────────── */}
       {thresholds && (
