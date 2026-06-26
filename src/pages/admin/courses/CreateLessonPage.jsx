@@ -99,19 +99,29 @@ const CreateLessonPage = () => {
   }, [lesson]);
 
   const setLessonAccept = (lessonTypeId) => {
-    const lessonType = getOneMetadata("lessonType", lessonTypeId)?.name;
+    const lessonType = getOneMetadata("lessonType", lessonTypeId)?.name?.toLowerCase();
 
     if (lessonType === "pdf") {
       fileManager.handleAcceptChange("application/pdf");
     }
 
     if (lessonType === "video") {
-      fileManager.handleAcceptChange("video/mp4, video/mkv");
+      fileManager.handleAcceptChange("video/*");
     }
 
-    if (lessonType === "PowerPoint") {
+    if (lessonType === "audio") {
+      fileManager.handleAcceptChange("audio/*");
+    }
+
+    if (lessonType === "powerpoint") {
       fileManager.handleAcceptChange(
         ".ppt, .pptx, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      );
+    }
+
+    if (lessonType === "word" || lessonType === "doc" || lessonType === "word document") {
+      fileManager.handleAcceptChange(
+        ".doc, .docx, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       );
     }
   };
@@ -129,9 +139,11 @@ const CreateLessonPage = () => {
   // Init `Lesson File` file url
   useEffect(() => {
     if (lesson) {
-      const fileIsAVideo = /((\.)(mp4|mkv))$/i.test(lesson.file);
+      const fileIsAVideo = /((\.)(mp4|mkv|webm|mov|avi))$/i.test(lesson.file);
       const fileIsPDF = /(\.pdf)$/i.test(lesson.file);
       const fileIsPowerPoint = /((\.)(ppt|pptx))$/i.test(lesson.file);
+      const fileIsAudio = /((\.)(mp3|wav|m4a|ogg|aac|flac))$/i.test(lesson.file);
+      const fileIsWord = /((\.)(doc|docx))$/i.test(lesson.file);
 
       if (fileIsAVideo) {
         fileManager.handleInitialVideoSelect(lesson.file);
@@ -139,9 +151,14 @@ const CreateLessonPage = () => {
       if (fileIsPDF) {
         fileManager.handleInitialPdfSelect(lesson.file);
       }
-
       if (fileIsPowerPoint) {
         fileManager.handleInitialPowerpointSelect(lesson.file);
+      }
+      if (fileIsAudio) {
+        fileManager.handleInitialAudioSelect(lesson.file);
+      }
+      if (fileIsWord) {
+        fileManager.handleInitialWordSelect(lesson.file);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -345,7 +362,20 @@ const CreateLessonPage = () => {
             <Select
               id="lessonTypeId"
               label="File type"
-              options={populateSelectOptions(metadata?.lessonType)}
+              placeholder="Pick a file"
+              options={(() => {
+                const seen = new Set();
+                return populateSelectOptions(metadata?.lessonType)
+                  ?.map((opt) =>
+                    opt.label.toLowerCase() === "word" ? { ...opt, label: "Document" } : opt
+                  )
+                  ?.filter((opt) => {
+                    const key = opt.label.toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                  });
+              })()}
               isLoading={!metadata?.lessonType}
               isRequired
               error={errors.lessonTypeId?.message}
@@ -362,8 +392,10 @@ const CreateLessonPage = () => {
               label="Lesson file"
               isRequired
               videoUrl={fileManager.video.url}
+              audioUrl={fileManager.audio.url}
               pdfUrl={fileManager.pdf.url}
               powerpointUrl={fileManager.powerpoint.url}
+              wordUrl={fileManager.word.url}
               disabled={!getValues("lessonTypeId")}
               onFileSelect={fileManager.handleFileSelect}
               accept={fileManager.accept}

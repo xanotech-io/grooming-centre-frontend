@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Modal,
   ModalOverlay,
@@ -19,14 +19,14 @@ import {
   Divider,
 } from '@chakra-ui/react';
 import { useToast } from '@chakra-ui/toast';
-import { FaSitemap } from 'react-icons/fa';
+import { FaPaperclip, FaSitemap, FaTimes } from 'react-icons/fa';
 import { Button } from '../Button/Button';
 import { Select } from '../Form/Select.jsx';
-import { Input } from '../Form/Input/Input';
 import { Textarea } from '../Form/Textarea';
 import { useFetch } from '../../hooks/useFetch';
 import { useApp } from '../../contexts';
 import {
+  adminGetDepartmentSupervisors,
   adminGetWorkflowSupervisors,
   adminSubmitWorkflow,
 } from '../../services';
@@ -38,8 +38,8 @@ export const WorkflowSubmitModal = ({
   contentId,
   contentTitle,
   requestType,
+  courseId,
   description: initialDescription = '',
-  attachmentUrl: initialAttachmentUrl = '',
   onSuccess,
 }) => {
   const toast = useToast();
@@ -47,33 +47,43 @@ export const WorkflowSubmitModal = ({
 
   const [selectedSupervisorId, setSelectedSupervisorId] = useState('');
   const [description, setDescription] = useState(initialDescription);
-  const [attachmentUrl, setAttachmentUrl] = useState(initialAttachmentUrl);
+  const [attachmentFile, setAttachmentFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [supervisorError, setSupervisorError] = useState(false);
+  const fileInputRef = useRef(null);
 
   const { resource: supervisorsResource, handleFetchResource: fetchSupervisors } =
     useFetch();
 
   const supervisorFetcher = useCallback(async () => {
-    const { supervisors } = await adminGetWorkflowSupervisors();
+    const { supervisors } = courseId
+      ? await adminGetDepartmentSupervisors(courseId)
+      : await adminGetWorkflowSupervisors();
     return supervisors;
-  }, []);
+  }, [courseId]);
 
   useEffect(() => {
     if (isOpen) {
       fetchSupervisors({ fetcher: supervisorFetcher });
       setDescription(initialDescription);
-      setAttachmentUrl(initialAttachmentUrl);
+      setAttachmentFile(null);
       setSelectedSupervisorId('');
+      setSupervisorError(false);
     }
-  }, [isOpen, fetchSupervisors, supervisorFetcher, initialDescription, initialAttachmentUrl]);
+  }, [isOpen, fetchSupervisors, supervisorFetcher, initialDescription]);
 
-  const supervisors = supervisorsResource.data ?? [];
+  const supervisors = Array.isArray(supervisorsResource.data) ? supervisorsResource.data : [];
   const supervisorOptions = supervisors.map((s) => ({
     label: `${s.firstName} ${s.lastName}`,
     value: s.id,
   }));
 
   const handleSubmit = async () => {
+    if (!selectedSupervisorId) {
+      setSupervisorError(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload = {
@@ -81,12 +91,12 @@ export const WorkflowSubmitModal = ({
         content_id: contentId,
         content_title: contentTitle,
         submitted_by: appState.user?.id,
+        supervisor_id: selectedSupervisorId,
         description,
         submission_date: new Date().toISOString(),
       };
 
-      if (selectedSupervisorId) payload.supervisor_id = selectedSupervisorId;
-      if (attachmentUrl?.trim()) payload.attachment_url = attachmentUrl.trim();
+      if (attachmentFile) payload.attachment_file = attachmentFile;
 
       const { message } = await adminSubmitWorkflow(payload);
 
@@ -162,12 +172,9 @@ export const WorkflowSubmitModal = ({
           </Box>
 
           {/* Supervisor */}
-          <FormControl mb={5}>
+          <FormControl mb={5} isRequired isInvalid={supervisorError}>
             <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={2}>
-              Assign Supervisor{' '}
-              <Text as="span" fontWeight="400" color="#718096">
-                (optional)
-              </Text>
+              Assign Supervisor
             </FormLabel>
 
             {supervisorsResource.loading ? (
@@ -179,16 +186,24 @@ export const WorkflowSubmitModal = ({
               </Flex>
             ) : supervisorsResource.err ? (
               <Text fontSize="13px" color="red.500">
-                Could not load supervisors — the system will auto-assign one.
+                Could not load supervisors.
               </Text>
             ) : (
               <Select
                 id="wf_supervisor"
-                placeholder="Leave blank to auto-assign from your department"
+                placeholder="Select a supervisor"
                 options={supervisorOptions}
                 value={selectedSupervisorId}
-                onChange={(e) => setSelectedSupervisorId(e.target.value)}
+                onChange={(e) => {
+                  setSelectedSupervisorId(e.target.value);
+                  setSupervisorError(false);
+                }}
               />
+            )}
+            {supervisorError && (
+              <Text fontSize="12px" color="red.500" mt={1}>
+                Please select a supervisor.
+              </Text>
             )}
           </FormControl>
 
@@ -206,15 +221,70 @@ export const WorkflowSubmitModal = ({
             />
           </FormControl>
 
-          {/* Attachment URL */}
+          {/* Attachment file */}
           <FormControl>
-            <Input
-              id="wf_attachment"
-              label="Attachment URL (optional)"
-              placeholder="https://example.com/files/document.pdf"
-              value={attachmentUrl}
-              onChange={(e) => setAttachmentUrl(e.target.value)}
+            <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={2}>
+              Attachment{' '}
+              <Text as="span" fontWeight="400" color="#718096">
+                (optional)
+              </Text>
+            </FormLabel>
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: 'none' }}
+              onChange={(e) => setAttachmentFile(e.target.files[0] ?? null)}
             />
+            {attachmentFile ? (
+              <Flex
+                align="center"
+                gap={2}
+                px={3}
+                py={2}
+                border="1px solid #CBD5E0"
+                borderRadius="6px"
+                bg="#F7FAFC"
+              >
+                <FaPaperclip size="13px" color="#718096" />
+                <Text fontSize="13px" color="#1A202C" flex={1} noOfLines={1}>
+                  {attachmentFile.name}
+                </Text>
+                <Box
+                  as="button"
+                  type="button"
+                  onClick={() => {
+                    setAttachmentFile(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  color="#A0AEC0"
+                  _hover={{ color: '#E53E3E' }}
+                  lineHeight={1}
+                >
+                  <FaTimes size="12px" />
+                </Box>
+              </Flex>
+            ) : (
+              <Box
+                as="button"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                display="flex"
+                alignItems="center"
+                gap={2}
+                px={3}
+                py={2}
+                border="1px dashed #CBD5E0"
+                borderRadius="6px"
+                bg="white"
+                color="#718096"
+                fontSize="13px"
+                width="100%"
+                _hover={{ borderColor: '#6b006b', color: '#6b006b' }}
+              >
+                <FaPaperclip size="13px" />
+                Click to attach a file
+              </Box>
+            )}
           </FormControl>
 
           {/* Info alert */}

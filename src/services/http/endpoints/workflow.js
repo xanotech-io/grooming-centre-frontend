@@ -20,7 +20,19 @@ const normalize = (w) => ({
 
 // POST /api/v1/workflows/submit
 export const adminSubmitWorkflow = async (body) => {
-  const { data } = await http.post('/v1/workflows/submit', body);
+  let payload = body;
+  let config = {};
+
+  if (body.attachment_file) {
+    const formData = new FormData();
+    const { attachment_file, ...rest } = body;
+    Object.entries(rest).forEach(([k, v]) => { if (v != null) formData.append(k, v); });
+    formData.append('attachment_file', attachment_file);
+    payload = formData;
+    config = { headers: { 'Content-Type': 'multipart/form-data' } };
+  }
+
+  const { data } = await http.post('/v1/workflows/submit', payload, config);
   return { message: data.message, workflow: data.data };
 };
 
@@ -28,6 +40,13 @@ export const adminSubmitWorkflow = async (body) => {
 export const adminGetWorkflowSupervisors = async () => {
   const { data } = await http.get('/v1/workflows/supervisors');
   return { supervisors: data.data ?? [] };
+};
+
+// GET /api/department/supervisors/:courseId
+export const adminGetDepartmentSupervisors = async (courseId) => {
+  const { data } = await http.get(`/v1/department/supervisors/${courseId}`);
+  const raw = data.data ?? data.supervisors ?? [];
+  return { supervisors: Array.isArray(raw) ? raw : [] };
 };
 
 // GET /api/v1/workflows/pending/{supervisor_id}
