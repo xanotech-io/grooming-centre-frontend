@@ -27,6 +27,7 @@ export const Upload = forwardRef(
       pdfUrl,
       excelUrl,
       powerpointUrl,
+      wordUrl,
       alt,
       label,
       onFileSelect,
@@ -52,7 +53,7 @@ export const Upload = forwardRef(
       accept,
     });
 
-    const hasUploaded = imageUrl || videoUrl || pdfUrl || audioUrl || excelUrl || powerpointUrl;
+    const hasUploaded = imageUrl || videoUrl || pdfUrl || audioUrl || excelUrl || powerpointUrl || wordUrl;
 
     const { resource: deleteRequest, handleFetchResource } = useFetch();
     const toast = useToast();
@@ -135,6 +136,13 @@ export const Upload = forwardRef(
                     <b><i>{powerpointUrl}</i></b>
                     <br/>
                     <Text fontSize="sm" color="gray.500" mt={1}>PowerPoint File</Text>
+                  </div>
+                ) : wordUrl ? (
+                  <div>
+                    <img width="100px" src={fileIcon} alt="" style={{filter: "hue-rotate(220deg)"}}/><br/>
+                    <b><i>{wordUrl}</i></b>
+                    <br/>
+                    <Text fontSize="sm" color="gray.500" mt={1}>Word Document</Text>
                   </div>
                 ) : (
                   <Image
