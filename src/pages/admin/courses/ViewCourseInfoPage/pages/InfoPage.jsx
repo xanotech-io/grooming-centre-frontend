@@ -246,6 +246,7 @@ const InfoPage = () => {
         contentId={courseDetailsData?.id}
         contentTitle={courseDetailsData?.title}
         requestType="Course Content"
+        courseId={courseDetailsData?.id}
         onSuccess={fetchCourseDetails}
       />
 
