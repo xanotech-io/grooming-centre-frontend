@@ -1,4 +1,4 @@
-import { convertToRaw } from "draft-js";
+import { ContentState, convertToRaw } from "draft-js";
 import { useState } from "react";
 
 export const useRichText = () => {
@@ -17,8 +17,17 @@ export const useRichText = () => {
     setData((prev) => ({ ...prev, stringified, raw }));
   };
 
-  const handleInitData = (stringified) => {
-    setData((prev) => ({ ...prev, default: stringified }));
+  const handleInitData = (value) => {
+    let draftJson = value;
+    if (value) {
+      try {
+        JSON.parse(value);
+      } catch {
+        // plain text from DB — wrap in Draft.js format so MUIRichTextEditor doesn't crash
+        draftJson = JSON.stringify(convertToRaw(ContentState.createFromText(value)));
+      }
+    }
+    setData((prev) => ({ ...prev, default: draftJson }));
   };
 
   const handleGetValueAndValidate = (label) => {
