@@ -293,7 +293,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
             })}
             error={errors.duration?.message}
           />
-          <Input
+          {/* <Input
             label="Timeline"
             id="timeline"
             type="number"
@@ -302,7 +302,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
               min: { value: 1, message: "Timeline must be at least 1" },
             })}
             error={errors.timeline?.message}
-          />
+          /> */}
         </Box>
         {/* Row 3 */}
         <Grid marginBottom={10}>
