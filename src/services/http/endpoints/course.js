@@ -61,8 +61,8 @@ export const adminGetCoursesByDepartment = async (departmentId) => {
       displayId: course.displayId,
       title: course.title,
       instructor: {
-        firstName: course.instructor.firstName,
-        lastName: course.instructor.lastName,
+        firstName: course.instructor?.firstName,
+        lastName: course.instructor?.lastName,
       },
       startDate: course.startTime || "not set",
     })),
