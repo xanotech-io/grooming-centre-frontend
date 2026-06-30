@@ -14,7 +14,7 @@ export const useBlockSuperAdminFromUserScreens = () => {
         appManager.state.user.userRoleId
       );
 
-      if (/super/i.test(role?.name)) {
+      if (/super admin/i.test(role?.name)) {
         return replace("/admin");
       }
     }
@@ -48,7 +48,7 @@ const handleRedirectUserToRoleScreen = (appManager, replace) => {
       appManager.state
     );
 
-    if (!/admin/i.test(role?.name) && !/instructor/i.test(role?.name)) {
+    if (!/admin/i.test(role?.name) && !/instructor/i.test(role?.name) && !/supervisor/i.test(role?.name)) {
       return replace("/");
     }
 
