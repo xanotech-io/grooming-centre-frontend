@@ -56,8 +56,12 @@ export const SidebarContent = ({ onClose, ...rest }) => {
   const isSettingsPage = /settings/i.test(window.location.pathname);
   const role = getOneMetadata("userRoles", state.user?.userRoleId);
   const isSuperAdmin = /super admin/i.test(role?.name);
+  const isSupervisor = /supervisor/i.test(role?.name);
 
   const visibleLinks = links.filter((link) => {
+    if (isSupervisor) {
+      return link.roles?.some((r) => new RegExp(r, "i").test(role?.name));
+    }
     if (!link.roles) return true;
     return link.roles.some((r) => new RegExp(r, "i").test(role?.name));
   });
