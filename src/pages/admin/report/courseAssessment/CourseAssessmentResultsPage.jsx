@@ -29,6 +29,7 @@ import {
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminAddAssessmentFeedback,
+  adminGetAssessmentListing,
   adminGetCourseAssessmentResults,
   adminListCoursesForReport,
 } from "../../../../services";
@@ -185,6 +186,10 @@ const CourseAssessmentResultsPage = () => {
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [selectedCourseId, setSelectedCourseId] = useState("");
 
+  const [assessments, setAssessments] = useState([]);
+  const [assessmentsLoading, setAssessmentsLoading] = useState(false);
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState("");
+
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [grade, setGrade] = useState("");
@@ -204,6 +209,20 @@ const CourseAssessmentResultsPage = () => {
       .finally(() => setCoursesLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!selectedCourseId) {
+      setAssessments([]);
+      setSelectedAssessmentId("");
+      return;
+    }
+    setAssessmentsLoading(true);
+    setSelectedAssessmentId("");
+    adminGetAssessmentListing(selectedCourseId)
+      .then((res) => setAssessments(res.assessments ?? []))
+      .catch(() => setAssessments([]))
+      .finally(() => setAssessmentsLoading(false));
+  }, [selectedCourseId]);
+
   const handleGenerate = async () => {
     if (!selectedCourseId) {
       toast({ status: "warning", description: "Please select a course first.", duration: 3000, isClosable: true });
@@ -212,6 +231,7 @@ const CourseAssessmentResultsPage = () => {
     setLoading(true);
     setError(null);
     const params = {};
+    if (selectedAssessmentId) params.assessmentId = selectedAssessmentId;
     if (startDate) params.startDate = startDate;
     if (endDate) params.endDate = endDate;
     if (grade) params.grade = grade;
@@ -235,6 +255,8 @@ const CourseAssessmentResultsPage = () => {
 
   const handleClear = () => {
     setSelectedCourseId("");
+    setSelectedAssessmentId("");
+    setAssessments([]);
     setStartDate("");
     setEndDate("");
     setGrade("");
@@ -318,6 +340,32 @@ const CourseAssessmentResultsPage = () => {
             >
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>{c.title}</option>
+              ))}
+            </Select>
+          </Box>
+
+          <Box minW={{ base: "100%", md: "240px" }} flex="1">
+            <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
+              Assessment
+            </Text>
+            <Select
+              placeholder={
+                !selectedCourseId
+                  ? "Select a course first"
+                  : assessmentsLoading
+                  ? "Loading assessments..."
+                  : assessments.length === 0
+                  ? "No assessments found"
+                  : "All assessments"
+              }
+              value={selectedAssessmentId}
+              onChange={(e) => setSelectedAssessmentId(e.target.value)}
+              isDisabled={!selectedCourseId || assessmentsLoading || assessments.length === 0}
+              size="sm"
+              borderRadius="md"
+            >
+              {assessments.map((a) => (
+                <option key={a.id} value={a.id}>{a.title}</option>
               ))}
             </Select>
           </Box>
