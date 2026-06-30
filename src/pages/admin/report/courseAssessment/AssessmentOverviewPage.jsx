@@ -22,6 +22,7 @@ import {
 } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
+  adminGetAssessmentListing,
   adminGetAssessmentOverview,
   adminGetDepartmentListing,
   adminGetInstructorReportDirectory,
@@ -215,6 +216,7 @@ const AssessmentOverviewPage = () => {
   // Filter values
   const [courseId, setCourseId] = useState("");
   const [moduleId, setModuleId] = useState("");
+  const [assessmentId, setAssessmentId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [studentId, setStudentId] = useState("");
   const [instructorId, setInstructorId] = useState("");
@@ -222,6 +224,10 @@ const AssessmentOverviewPage = () => {
   // Modules (loaded after course selection)
   const [modules, setModules] = useState([]);
   const [modulesLoading, setModulesLoading] = useState(false);
+
+  // Assessments (loaded after course selection)
+  const [assessments, setAssessments] = useState([]);
+  const [assessmentsLoading, setAssessmentsLoading] = useState(false);
 
   // Report data
   const [loading, setLoading] = useState(true);
@@ -270,12 +276,19 @@ const AssessmentOverviewPage = () => {
   useEffect(() => {
     setModuleId("");
     setModules([]);
+    setAssessmentId("");
+    setAssessments([]);
     if (!courseId) return;
     setModulesLoading(true);
     adminListModules(courseId)
       .then((res) => setModules(res.modules ?? []))
       .catch(() => {})
       .finally(() => setModulesLoading(false));
+    setAssessmentsLoading(true);
+    adminGetAssessmentListing(courseId)
+      .then((res) => setAssessments(res.assessments ?? []))
+      .catch(() => setAssessments([]))
+      .finally(() => setAssessmentsLoading(false));
   }, [courseId]);
 
   // Auto-load on mount
@@ -307,6 +320,7 @@ const AssessmentOverviewPage = () => {
     const params = {};
     if (courseId) params.courseId = courseId;
     if (moduleId) params.moduleId = moduleId;
+    if (assessmentId) params.assessmentId = assessmentId;
     if (departmentId) params.departmentId = departmentId;
     if (studentId) params.studentId = studentId;
     if (instructorId) params.instructorId = instructorId;
@@ -316,13 +330,15 @@ const AssessmentOverviewPage = () => {
   const handleClearFilters = () => {
     setCourseId("");
     setModuleId("");
+    setAssessmentId("");
+    setAssessments([]);
     setDepartmentId("");
     setStudentId("");
     setInstructorId("");
     fetchOverview({});
   };
 
-  const hasActiveFilters = courseId || moduleId || departmentId || studentId || instructorId;
+  const hasActiveFilters = courseId || moduleId || assessmentId || departmentId || studentId || instructorId;
 
   const kpiAverage = kpis?.averageScore ?? kpis?.averageAssessmentScore ?? 0;
   const kpiDifficulty =
@@ -413,6 +429,33 @@ const AssessmentOverviewPage = () => {
             >
               {modules.map((m) => (
                 <option key={m.id} value={m.id}>{m.title}</option>
+              ))}
+            </Select>
+          </Box>
+
+          {/* Assessment */}
+          <Box minW={{ base: "100%", md: "180px" }} flex="1">
+            <Text fontSize="xs" fontWeight="600" color="gray.500" mb={1} textTransform="uppercase">
+              Assessment
+            </Text>
+            <Select
+              placeholder={
+                !courseId
+                  ? "Select a course first"
+                  : assessmentsLoading
+                  ? "Loading..."
+                  : assessments.length === 0
+                  ? "No assessments"
+                  : "All assessments"
+              }
+              value={assessmentId}
+              onChange={(e) => setAssessmentId(e.target.value)}
+              isDisabled={!courseId || assessmentsLoading || assessments.length === 0}
+              size="sm"
+              borderRadius="md"
+            >
+              {assessments.map((a) => (
+                <option key={a.id} value={a.id}>{a.title}</option>
               ))}
             </Select>
           </Box>
