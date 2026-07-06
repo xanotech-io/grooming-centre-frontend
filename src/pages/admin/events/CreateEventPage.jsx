@@ -13,6 +13,7 @@ import {
   Select,
   Textarea,
   Upload,
+  WorkflowSubmitModal,
 } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useApp, useCache } from "../../../contexts";
@@ -59,6 +60,8 @@ const CreateEventPage = () => {
   }, [isEditMode, event]);
 
   const [disableSubmit, setDisableSubmit] = useState(false);
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
 
   useEffect(() => {
     if (
@@ -150,20 +153,36 @@ const CreateEventPage = () => {
 
       const body = appendFormData(data);
 
-      const { message } = await (isEditMode
-        ? adminEditEvent(eventId, body)
-        : adminCreateEvent(body));
-
       // Clear cache on both admin side
-      cache.handleDelete("admin-events");
+      if (isEditMode) {
+        const { message } = await adminEditEvent(eventId, body);
+        cache.handleDelete("admin-events");
 
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
+        toast({
+          description: capitalizeFirstLetter(message),
+          position: "top",
+          status: "success",
+        });
 
-      push(`/admin/events`);
+        push(`/admin/events`);
+      } else {
+        const { message, event: createdEvent } = await adminCreateEvent(body);
+        cache.handleDelete("admin-events");
+
+        toast({
+          description: capitalizeFirstLetter(message),
+          position: "top",
+          status: "success",
+        });
+
+        setWorkflowContent({
+          contentId: createdEvent?.id,
+          contentTitle: data.title,
+          requestType: "Event",
+          departmentId: data.departmentId,
+        });
+        setWorkflowModalOpen(true);
+      }
     } catch (error) {
       console.error(error);
       toast({
@@ -317,6 +336,19 @@ const CreateEventPage = () => {
         />
       </Box>
     </CreatePageLayout>
+
+    {workflowContent && (
+      <WorkflowSubmitModal
+        isOpen={workflowModalOpen}
+        onClose={() => setWorkflowModalOpen(false)}
+        isDismissable={false}
+        contentId={workflowContent.contentId}
+        contentTitle={workflowContent.contentTitle}
+        requestType={workflowContent.requestType}
+        departmentId={workflowContent.departmentId}
+        onSuccess={() => push(`/admin/events`)}
+      />
+    )}
     </AdminMainAreaWrapper>
   );
 };

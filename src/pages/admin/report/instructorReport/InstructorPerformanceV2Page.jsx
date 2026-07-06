@@ -581,13 +581,13 @@ const InstructorPerformanceV2Page = () => {
             <Tr>
               <Th>Instructor</Th>
               <Th>Department</Th>
-              <Th>Courses</Th>
+              <Th>Courses Delivered</Th>
               <Th>Enrolled</Th>
               <Th>Completed</Th>
               <Th>Completion %</Th>
               <Th>Assess. Score</Th>
               <Th>Exam Score</Th>
-              <Th>Project Score</Th>
+              <Th>Exam Score</Th>
               <Th>Combined</Th>
               <Th>Grading Days</Th>
               <Th>Rating</Th>

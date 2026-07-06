@@ -76,19 +76,28 @@ const CreateModulePage = () => {
 
   const onSubmit = async (data) => {
     try {
-      const body = {
-        title: data.title,
-        description: data.description,
-        sequenceOrder: Number(data.sequenceOrder),
-        status: data.status,
-      };
-
       if (isEditMode) {
+        const body = {
+          title: data.title,
+          description: data.description,
+          sequenceOrder: Number(data.sequenceOrder),
+          status: data.status,
+        };
         const { message } = await adminUpdateModule(moduleId, body);
         toast({ title: message, status: "success", duration: 3000 });
+        handleDelete("modules");
+        push(`/admin/courses/details/${courseId}/modules`);
       } else {
+        // New modules are saved as draft (inactive) until a supervisor approves them
+        const body = {
+          title: data.title,
+          description: data.description,
+          sequenceOrder: Number(data.sequenceOrder),
+          status: "inactive",
+        };
         const { message, module } = await adminCreateModule(courseId, body);
         toast({ title: message, status: "success", duration: 3000 });
+        handleDelete("modules");
 
         setWorkflowContent({
           contentId: module?.id ?? moduleId,
@@ -97,11 +106,6 @@ const CreateModulePage = () => {
           courseId,
         });
         setWorkflowModalOpen(true);
-      }
-
-      handleDelete("modules");
-      if (isEditMode) {
-        push(`/admin/courses/details/${courseId}/modules`);
       }
     } catch (error) {
       toast({
@@ -179,18 +183,20 @@ const CreateModulePage = () => {
             />
           </GridItem>
 
-          <GridItem>
-            <Select
-              label="Status"
-              isRequired
-              options={STATUS_OPTIONS}
-              placeholder="Select status"
-              error={errors.status?.message}
-              {...register("status", {
-                required: "Status is required",
-              })}
-            />
-          </GridItem>
+          {isEditMode && (
+            <GridItem>
+              <Select
+                label="Status"
+                isRequired
+                options={STATUS_OPTIONS}
+                placeholder="Select status"
+                error={errors.status?.message}
+                {...register("status", {
+                  required: "Status is required",
+                })}
+              />
+            </GridItem>
+          )}
 
           <GridItem colSpan={{ base: 1, md: 2 }}>
             <Textarea
@@ -207,6 +213,7 @@ const CreateModulePage = () => {
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
           onClose={() => setWorkflowModalOpen(false)}
+          isDismissable={false}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}

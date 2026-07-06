@@ -448,6 +448,7 @@ const CreateLessonPage = () => {
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
           onClose={() => setWorkflowModalOpen(false)}
+          isDismissable={false}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}

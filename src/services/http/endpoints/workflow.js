@@ -1,20 +1,24 @@
 import { http } from '../http';
 
 const normalize = (w) => ({
-  workflowId: w.workflow_id ?? w.workflowId,
+  workflowId: w.workflow_id ?? w.workflowId ?? w.id,
   requestType: w.request_type ?? w.requestType,
   contentId: w.content_id ?? w.contentId,
   contentTitle: w.content_title ?? w.contentTitle,
   submittedBy: w.submitted_by ?? w.submittedBy,
+  submitterName: w.submitter
+    ? `${w.submitter.firstName ?? ""} ${w.submitter.lastName ?? ""}`.trim() || "—"
+    : "—",
+  submitterEmail: w.submitter?.email ?? "—",
   supervisorId: w.supervisor_id ?? w.supervisorId,
   submissionDate: w.submission_date ?? w.submissionDate,
   description: w.description,
   attachmentUrl: w.attachment_url ?? w.attachmentUrl,
-  approvalStatus: w.approval_status ?? w.approvalStatus,
+  approvalStatus: w.approval_status ?? w.approvalStatus ?? w.status,
   approverRole: w.approver_role ?? w.approverRole,
   actionDate: w.action_date ?? w.actionDate,
   remarks: w.remarks,
-  resolutionTime: w.resolution_time ?? w.resolutionTime,
+  resolutionTime: w.resolution_time ?? w.resolutionTime ?? w.resolution_time_hours,
   notificationStatus: w.notification_status ?? w.notificationStatus,
 });
 
@@ -41,13 +45,14 @@ export const adminGetWorkflowSupervisors = async (departmentId) => {
   const { data } = await http.get('/v1/workflows/supervisors', {
     params: departmentId ? { departmentId } : undefined,
   });
-  return { supervisors: data.data ?? [] };
+  const raw = data.data?.rows ?? data.data ?? [];
+  return { supervisors: Array.isArray(raw) ? raw : [] };
 };
 
 // GET /api/department/supervisors/:courseId
 export const adminGetDepartmentSupervisors = async (courseId) => {
   const { data } = await http.get(`/v1/department/supervisors/${courseId}`);
-  const raw = data.data ?? data.supervisors ?? [];
+  const raw = data.data?.rows ?? data.data ?? data.supervisors ?? [];
   return { supervisors: Array.isArray(raw) ? raw : [] };
 };
 

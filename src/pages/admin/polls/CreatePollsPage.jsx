@@ -4,7 +4,16 @@ import { BreadcrumbItem, Box } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { Flex, Stack } from "@chakra-ui/layout";
 import { useForm } from "react-hook-form";
-import { Breadcrumb, Button, Heading, Input, Link, Select, Textarea } from "../../../components";
+import {
+  Breadcrumb,
+  Button,
+  Heading,
+  Input,
+  Link,
+  Select,
+  Textarea,
+  WorkflowSubmitModal,
+} from "../../../components";
 import { CreatePageLayout } from "../../../layouts";
 import { useApp } from "../../../contexts";
 import { adminCreatePoll } from "../../../services";
@@ -26,6 +35,8 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
   });
 
   const { push } = useHistory();
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
 
   const metadata = propMetadata || appManager.state.metadata;
   const [options, setOptions] = useState([
@@ -82,7 +93,7 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
         ...(data.departmentId ? { departmentId: data.departmentId } : {}),
       };
 
-      const { message } = await adminCreatePoll(payload);
+      const { message, poll } = await adminCreatePoll(payload);
 
       toast({
         description: capitalizeFirstLetter(message),
@@ -90,7 +101,13 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
         status: "success",
       });
 
-      push("/admin/polls/");
+      setWorkflowContent({
+        contentId: poll?.id,
+        contentTitle: payload.question,
+        requestType: "Poll",
+        departmentId: data.departmentId,
+      });
+      setWorkflowModalOpen(true);
     } catch (err) {
       toast({
         description: capitalizeFirstLetter(err.message),
@@ -198,6 +215,19 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
           </Box>
         </Stack>
       </CreatePageLayout>
+
+      {workflowContent && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          isDismissable={false}
+          contentId={workflowContent.contentId}
+          contentTitle={workflowContent.contentTitle}
+          requestType={workflowContent.requestType}
+          departmentId={workflowContent.departmentId}
+          onSuccess={() => push("/admin/polls/")}
+        />
+      )}
     </>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Route, useHistory, Redirect } from "react-router-dom";
+import { Route, Redirect } from "react-router-dom";
 import {
   Box,
   Flex,
@@ -16,15 +16,10 @@ import {
   Td,
   TableContainer,
   IconButton,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
   Badge,
   Spinner,
 } from "@chakra-ui/react";
 import { FaSearch, FaFilter, FaChevronLeft, FaChevronRight } from "react-icons/fa";
-import { FiMoreVertical } from "react-icons/fi";
 import { Button, Heading, Select, Breadcrumb, Link } from "../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { useFetch } from "../../../hooks";
@@ -86,7 +81,6 @@ const REQUEST_TYPE_OPTIONS = [
 ];
 
 const WorkflowTrackingPage = () => {
-  const history = useHistory();
   const { state: appState, getOneMetadata } = useApp();
 
   const role = getOneMetadata("userRoles", appState.user?.userRoleId);
@@ -303,13 +297,12 @@ const WorkflowTrackingPage = () => {
                   <Th textTransform="none" fontSize="14px" fontWeight="600" color="#4A5568">Submission Date</Th>
                   <Th textTransform="none" fontSize="14px" fontWeight="600" color="#4A5568">Status</Th>
                   <Th textTransform="none" fontSize="14px" fontWeight="600" color="#4A5568">Resolution (h)</Th>
-                  <Th textTransform="none" fontSize="14px" fontWeight="600" color="#4A5568" width="100px">Action</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {workflows.length === 0 ? (
                   <Tr>
-                    <Td colSpan={10} textAlign="center" py="40px" color="#718096">
+                    <Td colSpan={9} textAlign="center" py="40px" color="#718096">
                       No workflows found.
                     </Td>
                   </Tr>
@@ -325,28 +318,6 @@ const WorkflowTrackingPage = () => {
                       <Td color="#1A202C" fontSize="14px">{formatDate(row.submissionDate ?? row.actionDate)}</Td>
                       <Td>{getStatusBadge(row.status)}</Td>
                       <Td color="#1A202C" fontSize="14px">{row.resolutionTimeHours ?? "—"}</Td>
-                      <Td>
-                        <Menu>
-                          <MenuButton
-                            as={IconButton}
-                            aria-label="Options"
-                            icon={<FiMoreVertical />}
-                            variant="outline"
-                            size="sm"
-                            borderRadius="4px"
-                          />
-                          <MenuList minWidth="120px">
-                            <MenuItem
-                              onClick={() =>
-                                history.push(`/admin/workflow/review/${row.id}`, { workflow: row })
-                              }
-                            >
-                              View
-                            </MenuItem>
-                            <MenuItem>Archive report</MenuItem>
-                          </MenuList>
-                        </Menu>
-                      </Td>
                     </Tr>
                   ))
                 )}

@@ -60,6 +60,8 @@ import {
   getProjectGradingDetail,
   adminGetCourseListing,
   adminGetInstructorReportDirectory,
+  adminListModules,
+  getModuleProjects,
 } from "../../../../services";
 import dayjs from "dayjs";
 
@@ -224,6 +226,7 @@ const buildReportParams = (filters, page, limit, sort) => {
   }
   if (filters.gradingStatus && filters.gradingStatus !== "all")
     p.gradingStatus = filters.gradingStatus;
+  if (filters.moduleId) p.moduleId = filters.moduleId;
   if (filters.projectId) p.projectId = filters.projectId;
   if (sort.key) {
     p.sortBy = sort.key;
@@ -234,7 +237,7 @@ const buildReportParams = (filters, page, limit, sort) => {
 
 // ─── Entity Combobox ──────────────────────────────────────────────────────────
 
-function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
+function EntityCombobox({ fetchFn, value, onSelect, placeholder, isDisabled }) {
   const [inputValue, setInputValue] = useState("");
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -295,6 +298,7 @@ function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
   };
 
   const handleFocus = () => {
+    if (isDisabled) return;
     if (!value) {
       setIsOpen(true);
       if (options.length === 0) doFetch("");
@@ -313,7 +317,7 @@ function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
         borderRadius="md"
         alignItems="center"
         px={2}
-        bg="white"
+        bg={isDisabled ? "gray.100" : "white"}
         h="32px"
         _focusWithin={{ borderColor: "blue.500", boxShadow: "0 0 0 1px #3182ce" }}
       >
@@ -328,6 +332,8 @@ function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
           onFocus={handleFocus}
           placeholder={placeholder || "Search..."}
           readOnly={!!value}
+          isDisabled={isDisabled}
+          cursor={isDisabled ? "not-allowed" : "text"}
         />
         {loading && <Spinner size="xs" color="gray.400" mr={1} />}
         {value ? (
@@ -599,6 +605,7 @@ const DEFAULT_FILTERS = {
   startDate: "",
   endDate: "",
   gradingStatus: "all",
+  moduleId: "",
   projectId: "",
 };
 
@@ -649,6 +656,18 @@ const ProjectGradingReportPage = () => {
       sublabel: u.email ?? null,
     }));
   }, []);
+
+  const fetchModuleOptions = useCallback(async () => {
+    if (!filters.courseId) return [];
+    const res = await adminListModules(filters.courseId);
+    return (res?.modules ?? []).map((m) => ({ id: m.id, label: m.title }));
+  }, [filters.courseId]);
+
+  const fetchAssessmentOptions = useCallback(async () => {
+    if (!filters.moduleId) return [];
+    const res = await getModuleProjects(filters.moduleId);
+    return (res?.projects ?? []).map((p) => ({ id: p.id, label: p.title }));
+  }, [filters.moduleId]);
 
   const validateDates = useCallback((start, end) => {
     if ((start && !end) || (!start && end)) {
@@ -722,6 +741,8 @@ const ProjectGradingReportPage = () => {
 
   const handleFilterChange = (key, value) => {
     const updated = { ...filters, [key]: value };
+    if (key === "courseId") updated.moduleId = "";
+    if (key === "courseId" || key === "moduleId") updated.projectId = "";
     if (key === "startDate" || key === "endDate") {
       // Only fire when both or neither are set
       const { startDate, endDate } = updated;
@@ -733,8 +754,8 @@ const ProjectGradingReportPage = () => {
       }
       return;
     }
-    // gradingStatus and projectId only affect the table
-    if (key === "gradingStatus" || key === "projectId") {
+    // gradingStatus, moduleId and projectId only affect the table
+    if (key === "gradingStatus" || key === "moduleId" || key === "projectId") {
       setFilters(updated);
       setPage(1);
       fetchTable(updated, 1, limit, sort);
@@ -1007,7 +1028,7 @@ const ProjectGradingReportPage = () => {
             templateColumns={{
               base: "1fr",
               md: "repeat(3, 1fr)",
-              lg: "repeat(5, 1fr)",
+              lg: "repeat(7, 1fr)",
             }}
             gap={3}
           >
@@ -1028,6 +1049,28 @@ const ProjectGradingReportPage = () => {
                 value={filters.instructorId}
                 onSelect={(opt) => handleFilterChange("instructorId", opt ? opt.id : "")}
                 placeholder="Search instructor..."
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel fontSize="xs">Module</FormLabel>
+              <EntityCombobox
+                fetchFn={fetchModuleOptions}
+                value={filters.moduleId}
+                onSelect={(opt) => handleFilterChange("moduleId", opt ? opt.id : "")}
+                placeholder={filters.courseId ? "Select module..." : "Select a course first"}
+                isDisabled={!filters.courseId}
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel fontSize="xs">Assessment</FormLabel>
+              <EntityCombobox
+                fetchFn={fetchAssessmentOptions}
+                value={filters.projectId}
+                onSelect={(opt) => handleFilterChange("projectId", opt ? opt.id : "")}
+                placeholder={filters.moduleId ? "Select assessment..." : "Select a module first"}
+                isDisabled={!filters.moduleId}
               />
             </FormControl>
 

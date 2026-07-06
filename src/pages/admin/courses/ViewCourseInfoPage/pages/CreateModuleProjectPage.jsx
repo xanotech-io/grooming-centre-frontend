@@ -8,18 +8,12 @@ import {
   DateTimePicker,
   Input,
   RichText,
-  Select,
   WorkflowSubmitModal,
 } from "../../../../../components";
 import { useDateTimePicker, useGoBack, useRichText } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import { createModuleProject } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
-
-const STATUS_OPTIONS = [
-  { label: "Draft", value: "draft" },
-  { label: "Published", value: "published" },
-];
 
 const CreateModuleProjectPage = () => {
   const { courseId, moduleId } = useParams();
@@ -33,7 +27,7 @@ const CreateModuleProjectPage = () => {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm({ defaultValues: { status: "draft", maxGrade: 100 } });
+  } = useForm({ defaultValues: { maxGrade: 100 } });
 
   const dueDateManager = useDateTimePicker();
   const descriptionManager = useRichText();
@@ -54,7 +48,8 @@ const CreateModuleProjectPage = () => {
         instructions,
         dueDate: formatDateToISO(dueDate),
         maxGrade: Number(data.maxGrade),
-        status: data.status || "draft",
+        // New projects are saved as draft until a supervisor approves them
+        status: "draft",
       };
 
       const { message, project } = await createModuleProject(moduleId, body);
@@ -71,7 +66,6 @@ const CreateModuleProjectPage = () => {
         requestType: "Project",
         courseId,
         nextRoute: `/admin/courses/${courseId}/module/${moduleId}/projects`,
-        description: description ?? "",
       });
       setWorkflowModalOpen(true);
     } catch (error) {
@@ -137,14 +131,6 @@ const CreateModuleProjectPage = () => {
             })}
           />
 
-          <Select
-            label="Status"
-            isRequired
-            options={STATUS_OPTIONS}
-            mb={6}
-            {...register("status")}
-          />
-
           <Box display="flex" gap={4} justifyContent="flex-end" marginTop={8}>
             <Button secondary onClick={handleCancel} type="button">
               Cancel
@@ -160,11 +146,11 @@ const CreateModuleProjectPage = () => {
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
           onClose={() => setWorkflowModalOpen(false)}
+          isDismissable={false}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          description={workflowContent.description}
           onSuccess={() => push(workflowContent.nextRoute)}
         />
       )}

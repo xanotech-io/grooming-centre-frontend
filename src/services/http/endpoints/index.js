@@ -55,10 +55,10 @@ export const adminCreatePoll = async (body) => {
   const path = '/v1/polls/create';
 
   const {
-    data: { message },
+    data: { message, data },
   } = await http.post(path, body);
 
-  return { message };
+  return { message, poll: data };
 };
 
 export const adminCreateOption = async (body) => {

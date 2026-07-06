@@ -107,12 +107,12 @@ const AutomatedApprovalWorkflow = () => {
     return workflows.filter((w) => {
       if (search) {
         const q = search.toLowerCase();
-        const haystack = [w.workflowId, w.requestType, w.contentTitle, w.submittedBy]
+        const haystack = [w.workflowId, w.requestType, w.contentTitle, w.submitterName]
           .join(" ").toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       if (filterInstructor) {
-        if (!(w.submittedBy ?? "").toLowerCase().includes(filterInstructor.toLowerCase())) return false;
+        if (!(w.submitterName ?? "").toLowerCase().includes(filterInstructor.toLowerCase())) return false;
       }
       if (filterDateFrom) {
         const d = w.submissionDate ?? w.actionDate;
@@ -355,7 +355,7 @@ const AutomatedApprovalWorkflow = () => {
                       <Td color="#1A202C" fontSize="14px">{row.workflowId}</Td>
                       <Td color="#1A202C" fontSize="14px">{row.requestType}</Td>
                       <Td color="#1A202C" fontSize="14px">{row.contentTitle ?? "—"}</Td>
-                      <Td color="#1A202C" fontSize="14px">{row.submittedBy ?? "—"}</Td>
+                      <Td color="#1A202C" fontSize="14px">{row.submitterName ?? "—"}</Td>
                       <Td color="#1A202C" fontSize="14px">{formatDate(row.submissionDate ?? row.actionDate)}</Td>
                       <Td>{getStatusBadge(row.approvalStatus)}</Td>
                       <Td color="#1A202C" fontSize="14px">{row.resolutionTime ?? "—"}</Td>
@@ -377,7 +377,6 @@ const AutomatedApprovalWorkflow = () => {
                             >
                               View
                             </MenuItem>
-                            <MenuItem>Archive report</MenuItem>
                           </MenuList>
                         </Menu>
                       </Td>

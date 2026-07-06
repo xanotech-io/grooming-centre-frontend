@@ -231,7 +231,6 @@ const CreateModuleExaminationPage = () => {
           requestType: "Exam",
           courseId,
           nextRoute: `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`,
-          description: `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
         });
         setWorkflowModalOpen(true);
       }
@@ -373,11 +372,11 @@ const CreateModuleExaminationPage = () => {
             <WorkflowSubmitModal
               isOpen={workflowModalOpen}
               onClose={() => setWorkflowModalOpen(false)}
+              isDismissable={false}
               contentId={workflowContent.contentId}
               contentTitle={workflowContent.contentTitle}
               requestType={workflowContent.requestType}
               courseId={workflowContent.courseId}
-              description={workflowContent.description}
               onSuccess={() => push(workflowContent.nextRoute)}
             />
           )}
