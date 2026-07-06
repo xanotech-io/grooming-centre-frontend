@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Modal,
   ModalOverlay,
@@ -19,10 +19,9 @@ import {
   Divider,
 } from '@chakra-ui/react';
 import { useToast } from '@chakra-ui/toast';
-import { FaPaperclip, FaSitemap, FaTimes } from 'react-icons/fa';
+import { FaSitemap } from 'react-icons/fa';
 import { Button } from '../Button/Button';
 import { Select } from '../Form/Select.jsx';
-import { Textarea } from '../Form/Textarea';
 import { useFetch } from '../../hooks/useFetch';
 import { useApp } from '../../contexts';
 import {
@@ -39,18 +38,16 @@ export const WorkflowSubmitModal = ({
   contentTitle,
   requestType,
   courseId,
-  description: initialDescription = '',
+  departmentId,
   onSuccess,
+  isDismissable = true,
 }) => {
   const toast = useToast();
   const { state: appState } = useApp();
 
   const [selectedSupervisorId, setSelectedSupervisorId] = useState('');
-  const [description, setDescription] = useState(initialDescription);
-  const [attachmentFile, setAttachmentFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [supervisorError, setSupervisorError] = useState(false);
-  const fileInputRef = useRef(null);
 
   const { resource: supervisorsResource, handleFetchResource: fetchSupervisors } =
     useFetch();
@@ -58,19 +55,17 @@ export const WorkflowSubmitModal = ({
   const supervisorFetcher = useCallback(async () => {
     const { supervisors } = courseId
       ? await adminGetDepartmentSupervisors(courseId)
-      : await adminGetWorkflowSupervisors();
+      : await adminGetWorkflowSupervisors(departmentId);
     return supervisors;
-  }, [courseId]);
+  }, [courseId, departmentId]);
 
   useEffect(() => {
     if (isOpen) {
       fetchSupervisors({ fetcher: supervisorFetcher });
-      setDescription(initialDescription);
-      setAttachmentFile(null);
       setSelectedSupervisorId('');
       setSupervisorError(false);
     }
-  }, [isOpen, fetchSupervisors, supervisorFetcher, initialDescription]);
+  }, [isOpen, fetchSupervisors, supervisorFetcher]);
 
   const supervisors = Array.isArray(supervisorsResource.data) ? supervisorsResource.data : [];
   const supervisorOptions = supervisors.map((s) => ({
@@ -92,11 +87,8 @@ export const WorkflowSubmitModal = ({
         content_title: contentTitle,
         submitted_by: appState.user?.id,
         supervisor_id: selectedSupervisorId,
-        description,
         submission_date: new Date().toISOString(),
       };
-
-      if (attachmentFile) payload.attachment_file = attachmentFile;
 
       const { message } = await adminSubmitWorkflow(payload);
 
@@ -124,7 +116,14 @@ export const WorkflowSubmitModal = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg" isCentered>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="lg"
+      isCentered
+      closeOnOverlayClick={isDismissable}
+      closeOnEsc={isDismissable}
+    >
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>
@@ -143,12 +142,14 @@ export const WorkflowSubmitModal = ({
                 Submit for Approval
               </Text>
               <Text fontSize="13px" fontWeight="400" color="#718096">
-                Content will be unpublished until a supervisor approves it.
+                {isDismissable
+                  ? 'Content will be unpublished until a supervisor approves it.'
+                  : 'This content was saved as a draft. Assign a supervisor to submit it for approval.'}
               </Text>
             </Box>
           </Flex>
         </ModalHeader>
-        <ModalCloseButton />
+        {isDismissable && <ModalCloseButton />}
 
         <ModalBody>
           {/* Content summary */}
@@ -209,84 +210,6 @@ export const WorkflowSubmitModal = ({
 
           <Divider mb={5} />
 
-          {/* Description */}
-          <FormControl mb={4}>
-            <Textarea
-              id="wf_description"
-              label="Description"
-              placeholder="Describe what you are submitting for review..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              minHeight="100px"
-            />
-          </FormControl>
-
-          {/* Attachment file */}
-          <FormControl>
-            <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={2}>
-              Attachment{' '}
-              <Text as="span" fontWeight="400" color="#718096">
-                (optional)
-              </Text>
-            </FormLabel>
-            <input
-              ref={fileInputRef}
-              type="file"
-              style={{ display: 'none' }}
-              onChange={(e) => setAttachmentFile(e.target.files[0] ?? null)}
-            />
-            {attachmentFile ? (
-              <Flex
-                align="center"
-                gap={2}
-                px={3}
-                py={2}
-                border="1px solid #CBD5E0"
-                borderRadius="6px"
-                bg="#F7FAFC"
-              >
-                <FaPaperclip size="13px" color="#718096" />
-                <Text fontSize="13px" color="#1A202C" flex={1} noOfLines={1}>
-                  {attachmentFile.name}
-                </Text>
-                <Box
-                  as="button"
-                  type="button"
-                  onClick={() => {
-                    setAttachmentFile(null);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                  }}
-                  color="#A0AEC0"
-                  _hover={{ color: '#E53E3E' }}
-                  lineHeight={1}
-                >
-                  <FaTimes size="12px" />
-                </Box>
-              </Flex>
-            ) : (
-              <Box
-                as="button"
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                display="flex"
-                alignItems="center"
-                gap={2}
-                px={3}
-                py={2}
-                border="1px dashed #CBD5E0"
-                borderRadius="6px"
-                bg="white"
-                color="#718096"
-                fontSize="13px"
-                width="100%"
-                _hover={{ borderColor: '#6b006b', color: '#6b006b' }}
-              >
-                <FaPaperclip size="13px" />
-                Click to attach a file
-              </Box>
-            )}
-          </FormControl>
-
           {/* Info alert */}
           <Alert
             status="warning"
@@ -305,9 +228,11 @@ export const WorkflowSubmitModal = ({
         </ModalBody>
 
         <ModalFooter gap={3}>
-          <Button secondary onClick={onClose} disabled={isSubmitting}>
-            Cancel
-          </Button>
+          {isDismissable && (
+            <Button secondary onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </Button>
+          )}
           <Button
             style={{ backgroundColor: '#6b006b', color: 'white' }}
             isLoading={isSubmitting}

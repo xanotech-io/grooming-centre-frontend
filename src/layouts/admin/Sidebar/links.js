@@ -223,6 +223,10 @@ export const links = [
         text: "Assignment Grading Summary",
       },
       {
+        href: "/admin/report/submissions",
+        text: "Submissions Report",
+      },
+      {
         href: "/admin/report/exam-integrity",
         text: "Randomization and Integrity Report",
       },

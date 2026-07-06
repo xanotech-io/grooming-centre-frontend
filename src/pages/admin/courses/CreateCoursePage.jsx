@@ -55,6 +55,13 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
   const appManager = useApp();
   const metadata = propMetadata || appManager.state.metadata;
 
+  const currentUserRoleName = appManager.getOneMetadata(
+    "userRoles",
+    appManager.state.user?.userRoleId
+  )?.name;
+  const isSuperAdmin = /super admin/i.test(currentUserRoleName);
+  const supervisorIsRequired = !isSuperAdmin;
+
   const { courseDetails, fetchCourseDetails } = useCourseDetails();
   const { id: courseId } = useParams();
   const isEditMode = useMemo(() => courseId && courseId !== "new", [courseId]);
@@ -65,6 +72,10 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
     try {
       if (!selectedDepartmentId) {
         throw new Error("Please select a department");
+      }
+
+      if (supervisorIsRequired && !selectedSupervisorId) {
+        throw new Error("Please select a supervisor");
       }
 
       const description = descriptionManager.handleGetValueAndValidate("Course Description");
@@ -326,6 +337,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
           />
           <Select
             label="Select supervisor"
+            isRequired={supervisorIsRequired}
             options={populateSupervisorOptions(supervisors)}
             id="supervisorId"
             placeholder={

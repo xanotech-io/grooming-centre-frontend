@@ -71,16 +71,16 @@ export const adminGetEventListing = async (params) => {
  * Endpoint for admin to create a event
  * @param {object} body
  *
- * @returns {Promise<{ message: string }>}
+ * @returns {Promise<{ message: string, event: object }>}
  */
 export const adminCreateEvent = async (body) => {
   const path = `/v1/events/create`;
 
   const {
-    data: { message },
+    data: { message, data },
   } = await http.post(path, body);
 
-  return { message };
+  return { message, event: data };
 };
 
 /**

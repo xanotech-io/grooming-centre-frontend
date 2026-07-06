@@ -104,16 +104,10 @@ const CourseListingPage = () => {
           </Link>
         ),
       },
-      // {
-      //   id: "3",
-      //   key: "instructor",
-      //   text: "Instructor",
-      //   fraction: "130px",
-      // },
       {
-        id: "3b",
-        key: "assignedInstructor",
-        text: "Assigned Instructor",
+        id: "3",
+        key: "instructor",
+        text: "Instructor",
         fraction: "150px",
       },
       {
@@ -173,9 +167,10 @@ const CourseListingPage = () => {
         ? course.startDate
         : dayjs(course.startDate).format("DD/MM/YYYY h:mm a"),
     status: course.isPublished,
-    // instructor: `${course.instructor.firstName} ${course.instructor.lastName}`,
-    assignedInstructor: course.assignedInstructor
+    instructor: course.assignedInstructor
       ? `${course.assignedInstructor.firstName} ${course.assignedInstructor.lastName}`
+      : course.instructor?.firstName
+      ? `${course.instructor.firstName} ${course.instructor.lastName}`
       : "—",
   });
 

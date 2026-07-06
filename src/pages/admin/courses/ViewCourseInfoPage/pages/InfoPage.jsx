@@ -1,9 +1,21 @@
-import { Box, Flex } from '@chakra-ui/layout';
-import { BreadcrumbItem } from '@chakra-ui/react';
+import { Box, Flex, Grid } from '@chakra-ui/layout';
+import { BreadcrumbItem, Icon } from '@chakra-ui/react';
 import { useToast } from '@chakra-ui/toast';
 import { useEffect, useState } from 'react';
+import dayjs from 'dayjs';
 import { AiOutlineClose } from 'react-icons/ai';
-import { FaEdit, FaUserCheck } from 'react-icons/fa';
+import {
+  FaBookOpen,
+  FaBuilding,
+  FaCalendarAlt,
+  FaClipboardList,
+  FaClock,
+  FaEdit,
+  FaHashtag,
+  FaSitemap,
+  FaUserCheck,
+  FaUserTie,
+} from 'react-icons/fa';
 import { HiBadgeCheck } from 'react-icons/hi';
 import { Route } from 'react-router-dom';
 import {
@@ -15,6 +27,7 @@ import {
   SkeletonText,
   Spinner,
   Text,
+  WorkflowSubmitModal,
 } from '../../../../../components';
 import { EmptyState } from '../../../../../layouts';
 import {
@@ -24,6 +37,33 @@ import {
 import ReassignInstructorModal from '../components/ReassignInstructorModal';
 import { capitalizeFirstLetter } from '../../../../../utils';
 import useCourseDetails from '../../../../user/Courses/CourseDetails/hooks/useCourseDetails';
+
+const InfoItem = ({ icon, label, value }) => (
+  <Flex align="flex-start" gap={3}>
+    <Flex
+      align="center"
+      justify="center"
+      boxSize="36px"
+      borderRadius="8px"
+      backgroundColor="#F7F0FF"
+      color="#6b006b"
+      flexShrink={0}
+    >
+      <Icon as={icon} boxSize="16px" />
+    </Flex>
+    <Box>
+      <Text fontSize="13px" color="accent.3">
+        {label}
+      </Text>
+      <Text fontWeight="600" color="black">
+        {value ?? '—'}
+      </Text>
+    </Box>
+  </Flex>
+);
+
+const getFullName = (person) =>
+  person ? `${person.firstName ?? ''} ${person.lastName ?? ''}`.trim() || null : null;
 
 const InfoPage = () => {
   const { courseDetails, fetchCourseDetails } = useCourseDetails();
@@ -39,6 +79,8 @@ const InfoPage = () => {
   const toast = useToast();
   const [isPublishing, setIsPublishing] = useState(false);
   const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
+  const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
+  const [hasSubmittedForApproval, setHasSubmittedForApproval] = useState(false);
   const handlePublishCourse = async () => {
     setIsPublishing(true);
     try {
@@ -138,7 +180,17 @@ const InfoPage = () => {
               disabled={!courseDetailsData}
               onClick={() => setIsReassignModalOpen(true)}
             >
-              Assign Instructor
+              Reassign Instructor
+            </Button>
+            <Button
+              paddingLeft={2}
+              sizes="small"
+              rightIcon={<FaSitemap />}
+              secondary
+              disabled={!courseDetailsData || hasSubmittedForApproval}
+              onClick={() => setIsWorkflowModalOpen(true)}
+            >
+              {hasSubmittedForApproval ? 'Submitted for Approval' : 'Submit for Approval'}
             </Button>
             <Button
               paddingLeft={2}
@@ -191,6 +243,98 @@ const InfoPage = () => {
           </Flex>
         </Box>
 
+        <Box
+          backgroundColor="white"
+          paddingX={10}
+          paddingY={8}
+          marginTop={4}
+          shadow="md"
+        >
+          <Heading
+            as="h4"
+            fontSize="heading.h5"
+            fontWeight="700"
+            color="black"
+            paddingBottom={6}
+          >
+            Course Details
+          </Heading>
+          <Grid
+            templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', laptop: 'repeat(3, 1fr)' }}
+            gap={8}
+          >
+            <InfoItem icon={FaHashtag} label="Course ID" value={courseDetailsData?.displayId} />
+            <InfoItem
+              icon={FaUserTie}
+              label="Instructor"
+              value={getFullName(courseDetailsData?.user)}
+            />
+            {getFullName(courseDetailsData?.reassignedInstructor) && (
+              <InfoItem
+                icon={FaUserTie}
+                label="Reassigned Instructor"
+                value={getFullName(courseDetailsData?.reassignedInstructor)}
+              />
+            )}
+            <InfoItem
+              icon={FaClock}
+              label="Duration"
+              value={
+                courseDetailsData?.duration
+                  ? `${courseDetailsData.duration} day${courseDetailsData.duration === 1 ? '' : 's'}`
+                  : null
+              }
+            />
+            <InfoItem
+              icon={FaCalendarAlt}
+              label="Start Date"
+              value={
+                courseDetailsData?.startTime
+                  ? dayjs(courseDetailsData.startTime).format('DD MMM YYYY')
+                  : null
+              }
+            />
+            <InfoItem
+              icon={FaCalendarAlt}
+              label="End Date"
+              value={
+                courseDetailsData?.endTime
+                  ? dayjs(courseDetailsData.endTime).format('DD MMM YYYY')
+                  : null
+              }
+            />
+            <InfoItem
+              icon={FaBookOpen}
+              label="Lessons"
+              value={courseDetailsData?.lessons?.length ?? 0}
+            />
+            <InfoItem
+              icon={FaClipboardList}
+              label="Assessments"
+              value={courseDetailsData?.assessments?.length ?? 0}
+            />
+            <InfoItem
+              icon={FaBuilding}
+              label="Prerequisite"
+              value={courseDetailsData?.preRequisite?.title}
+            />
+            <InfoItem
+              icon={HiBadgeCheck}
+              label="Status"
+              value={courseDetailsData?.isPublished ? 'Published' : 'Unpublished'}
+            />
+            <InfoItem
+              icon={FaCalendarAlt}
+              label="Created On"
+              value={
+                courseDetailsData?.createdAt
+                  ? dayjs(courseDetailsData.createdAt).format('DD MMM YYYY')
+                  : null
+              }
+            />
+          </Grid>
+        </Box>
+
         {/* <Box marginTop={10}>
           <Heading paddingBottom={4} fontSize="heading.h3">
             Overview
@@ -233,6 +377,19 @@ const InfoPage = () => {
         onClose={() => setIsReassignModalOpen(false)}
         courseId={courseDetailsData?.id}
         onSuccess={fetchCourseDetails}
+      />
+
+      <WorkflowSubmitModal
+        isOpen={isWorkflowModalOpen}
+        onClose={() => setIsWorkflowModalOpen(false)}
+        contentId={courseDetailsData?.id}
+        contentTitle={courseDetailsData?.title}
+        requestType="Course"
+        courseId={courseDetailsData?.id}
+        onSuccess={() => {
+          setHasSubmittedForApproval(true);
+          fetchCourseDetails(true);
+        }}
       />
     </Box>
   );

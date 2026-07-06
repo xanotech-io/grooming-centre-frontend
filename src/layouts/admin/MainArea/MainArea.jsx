@@ -141,6 +141,7 @@ import { ComplianceReportRoute } from "../../../pages/admin/report/studentReport
 import { ArchivedReportsPageRoute } from "../../../pages/admin/report/ArchivedReportsPage";
 import { ComplianceSecurityReportPageRoute } from "../../../pages/admin/report/ComplianceSecurityReportPage";
 import { ProjectGradingReportPageRoute } from "../../../pages/admin/report/projectGrading/ProjectGradingReportPage";
+import { SubmissionsReportPageRoute } from "../../../pages/admin/report/submissions/SubmissionsReportPage";
 import { ExamIntegrityPageRoute } from "../../../pages/admin/report/examIntegrity/ExamIntegrityPage";
 import { QuestionBankUsagePageRoute } from "../../../pages/admin/report/questionBankUsage/QuestionBankUsagePage";
 
@@ -622,6 +623,7 @@ const MainArea = () => {
           exact
           path="/admin/report/project-grading"
         />
+        <SubmissionsReportPageRoute exact path="/admin/report/submissions" />
         <ExamIntegrityPageRoute exact path="/admin/report/exam-integrity" />
         <QuestionBankUsagePageRoute
           exact
