@@ -13,8 +13,8 @@ export const getAttendanceReport = async (params) => {
 };
 
 // GET /api/v1/student-attendance-v2/{studentId}
-export const getStudentAttendanceV2 = async (studentId) => {
-  const { data } = await http.get(`/v1/student-attendance-v2/${studentId}`);
+export const getStudentAttendanceV2 = async (studentId, params) => {
+  const { data } = await http.get(`/v1/student-attendance-v2/${studentId}`, { params });
   return data;
 };
 

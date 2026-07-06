@@ -13,6 +13,7 @@ import {
   Heading,
   Spinner,
   Text,
+  WorkflowSubmitModal,
 } from "../../../components";
 import { CreatePageLayout } from "../../../layouts";
 import { BreadcrumbItem, Box } from "@chakra-ui/react";
@@ -53,6 +54,8 @@ const CreateLessonPage = () => {
     getOneMetadata,
   } = useApp();
   const file = watch("lessonTypeId");
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
   const handleUploadProgress = (progress) => {
     setUploadProgress(progress);
   };
@@ -222,11 +225,18 @@ const CreateLessonPage = () => {
         status: "success",
       });
 
-      if (isModuleScoped) {
-        push(`/admin/courses/${courseId}/module/${moduleId}/lessons`);
-      } else {
-        push(`/admin/courses/${courseId}/lesson/${lesson?.id}/view`);
-      }
+      const nextRoute = isModuleScoped
+        ? `/admin/courses/${courseId}/module/${moduleId}/lessons`
+        : `/admin/courses/${courseId}/lesson/${lesson?.id}/view`;
+
+      setWorkflowContent({
+        contentId: lesson?.id ?? lessonId,
+        contentTitle: data.title,
+        requestType: "Lesson Content",
+        courseId,
+        nextRoute,
+      });
+      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -433,6 +443,18 @@ const CreateLessonPage = () => {
         </Grid>
 
       </CreatePageLayout>
+
+      {workflowContent && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          contentId={workflowContent.contentId}
+          contentTitle={workflowContent.contentTitle}
+          requestType={workflowContent.requestType}
+          courseId={workflowContent.courseId}
+          onSuccess={() => push(workflowContent.nextRoute)}
+        />
+      )}
     </>
   );
 };

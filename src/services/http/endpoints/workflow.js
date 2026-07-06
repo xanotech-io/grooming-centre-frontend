@@ -37,8 +37,10 @@ export const adminSubmitWorkflow = async (body) => {
 };
 
 // GET /api/v1/workflows/supervisors
-export const adminGetWorkflowSupervisors = async () => {
-  const { data } = await http.get('/v1/workflows/supervisors');
+export const adminGetWorkflowSupervisors = async (departmentId) => {
+  const { data } = await http.get('/v1/workflows/supervisors', {
+    params: departmentId ? { departmentId } : undefined,
+  });
   return { supervisors: data.data ?? [] };
 };
 

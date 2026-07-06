@@ -612,6 +612,7 @@ const AssessmentOverviewPage = () => {
                       <TH w="160px">Student</TH>
                       <TH w="190px">Assessment</TH>
                       <TH w="170px">Course</TH>
+                      <TH w="150px">Department</TH>
                       <TH w="160px">Module</TH>
                       <TH w="80px">Score</TH>
                       <TH w="70px">Grade</TH>
@@ -640,6 +641,11 @@ const AssessmentOverviewPage = () => {
                         <TD>
                           <Text fontSize="13px" color="gray.600">
                             {item.courseTitle ?? "—"}
+                          </Text>
+                        </TD>
+                        <TD>
+                          <Text fontSize="13px" color="gray.600">
+                            {item.departmentName ?? item.department ?? "—"}
                           </Text>
                         </TD>
                         <TD>

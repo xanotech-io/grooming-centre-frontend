@@ -1,78 +1,94 @@
-/* eslint-disable no-unused-vars */
-import { Grid, Stack } from "@chakra-ui/layout";
-import { useToast } from "@chakra-ui/toast";
-import { Route, useParams, useHistory } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Route, useHistory } from "react-router-dom";
 import { BreadcrumbItem, Box } from "@chakra-ui/react";
-import { useEffect, useMemo } from "react";
-import { useViewUserDetails } from "../users/UserInfoPage/pages/ProfilePage";
-import useCreateUser from "../users/hooks/useCreateUser";
-import { useApp, useCache } from "../../../contexts";
-import {
-  adminCreatePoll,
-  adminEditUser,
-  adminInviteUser2,
-  superAdminInviteAdmin,
-} from "../../../services";
-import { capitalizeFirstLetter } from "../../../utils";
-import { Breadcrumb, Input, Link, Select, Textarea } from "../../../components";
+import { useToast } from "@chakra-ui/toast";
+import { Flex, Stack } from "@chakra-ui/layout";
+import { useForm } from "react-hook-form";
+import { Breadcrumb, Button, Heading, Input, Link, Select, Textarea } from "../../../components";
 import { CreatePageLayout } from "../../../layouts";
+import { useApp } from "../../../contexts";
+import { adminCreatePoll } from "../../../services";
+import { capitalizeFirstLetter, capitalizeWords } from "../../../utils";
 
-const CreatePollsPage = ({
-  creatorRoleIsSuperAdmin,
-  metadata: propMetadata,
-}) => {
+const CreatePollsPage = ({ metadata: propMetadata }) => {
   const toast = useToast();
   const appManager = useApp();
-  const {
-    formManager,
-    departmentIsRequired,
-    handleResetDepartmentIsRequired,
-    setStatus,
-    // status,
-  } = useCreateUser();
+  const createOptionId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const {
     register,
     handleSubmit,
-    reset,
-    setValue,
     formState: { errors, isSubmitting },
-  } = formManager;
+  } = useForm({
+    defaultValues: {
+      departmentId: "",
+      question: "",
+    },
+  });
 
   const { push } = useHistory();
 
-  const { id: userId } = useParams();
-  const isEditMode = useMemo(() => userId && userId !== "new", [userId]);
-
-  const { user } = useViewUserDetails();
-
   const metadata = propMetadata || appManager.state.metadata;
+  const [options, setOptions] = useState([
+    { id: createOptionId(), text: "" },
+    { id: createOptionId(), text: "" },
+  ]);
 
-  const { handleDelete } = useCache();
+  const departmentOptions = useMemo(() => {
+    return metadata?.departments?.map((department) => ({
+      label: capitalizeWords(department.name),
+      value: department.id,
+    }));
+  }, [metadata?.departments]);
+
+  const updateOptionText = (optionId, text) => {
+    setOptions((currentOptions) =>
+      currentOptions.map((option) =>
+        option.id === optionId ? { ...option, text } : option,
+      ),
+    );
+  };
+
+  const addOption = () => {
+    setOptions((currentOptions) => [
+      ...currentOptions,
+      { id: createOptionId(), text: "" },
+    ]);
+  };
+
+  const removeOption = (optionId) => {
+    setOptions((currentOptions) => {
+      if (currentOptions.length <= 2) {
+        return currentOptions;
+      }
+
+      return currentOptions.filter((option) => option.id !== optionId);
+    });
+  };
 
   const onSubmit = async (data) => {
     try {
-      const { message, user } = await (isEditMode
-        ? adminEditUser(userId, {
-            departmentId: data.departmentId,
-            firstName: data.firstName,
-            gender: data.gender,
-            lastName: data.lastName,
-            roleId: data.roleId,
-          })
-        : adminCreatePoll(data));
+      const cleanedOptions = options
+        .map((option) => option.text.trim())
+        .filter(Boolean)
+        .map((text) => ({ text }));
 
-      if (isEditMode) handleDelete(user.id);
+      if (!cleanedOptions.length) {
+        throw new Error("Please add at least one answer option");
+      }
 
-      setStatus({
-        success: message,
-      });
+      const payload = {
+        question: data.question.trim(),
+        options: cleanedOptions,
+        ...(data.departmentId ? { departmentId: data.departmentId } : {}),
+      };
+
+      const { message } = await adminCreatePoll(payload);
 
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",
         status: "success",
       });
-      reset();
 
       push("/admin/polls/");
     } catch (err) {
@@ -84,20 +100,13 @@ const CreatePollsPage = ({
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      setValue("firstName", user.firstName);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
   return (
     <>
       <Box paddingLeft={6}>
         <Breadcrumb
           item2={
             <BreadcrumbItem>
-              <Link href="/admin/users">Users</Link>
+              <Link href="/admin/polls">Polls</Link>
             </BreadcrumbItem>
           }
           item3={
@@ -109,33 +118,83 @@ const CreatePollsPage = ({
       </Box>
       <CreatePageLayout
         title="Create Poll"
-        submitButtonText={isEditMode ? "Update User" : "Submit"}
+        submitButtonText="Submit"
         submitButtonIsLoading={isSubmitting}
         onSubmit={handleSubmit(onSubmit)}
       >
-        <Stack spacing={10} marginBottom={10}>
+        <Stack spacing={8} marginBottom={10}>
           <Box
-            display={{ base: "flex", md: "flex", lg: "grid" }}
-            flexDirection="column"
-            templateColumns="repeat(2, 1fr)"
+            display={{ base: "grid", lg: "grid" }}
+            gridTemplateColumns={{ base: "1fr", lg: "1fr" }}
             gap={10}
-            marginBottom={10}
           >
-            <Textarea
-              minHeight="160px"
-              label="Question"
-              id="question"
-              isRequired
-              {...register("question", {
-                required: "Please add a question",
-                maxLength: 1000,
-              })}
-              error={
-                errors.question?.type === "maxLength"
-                  ? "Maximum length of 1000 characters"
-                  : errors.question?.message
-              }
+            <Select
+              label="Select department"
+              id="departmentId"
+              isLoading={!metadata?.departments}
+              placeholder="All departments"
+              options={departmentOptions}
+              {...register("departmentId")}
             />
+          </Box>
+
+          <Textarea
+            minHeight="160px"
+            label="Question"
+            id="question"
+            isRequired
+            {...register("question", {
+              required: "Please add a question",
+              maxLength: 1000,
+            })}
+            error={
+              errors.question?.type === "maxLength"
+                ? "Maximum length of 1000 characters"
+                : errors.question?.message
+            }
+          />
+
+          <Box>
+            <Flex
+              justifyContent="space-between"
+              alignItems="center"
+              marginBottom={4}
+            >
+              <Heading as="h2" fontSize="heading.h4">
+                Answer options
+              </Heading>
+
+              <Button secondary sm onClick={addOption} type="button">
+                Add option
+              </Button>
+            </Flex>
+
+            <Stack spacing={4}>
+              {options.map((option, index) => (
+                <Flex key={option.id} gap={3} alignItems="flex-end">
+                  <Box flex="1">
+                    <Input
+                      label={`Option ${index + 1}`}
+                      id={`option-${option.id}`}
+                      value={option.text}
+                      onChange={(event) =>
+                        updateOptionText(option.id, event.target.value)
+                      }
+                      placeholder={`Enter option ${index + 1}`}
+                    />
+                  </Box>
+
+                  <Button
+                    secondary
+                    type="button"
+                    onClick={() => removeOption(option.id)}
+                    disabled={options.length <= 2}
+                  >
+                    Remove
+                  </Button>
+                </Flex>
+              ))}
+            </Stack>
           </Box>
         </Stack>
       </CreatePageLayout>
@@ -144,21 +203,8 @@ const CreatePollsPage = ({
 };
 
 export const CreatePollsPageRoute = ({ component: Component, ...rest }) => {
-  const { state, getOneMetadata } = useApp();
-
-  const creatorRoleIsSuperAdmin =
-    getOneMetadata("userRoles", state.user?.userRoleId)?.name === "super admin";
-
   return (
-    <Route
-      {...rest}
-      render={(props) => (
-        <CreatePollsPage
-          creatorRoleIsSuperAdmin={creatorRoleIsSuperAdmin}
-          {...props}
-        />
-      )}
-    />
+    <Route {...rest} render={(props) => <CreatePollsPage {...props} />} />
   );
 };
 

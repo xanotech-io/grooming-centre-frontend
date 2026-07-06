@@ -8,6 +8,7 @@ import {
   DateTimePicker,
   Input,
   Select,
+  WorkflowSubmitModal,
 } from "../../../../../components";
 import {
   useDateTimePicker,
@@ -27,6 +28,8 @@ const CreateModuleAssessmentPage = () => {
   const toast = useToast();
   const handleCancel = useGoBack();
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
@@ -68,9 +71,15 @@ const CreateModuleAssessmentPage = () => {
         position: "top",
         status: "success",
       });
-      push(
-        `/admin/courses/${courseId}/assessment/${assessment.id}/questions/new`
-      );
+
+      setWorkflowContent({
+        contentId: assessment.id,
+        contentTitle: data.title,
+        requestType: "Assessment",
+        courseId,
+        nextRoute: `/admin/courses/${courseId}/assessment/${assessment.id}/questions/new`,
+      });
+      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(
@@ -148,6 +157,18 @@ const CreateModuleAssessmentPage = () => {
             </Button>
           </Box>
         </Box>
+
+        {workflowContent && (
+          <WorkflowSubmitModal
+            isOpen={workflowModalOpen}
+            onClose={() => setWorkflowModalOpen(false)}
+            contentId={workflowContent.contentId}
+            contentTitle={workflowContent.contentTitle}
+            requestType={workflowContent.requestType}
+            courseId={workflowContent.courseId}
+            onSuccess={() => push(workflowContent.nextRoute)}
+          />
+        )}
       </Box>
     </AdminMainAreaWrapper>
   );

@@ -30,6 +30,7 @@ const mapToRow = (item) => ({
 });
 
 const STATUS_PILLS = [
+   {label: "Status", value: "" },
   { label: "All", value: "" },
   { label: "Draft", value: "Draft" },
   { label: "Pending Review", value: "Pending Review" },
@@ -42,7 +43,7 @@ const AllStudentTranscriptsPage = () => {
   const toast = useToast();
   const [totalCount, setTotalCount] = useState(0);
   const [statusFilter, setStatusFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
+  // const [typeFilter, setTypeFilter] = useState("");
   const statusFilterRef = useRef("");
   const typeFilterRef = useRef("");
 
@@ -82,12 +83,12 @@ const AllStudentTranscriptsPage = () => {
     fetchRowItems({ params: { page: 1 } });
   };
 
-  const handleTypeChange = (e) => {
-    const val = e.target.value;
-    setTypeFilter(val);
-    typeFilterRef.current = val;
-    fetchRowItems({ params: { page: 1 } });
-  };
+  // const handleTypeChange = (e) => {
+  //   const val = e.target.value;
+  //   setTypeFilter(val);
+  //   typeFilterRef.current = val;
+  //   fetchRowItems({ params: { page: 1 } });
+  // };
 
   const tableProps = {
     searchKey: "search",
@@ -104,17 +105,17 @@ const AllStudentTranscriptsPage = () => {
         text: "Email",
         fraction: "220px",
       },
-      {
-        id: "transcriptType",
-        key: "transcriptType",
-        text: "Type",
-        fraction: "120px",
-        renderContent: (type) => (
-          <Tag size="sm" borderRadius="full" colorScheme={type === "Official" ? "purple" : "gray"}>
-            {type}
-          </Tag>
-        ),
-      },
+      // {
+      //   id: "transcriptType",
+      //   key: "transcriptType",
+      //   text: "Type",
+      //   fraction: "120px",
+      //   renderContent: (type) => (
+      //     <Tag size="sm" borderRadius="full" colorScheme={type === "Official" ? "purple" : "gray"}>
+      //       {type}
+      //     </Tag>
+      //   ),
+      // },
       {
         id: "status",
         key: "status",
@@ -184,11 +185,11 @@ const AllStudentTranscriptsPage = () => {
             <option key={pill.value} value={pill.value}>{pill.label}</option>
           ))}
         </Select>
-        <Select size="sm" maxW="180px" value={typeFilter} onChange={handleTypeChange}>
+        {/* <Select size="sm" maxW="180px" value={typeFilter} onChange={handleTypeChange}>
           <option value="">All Types</option>
           <option value="Official">Official</option>
           <option value="Unofficial">Unofficial</option>
-        </Select>
+        </Select> */}
       </Flex>
 
       <Table

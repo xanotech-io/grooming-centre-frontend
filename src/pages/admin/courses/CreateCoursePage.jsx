@@ -27,6 +27,7 @@ import {
   adminCreateCourse,
   adminEditCourse,
   adminGetCoursesByDepartment,
+  adminGetWorkflowSupervisors,
 } from "../../../services";
 import { useUpload, useRichText } from "../../../hooks";
 import useCourseDetails from "../../user/Courses/CourseDetails/hooks/useCourseDetails";
@@ -34,8 +35,11 @@ import { useEffect, useMemo } from "react";
 
 const CreateCoursePage = ({ metadata: propMetadata }) => {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(null);
+  const [selectedSupervisorId, setSelectedSupervisorId] = useState(null);
   const [prerequisites, setPrerequisites] = useState([]);
+  const [supervisors, setSupervisors] = useState([]);
   const [prerequisiteLoading, setPrerequisiteLoading] = useState(true);
+  const [supervisorsLoading, setSupervisorsLoading] = useState(true);
   const toast = useToast();
   const {
     register,
@@ -73,6 +77,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
         ...data,
         description,
         departmentId: selectedDepartmentId,
+        supervisorId: selectedSupervisorId,
         courseThumbnail,
         certificate,
       };
@@ -135,6 +140,37 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
     // eslint-disable-next-line
   }, [selectedDepartmentId]);
 
+  // Fetch supervisors — requires a department to be selected first
+  useEffect(() => {
+    if (!selectedDepartmentId) {
+      setSupervisors([]);
+      setSelectedSupervisorId(null);
+      setSupervisorsLoading(false);
+      return;
+    }
+
+    setSupervisorsLoading(true);
+    const getSupervisors = async () => {
+      try {
+        const { supervisors } = await adminGetWorkflowSupervisors(
+          selectedDepartmentId
+        );
+        setSupervisors(supervisors);
+        setSupervisorsLoading(false);
+      } catch (error) {
+        toast({
+          description: capitalizeFirstLetter(error.message),
+          position: "top",
+          status: "error",
+        });
+        setSupervisorsLoading(false);
+      }
+    };
+
+    getSupervisors();
+    // eslint-disable-next-line
+  }, [selectedDepartmentId]);
+
   // set image files for edit
   useEffect(() => {
     if (courseDetailsData) {
@@ -170,6 +206,14 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseDetailsData, prerequisites]);
 
+  // set supervisor for edit
+  useEffect(() => {
+    if (courseDetailsData) {
+      setSelectedSupervisorId(courseDetailsData.supervisorId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseDetailsData]);
+
   useEffect(() => {
     if (courseDetailsData) {
       descriptionManager.handleInitData(courseDetailsData.description);
@@ -187,6 +231,13 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
   const populatePrerequisiteOptions = (data) => {
     return data?.map((item) => ({
       label: capitalizeWords(item.title),
+      value: item.id,
+    }));
+  };
+
+  const populateSupervisorOptions = (data) => {
+    return data?.map((item) => ({
+      label: capitalizeWords(item.name || item.fullName || item.email || "Supervisor"),
       value: item.id,
     }));
   };
@@ -272,6 +323,22 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
             isLoading={prerequisiteLoading}
             {...register("preRequisiteId")}
             error={errors.preRequisiteId?.message}
+          />
+          <Select
+            label="Select supervisor"
+            options={populateSupervisorOptions(supervisors)}
+            id="supervisorId"
+            placeholder={
+              !selectedDepartmentId
+                ? "select a department first"
+                : supervisorsLoading
+                ? "loading supervisors..."
+                : ""
+            }
+            isLoading={supervisorsLoading}
+            isDisabled={!selectedDepartmentId}
+            value={selectedSupervisorId}
+            onChange={(e) => setSelectedSupervisorId(e.target.value)}
           />
         </Box>
         <Box

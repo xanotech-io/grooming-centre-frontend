@@ -10,6 +10,7 @@ import {
   Select,
   Spinner,
   Text,
+  WorkflowSubmitModal,
 } from "../../../../../components";
 import {
   useDateTimePicker,
@@ -52,6 +53,8 @@ const CreateAssessmentPage = ({ users }) => {
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
   const [templateSections, setTemplateSections] = useState([]);
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
 
   const usageScope = isStandaloneExamination
     ? "Standalone Exam"
@@ -143,13 +146,19 @@ const CreateAssessmentPage = ({ users }) => {
         setAssessment(assessment);
       }
 
-      isExamination
-        ? push(
-            `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`
-          )
-        : push(
-            `/admin/courses/${courseId}/assessment/${assessment.id}/questions/new`
-          );
+      setWorkflowContent({
+        contentId: isExamination ? examination.id : assessment.id,
+        contentTitle: data.title,
+        requestType: isExamination ? "Exam" : "Assessment",
+        courseId: courseId !== "not-set" ? courseId : undefined,
+        nextRoute: isExamination
+          ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`
+          : `/admin/courses/${courseId}/assessment/${assessment.id}/questions/new`,
+        description: isExamination
+          ? `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`
+          : `Assessment: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
+      });
+      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -394,6 +403,19 @@ const CreateAssessmentPage = ({ users }) => {
             Save
           </Button>
         </Flex>
+
+        {workflowContent && (
+          <WorkflowSubmitModal
+            isOpen={workflowModalOpen}
+            onClose={() => setWorkflowModalOpen(false)}
+            contentId={workflowContent.contentId}
+            contentTitle={workflowContent.contentTitle}
+            requestType={workflowContent.requestType}
+            courseId={workflowContent.courseId}
+            description={workflowContent.description}
+            onSuccess={() => push(workflowContent.nextRoute)}
+          />
+        )}
       </Box>
     </AdminMainAreaWrapper>
   );

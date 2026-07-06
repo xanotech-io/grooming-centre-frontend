@@ -10,6 +10,7 @@ import {
   Select,
   Spinner,
   Textarea,
+  WorkflowSubmitModal,
 } from "../../../../../components";
 import { useDateTimePicker, useGoBack } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
@@ -27,6 +28,8 @@ const EditModuleProjectPage = () => {
   const toast = useToast();
   const handleCancel = useGoBack();
   const [isLoading, setIsLoading] = useState(true);
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
 
   const {
     register,
@@ -87,7 +90,14 @@ const EditModuleProjectPage = () => {
         status: "success",
       });
 
-      push(`/admin/courses/${courseId}/module/${moduleId}/projects/${projectId}/view`);
+      setWorkflowContent({
+        contentId: projectId,
+        contentTitle: data.title,
+        requestType: "Project",
+        courseId,
+        nextRoute: `/admin/courses/${courseId}/module/${moduleId}/projects/${projectId}/view`,
+      });
+      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(
@@ -177,6 +187,18 @@ const EditModuleProjectPage = () => {
           </Box>
         </Box>
       </Box>
+
+      {workflowContent && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          contentId={workflowContent.contentId}
+          contentTitle={workflowContent.contentTitle}
+          requestType={workflowContent.requestType}
+          courseId={workflowContent.courseId}
+          onSuccess={() => push(workflowContent.nextRoute)}
+        />
+      )}
     </AdminMainAreaWrapper>
   );
 };
