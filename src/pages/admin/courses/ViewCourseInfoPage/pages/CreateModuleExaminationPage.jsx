@@ -11,12 +11,11 @@ import {
   Input,
   Select,
   Text,
-  WorkflowReviewSection,
+  WorkflowSubmitModal,
 } from "../../../../../components";
 import {
   useDateTimePicker,
   useGoBack,
-  useWorkflowReview,
 } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
@@ -129,6 +128,8 @@ const CreateModuleExaminationPage = () => {
     confirmation_dialog: true,
     auto_submit: false,
   });
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
 
   useEffect(() => {
     adminGetMarkingTemplates()
@@ -174,17 +175,6 @@ const CreateModuleExaminationPage = () => {
       .finally(() => setLoadingExam(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, examinationId]);
-  const {
-    requestReview,
-    setRequestReview,
-    selectedSupervisorId,
-    setSelectedSupervisorId,
-    supervisors,
-    supervisorsLoading,
-    supervisorsError,
-    submitWorkflowIfRequested,
-  } = useWorkflowReview();
-
   const onSubmit = async (data) => {
     try {
       const startTime =
@@ -218,26 +208,32 @@ const CreateModuleExaminationPage = () => {
           position: "top",
           status: "success",
         });
-        push(`/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`);
+        setWorkflowContent({
+          contentId: examinationId,
+          contentTitle: data.title,
+          requestType: "Exam",
+          courseId,
+          nextRoute: `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`,
+        });
+        setWorkflowModalOpen(true);
       } else {
         const { message, examination } = await adminCreateExamination(body);
         setAssessment(examination);
-
-        await submitWorkflowIfRequested({
-          contentId: examination.id,
-          contentTitle: data.title,
-          requestType: "Exam",
-          description: `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
-        });
 
         toast({
           description: capitalizeFirstLetter(message),
           position: "top",
           status: "success",
         });
-        push(
-          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`,
-        );
+        setWorkflowContent({
+          contentId: examination.id,
+          contentTitle: data.title,
+          requestType: "Exam",
+          courseId,
+          nextRoute: `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`,
+          description: `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
+        });
+        setWorkflowModalOpen(true);
       }
     } catch (error) {
       toast({
@@ -342,16 +338,6 @@ const CreateModuleExaminationPage = () => {
               </option>
             </ChakraSelect>
           </Box>
-          <WorkflowReviewSection
-            requestReview={requestReview}
-            onToggle={() => { setRequestReview((p) => !p); setSelectedSupervisorId(""); }}
-            selectedSupervisorId={selectedSupervisorId}
-            onSupervisorChange={setSelectedSupervisorId}
-            supervisors={supervisors}
-            supervisorsLoading={supervisorsLoading}
-            supervisorsError={supervisorsError}
-          />
-
           <Box display="flex" gap={4} justifyContent="flex-end" marginTop={8}>
             <Button secondary onClick={handleCancel} type="button">
               Cancel
@@ -382,6 +368,19 @@ const CreateModuleExaminationPage = () => {
               }
             />
           </Box>
+
+          {workflowContent && (
+            <WorkflowSubmitModal
+              isOpen={workflowModalOpen}
+              onClose={() => setWorkflowModalOpen(false)}
+              contentId={workflowContent.contentId}
+              contentTitle={workflowContent.contentTitle}
+              requestType={workflowContent.requestType}
+              courseId={workflowContent.courseId}
+              description={workflowContent.description}
+              onSuccess={() => push(workflowContent.nextRoute)}
+            />
+          )}
         </SectionCard>
 
         {/* ── UI Settings ── */}

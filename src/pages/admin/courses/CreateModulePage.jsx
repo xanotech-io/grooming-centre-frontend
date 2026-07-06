@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@chakra-ui/toast";
 import { Grid, GridItem } from "@chakra-ui/layout";
 import { useForm } from "react-hook-form";
@@ -10,6 +10,7 @@ import {
   Breadcrumb,
   Link,
   Spinner,
+  WorkflowSubmitModal,
 } from "../../../components";
 import { CreatePageLayout } from "../../../layouts";
 import { BreadcrumbItem, Box } from "@chakra-ui/react";
@@ -33,6 +34,8 @@ const CreateModulePage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const { handleDelete } = useCache();
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
 
   const {
     handleSubmit,
@@ -84,12 +87,22 @@ const CreateModulePage = () => {
         const { message } = await adminUpdateModule(moduleId, body);
         toast({ title: message, status: "success", duration: 3000 });
       } else {
-        const { message } = await adminCreateModule(courseId, body);
+        const { message, module } = await adminCreateModule(courseId, body);
         toast({ title: message, status: "success", duration: 3000 });
+
+        setWorkflowContent({
+          contentId: module?.id ?? moduleId,
+          contentTitle: data.title,
+          requestType: "Module",
+          courseId,
+        });
+        setWorkflowModalOpen(true);
       }
 
       handleDelete("modules");
-      push(`/admin/courses/details/${courseId}/modules`);
+      if (isEditMode) {
+        push(`/admin/courses/details/${courseId}/modules`);
+      }
     } catch (error) {
       toast({
         title: error?.response?.data?.message || "An error occurred",
@@ -189,6 +202,18 @@ const CreateModulePage = () => {
           </GridItem>
         </Grid>
       </CreatePageLayout>
+
+      {workflowContent && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          contentId={workflowContent.contentId}
+          contentTitle={workflowContent.contentTitle}
+          requestType={workflowContent.requestType}
+          courseId={workflowContent.courseId}
+          onSuccess={() => push(`/admin/courses/details/${courseId}/modules`)}
+        />
+      )}
     </>
   );
 };

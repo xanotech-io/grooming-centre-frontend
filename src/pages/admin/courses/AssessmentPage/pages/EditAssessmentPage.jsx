@@ -9,6 +9,7 @@ import {
   Input,
   Spinner,
   Text,
+  WorkflowSubmitModal,
 } from '../../../../../components';
 import {
   useDateTimePicker,
@@ -26,7 +27,7 @@ import {
   capitalizeWords,
   formatDateToISO,
 } from '../../../../../utils';
-import { useCache, useApp } from '../../../../../contexts';
+import { useApp } from '../../../../../contexts';
 import { MultiSelect } from 'react-multi-select-component';
 import { Tag, TagLabel } from '@chakra-ui/react';
 
@@ -48,6 +49,8 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
 
   const { push } = useHistory();
   const toast = useToast();
+    const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+    const [workflowContent, setWorkflowContent] = useState(null);
 
   const {
     register,
@@ -92,7 +95,7 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentOrExam]);
 
-  const { handleDelete } = useCache();
+  // const { handleDelete } = useCache();
 
   // Handle form submission
   const onSubmit = async (data) => {
@@ -133,8 +136,21 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
         status: 'success',
       });
 
-      handleDelete(isExamination || assessmentId);
-
+      setWorkflowContent({
+        contentId: assessmentId,
+        contentTitle: data.title,
+        requestType: isExamination ? 'Exam' : 'Assessment',
+        courseId: courseId !== 'not-set' ? courseId : undefined,
+        nextRoute: isStandaloneExamination
+          ? `/admin/standalone-exams/${isExamination}/${data.title}`
+          : isExamination
+          ? `/admin/courses/details/${courseId}/exam`
+          : `/admin/courses/details/${courseId}/assessment`,
+        description: isExamination
+          ? `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`
+          : `Assessment: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
+      });
+      setWorkflowModalOpen(true);
       isStandaloneExamination
         ? push(`/admin/standalone-exams/${isExamination}/${data.title}`)
         : isExamination
@@ -380,6 +396,18 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
           >
             Update
           </Button>
+          {workflowContent && (
+            <WorkflowSubmitModal
+              isOpen={workflowModalOpen}
+              onClose={() => setWorkflowModalOpen(false)}
+              contentId={workflowContent.contentId}
+              contentTitle={workflowContent.contentTitle}
+              requestType={workflowContent.requestType}
+              courseId={workflowContent.courseId}
+              description={workflowContent.description}
+              onSuccess={() => push(workflowContent.nextRoute)}
+            />
+          )}
         </Flex>
       </Box>
     </AdminMainAreaWrapper>

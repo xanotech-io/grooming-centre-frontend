@@ -1,21 +1,20 @@
 import { Box, Flex, HStack } from '@chakra-ui/layout';
 import { Menu, MenuButton, MenuItem, MenuList } from '@chakra-ui/menu';
 import { BreadcrumbItem } from '@chakra-ui/react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BiGridSmall, BiRightArrowAlt } from 'react-icons/bi';
 import { BsArrowUpLeft, BsClockHistory } from 'react-icons/bs';
 import { GoIssueClosed } from 'react-icons/go';
 import { HiDotsVertical } from 'react-icons/hi';
 import { Route, useHistory } from 'react-router-dom';
-import { Breadcrumb, Button, Link } from '../../../components';
-import { useQueryParams, useTab } from '../../../hooks';
+import { Breadcrumb, Button, Heading, Link, SearchBar } from '../../../components';
+import { useFetch, useQueryParams, useTab } from '../../../hooks';
 import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
 import { adminGetEventListing } from '../../../services';
 import { isUpcoming } from '../../../utils';
 import {
   EventListing,
   EventNameLink,
-  useEventsPage,
   ViewEventButton,
 } from '../../user';
 
@@ -43,13 +42,16 @@ const links = [
 ];
 
 export const useAdminEventsPage = (currentTab) => {
+  const { resource, handleFetchResource } = useFetch();
+
   const fetcher = useCallback(async () => {
     const { events } = await adminGetEventListing(
-      currentTab !== 'all' && { status: currentTab }
+      currentTab !== 'all' ? { status: currentTab } : undefined
     );
 
     return events.map((event) => ({
       ...event,
+      title: event.name,
       renderAction: () => (
         <Box marginLeft="auto">
           <MoreIcon event={event} />
@@ -64,18 +66,26 @@ export const useAdminEventsPage = (currentTab) => {
     }));
   }, [currentTab]);
 
-  const { events, eventsIsEmpty, isLoading, hasError } = useEventsPage({
-    fetcher,
-    cacheKey: 'admin-events',
-  });
+  useEffect(() => {
+    handleFetchResource({ fetcher });
+  }, [fetcher, handleFetchResource]);
 
-  return { events, eventsIsEmpty, isLoading, hasError };
+  const events = resource.data;
+
+  return {
+    events,
+    eventsIsEmpty:
+      !resource.loading && !resource.err && events && !events.length,
+    isLoading: resource.loading,
+    hasError: resource.err,
+  };
 };
 
 const EventsPage = () => {
   const { currentTab } = useTab();
   const { replace } = useHistory();
   const tabQuery = useQueryParams().get('tab');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!tabQuery) {
@@ -96,44 +106,107 @@ const EventsPage = () => {
           }
         />
       </Flex>
-      <Flex marginTop="16" justifyContent="center">
-        {currentTab && <Content currentTab={currentTab} />}
+      <Flex
+        justifyContent="space-between"
+        alignItems={{ base: 'flex-start', md: 'center' }}
+        flexDirection={{ base: 'column', md: 'row' }}
+        gap={4}
+        borderBottom="1px"
+        borderColor="accent.2"
+        paddingBottom={5}
+        marginBottom={6}
+      >
+        <Heading as="h1" fontSize="heading.h3">
+          Events
+        </Heading>
+        <Button link={`/admin/events/edit/new`}>Create Event</Button>
       </Flex>
+      <Flex
+        alignItems={{ base: 'stretch', md: 'center' }}
+        flexDirection={{ base: 'column', md: 'row' }}
+        gap={2}
+        marginBottom={6}
+      >
+        <SearchBar
+          sm
+          placeholder="Search events"
+          backgroundColor="white"
+          maxWidth={{ base: '100%', md: '360px' }}
+          flexShrink={0}
+          onSearch={setSearchQuery}
+          onClear={() => setSearchQuery('')}
+        />
+
+        <HStack spacing={2} flexWrap="wrap" justifyContent="flex-start">
+          {links.map((link) => (
+            <Button
+              key={link.tab}
+              sm
+              link={`?tab=${link.tab}`}
+              {...(!(link.tab === currentTab) ? { ordinary: true } : { blue: true })}
+              paddingX={3}
+            >
+              {link.icon} <Box paddingRight={1} /> {link.text}
+            </Button>
+          ))}
+        </HStack>
+      </Flex>
+      {currentTab && (
+        <Content currentTab={currentTab} searchQuery={searchQuery} />
+      )}
     </AdminMainAreaWrapper>
   );
 };
 
-const Content = ({ currentTab }) => {
+const Content = ({ currentTab, searchQuery }) => {
   const { events, eventsIsEmpty, isLoading, hasError } =
     useAdminEventsPage(currentTab);
 
-  const getStyles = (tab) =>
-    !(tab === currentTab) ? { ordinary: true } : { blue: true };
+  const filteredEvents = useMemo(() => {
+    if (!events) return events;
+
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return events;
+    }
+
+    return events.filter((event) => {
+      const searchableValue = [
+        event.displayId,
+        event.title || event.name,
+        event.description,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return searchableValue.includes(normalizedQuery);
+    });
+  }, [events, searchQuery]);
+
+  const hasFilteredSearch = searchQuery.trim().length > 0;
+  const filteredEventsIsEmpty =
+    !isLoading && !hasError && filteredEvents && !filteredEvents.length;
+
+  const emptyStateHeading = hasFilteredSearch
+    ? 'No matching events'
+    : 'No Events yet!';
+  const emptyStateDescription = hasFilteredSearch
+    ? 'Try a different search or filter.'
+    : "There isn't any event yet. Create one to get started!";
 
   return (
     <Box>
-      <HStack alignSelf="flex-start" spacing={1} flex={1} mb={2}>
-        {links.map((link) => (
-          <Button
-            key={link.tab}
-            sm
-            link={`?tab=${link.tab}`}
-            {...getStyles(link.tab)}
-            paddingX={3}
-          >
-            {link.icon} <Box paddingRight={1}></Box> {link.text}
-          </Button>
-        ))}
-      </HStack>
       <EventListing
         isLoading={isLoading}
         hasError={hasError}
-        eventsIsEmpty={eventsIsEmpty}
-        events={events}
+        eventsIsEmpty={eventsIsEmpty || filteredEventsIsEmpty}
+        events={filteredEvents}
         forAdmin
-        headerButton={
-          <Button link={`/admin/events/edit/new`}>Create Event</Button>
-        }
+        emptyStateHeading={emptyStateHeading}
+        emptyStateDescription={emptyStateDescription}
+        emptyStateCta={hasFilteredSearch ? null : undefined}
       />
     </Box>
   );

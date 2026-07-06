@@ -1,22 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { Route } from "react-router-dom";
-import { Box, Flex, SimpleGrid, Stack, HStack } from "@chakra-ui/layout";
+import { Box, Flex, SimpleGrid } from "@chakra-ui/layout";
 import {
   BreadcrumbItem,
   Tag,
   useToast,
   Input,
-  InputGroup,
-  InputRightElement,
-  IconButton,
-  Spinner,
-  Divider,
+  Select,
+  Collapse,
 } from "@chakra-ui/react";
+import { FiFilter, FiChevronDown, FiChevronUp } from "react-icons/fi";
 import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
-  DatePicker,
   Heading,
   Link,
   Table,
@@ -26,7 +23,6 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import { useTableRows } from "../../../../hooks";
 import { getAttendanceReport, adminGetStudents } from "../../../../services";
 import dayjs from "dayjs";
-import { AiOutlineClose, AiOutlineFilter, AiOutlineDown } from "react-icons/ai";
 
 const statusColorMap = {
   Present: "green",
@@ -57,133 +53,105 @@ const mapToRow = (record) => ({
 const getStudentDisplayName = (s) =>
   `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.email || s.id;
 
-const StudentAutocomplete = ({ onStudentChange }) => {
-  const [inputText, setInputText] = useState("");
-  const [allStudents, setAllStudents] = useState([]);
+const ATTENDANCE_STATUS_OPTIONS = [
+  { value: "Present", label: "Present" },
+  { value: "Absent", label: "Absent" },
+  { value: "Late", label: "Late" },
+  { value: "Excused", label: "Excused" },
+];
+
+const DELIVERY_MODE_OPTIONS = [
+  { value: "Virtual", label: "Virtual" },
+  { value: "Physical", label: "Physical" },
+];
+
+const defaultFilters = {
+  studentId: "",
+  attendanceStatus: "",
+  deliveryMode: "",
+  startDate: "",
+  endDate: "",
+};
+
+// ── Filter sub-components (mirrors the CourseCompletionReportPage filter bar) ──
+
+const SearchableSelect = ({ value, options, onChange, placeholder }) => {
+  const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [selectedName, setSelectedName] = useState("");
   const containerRef = useRef(null);
 
-  useEffect(() => {
-    adminGetStudents({ limit: 500 })
-      .then(({ students }) => setAllStudents(students ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
+    setQuery(value ? selectedLabel : "");
+  }, [value, selectedLabel]);
+
+  const filtered = query
+    ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    const handleOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setIsOpen(false);
+        setQuery(value ? selectedLabel : "");
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const filtered = inputText.trim()
-    ? allStudents.filter((s) =>
-        getStudentDisplayName(s)
-          .toLowerCase()
-          .includes(inputText.trim().toLowerCase())
-      )
-    : allStudents;
-
-  const handleSelect = (student) => {
-    const name = getStudentDisplayName(student);
-    setSelectedName(name);
-    setInputText(name);
-    setIsOpen(false);
-    onStudentChange(student.id);
-  };
-
-  const handleClear = () => {
-    setInputText("");
-    setSelectedName("");
-    setIsOpen(false);
-    onStudentChange("");
-  };
-
-  const handleInputChange = (e) => {
-    const val = e.target.value;
-    setInputText(val);
-    setIsOpen(true);
-    if (selectedName && val !== selectedName) {
-      setSelectedName("");
-      onStudentChange("");
-    }
-  };
-
-  const handleFocus = () => setIsOpen(true);
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [value, selectedLabel]);
 
   return (
-    <Box position="relative" ref={containerRef} minW="300px" maxW="360px">
-      <InputGroup size="sm">
-        <Input
-          value={inputText}
-          onChange={handleInputChange}
-          onFocus={handleFocus}
-          placeholder={loading ? "Loading students…" : "Search or select a student…"}
-          isDisabled={loading}
-          bg="white"
-          borderRadius="md"
-          borderColor="gray.300"
-          _hover={{ borderColor: "gray.400" }}
-          pr={inputText ? "32px" : undefined}
-        />
-        {loading && (
-          <InputRightElement>
-            <Spinner size="xs" color="gray.400" />
-          </InputRightElement>
-        )}
-        {!loading && inputText && (
-          <InputRightElement>
-            <IconButton
-              size="xs"
-              variant="ghost"
-              aria-label="Clear student"
-              icon={<AiOutlineClose />}
-              onClick={handleClear}
-              _hover={{ bg: "transparent" }}
-            />
-          </InputRightElement>
-        )}
-      </InputGroup>
-
-      {isOpen && !loading && (
+    <Box ref={containerRef} position="relative">
+      <Input
+        size="md"
+        borderRadius="md"
+        bg="white"
+        value={query}
+        placeholder={placeholder}
+        autoComplete="off"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIsOpen(true);
+          if (e.target.value === "") onChange("");
+        }}
+        onFocus={() => setIsOpen(true)}
+      />
+      {isOpen && (
         <Box
           position="absolute"
-          top="calc(100% + 4px)"
+          top="100%"
           left={0}
           right={0}
+          zIndex={200}
           bg="white"
-          border="1px"
-          borderColor="gray.200"
-          rounded="md"
-          shadow="md"
-          zIndex={10}
-          maxH="220px"
+          border="1px solid #E4E7EC"
+          borderRadius="md"
+          boxShadow="md"
+          maxH="400px"
           overflowY="auto"
+          mt="2px"
         >
           {filtered.length === 0 ? (
-            <Box px={3} py={2}>
-              <Text fontSize="sm" color="gray.400">No students found</Text>
-            </Box>
+            <Box px={3} py={2} fontSize="13px" color="#667085">No results</Box>
           ) : (
-            filtered.map((s) => (
+            filtered.map((o) => (
               <Box
-                key={s.id}
+                key={o.value}
                 px={3}
-                py={2}
+                py="7px"
+                fontSize="13px"
                 cursor="pointer"
-                _hover={{ bg: "gray.50" }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleSelect(s);
+                bg={o.value === value ? "#F3E8FF" : "white"}
+                _hover={{ bg: o.value === value ? "#F3E8FF" : "#F9FAFB" }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(o.value);
+                  setQuery(o.label);
+                  setIsOpen(false);
                 }}
               >
-                <Text fontSize="sm">{getStudentDisplayName(s)}</Text>
+                {o.label}
               </Box>
             ))
           )}
@@ -193,192 +161,108 @@ const StudentAutocomplete = ({ onStudentChange }) => {
   );
 };
 
-const ATTENDANCE_STATUSES = ["All", "Present", "Absent", "Late", "Excused"];
-const DELIVERY_MODES = ["All", "Virtual", "Physical"];
-
-const FilterBox = ({ onChange }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [attendanceStatus, setAttendanceStatus] = useState("");
-  const [deliveryMode, setDeliveryMode] = useState("");
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const boxRef = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (boxRef.current && !boxRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const activeCount = [attendanceStatus, deliveryMode, startDate || endDate].filter(Boolean).length;
-
-  const handleApply = () => {
-    const params = {};
-    if (attendanceStatus) params.attendanceStatus = attendanceStatus;
-    if (deliveryMode) params.deliveryMode = deliveryMode;
-    if (startDate) params.startDate = startDate.toISOString();
-    if (endDate) params.endDate = endDate.toISOString();
-    onChange(params);
-    setIsOpen(false);
-  };
-
-  const handleClear = () => {
-    setAttendanceStatus("");
-    setDeliveryMode("");
-    setStartDate(null);
-    setEndDate(null);
-    onChange({});
-    setIsOpen(false);
-  };
-
+const CollapsibleFilterBar = ({ filters, onChange, onApply, onReset, isOpen, onToggle }) => {
+  const activeCount = filters.filter((f) => f.value && f.value !== "").length;
   return (
-    <Box position="relative" ref={boxRef}>
-      <Button
-        secondary
-        sm
-        backgroundColor="white"
-        color="accent.3"
-        leftIcon={<AiOutlineFilter />}
-        rightIcon={<AiOutlineDown />}
-        onClick={() => setIsOpen((prev) => !prev)}
-      >
-        Filters{activeCount > 0 ? ` (${activeCount})` : ""}
-      </Button>
-
-      {isOpen && (
-        <>
-          <Box
-            position="fixed"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            zIndex={1}
-            onClick={() => setIsOpen(false)}
-          />
-          <Box
-            position="absolute"
-            top="calc(100% + 6px)"
-            right={0}
-            zIndex={2}
-            bg="white"
-            border="1px"
-            borderColor="gray.200"
-            rounded="md"
-            shadow="lg"
-            width="260px"
-            p={4}
+    <Box mb={5}>
+      <Flex align="center" gap={2}>
+        <Box
+          as="button"
+          onClick={onToggle}
+          display="inline-flex"
+          alignItems="center"
+          gap={2}
+          px={3}
+          h="34px"
+          border="1px solid #D0D5DD"
+          borderRadius="md"
+          bg="white"
+          fontSize="13px"
+          fontWeight="500"
+          color="#344054"
+          cursor="pointer"
+          _hover={{ bg: "#F9FAFB" }}
+          transition="background 0.15s"
+        >
+          <FiFilter size={14} />
+          Filter
+          {activeCount > 0 && (
+            <Box
+              as="span"
+              bg="#660066"
+              color="white"
+              borderRadius="full"
+              fontSize="11px"
+              fontWeight="600"
+              px={1.5}
+              py={0}
+              lineHeight="18px"
+              minW="18px"
+              textAlign="center"
+            >
+              {activeCount}
+            </Box>
+          )}
+          {isOpen ? <FiChevronUp size={13} /> : <FiChevronDown size={13} />}
+        </Box>
+        {activeCount > 0 && !isOpen && (
+          <Text
+            as="button"
+            fontSize="12px"
+            color="#660066"
+            cursor="pointer"
+            textDecoration="underline"
+            onClick={onReset}
+            bg="transparent"
+            border="none"
           >
-            {/* Attendance Status */}
-            <Text fontSize="sm" fontWeight="700" color="gray.700" mb={2}>
-              Attendance Status
-            </Text>
-            <Stack spacing={0} mb={3}>
-              {ATTENDANCE_STATUSES.map((opt) => {
-                const val = opt === "All" ? "" : opt;
-                const isSelected = attendanceStatus === val;
-                return (
-                  <Box
-                    key={opt}
-                    px={3}
-                    py="6px"
-                    cursor="pointer"
-                    borderRadius="md"
-                    bg={isSelected ? "purple.50" : "transparent"}
-                    _hover={{ bg: isSelected ? "purple.50" : "gray.50" }}
-                    onClick={() => setAttendanceStatus(val)}
-                  >
-                    <Text
-                      fontSize="sm"
-                      fontWeight={isSelected ? "600" : "400"}
-                      color={isSelected ? "#660066" : "gray.700"}
-                    >
-                      {opt}
-                    </Text>
-                  </Box>
-                );
-              })}
-            </Stack>
+            Clear filters
+          </Text>
+        )}
+      </Flex>
 
-            <Divider mb={3} />
-
-            {/* Delivery Mode */}
-            <Text fontSize="sm" fontWeight="700" color="gray.700" mb={2}>
-              Delivery Mode
-            </Text>
-            <Stack spacing={0} mb={3}>
-              {DELIVERY_MODES.map((opt) => {
-                const val = opt === "All" ? "" : opt;
-                const isSelected = deliveryMode === val;
-                return (
-                  <Box
-                    key={opt}
-                    px={3}
-                    py="6px"
-                    cursor="pointer"
-                    borderRadius="md"
-                    bg={isSelected ? "purple.50" : "transparent"}
-                    _hover={{ bg: isSelected ? "purple.50" : "gray.50" }}
-                    onClick={() => setDeliveryMode(val)}
-                  >
-                    <Text
-                      fontSize="sm"
-                      fontWeight={isSelected ? "600" : "400"}
-                      color={isSelected ? "#660066" : "gray.700"}
-                    >
-                      {opt}
-                    </Text>
-                  </Box>
-                );
-              })}
-            </Stack>
-
-            <Divider mb={3} />
-
-            {/* Date Range */}
-            <Text fontSize="sm" fontWeight="700" color="gray.700" mb={2}>
-              Date Range
-            </Text>
-            <Stack spacing={3} mb={4}>
-              <Box>
-                <Text fontSize="xs" color="gray.500" mb={1}>
-                  Start Date
-                </Text>
-                <DatePicker
-                  value={startDate}
-                  onChange={setStartDate}
-                  inputVariant="outlined"
-                  size="small"
-                />
-              </Box>
-              <Box>
-                <Text fontSize="xs" color="gray.500" mb={1}>
-                  End Date
-                </Text>
-                <DatePicker
-                  value={endDate}
-                  onChange={setEndDate}
-                  inputVariant="outlined"
-                  size="small"
-                />
-              </Box>
-            </Stack>
-
-            <HStack justifyContent="space-between">
-              <Button ghost xs onClick={handleClear}>
-                Clear all
-              </Button>
-              <Button xs onClick={handleApply}>
-                Apply
-              </Button>
-            </HStack>
-          </Box>
-        </>
-      )}
+      <Collapse in={isOpen} animateOpacity style={{ overflow: "visible" }}>
+        <Box
+          mt={2}
+          p={4}
+          bg="#FAFAFA"
+          border="1px solid #E4E7EC"
+          borderRadius="lg"
+          overflow="visible"
+        >
+          <Flex gap={3} flexWrap="wrap" align="flex-end">
+            {filters.map((f) =>
+              f.type === "searchable-select" ? (
+                <Box key={f.key} minW="200px">
+                  <Text fontSize="12px" fontWeight="500" color="#667085" mb={1}>{f.label}</Text>
+                  <SearchableSelect
+                    value={f.value}
+                    options={f.options}
+                    onChange={(val) => onChange(f.key, val)}
+                    placeholder={`Search ${f.label}…`}
+                  />
+                </Box>
+              ) : f.type === "select" ? (
+                <Box key={f.key} minW="160px">
+                  <Text fontSize="12px" fontWeight="500" color="#667085" mb={1}>{f.label}</Text>
+                  <Select size="sm" borderRadius="md" value={f.value} onChange={(e) => onChange(f.key, e.target.value)} placeholder={`All ${f.label}`} bg="white">
+                    {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </Select>
+                </Box>
+              ) : (
+                <Box key={f.key} minW="140px">
+                  <Text fontSize="12px" fontWeight="500" color="#667085" mb={1}>{f.label}</Text>
+                  <Input size="sm" borderRadius="md" type="date" value={f.value} onChange={(e) => onChange(f.key, e.target.value)} bg="white" />
+                </Box>
+              )
+            )}
+            <Flex gap={2} mb="1px">
+              <Button onClick={() => { onApply(); onToggle(); }} style={{ height: "32px", fontSize: "13px" }}>Apply</Button>
+              <Button secondary onClick={onReset} style={{ height: "32px", fontSize: "13px" }}>Reset</Button>
+            </Flex>
+          </Flex>
+        </Box>
+      </Collapse>
     </Box>
   );
 };
@@ -387,17 +271,40 @@ const AttendanceReportPage = () => {
   const toast = useToast();
   const [kpis, setKpis] = useState(null);
   const [meta, setMeta] = useState({ totalSessions: 0, sessionsPresent: 0 });
+  const [students, setStudents] = useState([]);
 
-  const studentIdRef = useRef("");
+  const [filters, setFilters] = useState(defaultFilters);
+  const [filterOpen, setFilterOpen] = useState(false);
+
   const filterParamsRef = useRef({});
   const lastParamsRef = useRef({});
+
+  useEffect(() => {
+    adminGetStudents({ limit: 500 })
+      .then(({ students }) => setStudents(students ?? []))
+      .catch(() => {});
+  }, []);
+
+  const studentOptions = students.map((s) => ({
+    value: s.id,
+    label: getStudentDisplayName(s),
+  }));
+
+  const buildFilterParams = (f) => {
+    const params = {};
+    if (f.studentId) params.studentId = f.studentId;
+    if (f.attendanceStatus) params.attendanceStatus = f.attendanceStatus;
+    if (f.deliveryMode) params.deliveryMode = f.deliveryMode;
+    if (f.startDate) params.startDate = f.startDate;
+    if (f.endDate) params.endDate = f.endDate;
+    return params;
+  };
 
   const fetchReport = async (params = {}) => {
     lastParamsRef.current = params;
     const finalParams = {
       ...params,
       ...filterParamsRef.current,
-      ...(studentIdRef.current ? { studentId: studentIdRef.current } : {}),
     };
 
     try {
@@ -537,13 +444,19 @@ const AttendanceReportPage = () => {
   const fetcher = (props) => async () => fetchReport(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
-  const handleStudentSelect = (studentId) => {
-    studentIdRef.current = studentId;
+  const handleFilterChange = (key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const applyFilters = () => {
+    filterParamsRef.current = buildFilterParams(filters);
     fetchRowItems({ params: lastParamsRef.current });
   };
 
-  const handleFilterChange = (newFilterParams) => {
-    filterParamsRef.current = newFilterParams;
+  const resetFilters = () => {
+    setFilters(defaultFilters);
+    filterParamsRef.current = {};
+    setFilterOpen(false);
     fetchRowItems({ params: lastParamsRef.current });
   };
 
@@ -613,27 +526,20 @@ const AttendanceReportPage = () => {
         />
       </SimpleGrid>
 
-      {/* Controls row: student search + filter box */}
-      <Flex
-        alignItems="center"
-        gap={3}
-        mb={4}
-        p={3}
-        bg="white"
-        rounded="md"
-        border="1px"
-        borderColor="accent.2"
-        flexWrap="wrap"
-      >
-        <Text fontSize="sm" fontWeight="600" color="gray.600" whiteSpace="nowrap">
-          Student:
-        </Text>
-        <StudentAutocomplete onStudentChange={handleStudentSelect} />
-
-        <Box flex={1} />
-
-        <FilterBox onChange={handleFilterChange} />
-      </Flex>
+      <CollapsibleFilterBar
+        isOpen={filterOpen}
+        onToggle={() => setFilterOpen((v) => !v)}
+        filters={[
+          { key: "studentId", label: "Student", type: "searchable-select", value: filters.studentId, options: studentOptions },
+          { key: "attendanceStatus", label: "Attendance Status", type: "select", value: filters.attendanceStatus, options: ATTENDANCE_STATUS_OPTIONS },
+          { key: "deliveryMode", label: "Delivery Mode", type: "select", value: filters.deliveryMode, options: DELIVERY_MODE_OPTIONS },
+          { key: "startDate", label: "From Date", type: "date", value: filters.startDate },
+          { key: "endDate", label: "To Date", type: "date", value: filters.endDate },
+        ]}
+        onChange={handleFilterChange}
+        onApply={applyFilters}
+        onReset={resetFilters}
+      />
 
       <Table
         {...tableProps}

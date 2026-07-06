@@ -3,7 +3,7 @@ import { BreadcrumbItem } from '@chakra-ui/react';
 import { useToast } from '@chakra-ui/toast';
 import { useEffect, useState } from 'react';
 import { AiOutlineClose } from 'react-icons/ai';
-import { FaEdit, FaSitemap, FaUserCheck } from 'react-icons/fa';
+import { FaEdit, FaUserCheck } from 'react-icons/fa';
 import { HiBadgeCheck } from 'react-icons/hi';
 import { Route } from 'react-router-dom';
 import {
@@ -15,7 +15,6 @@ import {
   SkeletonText,
   Spinner,
   Text,
-  WorkflowSubmitModal,
 } from '../../../../../components';
 import { EmptyState } from '../../../../../layouts';
 import {
@@ -39,7 +38,6 @@ const InfoPage = () => {
 
   const toast = useToast();
   const [isPublishing, setIsPublishing] = useState(false);
-  const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
   const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
   const handlePublishCourse = async () => {
     setIsPublishing(true);
@@ -145,16 +143,6 @@ const InfoPage = () => {
             <Button
               paddingLeft={2}
               sizes="small"
-              rightIcon={<FaSitemap />}
-              secondary
-              disabled={!courseDetailsData}
-              onClick={() => setIsWorkflowModalOpen(true)}
-            >
-              Submit for Approval
-            </Button>
-            <Button
-              paddingLeft={2}
-              sizes="small"
               rightIcon={<FaEdit />}
               secondary
               link={`/admin/courses/edit/${courseDetailsData?.id}`}
@@ -239,16 +227,6 @@ const InfoPage = () => {
           </Grid>
         </Box> */}
       </Box>
-
-      <WorkflowSubmitModal
-        isOpen={isWorkflowModalOpen}
-        onClose={() => setIsWorkflowModalOpen(false)}
-        contentId={courseDetailsData?.id}
-        contentTitle={courseDetailsData?.title}
-        requestType="Course Content"
-        courseId={courseDetailsData?.id}
-        onSuccess={fetchCourseDetails}
-      />
 
       <ReassignInstructorModal
         isOpen={isReassignModalOpen}

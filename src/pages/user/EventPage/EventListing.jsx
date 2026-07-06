@@ -1,5 +1,23 @@
 import { useEffect, useState } from "react";
-import { Box, Flex, Grid } from "@chakra-ui/layout";
+import { Box, Flex } from "@chakra-ui/layout";
+import {
+  Drawer,
+  DrawerBody,
+  DrawerCloseButton,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerOverlay,
+  Grid,
+  GridItem,
+  Table,
+  TableContainer,
+  Tbody,
+  Td,
+  Th,
+  Thead,
+  Tr,
+} from "@chakra-ui/react";
 import { Button, Heading, Spinner, Text } from "../../../components";
 import { EmptyState } from "../../../layouts";
 import dayjs from "dayjs";
@@ -12,15 +30,6 @@ import {
 } from "../../../utils";
 import { Tag } from "@chakra-ui/tag";
 import { useDisclosure } from "@chakra-ui/hooks";
-import {
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-} from "@chakra-ui/modal";
 import { BiRightArrowAlt } from "react-icons/bi";
 import { useApp } from "../../../contexts";
 import { useFetch } from "../../../hooks";
@@ -34,6 +43,9 @@ export const EventListing = ({
   eventsIsEmpty,
   events,
   headerButton,
+  emptyStateHeading,
+  emptyStateDescription,
+  emptyStateCta,
 }) => (
   <>
     {isLoading && <LoadingState />}
@@ -41,9 +53,18 @@ export const EventListing = ({
     {eventsIsEmpty &&
       (forAdmin ? (
         <EmptyState
-          cta={<Button link="/admin/events/edit/new">Create one</Button>}
-          heading="No Events yet!"
-          description="There isn't any event yet. Create one to get started!"
+          cta={
+            emptyStateCta !== undefined ? (
+              emptyStateCta
+            ) : (
+              <Button link="/admin/events/edit/new">Create one</Button>
+            )
+          }
+          heading={emptyStateHeading || "No Events yet!"}
+          description={
+            emptyStateDescription ||
+            "There isn't any event yet. Create one to get started!"
+          }
         />
       ) : (
         <EmptyState
@@ -101,117 +122,102 @@ const Listing = ({ events, headerButton }) => {
       borderColor="accent.1"
       rounded="md"
     >
-      <Grid
-        columnGap={10}
-        templateColumns="70px 50px 1fr 160px"
-        borderBottom="1px"
-        borderColor="accent.1"
-        px={3}
-        height="65px"
-        alignItems="center"
-      >
-        <Text opacity={0.8} textAlign="center" bold>
-          Event ID
-        </Text>
-        <Text opacity={0.8} textAlign="center" bold>
-          Date
-        </Text>
-        <Text opacity={0.8} textAlign="center" bold>
-          Event Type
-        </Text>
-        <Box display="flex" alignItems="center">
+      {headerButton && (
+        <Flex
+          justifyContent="space-between"
+          alignItems={{ base: "flex-start", md: "center" }}
+          flexDirection={{ base: "column", md: "row" }}
+          gap={4}
+          borderBottom="1px"
+          borderColor="accent.1"
+          px={5}
+          py={4}
+        >
+          <Heading as="h2" fontSize="heading.h4">
+            Event List
+          </Heading>
           {headerButton}
-          {/* {events &&
-            events.map((event) => (
-              <Box display={{ base: "block", md: "none", lg: "none" }}>
-                {event.renderAction ? (
-                  event.renderAction()
-                ) : (
-                  <ViewEventButton
-                    event={event}
-                    joinEventResource={joinEventResource}
-                    handleJoinEvent={handleJoinEvent}
-                    joinedEvents={joinedEvents}
-                  />
-                )}
-              </Box>
-            ))} */}
-        </Box>
-      </Grid>
+        </Flex>
+      )}
 
-      <Box px={3}>
-        {events &&
-          events.map((event) => (
-            <Grid
-              key={event.id}
-              columnGap={10}
-              templateColumns="70px 50px 1fr 100px"
-              borderBottom="1px"
-              borderColor="accent.1"
-              py={5}
-            >
-              <Box textAlign="center">
-                <Text bold>{event.displayId}</Text>
-              </Box>
-
-              <Box textAlign="center">
-                <Text color="primary.hover" as="level5">
-                  {dayjs(event.startTime).format("dddd")}
-                </Text>
-                <Text fontSize="heading.h3" bold color="primary.base">
-                  {dayjs(event.startTime).format("D")}
-                </Text>
-                <Text bold>{dayjs(event.startTime).format("MMM")}</Text>
-              </Box>
-
-              <Box>
-                <Text color="primary.hover" as="level5">
-                  {dayjs(event.startTime).format("h:mm A")} to{" "}
-                  {dayjs(event.endTime).format("h:mm A")}
-                  <Tag
-                    size="sm"
-                    variant="solid"
-                    marginLeft={6}
-                    colorScheme={
-                      isOngoing(event.startTime, event.endTime)
-                        ? "green"
-                        : "gray"
-                    }
-                  >
-                    {isOngoing(event.startTime, event.endTime) &&
-                      "Ongoing Event"}
-                    {hasEnded(event.endTime) && "Event Has Ended"}
-                    {isUpcoming(event.startTime) && "Event Is Upcoming"}
-                  </Tag>
-                </Text>
-
-                {event.renderEventName ? (
-                  event.renderEventName()
-                ) : (
-                  <EventNameLink
-                    event={event}
-                    joinEventResource={joinEventResource}
-                    handleJoinEvent={handleJoinEvent}
-                    joinedEvents={joinedEvents}
-                  />
-                )}
-
-                <Text>{truncateText(event.description, 60)}</Text>
-              </Box>
-
-              {event.renderAction ? (
-                event.renderAction()
-              ) : (
-                <ViewEventButton
-                  event={event}
-                  joinEventResource={joinEventResource}
-                  handleJoinEvent={handleJoinEvent}
-                  joinedEvents={joinedEvents}
-                />
-              )}
-            </Grid>
-          ))}
-      </Box>
+      <TableContainer>
+        <Table variant="simple">
+          <Thead>
+            <Tr>
+              <Th>Event ID</Th>
+              <Th>Event</Th>
+              <Th>Description</Th>
+              <Th>Schedule</Th>
+              <Th>Status</Th>
+              <Th textAlign="right">Action</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {events &&
+              events.map((event) => (
+                <Tr key={event.id}>
+                  <Td>
+                    <Text bold>{event.displayId}</Text>
+                  </Td>
+                  <Td>
+                    {event.renderEventName ? (
+                      event.renderEventName()
+                    ) : (
+                      <EventNameLink
+                        event={event}
+                        joinEventResource={joinEventResource}
+                        handleJoinEvent={handleJoinEvent}
+                        joinedEvents={joinedEvents}
+                      />
+                    )}
+                  </Td>
+                  <Td>
+                    <Text>{truncateText(event.description, 90)}</Text>
+                  </Td>
+                  <Td>
+                    <Text color="primary.hover" as="level5">
+                      {dayjs(event.startTime).format("dddd, D MMM YYYY")}
+                    </Text>
+                    <Text>
+                      {dayjs(event.startTime).format("h:mm A")} to{" "}
+                      {dayjs(event.endTime).format("h:mm A")}
+                    </Text>
+                  </Td>
+                  <Td>
+                    <Tag
+                      size="sm"
+                      variant="solid"
+                      colorScheme={
+                        isOngoing(event.startTime, event.endTime)
+                          ? "green"
+                          : hasEnded(event.endTime)
+                          ? "gray"
+                          : "blue"
+                      }
+                    >
+                      {isOngoing(event.startTime, event.endTime) &&
+                        "Ongoing Event"}
+                      {hasEnded(event.endTime) && "Event Has Ended"}
+                      {isUpcoming(event.startTime) && "Event Is Upcoming"}
+                    </Tag>
+                  </Td>
+                  <Td textAlign="right">
+                    {event.renderAction ? (
+                      event.renderAction()
+                    ) : (
+                      <ViewEventButton
+                        event={event}
+                        joinEventResource={joinEventResource}
+                        handleJoinEvent={handleJoinEvent}
+                        joinedEvents={joinedEvents}
+                      />
+                    )}
+                  </Td>
+                </Tr>
+              ))}
+          </Tbody>
+        </Table>
+      </TableContainer>
     </Box>
   );
 };
@@ -299,53 +305,93 @@ export const ViewEventButton = ({
         </Button>
       )}
 
-      <Modal
+      <Drawer
         blockScrollOnMount={false}
         isOpen={isOpen}
         onClose={onClose}
-        size="xl"
+        placement="right"
+        size="md"
       >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
-            <Flex>
-              {event.name}
-
-              <Box>
+        <DrawerOverlay />
+        <DrawerContent>
+          <DrawerCloseButton />
+          <DrawerHeader borderBottomWidth="1px">
+            <Flex direction="column" gap={2} pr={6}>
+              <Text fontSize="sm" color="accent.3" letterSpacing="0.08em" textTransform="uppercase">
+                Event details
+              </Text>
+              <Flex align="center" gap={3} flexWrap="wrap">
+                <Heading as="h3" fontSize="heading.h4">
+                  {event.name}
+                </Heading>
                 <Tag
                   variant="solid"
-                  marginLeft={6}
                   colorScheme={
-                    isOngoing(event.startTime, event.endTime) ? "green" : "gray"
+                    isOngoing(event.startTime, event.endTime)
+                      ? "green"
+                      : hasEnded(event.endTime)
+                      ? "gray"
+                      : "blue"
                   }
                 >
                   {isOngoing(event.startTime, event.endTime) && "Ongoing Event"}
                   {hasEnded(event.endTime) && "Event Has Ended"}
                   {isUpcoming(event.startTime) && "Event Is Upcoming"}
                 </Tag>
-              </Box>
+              </Flex>
             </Flex>
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Text mb={8}>{event.description}</Text>
+          </DrawerHeader>
 
-            <Text my={2} as="level3">
-              <Box as="b" mr={5}>
-                DATE:
-              </Box>
-              {dayjs(event.startTime).format("dddd, D MMMM.")}
-            </Text>
-            <Text my={2} as="level3">
-              <Box as="b" mr={5}>
-                TIME:
-              </Box>
-              {dayjs(event.startTime).format("h:mm A")} -{" "}
-              {dayjs(event.endTime).format("h:mm A.")}
-            </Text>
+          <DrawerBody py={6}>
+            <Box mb={6}>
+              <Text fontWeight="600" mb={2}>
+                Description
+              </Text>
+              <Text color="accent.3">{event.description}</Text>
+            </Box>
+
+            <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={4} mb={6}>
+              <GridItem p={4} border="1px" borderColor="accent.1" rounded="md">
+                <Text fontSize="sm" color="accent.3" mb={1}>
+                  Date
+                </Text>
+                <Text fontWeight="600">
+                  {dayjs(event.startTime).format("dddd, D MMMM")}
+                </Text>
+              </GridItem>
+              <GridItem p={4} border="1px" borderColor="accent.1" rounded="md">
+                <Text fontSize="sm" color="accent.3" mb={1}>
+                  Time
+                </Text>
+                <Text fontWeight="600">
+                  {dayjs(event.startTime).format("h:mm A")} - {dayjs(event.endTime).format("h:mm A")}
+                </Text>
+              </GridItem>
+              <GridItem p={4} border="1px" borderColor="accent.1" rounded="md">
+                <Text fontSize="sm" color="accent.3" mb={1}>
+                  Department
+                </Text>
+                <Text fontWeight="600">
+                  {event.departmentId
+                    ? getOneMetadata("departments", event.departmentId, {
+                        allMetadata: true,
+                      })?.name
+                    : "N/A"}
+                </Text>
+              </GridItem>
+              <GridItem p={4} border="1px" borderColor="accent.1" rounded="md">
+                <Text fontSize="sm" color="accent.3" mb={1}>
+                  Attendees
+                </Text>
+                <Text fontWeight="600">{event.attendeesCount ?? "-"}</Text>
+              </GridItem>
+            </Grid>
 
             {renderCallToAction ? (
-              <>
+              <Box p={4} border="1px" borderColor="accent.1" rounded="md">
+                <Text fontWeight="600" mb={3}>
+                  Event access
+                </Text>
                 <Text my={2} as="level3">
                   <Box as="b" mr={5}>
                     DEPARTMENT:
@@ -363,9 +409,13 @@ export const ViewEventButton = ({
                   </Box>
                   {event.attendeesCount}
                 </Text>
-              </>
+              </Box>
             ) : canJoinEvent && isOngoing(event.startTime, event.endTime) ? (
-              <>
+              <Box p={4} border="1px" borderColor="accent.1" rounded="md">
+                <Text fontWeight="600" mb={3}>
+                  Join details
+                </Text>
+
                 <Text my={2} as="level3">
                   <Box as="b" mr={5}>
                     LINK:
@@ -390,12 +440,12 @@ export const ViewEventButton = ({
 
                   <i>{event.password}</i>
                 </Text>
-              </>
+              </Box>
             ) : null}
-          </ModalBody>
+          </DrawerBody>
 
-          <ModalFooter>
-            <Button secondary mr={3} onClick={onClose}>
+          <DrawerFooter borderTopWidth="1px" gap={3}>
+            <Button secondary onClick={onClose}>
               Close
             </Button>
 
@@ -409,9 +459,9 @@ export const ViewEventButton = ({
                 onJoinEvent={handleJoinEvent}
               />
             )}
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };

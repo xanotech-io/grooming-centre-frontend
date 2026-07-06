@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Route, useParams, useHistory } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
@@ -8,9 +9,9 @@ import {
   Input,
   RichText,
   Select,
-  WorkflowReviewSection,
+  WorkflowSubmitModal,
 } from "../../../../../components";
-import { useDateTimePicker, useGoBack, useRichText, useWorkflowReview } from "../../../../../hooks";
+import { useDateTimePicker, useGoBack, useRichText } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import { createModuleProject } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
@@ -25,6 +26,8 @@ const CreateModuleProjectPage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
 
   const {
     register,
@@ -35,17 +38,6 @@ const CreateModuleProjectPage = () => {
   const dueDateManager = useDateTimePicker();
   const descriptionManager = useRichText();
   const instructionsManager = useRichText();
-  const {
-    requestReview,
-    setRequestReview,
-    selectedSupervisorId,
-    setSelectedSupervisorId,
-    supervisors,
-    supervisorsLoading,
-    supervisorsError,
-    submitWorkflowIfRequested,
-  } = useWorkflowReview();
-
   const onSubmit = async (data) => {
     try {
       const dueDate = dueDateManager.handleGetValueAndValidate("Due Date");
@@ -67,20 +59,21 @@ const CreateModuleProjectPage = () => {
 
       const { message, project } = await createModuleProject(moduleId, body);
 
-      await submitWorkflowIfRequested({
-        contentId: project?.id ?? moduleId,
-        contentTitle: data.title,
-        requestType: "Project",
-        description: description ?? "",
-      });
-
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",
         status: "success",
       });
 
-      push(`/admin/courses/${courseId}/module/${moduleId}/projects`);
+      setWorkflowContent({
+        contentId: project?.id ?? moduleId,
+        contentTitle: data.title,
+        requestType: "Project",
+        courseId,
+        nextRoute: `/admin/courses/${courseId}/module/${moduleId}/projects`,
+        description: description ?? "",
+      });
+      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(
@@ -152,16 +145,6 @@ const CreateModuleProjectPage = () => {
             {...register("status")}
           />
 
-          <WorkflowReviewSection
-            requestReview={requestReview}
-            onToggle={() => { setRequestReview((p) => !p); setSelectedSupervisorId(""); }}
-            selectedSupervisorId={selectedSupervisorId}
-            onSupervisorChange={setSelectedSupervisorId}
-            supervisors={supervisors}
-            supervisorsLoading={supervisorsLoading}
-            supervisorsError={supervisorsError}
-          />
-
           <Box display="flex" gap={4} justifyContent="flex-end" marginTop={8}>
             <Button secondary onClick={handleCancel} type="button">
               Cancel
@@ -172,6 +155,19 @@ const CreateModuleProjectPage = () => {
           </Box>
         </Box>
       </Box>
+
+      {workflowContent && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          contentId={workflowContent.contentId}
+          contentTitle={workflowContent.contentTitle}
+          requestType={workflowContent.requestType}
+          courseId={workflowContent.courseId}
+          description={workflowContent.description}
+          onSuccess={() => push(workflowContent.nextRoute)}
+        />
+      )}
     </AdminMainAreaWrapper>
   );
 };
