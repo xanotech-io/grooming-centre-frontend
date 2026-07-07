@@ -1,11 +1,11 @@
 import { Route, useHistory, useParams } from "react-router-dom";
-import { Box, Flex, Grid, Spinner, Progress } from "@chakra-ui/react";
+import { Box, Flex, Grid, Spinner, Progress, Select, Input } from "@chakra-ui/react";
 import { Badge, BreadcrumbItem } from "@chakra-ui/react";
 import { Breadcrumb, Button, Heading, Link, Text } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
   adminGetStandaloneExamById,
-  getSAExamSubmissions,
+  getSAExamGradingSummary,
   getSAExamAllResults,
   getSAExamPendingGrades,
   getStandaloneExamAccessRecords,
@@ -14,6 +14,9 @@ import { getDuration } from "../../../utils";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useState } from "react";
 import { FiEdit } from "react-icons/fi";
+import { useQueryParams } from "../../../hooks";
+
+const VALID_TABS = new Set(["overview", "questions", "submissions", "results", "grading", "access-links"]);
 
 /* ─── Tab bar ──────────────────────────────────────────── */
 const Tab = ({ label, active, count, onClick }) => (
@@ -140,73 +143,238 @@ const QuestionsTab = ({ examId }) => {
 };
 
 /* ─── Submissions tab ──────────────────────────────────── */
+const SubmissionStatCard = ({ label, value }) => (
+  <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" px={5} py={4}>
+    <Text fontSize="11px" color="gray.400" fontWeight="600" textTransform="uppercase" letterSpacing="wider" mb={1}>
+      {label}
+    </Text>
+    <Text fontSize="22px" fontWeight="800" color="#1A202C" lineHeight="1">
+      {value ?? "—"}
+    </Text>
+  </Box>
+);
+
+const submissionStatusColor = (s) => {
+  const v = (s || "").toLowerCase();
+  if (v === "graded") return { bg: "#E6F4EA", color: "#38A169" };
+  if (v === "pending") return { bg: "#FFF3CD", color: "#B7791F" };
+  return { bg: "#F7FAFC", color: "#718096" };
+};
+
+const submissionPassFailColor = (v) => {
+  if (v === "Pass") return { bg: "#E6F4EA", color: "#38A169" };
+  if (v === "Fail") return { bg: "#FED7D7", color: "#E53E3E" };
+  return { bg: "#F7FAFC", color: "#718096" };
+};
+
+const SUBMISSIONS_EMPTY_FILTERS = {
+  studentId: "",
+  status: "",
+  passFail: "",
+  startDate: "",
+  endDate: "",
+};
+
 const SubmissionsTab = ({ examId }) => {
   const { push } = useHistory();
-  const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [overview, setOverview] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [filters, setFilters] = useState(SUBMISSIONS_EMPTY_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState(SUBMISSIONS_EMPTY_FILTERS);
 
   useEffect(() => {
-    getSAExamSubmissions(examId)
-      .then(({ submissions: data }) => setSubmissions(data))
-      .catch((err) => setError(err.message || "Failed to load submissions."))
-      .finally(() => setLoading(false));
-  }, [examId]);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const params = Object.fromEntries(
+      Object.entries(appliedFilters).filter(([, v]) => v),
+    );
+
+    getSAExamGradingSummary(examId, params)
+      .then(({ overview: ov, rows: data }) => {
+        if (cancelled) return;
+        setOverview(ov);
+        setRows(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err.message || "Failed to load submissions.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [examId, appliedFilters]);
 
   if (loading) return <Flex justifyContent="center" py="60px"><Spinner size="xl" color="#6b006b" /></Flex>;
   if (error) return <Flex justifyContent="center" py="60px"><Text color="red.500">{error}</Text></Flex>;
-  if (!submissions.length) return (
-    <Flex direction="column" alignItems="center" justifyContent="center" py="60px" gap={3}>
-      <Text fontSize="16px" fontWeight="600" color="#1A202C">No submissions yet</Text>
-      <Text fontSize="14px" color="gray.500">Students haven't submitted this exam yet.</Text>
-    </Flex>
-  );
 
   return (
     <Box>
-      <Flex px={5} py={4} borderBottom="1px solid #E2E8F0" alignItems="center" justifyContent="space-between">
-        <Text fontSize="14px" fontWeight="600" color="gray.700">Student Submissions</Text>
-        <Badge bg="#E6F0FF" color="#2B6CB0" px={3} py={1} borderRadius="full" fontSize="13px" fontWeight="600">
-          {submissions.length} submitted
-        </Badge>
+      {overview && (
+        <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4, 1fr)" }} gap={4} px={5} pt={5}>
+          <SubmissionStatCard label="Total Submissions" value={overview.totalSubmissions ?? 0} />
+          <SubmissionStatCard label="Pending" value={overview.totalPending ?? 0} />
+          <SubmissionStatCard label="Graded" value={overview.totalGraded ?? 0} />
+          <SubmissionStatCard
+            label="Avg Grading Time"
+            value={overview.avgGradingDurationHours != null ? `${overview.avgGradingDurationHours}h` : "—"}
+          />
+        </Grid>
+      )}
+
+      <Flex gap={3} flexWrap="wrap" alignItems="flex-end" px={5} pt={5}>
+        <Box>
+          <Text fontSize="11px" color="gray.500" mb={1}>Student ID</Text>
+          <Input
+            size="sm"
+            placeholder="Student ID"
+            value={filters.studentId}
+            onChange={(e) => setFilters((f) => ({ ...f, studentId: e.target.value }))}
+            w="160px"
+          />
+        </Box>
+        <Box>
+          <Text fontSize="11px" color="gray.500" mb={1}>Status</Text>
+          <Select
+            size="sm"
+            value={filters.status}
+            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+            w="130px"
+          >
+            <option value="">All</option>
+            <option value="pending">Pending</option>
+            <option value="graded">Graded</option>
+          </Select>
+        </Box>
+        <Box>
+          <Text fontSize="11px" color="gray.500" mb={1}>Pass/Fail</Text>
+          <Select
+            size="sm"
+            value={filters.passFail}
+            onChange={(e) => setFilters((f) => ({ ...f, passFail: e.target.value }))}
+            w="130px"
+          >
+            <option value="">All</option>
+            <option value="Pass">Pass</option>
+            <option value="Fail">Fail</option>
+          </Select>
+        </Box>
+        <Box>
+          <Text fontSize="11px" color="gray.500" mb={1}>Start Date</Text>
+          <Input
+            size="sm"
+            type="date"
+            value={filters.startDate}
+            onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))}
+            w="145px"
+          />
+        </Box>
+        <Box>
+          <Text fontSize="11px" color="gray.500" mb={1}>End Date</Text>
+          <Input
+            size="sm"
+            type="date"
+            value={filters.endDate}
+            onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))}
+            w="145px"
+          />
+        </Box>
+        <Button size="sm" onClick={() => setAppliedFilters(filters)}>Apply Filters</Button>
+        <Button
+          size="sm"
+          secondary
+          onClick={() => {
+            setFilters(SUBMISSIONS_EMPTY_FILTERS);
+            setAppliedFilters(SUBMISSIONS_EMPTY_FILTERS);
+          }}
+        >
+          Reset
+        </Button>
       </Flex>
-      <Box overflowX="auto">
-        <Box as="table" w="100%" fontSize="sm">
-          <Box as="thead" bg="#F7FAFC">
-            <Box as="tr">
-              {["Student", "Email", "Submitted At", "Status", "Action"].map((h) => (
-                <Box key={h} as="th" textAlign="left" py="14px" px={4} color="gray.500" fontSize="12px" fontWeight="600" whiteSpace="nowrap">{h}</Box>
-              ))}
+
+      {rows.length === 0 ? (
+        <Flex direction="column" alignItems="center" justifyContent="center" py="60px" gap={3}>
+          <Text fontSize="16px" fontWeight="600" color="#1A202C">No submissions match these filters</Text>
+          <Text fontSize="14px" color="gray.500">Students haven't submitted this exam yet.</Text>
+        </Flex>
+      ) : (
+        <Box overflowX="auto" mt={5}>
+          <Box as="table" w="100%" fontSize="sm">
+            <Box as="thead" bg="#F7FAFC">
+              <Box as="tr">
+                {["Student", "Submitted At", "Status", "Score", "Grade", "Pass/Fail", "Remarks", "Grading Duration", "Date Graded", "Action"].map((h) => (
+                  <Box key={h} as="th" textAlign="left" py="14px" px={4} color="gray.500" fontSize="12px" fontWeight="600" whiteSpace="nowrap">{h}</Box>
+                ))}
+              </Box>
+            </Box>
+            <Box as="tbody">
+              {rows.map((row, i) => {
+                const sc = submissionStatusColor(row.status);
+                const pfc = submissionPassFailColor(row.passFail);
+                return (
+                  <Box
+                    as="tr"
+                    key={row.studentId || i}
+                    borderTop="1px solid #E2E8F0"
+                    cursor="pointer"
+                    _hover={{ bg: "#F9F0FF" }}
+                    onClick={() => push(`/admin/standalone-exams/grade/${examId}/student/${row.studentId}`)}
+                  >
+                    <Box as="td" py="14px" px={4}>
+                      <Text fontSize="13px" fontWeight="600" color="#1A202C">{row.studentName || "—"}</Text>
+                      <Text fontSize="11px" color="gray.400">{row.studentEmail || "—"}</Text>
+                    </Box>
+                    <Box as="td" py="14px" px={4} fontSize="13px" color="gray.600" whiteSpace="nowrap">
+                      {row.submissionDate ? dayjs(row.submissionDate).format("DD/MM/YY h:mm a") : "—"}
+                    </Box>
+                    <Box as="td" py="14px" px={4}>
+                      <Badge bg={sc.bg} color={sc.color} px={2} py="2px" borderRadius="8px" fontSize="11px" fontWeight="600" textTransform="capitalize">
+                        {row.status || "—"}
+                      </Badge>
+                    </Box>
+                    <Box as="td" py="14px" px={4} fontSize="13px" color="gray.600">{row.score ?? "—"}</Box>
+                    <Box as="td" py="14px" px={4} fontSize="13px" color="gray.600">{row.grade || "—"}</Box>
+                    <Box as="td" py="14px" px={4}>
+                      {row.passFail ? (
+                        <Badge bg={pfc.bg} color={pfc.color} px={2} py="2px" borderRadius="8px" fontSize="11px" fontWeight="600">
+                          {row.passFail}
+                        </Badge>
+                      ) : "—"}
+                    </Box>
+                    <Box as="td" py="14px" px={4} fontSize="13px" color="gray.600" maxW="180px" isTruncated>
+                      {row.remarks || "—"}
+                    </Box>
+                    <Box as="td" py="14px" px={4} fontSize="13px" color="gray.600" whiteSpace="nowrap">
+                      {row.gradingDurationHours != null ? `${row.gradingDurationHours}h` : "—"}
+                    </Box>
+                    <Box as="td" py="14px" px={4} fontSize="13px" color="gray.600" whiteSpace="nowrap">
+                      {row.dateGraded ? dayjs(row.dateGraded).format("DD/MM/YY h:mm a") : "—"}
+                    </Box>
+                    <Box as="td" py="14px" px={4}>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          push(`/admin/standalone-exams/grade/${examId}/student/${row.studentId}`);
+                        }}
+                      >
+                        Grade
+                      </Button>
+                    </Box>
+                  </Box>
+                );
+              })}
             </Box>
           </Box>
-          <Box as="tbody">
-            {submissions.map((sub) => (
-              <Box as="tr" key={sub.id} borderTop="1px solid #E2E8F0" _hover={{ bg: "#F9F0FF" }}>
-                <Box as="td" py="14px" px={4} fontWeight="500" color="#1A202C">
-                  {sub.student?.firstName} {sub.student?.lastName}
-                </Box>
-                <Box as="td" py="14px" px={4} fontSize="13px" color="gray.500">{sub.student?.email ?? "—"}</Box>
-                <Box as="td" py="14px" px={4} fontSize="13px" color="gray.500" whiteSpace="nowrap">
-                  {sub.submissionTime ? dayjs(sub.submissionTime).format("DD/MM/YYYY h:mm A") : "—"}
-                </Box>
-                <Box as="td" py="14px" px={4}>
-                  <Badge
-                    colorScheme={sub.status === "graded" ? "green" : sub.status === "in_progress" ? "orange" : "blue"}
-                    fontSize="10px" textTransform="capitalize" px={2} py="2px" borderRadius="full"
-                  >
-                    {sub.status}
-                  </Badge>
-                </Box>
-                <Box as="td" py="14px" px={4}>
-                  <Button size="sm" onClick={() => push(`/admin/standalone-exams/grade/${examId}/student/${sub.studentId}`)}>
-                    View
-                  </Button>
-                </Box>
-              </Box>
-            ))}
-          </Box>
         </Box>
-      </Box>
+      )}
     </Box>
   );
 };
@@ -496,11 +664,14 @@ const AccessLinksTab = ({ examId }) => {
 const ViewStandaloneExamPage = () => {
   const history = useHistory();
   const { examId } = useParams();
+  const requestedTab = useQueryParams().get("tab");
 
   const [exam, setExam] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(
+    VALID_TABS.has(requestedTab) ? requestedTab : "overview",
+  );
   const [pendingCount, setPendingCount] = useState(null);
   const [submissionCount, setSubmissionCount] = useState(null);
 
@@ -513,12 +684,12 @@ const ViewStandaloneExamPage = () => {
 
   const fetchCounts = useCallback(async () => {
     try {
-      const [{ pending }, { submissions }] = await Promise.all([
+      const [{ pending }, { overview }] = await Promise.all([
         getSAExamPendingGrades(examId),
-        getSAExamSubmissions(examId),
+        getSAExamGradingSummary(examId),
       ]);
       setPendingCount(pending.length);
-      setSubmissionCount(submissions.length);
+      setSubmissionCount(overview?.totalSubmissions ?? 0);
     } catch {
       // silent
     }

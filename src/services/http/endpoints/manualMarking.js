@@ -59,3 +59,11 @@ export const manualGradeQuestion = async (body) => {
   const { data: { message, data } } = await http.post('/v1/assessment-marking/manual-grade', body);
   return { message, result: data };
 };
+
+// GET /v1/assessment-marking/grading-summary/:assessmentId
+// filters: studentId, status (pending/graded), passFail (Pass/Fail), startDate, endDate
+export const getAssessmentGradingSummary = async (assessmentId, filters = {}) => {
+  const { data } = await http.get(`/v1/assessment-marking/grading-summary/${assessmentId}`, { params: filters });
+  const d = data?.data ?? {};
+  return { overview: d.overview ?? {}, rows: d.data ?? [] };
+};

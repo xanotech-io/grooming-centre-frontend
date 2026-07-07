@@ -110,6 +110,11 @@ const ModuleAssessmentsPage = () => {
             `/admin/courses/${courseId}/assessment/${assessment.id}/overview`,
         },
         {
+          text: "Submission",
+          link: (assessment) =>
+            `/admin/courses/${courseId}/assessment/${assessment.id}/grading`,
+        },
+        {
           isDelete: true,
         },
       ],

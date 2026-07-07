@@ -59,8 +59,10 @@ export const adminGetDepartmentSupervisors = async (courseId) => {
 // GET /api/v1/workflows/pending/{supervisor_id}
 export const adminGetPendingApprovals = async (supervisorId) => {
   const { data } = await http.get(`/v1/workflows/pending/${supervisorId}`);
-  const workflows = (data.data ?? []).map(normalize);
-  return { workflows, totalDocumentsCount: workflows.length };
+  const raw = Array.isArray(data.data) ? data.data : data.data?.workflows ?? [];
+  const counts = Array.isArray(data.data) ? null : data.data?.counts ?? null;
+  const workflows = raw.map(normalize);
+  return { workflows, counts, totalDocumentsCount: counts?.total ?? workflows.length };
 };
 
 // POST /api/v1/workflows/review  (approve, reject, or escalate)

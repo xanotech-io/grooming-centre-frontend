@@ -139,7 +139,11 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
       setWorkflowContent({
         contentId: assessmentId,
         contentTitle: data.title,
-        requestType: isExamination ? 'Exam' : 'Assessment',
+        requestType: isStandaloneExamination
+          ? 'StandaloneExam'
+          : isExamination
+          ? 'CourseExam'
+          : 'CourseAssessment',
         courseId: courseId !== 'not-set' ? courseId : undefined,
         nextRoute: isStandaloneExamination
           ? `/admin/standalone-exams/${isExamination}/${data.title}`

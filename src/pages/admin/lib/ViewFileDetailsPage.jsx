@@ -175,7 +175,7 @@ const ViewFileDetailsPage = () => {
         onClose={() => setIsWorkflowModalOpen(false)}
         contentId={libraryFile?.id}
         contentTitle={libraryFile?.title}
-        requestType="Library Material"
+        requestType="LibraryMaterial"
       />
     </Box>
   );

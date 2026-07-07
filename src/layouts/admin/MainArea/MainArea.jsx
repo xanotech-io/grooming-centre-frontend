@@ -107,6 +107,8 @@ import {
   AuditTrailReportPageRoute,
 } from "../../../pages/admin";
 import { ModuleLessonsPageRoute } from "../../../pages/admin/courses/ViewCourseInfoPage/pages/ModuleLessonsPage";
+import { ExamGradingSummaryPageRoute } from "../../../pages/admin/courses/ViewCourseInfoPage/pages/ExamGradingSummaryPage";
+import { ExamManualGradingPageRoute } from "../../../pages/admin/courses/ViewCourseInfoPage/pages/ExamManualGradingPage";
 import { BadgeSupportPageRoute } from "../../../pages/admin/badge/BadgeSupportPage";
 import { BadgeKPIPageRoute } from "../../../pages/admin/badge/BadgeKPIPage";
 import { BadgeReportPageRoute } from "../../../pages/admin/badge/BadgeReportPage";
@@ -226,6 +228,14 @@ const MainArea = () => {
         <ViewModuleExaminationPageRoute
           exact
           path="/admin/courses/:courseId/module/:moduleId/examinations/view/:examinationId"
+        />
+        <ExamManualGradingPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/examinations/:examinationId/grading/:studentId"
+        />
+        <ExamGradingSummaryPageRoute
+          exact
+          path="/admin/courses/:courseId/module/:moduleId/examinations/:examinationId/grading"
         />
         <ModuleProjectsPageRoute
           exact

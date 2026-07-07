@@ -136,6 +136,11 @@ const tableProps = {
           `/admin/standalone-exams/overview/?examination=${examination.id}`,
       },
       {
+        text: "Submission",
+        link: (examination) =>
+          `/admin/standalone-exams/view/${examination.id}?tab=submissions`,
+      },
+      {
         isDelete: true,
       },
     ],
