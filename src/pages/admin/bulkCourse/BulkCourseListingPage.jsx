@@ -323,6 +323,15 @@ const BulkCourseListingPage = () => {
                     fontWeight="600"
                     textTransform="none"
                   >
+                    Created By
+                  </Th>
+                  <Th
+                    py="14px"
+                    color="gray.500"
+                    fontSize="12px"
+                    fontWeight="600"
+                    textTransform="none"
+                  >
                     Created At
                   </Th>
                   <Th
@@ -365,6 +374,11 @@ const BulkCourseListingPage = () => {
                       {batch.failedCourses}
                     </Td>
                     <Td py="14px">{getStatusBadge(batch.status)}</Td>
+                    <Td py="14px" fontSize="13px" color="gray.600">
+                      {batch.creator
+                        ? `${batch.creator.firstName} ${batch.creator.lastName}`
+                        : "—"}
+                    </Td>
                     <Td py="14px" fontSize="13px" color="gray.500">
                       {batch.createdAt
                         ? new Date(batch.createdAt).toLocaleDateString()

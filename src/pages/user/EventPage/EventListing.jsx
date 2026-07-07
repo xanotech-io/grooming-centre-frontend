@@ -36,6 +36,18 @@ import { useFetch } from "../../../hooks";
 import { userJoinEvent } from "../../../services";
 import { useToast } from "@chakra-ui/toast";
 
+const formatEventCreator = (createdBy) => {
+  if (!createdBy) return "—";
+  if (typeof createdBy === "string") return createdBy;
+
+  return (
+    [createdBy.firstName, createdBy.lastName].filter(Boolean).join(" ") ||
+    createdBy.name ||
+    createdBy.email ||
+    "—"
+  );
+};
+
 export const EventListing = ({
   isLoading,
   hasError,
@@ -149,6 +161,8 @@ const Listing = ({ events, headerButton }) => {
               <Th>Description</Th>
               <Th>Schedule</Th>
               <Th>Status</Th>
+              <Th>Created By</Th>
+              <Th>Time Created</Th>
               <Th textAlign="right">Action</Th>
             </Tr>
           </Thead>
@@ -200,6 +214,16 @@ const Listing = ({ events, headerButton }) => {
                       {hasEnded(event.endTime) && "Event Has Ended"}
                       {isUpcoming(event.startTime) && "Event Is Upcoming"}
                     </Tag>
+                  </Td>
+                  <Td>
+                    <Text>{formatEventCreator(event.createdBy)}</Text>
+                  </Td>
+                  <Td>
+                    <Text>
+                      {event.createdAt
+                        ? dayjs(event.createdAt).format("D MMM YYYY, h:mm A")
+                        : "—"}
+                    </Text>
                   </Td>
                   <Td textAlign="right">
                     {event.renderAction ? (

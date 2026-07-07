@@ -6,7 +6,7 @@ import { IoIosCalendar } from "react-icons/io";
 import { AiOutlineUsergroupDelete, AiOutlineAudit } from "react-icons/ai";
 import { VscLibrary } from "react-icons/vsc";
 import { TiPen } from "react-icons/ti";
-import { MdOutlineAnnouncement } from "react-icons/md";
+import { MdOutlineAnnouncement, MdAssessment } from "react-icons/md";
 import {
   FaFolderOpen,
   FaSitemap,
@@ -273,6 +273,34 @@ export const links = [
     text: "Approval Workflow",
     icon: <FaSitemap />,
     roles: ["supervisor"],
+  },
+  {
+    text: "Reports",
+    icon: <MdAssessment />,
+    href: "/admin/report/report-builder",
+    roles: ["supervisor"],
+    links: [
+      {
+        href: "/admin/report/report-builder",
+        text: "Multi-search Custom Report Builder",
+      },
+      {
+        href: "/admin/report/course-completion",
+        text: "Course Completion & Pass Rate Report",
+      },
+      {
+        href: "/admin/report/instructor-performance",
+        text: "Instructor Performance Report",
+      },
+      {
+        href: "/admin/report/project-grading",
+        text: "Assignment Grading Summary",
+      },
+      {
+        href: "/admin/report/assessment-analytics",
+        text: "Assessment Analytics Report",
+      },
+    ],
   },
   {
     href: "/admin/workflow/track",

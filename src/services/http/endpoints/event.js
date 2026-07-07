@@ -22,6 +22,8 @@ export const userGetEventListing = async () => {
     departmentId: event.departmentId,
     link: event.eventLink,
     password: event.eventPassword,
+    createdBy: event.createdBy ?? event.created_by,
+    createdAt: event.createdAt ?? event.created_at,
   }));
 
   return { events };
@@ -62,6 +64,8 @@ export const adminGetEventListing = async (params) => {
     departmentId: event.departmentId,
     coverImage: event.coverImage,
     attendeesCount: event.eventAttendeesCount || 0,
+    createdBy: event.createdBy ?? event.created_by,
+    createdAt: event.createdAt ?? event.created_at,
   }));
 
   return { events };

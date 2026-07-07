@@ -46,7 +46,7 @@ import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
 import {
   getInstructorPerformanceReportV2,
   getInstructorPerformanceDrillDown,
-  createExportReport,
+  exportInstructorPerformanceReport,
   adminGetDepartmentListing,
   adminGetInstructorReportDirectory,
 } from "../../../../services";
@@ -464,8 +464,6 @@ const InstructorPerformanceV2Page = () => {
     setExportResult(null);
     try {
       const body = {
-        operationType: "export",
-        reportType: "performance_reports",
         exportFormat,
         reportName: exportName,
         filters: {},
@@ -473,7 +471,7 @@ const InstructorPerformanceV2Page = () => {
       if (filters.startDate) body.filters.startDate = filters.startDate;
       if (filters.endDate) body.filters.endDate = filters.endDate;
       if (filters.departmentId) body.filters.departmentId = filters.departmentId;
-      const res = await createExportReport(body);
+      const res = await exportInstructorPerformanceReport(body);
       setExportResult(res?.data ?? res);
       toast({ title: "Export ready. Your file is available for download.", status: "success", duration: 4000 });
     } catch (err) {

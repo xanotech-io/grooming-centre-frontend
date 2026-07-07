@@ -620,6 +620,7 @@ const AssessmentOverviewPage = () => {
                       <TH w="140px">Instructor</TH>
                       <TH w="200px">Instructor Remark</TH>
                       <TH w="110px">Date Taken</TH>
+                      <TH w="100px">Duration</TH>
                     </Box>
                   </Box>
                   <Box as="tbody">
@@ -692,6 +693,7 @@ const AssessmentOverviewPage = () => {
                             ? dayjs(item.dateTaken ?? item.submittedAt).format("DD MMM YYYY")
                             : "—"}
                         </TD>
+                        <TD>{item.timeTakenMinutes != null ? `${item.timeTakenMinutes} min` : "—"}</TD>
                       </Box>
                     ))}
                   </Box>
