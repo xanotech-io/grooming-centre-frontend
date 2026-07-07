@@ -179,7 +179,7 @@ const BulkCourseV2ListingPage = () => {
             <Table variant="simple" size="sm">
               <Thead bg="#F7FAFC">
                 <Tr>
-                  {["Batch ID", "Department", "Template", "Total", "Completed", "Failed", "Status", "Created", "Actions"].map((h) => (
+                  {["Batch ID", "Department", "Template", "Total", "Completed", "Failed", "Status", "Created By", "Created", "Actions"].map((h) => (
                     <Th key={h} py="14px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">{h}</Th>
                   ))}
                 </Tr>
@@ -206,6 +206,11 @@ const BulkCourseV2ListingPage = () => {
                       {batch.failedCount ?? "—"}
                     </Td>
                     <Td py="14px">{getStatusBadge(batch.status)}</Td>
+                    <Td py="14px" fontSize="13px" color="gray.600">
+                      {batch.creator
+                        ? `${batch.creator.firstName} ${batch.creator.lastName}`
+                        : "—"}
+                    </Td>
                     <Td py="14px" fontSize="13px" color="gray.500">
                       {batch.createdAt ? new Date(batch.createdAt).toLocaleDateString() : "—"}
                     </Td>

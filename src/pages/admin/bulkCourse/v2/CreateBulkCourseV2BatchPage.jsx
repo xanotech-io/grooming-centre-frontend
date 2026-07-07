@@ -29,6 +29,7 @@ import {
   adminCreateBulkCourseV2Batch,
   adminUploadBulkCourseV2BatchFile,
   adminGetDepartmentListing,
+  adminGetInstructorReportDirectory,
 } from "../../../../services";
 
 const EMPTY_COURSE = { title: "", description: "", instructorId: "" };
@@ -50,6 +51,7 @@ const CreateBulkCourseV2BatchPage = () => {
 
   const [templates, setTemplates] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [instructors, setInstructors] = useState([]);
   const [loadingMeta, setLoadingMeta] = useState(true);
 
   const [departmentId, setDepartmentId] = useState("");
@@ -78,12 +80,14 @@ const CreateBulkCourseV2BatchPage = () => {
 
   const fetchMeta = useCallback(async () => {
     try {
-      const [tplRes, deptRes] = await Promise.all([
+      const [tplRes, deptRes, instructorRes] = await Promise.all([
         adminGetBulkCourseV2Templates(),
         adminGetDepartmentListing(),
+        adminGetInstructorReportDirectory({ limit: 200 }),
       ]);
       setTemplates(tplRes.templates ?? []);
       setDepartments(deptRes.departments ?? []);
+      setInstructors(instructorRes?.data ?? []);
     } catch {
       toast({ title: "Failed to load form data", status: "error", duration: 3000, isClosable: true });
     } finally {
@@ -304,15 +308,19 @@ const CreateBulkCourseV2BatchPage = () => {
                     </FormControl>
 
                     <FormControl>
-                      <FormLabel fontSize="13px" fontWeight="500" color="gray.600">Instructor ID (optional)</FormLabel>
-                      <Input
+                      <FormLabel fontSize="13px" fontWeight="500" color="gray.600">Instructor (optional)</FormLabel>
+                      <ChakraSelect
                         size="sm"
                         borderRadius="6px"
                         bg="white"
-                        placeholder="Instructor UUID"
+                        placeholder="Select instructor"
                         value={course.instructorId}
                         onChange={(e) => updateCourse(index, "instructorId", e.target.value)}
-                      />
+                      >
+                        {instructors.map((i) => (
+                          <option key={i.id} value={i.id}>{`${i.firstName} ${i.lastName}`}</option>
+                        ))}
+                      </ChakraSelect>
                     </FormControl>
                   </Box>
                 ))}

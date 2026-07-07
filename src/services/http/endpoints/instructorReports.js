@@ -63,3 +63,8 @@ export const getInstructorPerformanceDrillDown = async (instructorId, params) =>
   const { data } = await http.get(`${BASE_V2}/report/${instructorId}`, { params });
   return data;
 };
+
+export const exportInstructorPerformanceReport = async (body) => {
+  const { data } = await http.post(`${BASE_V2}/export`, body);
+  return data;
+};
