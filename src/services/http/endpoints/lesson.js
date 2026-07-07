@@ -134,7 +134,7 @@ export const adminGetModuleLessons = async (moduleId) => {
       title: lesson.title,
       moduleId: lesson.moduleId,
       courseId: lesson.courseId,
-      active: lesson.active,
+      approvalStatus: lesson.approvalStatus,
     })),
   };
 };

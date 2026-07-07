@@ -253,7 +253,7 @@ export const adminListModuleExaminations = async (moduleId) => {
       moduleId: examination.moduleId,
       duration: examination.duration,
       amountOfQuestions: examination.amountOfQuestions,
-      active: examination.active,
+      approvalStatus: examination.approvalStatus,
       startTime: examination.startTime,
       markingMode: examination.markingMode,
       totalMarks: examination.totalMarks,

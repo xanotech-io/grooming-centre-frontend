@@ -19,6 +19,11 @@ import { getDuration } from "../../../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../../hooks";
 
+const getStatusBadge = (approvalStatus) => {
+  const colorSchemes = { Approved: "green", Pending: "orange", Rejected: "red" };
+  return <Badge colorScheme={colorSchemes[approvalStatus] || "gray"}>{approvalStatus}</Badge>;
+};
+
 const ModuleAssessmentsPage = () => {
   const { courseId, moduleId } = useParams();
 
@@ -90,15 +95,11 @@ const ModuleAssessmentsPage = () => {
         fraction: "120px",
       },
       {
-        id: "status",
-        key: "status",
+        id: "approvalStatus",
+        key: "approvalStatus",
         text: "Status",
         fraction: "120px",
-        renderContent: (data) => (
-          <Badge colorScheme={data === "Active" ? "green" : "gray"}>
-            {data}
-          </Badge>
-        ),
+        renderContent: (approvalStatus) => getStatusBadge(approvalStatus),
       },
     ],
 
@@ -132,7 +133,7 @@ const ModuleAssessmentsPage = () => {
     startDate: dayjs(assessment.startTime).format("DD/MM/YYYY h:mm a"),
     duration: getDuration(assessment.duration).combinedText,
     amountOfQuestions: assessment.amountOfQuestions,
-    status: assessment.active ? "Active" : "Inactive",
+    approvalStatus: assessment.approvalStatus,
   });
 
   const fetcher = () => async () => {

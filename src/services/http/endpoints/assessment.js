@@ -208,7 +208,7 @@ export const adminListModuleAssessments = async (moduleId) => {
       moduleId: assessment.moduleId,
       duration: assessment.duration,
       amountOfQuestions: assessment.amountOfQuestions,
-      active: assessment.active,
+      approvalStatus: assessment.approvalStatus,
       startTime: assessment.startTime,
     })),
   };

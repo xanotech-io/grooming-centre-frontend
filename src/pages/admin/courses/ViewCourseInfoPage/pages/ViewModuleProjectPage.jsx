@@ -65,7 +65,8 @@ const InfoRow = ({ label, value, fullWidth }) => (
 /* ─── Overview tab ─────────────────────────────────────── */
 const OverviewTab = ({ project, courseId, moduleId, projectId }) => {
   const { push } = useHistory();
-  const isPublished = project.status === "published";
+  const approvalBadgeColors = { Approved: { bg: "green.100", color: "green.700" }, Pending: { bg: "orange.100", color: "orange.700" }, Rejected: { bg: "red.100", color: "red.700" } };
+  const approvalColors = approvalBadgeColors[project.approvalStatus] || { bg: "gray.100", color: "gray.600" };
 
   return (
     <>
@@ -101,10 +102,10 @@ const OverviewTab = ({ project, courseId, moduleId, projectId }) => {
             fontSize="11px"
             fontWeight="600"
             textTransform="capitalize"
-            backgroundColor={isPublished ? "green.100" : "gray.100"}
-            color={isPublished ? "green.700" : "gray.600"}
+            backgroundColor={approvalColors.bg}
+            color={approvalColors.color}
           >
-            {project.status}
+            {project.approvalStatus}
           </Badge>
         </Box>
 
@@ -436,13 +437,13 @@ const ViewModuleProjectPage = () => {
           </Heading>
           <Flex gap={2} flexWrap="wrap">
             <Badge
-              colorScheme={project.status === "published" ? "green" : "gray"}
+              colorScheme={{ Approved: "green", Pending: "orange", Rejected: "red" }[project.approvalStatus] || "gray"}
               px={3}
               py={1}
               fontSize="xs"
               textTransform="capitalize"
             >
-              {project.status}
+              {project.approvalStatus}
             </Badge>
             {project.dueDate && (
               <Badge colorScheme="blue" px={3} py={1} fontSize="xs">

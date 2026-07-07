@@ -84,8 +84,8 @@ const ViewModulePage = () => {
             <Text fontWeight="bold" color="gray.500" fontSize="text.level3" mb={1}>
               Status
             </Text>
-            <Badge colorScheme={module.status === "active" ? "green" : "gray"}>
-              {module.status}
+            <Badge colorScheme={{ Approved: "green", Pending: "orange", Rejected: "red" }[module.approvalStatus] || "gray"}>
+              {module.approvalStatus}
             </Badge>
           </Box>
 
