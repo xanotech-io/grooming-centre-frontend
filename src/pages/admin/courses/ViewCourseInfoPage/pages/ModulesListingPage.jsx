@@ -19,8 +19,13 @@ import {
 } from "../../../../../services";
 import { useTableRows } from "../../../../../hooks";
 
-const getStatusBadge = (status) => {
-  const isDraft = status === "draft";
+const getStatusBadge = (approvalStatus) => {
+  const map = {
+    Approved: { bg: "green.100", color: "green.700" },
+    Pending: { bg: "orange.100", color: "orange.700" },
+    Rejected: { bg: "red.100", color: "red.700" },
+  };
+  const s = map[approvalStatus] || { bg: "gray.100", color: "gray.600" };
   return (
     <Badge
       borderRadius="full"
@@ -29,10 +34,10 @@ const getStatusBadge = (status) => {
       fontSize="11px"
       fontWeight="600"
       textTransform="capitalize"
-      backgroundColor={isDraft ? "gray.100" : "green.100"}
-      color={isDraft ? "gray.600" : "green.700"}
+      backgroundColor={s.bg}
+      color={s.color}
     >
-      {status}
+      {approvalStatus}
     </Badge>
   );
 };
@@ -93,11 +98,11 @@ const ModulesListingPage = () => {
         fraction: "4fr",
       },
       {
-        id: "status",
-        key: "status",
+        id: "approvalStatus",
+        key: "approvalStatus",
         text: "Status",
         fraction: "120px",
-        renderContent: (status) => <Box>{getStatusBadge(status)}</Box>,
+        renderContent: (approvalStatus) => <Box>{getStatusBadge(approvalStatus)}</Box>,
       },
     ],
 
@@ -194,7 +199,7 @@ const ModulesListingPage = () => {
       moduleId: module.id,
     },
     description: module.description,
-    status: module.status,
+    approvalStatus: module.approvalStatus,
   });
 
   const fetcher = () => async () => {

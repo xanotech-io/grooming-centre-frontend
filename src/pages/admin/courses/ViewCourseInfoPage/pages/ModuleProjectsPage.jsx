@@ -15,8 +15,13 @@ import { getModuleProjects, deleteProject } from "../../../../../services";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../../hooks";
 
-const getStatusBadge = (status) => {
-  const isPublished = status === "published";
+const getStatusBadge = (approvalStatus) => {
+  const map = {
+    Approved: { bg: "green.100", color: "green.700" },
+    Pending: { bg: "orange.100", color: "orange.700" },
+    Rejected: { bg: "red.100", color: "red.700" },
+  };
+  const s = map[approvalStatus] || { bg: "gray.100", color: "gray.600" };
   return (
     <Badge
       borderRadius="full"
@@ -25,10 +30,10 @@ const getStatusBadge = (status) => {
       fontSize="11px"
       fontWeight="600"
       textTransform="capitalize"
-      backgroundColor={isPublished ? "green.100" : "gray.100"}
-      color={isPublished ? "green.700" : "gray.600"}
+      backgroundColor={s.bg}
+      color={s.color}
     >
-      {status}
+      {approvalStatus}
     </Badge>
   );
 };
@@ -100,11 +105,11 @@ const ModuleProjectsPage = () => {
         fraction: "100px",
       },
       {
-        id: "status",
-        key: "status",
+        id: "approvalStatus",
+        key: "approvalStatus",
         text: "Status",
         fraction: "120px",
-        renderContent: (status) => getStatusBadge(status),
+        renderContent: (approvalStatus) => getStatusBadge(approvalStatus),
       },
     ],
 
@@ -143,7 +148,7 @@ const ModuleProjectsPage = () => {
     description: project.description || "—",
     dueDate: project.dueDate,
     maxGrade: project.maxGrade ?? "—",
-    status: project.status,
+    approvalStatus: project.approvalStatus,
   });
 
   const fetcher = () => async () => {

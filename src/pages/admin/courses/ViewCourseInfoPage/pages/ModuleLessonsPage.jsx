@@ -1,7 +1,6 @@
 import { Route, useParams } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
-import { BreadcrumbItem } from "@chakra-ui/react";
-import { Tag } from "@chakra-ui/tag";
+import { Badge, BreadcrumbItem } from "@chakra-ui/react";
 import {
   Button,
   Heading,
@@ -17,6 +16,29 @@ import {
   adminGetModuleLessons,
 } from "../../../../../services";
 import { useTableRows } from "../../../../../hooks";
+
+const getStatusBadge = (approvalStatus) => {
+  const map = {
+    Approved: { bg: "green.100", color: "green.700" },
+    Pending: { bg: "orange.100", color: "orange.700" },
+    Rejected: { bg: "red.100", color: "red.700" },
+  };
+  const s = map[approvalStatus] || { bg: "gray.100", color: "gray.600" };
+  return (
+    <Badge
+      borderRadius="full"
+      px="10px"
+      py="2px"
+      fontSize="11px"
+      fontWeight="600"
+      textTransform="capitalize"
+      backgroundColor={s.bg}
+      color={s.color}
+    >
+      {approvalStatus}
+    </Badge>
+  );
+};
 
 const ModuleLessonsPage = () => {
   const { courseId, moduleId } = useParams();
@@ -61,22 +83,11 @@ const ModuleLessonsPage = () => {
         ),
       },
       {
-        id: "status",
-        key: "status",
+        id: "approvalStatus",
+        key: "approvalStatus",
         text: "Status",
         fraction: "120px",
-        renderContent: (active) => (
-          <Box>
-            <Tag
-              borderRadius="full"
-              size="sm"
-              backgroundColor={active ? "accent.4" : "accent.1"}
-              color={active ? "accent.5" : "accent.3"}
-            >
-              <Text bold>{active ? "Active" : "Inactive"}</Text>
-            </Tag>
-          </Box>
-        ),
+        renderContent: (approvalStatus) => <Box>{getStatusBadge(approvalStatus)}</Box>,
       },
     ],
 
@@ -112,7 +123,7 @@ const ModuleLessonsPage = () => {
       lessonId: lesson.id,
       courseId: lesson.courseId,
     },
-    status: lesson.active,
+    approvalStatus: lesson.approvalStatus,
   });
 
   const fetcher = () => async () => {
