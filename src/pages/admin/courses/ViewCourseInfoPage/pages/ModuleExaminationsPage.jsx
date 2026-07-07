@@ -115,6 +115,11 @@ const ModuleExaminationsPage = () => {
             `/admin/courses/${courseId}/module/${moduleId}/examinations/edit/${examination.id}`,
         },
         {
+          text: "Submission",
+          link: (examination) =>
+            `/admin/courses/${courseId}/module/${moduleId}/examinations/${examination.id}/grading`,
+        },
+        {
           isDelete: true,
         },
       ],

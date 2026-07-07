@@ -232,7 +232,7 @@ const CreateLessonPage = () => {
       setWorkflowContent({
         contentId: lesson?.id ?? lessonId,
         contentTitle: data.title,
-        requestType: "Lesson Content",
+        requestType: isModuleScoped ? "CourseLesson" : "Lesson",
         courseId,
         nextRoute,
       });

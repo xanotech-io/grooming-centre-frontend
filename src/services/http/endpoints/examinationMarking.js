@@ -62,6 +62,14 @@ export const adminGetStudentAnswerSheet = async (examId, studentId) => {
   return { answerSheet: data?.data ?? data };
 };
 
+// GET /v1/exam-marking/grading-summary/:examId
+// filters: studentId, status (pending/graded), passFail (Pass/Fail), startDate, endDate
+export const adminGetExamGradingSummary = async (examId, filters = {}) => {
+  const { data } = await http.get(`/v1/exam-marking/grading-summary/${examId}`, { params: filters });
+  const d = data?.data ?? {};
+  return { overview: d.overview ?? {}, rows: d.data ?? [] };
+};
+
 export const adminCreateRemarkRequest = async (body) => {
   const { data } = await http.post('/v1/exam-marking/remark-request', body);
   return { message: data?.message, request: data?.data ?? data };

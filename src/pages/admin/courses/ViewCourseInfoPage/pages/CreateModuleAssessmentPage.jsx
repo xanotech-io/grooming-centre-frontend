@@ -75,7 +75,7 @@ const CreateModuleAssessmentPage = () => {
       setWorkflowContent({
         contentId: assessment.id,
         contentTitle: data.title,
-        requestType: "Assessment",
+        requestType: "CourseAssessment",
         courseId,
         nextRoute: `/admin/courses/${courseId}/assessment/${assessment.id}/questions/new`,
       });

@@ -211,7 +211,7 @@ const CreateModuleExaminationPage = () => {
         setWorkflowContent({
           contentId: examinationId,
           contentTitle: data.title,
-          requestType: "Exam",
+          requestType: "CourseExam",
           courseId,
           nextRoute: `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`,
         });
@@ -228,7 +228,7 @@ const CreateModuleExaminationPage = () => {
         setWorkflowContent({
           contentId: examination.id,
           contentTitle: data.title,
-          requestType: "Exam",
+          requestType: "CourseExam",
           courseId,
           nextRoute: `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`,
         });

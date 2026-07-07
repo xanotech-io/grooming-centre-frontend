@@ -69,8 +69,8 @@ const AutomatedApprovalWorkflow = () => {
   const hasAccess = ALLOWED_ROLES.test(role?.name);
 
   const fetcher = useCallback(async () => {
-    const { workflows, totalDocumentsCount } = await adminGetPendingApprovals(supervisorId);
-    return { workflows, totalDocumentsCount };
+    const { workflows, counts, totalDocumentsCount } = await adminGetPendingApprovals(supervisorId);
+    return { workflows, counts, totalDocumentsCount };
   }, [supervisorId]);
 
   useEffect(() => {
@@ -80,9 +80,10 @@ const AutomatedApprovalWorkflow = () => {
   }, [handleFetchResource, fetcher, supervisorId, hasAccess]);
 
   const workflows = useMemo(() => resource.data?.workflows ?? [], [resource.data?.workflows]);
-  const pendingCount = workflows.filter((w) => /pending/i.test(w.approvalStatus)).length;
-  const approvedCount = workflows.filter((w) => /approved/i.test(w.approvalStatus)).length;
-  const rejectedCount = workflows.filter((w) => /rejected/i.test(w.approvalStatus)).length;
+  const counts = resource.data?.counts;
+  const pendingCount = counts?.Pending ?? workflows.filter((w) => /pending/i.test(w.approvalStatus)).length;
+  const approvedCount = counts?.Approved ?? workflows.filter((w) => /approved/i.test(w.approvalStatus)).length;
+  const rejectedCount = counts?.Rejected ?? workflows.filter((w) => /rejected/i.test(w.approvalStatus)).length;
 
   // ── Filters ───────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");

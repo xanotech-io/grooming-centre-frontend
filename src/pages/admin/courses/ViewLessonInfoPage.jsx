@@ -256,7 +256,7 @@ const ViewLessonInfoPage = () => {
         onClose={() => setIsWorkflowModalOpen(false)}
         contentId={lesson?.id}
         contentTitle={lesson?.title}
-        requestType="Lesson Content"
+        requestType="Lesson"
       />
     </Box>
   );

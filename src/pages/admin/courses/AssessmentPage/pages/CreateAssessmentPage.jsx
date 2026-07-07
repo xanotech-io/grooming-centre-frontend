@@ -149,7 +149,11 @@ const CreateAssessmentPage = ({ users }) => {
       setWorkflowContent({
         contentId: isExamination ? examination.id : assessment.id,
         contentTitle: data.title,
-        requestType: isExamination ? "Exam" : "Assessment",
+        requestType: isStandaloneExamination
+          ? "StandaloneExam"
+          : isExamination
+          ? "CourseExam"
+          : "CourseAssessment",
         courseId: courseId !== "not-set" ? courseId : undefined,
         nextRoute: isExamination
           ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`
