@@ -6,6 +6,7 @@ import {
   adminGetCourseRoster,
   adminExportCourseRoster,
   adminGetCourseListing,
+  auditTrailV2PostLog,
 } from "../../../../services";
 import { Breadcrumb, Link } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
@@ -39,11 +40,34 @@ const CourseRosterPage = () => {
   const [coursesLoading, setCoursesLoading] = useState(false);
 
   useEffect(() => {
-    setCoursesLoading(true);
-    adminGetCourseListing({ limit: 200 })
-      .then(({ courses: list }) => setCourses(list))
-      .catch(() => setCourses([]))
-      .finally(() => setCoursesLoading(false));
+    let cancelled = false;
+
+    const fetchAllCourses = async () => {
+      setCoursesLoading(true);
+      try {
+        const PAGE_SIZE = 200;
+        let page = 1;
+        let all = [];
+        let total = Infinity;
+
+        while (all.length < total) {
+          const { courses: list, totalDocumentsCount } = await adminGetCourseListing({ page, limit: PAGE_SIZE });
+          if (!list.length) break;
+          all = all.concat(list);
+          total = totalDocumentsCount ?? all.length;
+          page += 1;
+        }
+
+        if (!cancelled) setCourses(all);
+      } catch {
+        if (!cancelled) setCourses([]);
+      } finally {
+        if (!cancelled) setCoursesLoading(false);
+      }
+    };
+
+    fetchAllCourses();
+    return () => { cancelled = true; };
   }, []);
 
   const fetcher = useCallback(async () => {
@@ -89,6 +113,14 @@ const CourseRosterPage = () => {
     setIsExporting(true);
     try {
       const { exportRecord } = await adminExportCourseRoster(courseId, body);
+      auditTrailV2PostLog({
+        eventType: "export",
+        module: "LMS",
+        status: "success",
+        resourceId: courseId,
+        resourceType: "Course Roster",
+        remarks: `Exported roster as ${exportRecord.format}${roster?.courseName ? ` for ${roster.courseName}` : ""}. Export ID: ${exportRecord.exportId}`,
+      }).catch(() => {});
       toast({
         title: "Export successful",
         description: `Roster exported as ${exportRecord.format}. Export ID: ${exportRecord.exportId}`,
@@ -98,6 +130,14 @@ const CourseRosterPage = () => {
       });
       exportModal.onClose();
     } catch {
+      auditTrailV2PostLog({
+        eventType: "export",
+        module: "LMS",
+        status: "failure",
+        resourceId: courseId,
+        resourceType: "Course Roster",
+        remarks: `Failed to export roster as ${body?.format}${roster?.courseName ? ` for ${roster.courseName}` : ""}`,
+      }).catch(() => {});
       toast({
         title: "Export failed",
         description: "Unable to export the roster. Please try again.",
