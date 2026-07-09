@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Route, useParams, useHistory } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
@@ -22,6 +22,8 @@ const CreateModuleProjectPage = () => {
   const handleCancel = useGoBack();
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingBodyRef = useRef(null);
+  const resultProjectRef = useRef(null);
 
   const {
     register,
@@ -52,20 +54,13 @@ const CreateModuleProjectPage = () => {
         status: "draft",
       };
 
-      const { message, project } = await createModuleProject(moduleId, body);
-
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
-
+      // Hold off on creating the project until a supervisor is assigned
+      // and approval is submitted from the modal below.
+      pendingBodyRef.current = body;
       setWorkflowContent({
-        contentId: project?.id ?? moduleId,
         contentTitle: data.title,
         requestType: "Project",
         courseId,
-        nextRoute: `/admin/courses/${courseId}/module/${moduleId}/projects`,
       });
       setWorkflowModalOpen(true);
     } catch (error) {
@@ -151,7 +146,22 @@ const CreateModuleProjectPage = () => {
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          onSuccess={() => push(workflowContent.nextRoute)}
+          onCreate={async () => {
+            const { message, project } = await createModuleProject(
+              moduleId,
+              pendingBodyRef.current,
+            );
+            resultProjectRef.current = project;
+            toast({
+              description: capitalizeFirstLetter(message),
+              position: "top",
+              status: "success",
+            });
+            return { id: project?.id ?? moduleId };
+          }}
+          onSuccess={() =>
+            push(`/admin/courses/${courseId}/module/${moduleId}/projects`)
+          }
         />
       )}
     </AdminMainAreaWrapper>

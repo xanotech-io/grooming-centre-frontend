@@ -75,6 +75,7 @@ const InfoPage = () => {
   const courseDetailsData = courseDetails.data;
   const isLoading = courseDetails.loading;
   const isError = courseDetails.err;
+  const isApproved = /approved/i.test(courseDetailsData?.approvalStatus);
 
   const toast = useToast();
   const [isPublishing, setIsPublishing] = useState(false);
@@ -187,10 +188,14 @@ const InfoPage = () => {
               sizes="small"
               rightIcon={<FaSitemap />}
               secondary
-              disabled={!courseDetailsData || hasSubmittedForApproval}
+              disabled={!courseDetailsData || hasSubmittedForApproval || isApproved}
               onClick={() => setIsWorkflowModalOpen(true)}
             >
-              {hasSubmittedForApproval ? 'Submitted for Approval' : 'Submit for Approval'}
+              {isApproved
+                ? 'Supervisor Approved'
+                : hasSubmittedForApproval
+                  ? 'Submitted for Approval'
+                  : 'Submit for Approval'}
             </Button>
             <Button
               paddingLeft={2}

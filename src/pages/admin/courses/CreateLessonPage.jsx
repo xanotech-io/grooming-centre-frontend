@@ -26,7 +26,7 @@ import {
   populateSelectOptions,
 } from "../../../utils";
 import { useApp, useCache } from "../../../contexts";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { adminCreateLesson, adminEditLesson } from "../../../services";
 import useViewLessonInfo from "./hooks/useViewLessonInfo";
 
@@ -56,6 +56,8 @@ const CreateLessonPage = () => {
   const file = watch("lessonTypeId");
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingLessonBodyRef = useRef(null);
+  const resultLessonRef = useRef(null);
   const handleUploadProgress = (progress) => {
     setUploadProgress(progress);
   };
@@ -212,31 +214,36 @@ const CreateLessonPage = () => {
       {
         console.log(fileManager.pdf.url);
       }
-      const { message, lesson } = await (isEditMode
-        ? adminEditLesson(lessonId, body)
-        : adminCreateLesson(body, handleUploadProgress));
 
-      if (isEditMode) handleDelete(lesson.id);
+      if (isEditMode) {
+        const { message, lesson } = await adminEditLesson(lessonId, body);
+        resultLessonRef.current = lesson;
+        handleDelete(lesson.id);
 
+        toast({
+          description: capitalizeFirstLetter(message),
+          position: "top",
+          status: "success",
+        });
 
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
-
-      const nextRoute = isModuleScoped
-        ? `/admin/courses/${courseId}/module/${moduleId}/lessons`
-        : `/admin/courses/${courseId}/lesson/${lesson?.id}/view`;
-
-      setWorkflowContent({
-        contentId: lesson?.id ?? lessonId,
-        contentTitle: data.title,
-        requestType: isModuleScoped ? "CourseLesson" : "Lesson",
-        courseId,
-        nextRoute,
-      });
-      setWorkflowModalOpen(true);
+        setWorkflowContent({
+          contentId: lesson?.id ?? lessonId,
+          contentTitle: data.title,
+          requestType: isModuleScoped ? "CourseLesson" : "Lesson",
+          courseId,
+        });
+        setWorkflowModalOpen(true);
+      } else {
+        // Hold off on creating the lesson until a supervisor is assigned
+        // and approval is submitted from the modal below.
+        pendingLessonBodyRef.current = body;
+        setWorkflowContent({
+          contentTitle: data.title,
+          requestType: isModuleScoped ? "CourseLesson" : "Lesson",
+          courseId,
+        });
+        setWorkflowModalOpen(true);
+      }
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -453,7 +460,30 @@ const CreateLessonPage = () => {
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          onSuccess={() => push(workflowContent.nextRoute)}
+          onCreate={
+            isEditMode
+              ? undefined
+              : async () => {
+                  const { message, lesson } = await adminCreateLesson(
+                    pendingLessonBodyRef.current,
+                    handleUploadProgress,
+                  );
+                  resultLessonRef.current = lesson;
+                  toast({
+                    description: capitalizeFirstLetter(message),
+                    position: "top",
+                    status: "success",
+                  });
+                  return { id: lesson?.id };
+                }
+          }
+          onSuccess={() => {
+            const lessonIdForRoute = resultLessonRef.current?.id ?? lessonId;
+            const nextRoute = isModuleScoped
+              ? `/admin/courses/${courseId}/module/${moduleId}/lessons`
+              : `/admin/courses/${courseId}/lesson/${lessonIdForRoute}/view`;
+            push(nextRoute);
+          }}
         />
       )}
     </>

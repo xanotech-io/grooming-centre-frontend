@@ -478,7 +478,7 @@ const ExportReportsPage = () => {
                   </Td>
                   <Td>
                     {row.fileUrl && !expired && row.status === "completed" ? (
-                      <Button size="xs" leftIcon={<FiDownload />} colorScheme="blue" variant="outline" as="a" href={row.fileUrl} target="_blank" rel="noopener noreferrer">
+                      <Button size="xs" leftIcon={<FiDownload />} colorScheme="blue" variant="outline" as="a" href={row.fileUrl} download={row.fileName} target="_blank" rel="noopener noreferrer">
                         Download
                       </Button>
                     ) : (
@@ -602,7 +602,7 @@ const ExportReportsPage = () => {
               <Alert status="success" mb={4} borderRadius="md" flexDirection="column" alignItems="flex-start">
                 <Flex alignItems="center" mb={2}><AlertIcon />Export ready. Your file is available for download.</Flex>
                 {lastResult.fileUrl && (
-                  <Button size="sm" leftIcon={<FiDownload />} colorScheme="green" as="a" href={lastResult.fileUrl} target="_blank" rel="noopener noreferrer" mb={1}>
+                  <Button size="sm" leftIcon={<FiDownload />} colorScheme="green" as="a" href={lastResult.fileUrl} download={lastResult.fileName} target="_blank" rel="noopener noreferrer" mb={1}>
                     Download File
                   </Button>
                 )}
@@ -756,7 +756,7 @@ const ExportReportsPage = () => {
           {detailRecord && (
             <DrawerFooter borderTop="1px" borderColor="gray.200" gap={2} flexWrap="wrap">
               {detailRecord.fileUrl && !isExpired(detailRecord.expiryDate) && detailRecord.status === "completed" && (
-                <Button leftIcon={<FiDownload />} colorScheme="blue" size="sm" as="a" href={detailRecord.fileUrl} target="_blank" rel="noopener noreferrer">
+                <Button leftIcon={<FiDownload />} colorScheme="blue" size="sm" as="a" href={detailRecord.fileUrl} download={detailRecord.fileName} target="_blank" rel="noopener noreferrer">
                   Download
                 </Button>
               )}

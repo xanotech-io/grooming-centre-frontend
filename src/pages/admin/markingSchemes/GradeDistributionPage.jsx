@@ -105,7 +105,9 @@ const GradeDistributionPage = () => {
         totalStudents > 0 ? ((count / totalStudents) * 100).toFixed(1) : "0.0";
       rows.push([grade, count, `${pct}%`]);
     });
-    const csvContent = rows.map((r) => r.join(",")).join("\n");
+    const csvContent = rows
+      .map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

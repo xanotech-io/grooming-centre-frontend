@@ -83,6 +83,20 @@ const ModuleLessonsPage = () => {
         ),
       },
       {
+        id: "fileType",
+        key: "fileType",
+        text: "File Type",
+        fraction: "120px",
+        renderContent: (fileType) => <Text>{fileType || "—"}</Text>,
+      },
+      {
+        id: "uploadedBy",
+        key: "uploadedBy",
+        text: "Uploaded By",
+        fraction: "160px",
+        renderContent: (uploadedBy) => <Text>{uploadedBy || "—"}</Text>,
+      },
+      {
         id: "approvalStatus",
         key: "approvalStatus",
         text: "Status",
@@ -123,6 +137,8 @@ const ModuleLessonsPage = () => {
       lessonId: lesson.id,
       courseId: lesson.courseId,
     },
+    fileType: lesson.fileType,
+    uploadedBy: lesson.uploadedBy,
     approvalStatus: lesson.approvalStatus,
   });
 

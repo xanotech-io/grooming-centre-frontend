@@ -2,7 +2,7 @@ import { Route, useParams, useHistory } from "react-router-dom";
 import { Box, Flex, Alert, AlertIcon } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Switch } from "@chakra-ui/switch";
 import { Select as ChakraSelect } from "@chakra-ui/select";
 import {
@@ -130,6 +130,8 @@ const CreateModuleExaminationPage = () => {
   });
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingBodyRef = useRef(null);
+  const resultExaminationRef = useRef(null);
 
   useEffect(() => {
     adminGetMarkingTemplates()
@@ -217,20 +219,13 @@ const CreateModuleExaminationPage = () => {
         });
         setWorkflowModalOpen(true);
       } else {
-        const { message, examination } = await adminCreateExamination(body);
-        setAssessment(examination);
-
-        toast({
-          description: capitalizeFirstLetter(message),
-          position: "top",
-          status: "success",
-        });
+        // Hold off on creating the examination until a supervisor is
+        // assigned and approval is submitted from the modal below.
+        pendingBodyRef.current = body;
         setWorkflowContent({
-          contentId: examination.id,
           contentTitle: data.title,
           requestType: "CourseExam",
           courseId,
-          nextRoute: `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`,
         });
         setWorkflowModalOpen(true);
       }
@@ -377,7 +372,28 @@ const CreateModuleExaminationPage = () => {
               contentTitle={workflowContent.contentTitle}
               requestType={workflowContent.requestType}
               courseId={workflowContent.courseId}
-              onSuccess={() => push(workflowContent.nextRoute)}
+              onCreate={
+                isEditMode
+                  ? undefined
+                  : async () => {
+                      const { message, examination } =
+                        await adminCreateExamination(pendingBodyRef.current);
+                      resultExaminationRef.current = examination;
+                      setAssessment(examination);
+                      toast({
+                        description: capitalizeFirstLetter(message),
+                        position: "top",
+                        status: "success",
+                      });
+                      return { id: examination.id };
+                    }
+              }
+              onSuccess={() => {
+                const nextRoute = isEditMode
+                  ? `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`
+                  : `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${resultExaminationRef.current?.id}`;
+                push(nextRoute);
+              }}
             />
           )}
         </SectionCard>

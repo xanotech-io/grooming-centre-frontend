@@ -97,6 +97,20 @@ const LessonPage = () => {
         fraction: "200px",
       },
       {
+        id: "fileType",
+        key: "fileType",
+        text: "File Type",
+        fraction: "120px",
+        renderContent: (fileType) => <Text>{fileType || "—"}</Text>,
+      },
+      {
+        id: "uploadedBy",
+        key: "uploadedBy",
+        text: "Uploaded By",
+        fraction: "160px",
+        renderContent: (uploadedBy) => <Text>{uploadedBy || "—"}</Text>,
+      },
+      {
         id: "5",
         key: "status",
         text: "Status",
@@ -154,6 +168,8 @@ const LessonPage = () => {
       courseId: lesson.courseId,
     },
     startDate: dayjs(lesson.startTime).format("DD/MM/YYYY h:mm a"),
+    fileType: lesson.fileType,
+    uploadedBy: lesson.uploadedBy,
     status: lesson.active,
   });
 

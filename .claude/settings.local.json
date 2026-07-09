@@ -43,7 +43,22 @@
       "Bash(xargs -I{} bash -c 'echo \"=== {} ===\" && grep -A8 \"<Breadcrumb\" {} | head -12')",
       "Bash(git -C /home/cyberbot/grooming-centre-frontend diff HEAD -- src/pages/admin/report/auditTrail/AuditTrailReportPage.jsx src/pages/admin/report/courseCompletion/CourseCompletionReportPage.jsx src/pages/admin/report/scheduledReporting/ScheduledReportingPage.jsx)",
       "Bash(git -C /home/cyberbot/grooming-centre-frontend diff HEAD -- src/pages/admin/report/proctoring/ExamSessionAuditPage.jsx src/pages/admin/report/proctoring/ProctoringAuditReportPage.jsx src/pages/admin/report/proctoring/ProctoringKpiSummaryPage.jsx)",
-      "Bash(git -C /home/cyberbot/grooming-centre-frontend diff HEAD -- src/pages/admin/report/studentReport/ProgressReport.jsx src/pages/admin/report/studentReport/StudentReportDetails.jsx)"
+      "Bash(git -C /home/cyberbot/grooming-centre-frontend diff HEAD -- src/pages/admin/report/studentReport/ProgressReport.jsx src/pages/admin/report/studentReport/StudentReportDetails.jsx)",
+      "Bash(git -C /home/cyberbot/grooming-centre-frontend log --diff-filter=A --name-only --oneline -20 -- src/pages/admin/courses/ src/pages/user/Courses/)",
+      "Bash(git -C /home/cyberbot/grooming-centre-frontend status --short)",
+      "Bash(echo \"exit code: $?\")",
+      "Bash(find / -maxdepth 8 -path \"*/node_modules/playwright\" -type d 2>/dev/null | grep -v \"/proc/\" | head -5 *)",
+      "Read(//home/cyberbot/.npm/**)",
+      "Bash(npx --no-install playwright --version)",
+      "Bash(find / -maxdepth 4 -iname \"*chromium-cli*\")",
+      "Bash(node -e \"console.log\\(require.resolve\\('playwright'\\)\\)\")",
+      "Bash(npx playwright *)",
+      "Bash(find / -maxdepth 6 -iname \"*chromium*\" -path \"*playwright*\")",
+      "Bash(CI=true timeout 180 npx react-scripts build)",
+      "Bash(find ~/.npm/_npx -maxdepth 4 -iname \"playwright*\" 2>/dev/null | head -20)",
+      "Read(//home/cyberbot/.npm/_npx/**)",
+      "Bash(NODE_PATH=/home/cyberbot/.npm/_npx/e41f203b7505f1fb/node_modules node test-export.js)",
+      "Bash(curl -sf http://localhost:4000)"
     ]
   }
 }

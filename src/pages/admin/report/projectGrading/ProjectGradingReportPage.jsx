@@ -842,7 +842,7 @@ const ProjectGradingReportPage = () => {
 
       if (format === "csv") {
         const csv = [headers, ...data.map(rowMapper)]
-          .map((row) => row.map((v) => `"${v ?? ""}"`).join(","))
+          .map((row) => row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
           .join("\n");
         const blob = new Blob([csv], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
