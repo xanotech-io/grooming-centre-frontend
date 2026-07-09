@@ -40,6 +40,7 @@ export const WorkflowSubmitModal = ({
   courseId,
   departmentId,
   onSuccess,
+  onCreate,
   isDismissable = true,
 }) => {
   const toast = useToast();
@@ -81,10 +82,21 @@ export const WorkflowSubmitModal = ({
 
     setIsSubmitting(true);
     try {
+      let finalContentId = contentId;
+      let finalContentTitle = contentTitle;
+
+      // Nothing has been created yet in this flow — creation only happens
+      // once a supervisor is assigned and approval is submitted.
+      if (onCreate) {
+        const created = await onCreate();
+        finalContentId = created?.id;
+        finalContentTitle = created?.title ?? contentTitle;
+      }
+
       const payload = {
         request_type: requestType,
-        content_id: contentId,
-        content_title: contentTitle,
+        content_id: finalContentId,
+        content_title: finalContentTitle,
         submitted_by: appState.user?.id,
         supervisor_id: selectedSupervisorId,
         submission_date: new Date().toISOString(),
@@ -142,9 +154,11 @@ export const WorkflowSubmitModal = ({
                 Submit for Approval
               </Text>
               <Text fontSize="13px" fontWeight="400" color="#718096">
-                {isDismissable
-                  ? 'Content will be unpublished until a supervisor approves it.'
-                  : 'This content was saved as a draft. Assign a supervisor to submit it for approval.'}
+                {onCreate
+                  ? 'This will only be created once you assign a supervisor and submit it for approval.'
+                  : isDismissable
+                    ? 'Content will be unpublished until a supervisor approves it.'
+                    : 'This content was saved as a draft. Assign a supervisor to submit it for approval.'}
               </Text>
             </Box>
           </Flex>
@@ -168,7 +182,8 @@ export const WorkflowSubmitModal = ({
               {contentTitle}
             </Text>
             <Text fontSize="12px" color="#A0AEC0" mt="2px">
-              {requestType} &nbsp;·&nbsp; ID: {contentId}
+              {requestType}
+              {contentId && <>&nbsp;·&nbsp; ID: {contentId}</>}
             </Text>
           </Box>
 
@@ -228,11 +243,9 @@ export const WorkflowSubmitModal = ({
         </ModalBody>
 
         <ModalFooter gap={3}>
-          {isDismissable && (
-            <Button secondary onClick={onClose} disabled={isSubmitting}>
-              Cancel
-            </Button>
-          )}
+          <Button secondary onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
           <Button
             style={{ backgroundColor: '#6b006b', color: 'white' }}
             isLoading={isSubmitting}

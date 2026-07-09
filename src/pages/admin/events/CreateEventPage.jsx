@@ -1,7 +1,7 @@
 import { Box } from "@chakra-ui/layout";
 import { BreadcrumbItem, Flex } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Route, useHistory, useParams } from "react-router-dom";
 import { useAdminEventsPage } from "..";
@@ -62,6 +62,8 @@ const CreateEventPage = () => {
   const [disableSubmit, setDisableSubmit] = useState(false);
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingBodyRef = useRef(null);
+  const resultEventRef = useRef(null);
 
   useEffect(() => {
     if (
@@ -164,19 +166,18 @@ const CreateEventPage = () => {
           status: "success",
         });
 
-        push(`/admin/events`);
-      } else {
-        const { message, event: createdEvent } = await adminCreateEvent(body);
-        cache.handleDelete("admin-events");
-
-        toast({
-          description: capitalizeFirstLetter(message),
-          position: "top",
-          status: "success",
-        });
-
         setWorkflowContent({
-          contentId: createdEvent?.id,
+          contentId: eventId,
+          contentTitle: data.title,
+          requestType: "Event",
+          departmentId: data.departmentId,
+        });
+        setWorkflowModalOpen(true);
+      } else {
+        // Hold off on creating the event until a supervisor is assigned
+        // and approval is submitted from the modal below.
+        pendingBodyRef.current = body;
+        setWorkflowContent({
           contentTitle: data.title,
           requestType: "Event",
           departmentId: data.departmentId,
@@ -346,6 +347,23 @@ const CreateEventPage = () => {
         contentTitle={workflowContent.contentTitle}
         requestType={workflowContent.requestType}
         departmentId={workflowContent.departmentId}
+        onCreate={
+          isEditMode
+            ? undefined
+            : async () => {
+                const { message, event: createdEvent } = await adminCreateEvent(
+                  pendingBodyRef.current,
+                );
+                resultEventRef.current = createdEvent;
+                cache.handleDelete("admin-events");
+                toast({
+                  description: capitalizeFirstLetter(message),
+                  position: "top",
+                  status: "success",
+                });
+                return { id: createdEvent?.id };
+              }
+        }
         onSuccess={() => push(`/admin/events`)}
       />
     )}

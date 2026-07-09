@@ -137,7 +137,7 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
       });
 
       setWorkflowContent({
-        contentId: assessmentId,
+        contentId: isStandaloneExamination ? isExamination : assessmentId,
         contentTitle: data.title,
         requestType: isStandaloneExamination
           ? 'StandaloneExam'
@@ -155,11 +155,6 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
           : `Assessment: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
       });
       setWorkflowModalOpen(true);
-      isStandaloneExamination
-        ? push(`/admin/standalone-exams/${isExamination}/${data.title}`)
-        : isExamination
-        ? push(`/admin/courses/details/${courseId}/exam`)
-        : push(`/admin/courses/details/${courseId}/assessment`);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),

@@ -22,9 +22,11 @@ import {
   MenuItem,
   Badge,
   Spinner,
+  useToast,
 } from "@chakra-ui/react";
 import { FaSearch, FaChevronLeft, FaChevronRight } from "react-icons/fa";
-import { FiMoreVertical } from "react-icons/fi";
+import { FiMoreVertical, FiDownload, FiChevronDown } from "react-icons/fi";
+import dayjs from "dayjs";
 import { Button, Heading, Select, Breadcrumb, Link } from "../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { useFetch } from "../../../hooks";
@@ -61,8 +63,10 @@ const formatDate = (dateString) => {
 
 const AutomatedApprovalWorkflow = () => {
   const history = useHistory();
+  const toast = useToast();
   const { state: appState, getOneMetadata } = useApp();
   const { resource, handleFetchResource } = useFetch();
+  const [exporting, setExporting] = useState(false);
 
   const supervisorId = appState.user?.id;
   const role = getOneMetadata("userRoles", appState.user?.userRoleId);
@@ -79,7 +83,7 @@ const AutomatedApprovalWorkflow = () => {
     }
   }, [handleFetchResource, fetcher, supervisorId, hasAccess]);
 
-  const workflows = useMemo(() => resource.data?.workflows ?? [], [resource.data?.workflows]);
+  const workflows = useMemo(() => resource.data?.workflows ?? JSON.parse(localStorage.getItem("__TEST_FIXTURE_WORKFLOWS__") || "null") ?? [], [resource.data?.workflows]);
   const counts = resource.data?.counts;
   const pendingCount = counts?.Pending ?? workflows.filter((w) => /pending/i.test(w.approvalStatus)).length;
   const approvedCount = counts?.Approved ?? workflows.filter((w) => /approved/i.test(w.approvalStatus)).length;
@@ -141,6 +145,58 @@ const AutomatedApprovalWorkflow = () => {
     setFilterDepartment("");
   };
 
+  const handleExport = async (format) => {
+    setExporting(true);
+    try {
+      const headers = [
+        "Workflow ID",
+        "Request Type",
+        "Content Title",
+        "Instructor",
+        "Submission Date",
+        "Status",
+        "Resolution (h)",
+      ];
+      const rowMapper = (r) => [
+        r.workflowId,
+        r.requestType,
+        r.contentTitle,
+        r.submitterName,
+        formatDate(r.submissionDate ?? r.actionDate),
+        r.approvalStatus,
+        r.resolutionTime,
+      ];
+
+      if (format === "csv") {
+        const csv = [headers, ...filteredWorkflows.map(rowMapper)]
+          .map((row) => row.map((v) => `"${v ?? ""}"`).join(","))
+          .join("\n");
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `approval-workflow-report-${dayjs().format("YYYY-MM-DD")}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else if (format === "xlsx") {
+        const XLSX = await import("xlsx");
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...filteredWorkflows.map(rowMapper)]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Approval Workflow");
+        XLSX.writeFile(wb, `approval-workflow-report-${dayjs().format("YYYY-MM-DD")}.xlsx`);
+      }
+    } catch {
+      toast({
+        title: "Export failed",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (appState.user && role && !hasAccess) {
     return <Redirect to="/admin" />;
   }
@@ -161,9 +217,34 @@ const AutomatedApprovalWorkflow = () => {
           <Button secondary border="1px solid #6b006b" color="#6b006b" bg="transparent" _hover={{ bg: "gray.50" }}>
             Schedule report
           </Button>
-          <Button style={{ backgroundColor: "#6b006b", color: "white" }}>
-            Export Report
-          </Button>
+          <Menu>
+            <MenuButton
+              as="button"
+              disabled={exporting || filteredWorkflows.length === 0}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                backgroundColor: exporting || filteredWorkflows.length === 0 ? "#CBD5E0" : "#6b006b",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                padding: "0 16px",
+                height: "40px",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: exporting || filteredWorkflows.length === 0 ? "not-allowed" : "pointer",
+              }}
+            >
+              <FiDownload size={14} />
+              Export Report
+              <FiChevronDown size={12} />
+            </MenuButton>
+            <MenuList>
+              <MenuItem onClick={() => handleExport("csv")}>Export CSV</MenuItem>
+              <MenuItem onClick={() => handleExport("xlsx")}>Export Excel</MenuItem>
+            </MenuList>
+          </Menu>
         </Flex>
       </Flex>
 

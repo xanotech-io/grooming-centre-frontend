@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import { BreadcrumbItem, Box } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
@@ -37,6 +37,8 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
   const { push } = useHistory();
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingPayloadRef = useRef(null);
+  const resultPollRef = useRef(null);
 
   const metadata = propMetadata || appManager.state.metadata;
   const [options, setOptions] = useState([
@@ -93,16 +95,10 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
         ...(data.departmentId ? { departmentId: data.departmentId } : {}),
       };
 
-      const { message, poll } = await adminCreatePoll(payload);
-
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
-
+      // Hold off on creating the poll until a supervisor is assigned and
+      // approval is submitted from the modal below.
+      pendingPayloadRef.current = payload;
       setWorkflowContent({
-        contentId: poll?.id,
         contentTitle: payload.question,
         requestType: "Poll",
         departmentId: data.departmentId,
@@ -225,6 +221,18 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           departmentId={workflowContent.departmentId}
+          onCreate={async () => {
+            const { message, poll } = await adminCreatePoll(
+              pendingPayloadRef.current,
+            );
+            resultPollRef.current = poll;
+            toast({
+              description: capitalizeFirstLetter(message),
+              position: "top",
+              status: "success",
+            });
+            return { id: poll?.id };
+          }}
           onSuccess={() => push("/admin/polls/")}
         />
       )}

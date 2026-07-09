@@ -1,6 +1,6 @@
 import { Box, Flex, GridItem } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useParams, useHistory } from "react-router-dom";
 import {
@@ -55,6 +55,8 @@ const CreateAssessmentPage = ({ users }) => {
   const [templateSections, setTemplateSections] = useState([]);
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingBodyRef = useRef(null);
+  const resultRef = useRef(null);
 
   const usageScope = isStandaloneExamination
     ? "Standalone Exam"
@@ -126,28 +128,11 @@ const CreateAssessmentPage = ({ users }) => {
                 }),
           }
         : data;
-      console.log(body, "jjjjj");
-      const { message, assessment, examination } =
-        await (isStandaloneExamination
-          ? adminCreateStandaloneExamination(body)
-          : isExamination
-          ? adminCreateExamination(body)
-          : adminCreateAssessment(body));
 
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
-
-      if (isExamination) {
-        setAssessment(examination);
-      } else {
-        setAssessment(assessment);
-      }
-
+      // Hold off on creating the assessment/examination until a supervisor
+      // is assigned and approval is submitted from the modal below.
+      pendingBodyRef.current = body;
       setWorkflowContent({
-        contentId: isExamination ? examination.id : assessment.id,
         contentTitle: data.title,
         requestType: isStandaloneExamination
           ? "StandaloneExam"
@@ -155,9 +140,6 @@ const CreateAssessmentPage = ({ users }) => {
           ? "CourseExam"
           : "CourseAssessment",
         courseId: courseId !== "not-set" ? courseId : undefined,
-        nextRoute: isExamination
-          ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`
-          : `/admin/courses/${courseId}/assessment/${assessment.id}/questions/new`,
         description: isExamination
           ? `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`
           : `Assessment: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
@@ -417,7 +399,36 @@ const CreateAssessmentPage = ({ users }) => {
             requestType={workflowContent.requestType}
             courseId={workflowContent.courseId}
             description={workflowContent.description}
-            onSuccess={() => push(workflowContent.nextRoute)}
+            onCreate={async () => {
+              const body = pendingBodyRef.current;
+              const { message, assessment, examination } = await (isStandaloneExamination
+                ? adminCreateStandaloneExamination(body)
+                : isExamination
+                ? adminCreateExamination(body)
+                : adminCreateAssessment(body));
+
+              resultRef.current = isExamination ? examination : assessment;
+              if (isExamination) {
+                setAssessment(examination);
+              } else {
+                setAssessment(assessment);
+              }
+
+              toast({
+                description: capitalizeFirstLetter(message),
+                position: "top",
+                status: "success",
+              });
+
+              return { id: resultRef.current?.id };
+            }}
+            onSuccess={() => {
+              const id = resultRef.current?.id;
+              const nextRoute = isExamination
+                ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${id}`
+                : `/admin/courses/${courseId}/assessment/${id}/questions/new`;
+              push(nextRoute);
+            }}
           />
         )}
       </Box>

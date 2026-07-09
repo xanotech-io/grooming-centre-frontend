@@ -2,7 +2,7 @@ import { Route, useParams, useHistory } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   DateTimePicker,
@@ -30,6 +30,8 @@ const CreateModuleAssessmentPage = () => {
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingBodyRef = useRef(null);
+  const resultAssessmentRef = useRef(null);
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
@@ -64,20 +66,13 @@ const CreateModuleAssessmentPage = () => {
         markingTemplateId,
       };
 
-      const { message, assessment } = await adminCreateAssessment(body);
-      setAssessment(assessment);
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
-
+      // Hold off on creating the assessment until a supervisor is assigned
+      // and approval is submitted from the modal below.
+      pendingBodyRef.current = body;
       setWorkflowContent({
-        contentId: assessment.id,
         contentTitle: data.title,
         requestType: "CourseAssessment",
         courseId,
-        nextRoute: `/admin/courses/${courseId}/assessment/${assessment.id}/questions/new`,
       });
       setWorkflowModalOpen(true);
     } catch (error) {
@@ -167,7 +162,24 @@ const CreateModuleAssessmentPage = () => {
             contentTitle={workflowContent.contentTitle}
             requestType={workflowContent.requestType}
             courseId={workflowContent.courseId}
-            onSuccess={() => push(workflowContent.nextRoute)}
+            onCreate={async () => {
+              const { message, assessment } = await adminCreateAssessment(
+                pendingBodyRef.current,
+              );
+              resultAssessmentRef.current = assessment;
+              setAssessment(assessment);
+              toast({
+                description: capitalizeFirstLetter(message),
+                position: "top",
+                status: "success",
+              });
+              return { id: assessment.id };
+            }}
+            onSuccess={() =>
+              push(
+                `/admin/courses/${courseId}/assessment/${resultAssessmentRef.current?.id}/questions/new`,
+              )
+            }
           />
         )}
       </Box>

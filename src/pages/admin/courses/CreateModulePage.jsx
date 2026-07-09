@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useToast } from "@chakra-ui/toast";
 import { Grid, GridItem } from "@chakra-ui/layout";
 import { useForm } from "react-hook-form";
@@ -36,6 +36,8 @@ const CreateModulePage = () => {
   const { handleDelete } = useCache();
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingBodyRef = useRef(null);
+  const resultModuleRef = useRef(null);
 
   const {
     handleSubmit,
@@ -86,21 +88,24 @@ const CreateModulePage = () => {
         const { message } = await adminUpdateModule(moduleId, body);
         toast({ title: message, status: "success", duration: 3000 });
         handleDelete("modules");
-        push(`/admin/courses/details/${courseId}/modules`);
+
+        setWorkflowContent({
+          contentId: moduleId,
+          contentTitle: data.title,
+          requestType: "Module",
+          courseId,
+        });
+        setWorkflowModalOpen(true);
       } else {
-        // New modules are saved as draft (inactive) until a supervisor approves them
-        const body = {
+        // Hold off on creating the module until a supervisor is assigned
+        // and approval is submitted from the modal below.
+        pendingBodyRef.current = {
           title: data.title,
           description: data.description,
           sequenceOrder: Number(data.sequenceOrder),
           status: "inactive",
         };
-        const { message, module } = await adminCreateModule(courseId, body);
-        toast({ title: message, status: "success", duration: 3000 });
-        handleDelete("modules");
-
         setWorkflowContent({
-          contentId: module?.id ?? moduleId,
           contentTitle: data.title,
           requestType: "Module",
           courseId,
@@ -218,6 +223,20 @@ const CreateModulePage = () => {
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
+          onCreate={
+            isEditMode
+              ? undefined
+              : async () => {
+                  const { message, module } = await adminCreateModule(
+                    courseId,
+                    pendingBodyRef.current,
+                  );
+                  resultModuleRef.current = module;
+                  toast({ title: message, status: "success", duration: 3000 });
+                  handleDelete("modules");
+                  return { id: module?.id };
+                }
+          }
           onSuccess={() => push(`/admin/courses/details/${courseId}/modules`)}
         />
       )}
