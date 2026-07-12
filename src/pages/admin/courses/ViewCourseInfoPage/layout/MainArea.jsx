@@ -4,8 +4,8 @@ import InfoPageRoute from '../pages/InfoPage';
 import LessonPageRoute from '../pages/LessonPage';
 import AssessmentListingPageRoute from '../pages/AssessmentListingPage';
 import ExamListingPageRoute from '../pages/ExamListingPage';
-import ProgressReportRoute from '../pages/ProgressReport';
 import ModulesListingPageRoute from '../pages/ModulesListingPage';
+import EditHistoryPageRoute from '../pages/EditHistoryPage';
 
 const MainArea = () => {
   return (
@@ -13,10 +13,10 @@ const MainArea = () => {
       <Switch>
         <InfoPageRoute path="/admin/courses/details/:id/info" />
         <ModulesListingPageRoute path="/admin/courses/details/:id/modules" />
+        <EditHistoryPageRoute path="/admin/courses/details/:id/edit-history" />
         <LessonPageRoute path="/admin/courses/details/:id/lessons" />
         <AssessmentListingPageRoute path="/admin/courses/details/:id/assessment" />
         <ExamListingPageRoute path="/admin/courses/details/:id/exam" />
-        <ProgressReportRoute path="/admin/courses/details/:id/progress-report" />
       </Switch>
     </Box>
   );

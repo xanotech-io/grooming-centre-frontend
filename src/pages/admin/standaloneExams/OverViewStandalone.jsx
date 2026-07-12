@@ -1,7 +1,8 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { Box, Flex, Grid, GridItem } from "@chakra-ui/layout";
+import { Alert, AlertIcon } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import {  useHistory } from "react-router-dom";
 import {
@@ -11,6 +12,7 @@ import {
   Input,
   Select,
   Spinner,
+  WorkflowSubmitModal,
 } from "../../../components";
 import { useCache } from "../../../contexts";
 import { useDateTimePicker, useGoBack, useQueryParams } from "../../../hooks";
@@ -89,6 +91,10 @@ const EditStandalonePage = ({ assessment }) => {
   const handleCancel = useGoBack();
   const startTimeManager = useDateTimePicker();
   const { handleDelete } = useCache();
+  const isPublished = assessment?.isPublished === true;
+
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
 
   const onSubmit = async (data) => {
     try {
@@ -110,8 +116,8 @@ const EditStandalonePage = ({ assessment }) => {
         status: "success",
       });
 
-      handleDelete(examinationId);
-      push(`/admin/standalone-exams`);
+      setWorkflowContent({ contentId: examinationId, contentTitle: data.title });
+      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: error.message,
@@ -128,6 +134,12 @@ const EditStandalonePage = ({ assessment }) => {
       marginY="20px"
       marginX="22px"
     >
+      {isPublished && (
+        <Alert status="warning" mb={6} borderRadius="md">
+          <AlertIcon />
+          This exam is published. Settings are locked. Unpublish the exam first to make changes.
+        </Alert>
+      )}
       <Box
         backgroundColor="white"
         padding="40px"
@@ -227,7 +239,7 @@ const EditStandalonePage = ({ assessment }) => {
           </Button>
           <Button
             isLoading={isSubmitting}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isPublished}
             type="submit"
             display="flex"
             justifyContent="center"
@@ -242,6 +254,20 @@ const EditStandalonePage = ({ assessment }) => {
           </Button>
         </Flex>
       </Box>
+
+      {workflowContent && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          contentId={workflowContent.contentId}
+          contentTitle={workflowContent.contentTitle}
+          requestType="StandaloneExam"
+          onSuccess={() => {
+            handleDelete(examinationId);
+            push(`/admin/standalone-exams`);
+          }}
+        />
+      )}
     </Box>
   );
 };
@@ -261,6 +287,11 @@ const CreateStandalonePage = () => {
   const [templateId, setTemplateId] = useState("");
   const [markingMode, setMarkingMode] = useState("automatic");
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
+
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingBodyRef = useRef(null);
+  const resultExaminationRef = useRef(null);
 
   useEffect(() => {
     adminGetMarkingTemplates()
@@ -287,15 +318,11 @@ const CreateStandalonePage = () => {
         startTime: formatDateToISO(startTime),
       };
 
-      const { message, examination } = await adminCreateStandaloneExamination(body);
-      setAssessment(examination);
-
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
-      push(`/admin/standalone-exams/questions/?examination=${examination.id}`);
+      // Hold off on creating the examination until a supervisor is
+      // assigned and approval is submitted from the modal below.
+      pendingBodyRef.current = body;
+      setWorkflowContent({ contentTitle: data.title });
+      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -423,6 +450,34 @@ const CreateStandalonePage = () => {
           </Button>
         </Flex>
       </Box>
+
+      {workflowContent && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          isDismissable={false}
+          contentTitle={workflowContent.contentTitle}
+          requestType="StandaloneExam"
+          onCreate={async () => {
+            const { message, examination } = await adminCreateStandaloneExamination(
+              pendingBodyRef.current,
+            );
+            resultExaminationRef.current = examination;
+            setAssessment(examination);
+            toast({
+              description: capitalizeFirstLetter(message),
+              position: "top",
+              status: "success",
+            });
+            return { id: examination.id, title: workflowContent.contentTitle };
+          }}
+          onSuccess={() => {
+            push(
+              `/admin/standalone-exams/questions/?examination=${resultExaminationRef.current?.id}`,
+            );
+          }}
+        />
+      )}
     </Box>
   );
 };

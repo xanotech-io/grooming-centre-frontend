@@ -25,6 +25,7 @@ import { Select } from '../Form/Select.jsx';
 import { useFetch } from '../../hooks/useFetch';
 import { useApp } from '../../contexts';
 import {
+  adminGetAllDepartmentSupervisors,
   adminGetDepartmentSupervisors,
   adminGetWorkflowSupervisors,
   adminSubmitWorkflow,
@@ -56,7 +57,9 @@ export const WorkflowSubmitModal = ({
   const supervisorFetcher = useCallback(async () => {
     const { supervisors } = courseId
       ? await adminGetDepartmentSupervisors(courseId)
-      : await adminGetWorkflowSupervisors(departmentId);
+      : departmentId
+        ? await adminGetWorkflowSupervisors(departmentId)
+        : await adminGetAllDepartmentSupervisors();
     return supervisors;
   }, [courseId, departmentId]);
 

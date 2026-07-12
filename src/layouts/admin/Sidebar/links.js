@@ -17,6 +17,7 @@ import {
   FiMail,
   FiArchive,
   FiBarChart2,
+  FiDownload,
 } from "react-icons/fi";
 
 export const links = [
@@ -367,6 +368,11 @@ export const links = [
     href: "/admin/course-roster",
     text: "Course Roster",
     icon: <FaFolderOpen />,
+  },
+  {
+    href: "/admin/course-roster-export",
+    text: "Export Course Roster",
+    icon: <FiDownload />,
   },
   {
     href: "/admin/user-documents",

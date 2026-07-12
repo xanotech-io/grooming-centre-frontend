@@ -11,6 +11,10 @@ const links = [
     href: (courseId) => `/admin/courses/details/${courseId}/modules`,
     text: 'Modules',
   },
+  {
+    href: (courseId) => `/admin/courses/details/${courseId}/edit-history`,
+    text: 'Edit History',
+  },
   // {
   //   href: (courseId) => `/admin/courses/details/${courseId}/assessment`,
   //   text: 'Assessment',
@@ -19,10 +23,6 @@ const links = [
   //   href: (courseId) => `/admin/courses/details/${courseId}/exam`,
   //   text: 'Exam',
   // },
-  {
-    href: (courseId) => `/admin/courses/details/${courseId}/progress-report`,
-    text: 'Progress Report',
-  },
 ];
 
 const Header = () => {
