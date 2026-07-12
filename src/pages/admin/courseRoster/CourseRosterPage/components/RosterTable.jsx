@@ -61,6 +61,8 @@ const EmptyRow = ({ colSpan, message }) => (
   </Tr>
 );
 
+const COLUMN_COUNT = 9;
+
 const RosterTable = ({
   students,
   loading,
@@ -69,17 +71,18 @@ const RosterTable = ({
   page,
   onPageChange,
   courseSelected,
+  courseName,
 }) => {
   const { totalItems = 0, totalPages = 1 } = pagination || {};
 
   const renderBody = () => {
     if (!courseSelected) {
-      return <EmptyRow colSpan={7} message="Select a course above to view the roster." />;
+      return <EmptyRow colSpan={COLUMN_COUNT} message="Select a course above to view the roster." />;
     }
     if (loading) {
       return (
         <Tr>
-          <Td colSpan={7}>
+          <Td colSpan={COLUMN_COUNT}>
             <Flex justifyContent="center" py="40px">
               <Spinner size="lg" color="blue.500" />
             </Flex>
@@ -88,10 +91,10 @@ const RosterTable = ({
       );
     }
     if (error) {
-      return <EmptyRow colSpan={7} message="Failed to load roster. Please try again." />;
+      return <EmptyRow colSpan={COLUMN_COUNT} message="Failed to load roster. Please try again." />;
     }
     if (!students.length) {
-      return <EmptyRow colSpan={7} message="No students match the current filters." />;
+      return <EmptyRow colSpan={COLUMN_COUNT} message="No students match the current filters." />;
     }
     return students.map((s) => (
       <Tr key={s.studentId} _hover={{ bg: "gray.50" }} transition="background 0.1s">
@@ -116,6 +119,11 @@ const RosterTable = ({
         </Td>
         <Td py="12px">
           <Text fontSize="13px" color="gray.700">
+            {courseName || "—"}
+          </Text>
+        </Td>
+        <Td py="12px">
+          <Text fontSize="13px" color="gray.700">
             {s.email}
           </Text>
         </Td>
@@ -126,6 +134,22 @@ const RosterTable = ({
         </Td>
         <Td py="12px">
           <StatusBadge status={s.enrollmentStatus} />
+        </Td>
+        <Td py="12px">
+          <Box>
+            <Flex justifyContent="space-between" mb="4px">
+              <Text fontSize="11px" color="gray.600">
+                {s.attendancePercentage != null ? `${s.attendancePercentage}%` : "—"}
+              </Text>
+            </Flex>
+            <Progress
+              value={s.attendancePercentage ?? 0}
+              size="xs"
+              colorScheme="green"
+              borderRadius="4px"
+              w="100px"
+            />
+          </Box>
         </Td>
         <Td py="12px">
           <Box>
@@ -145,7 +169,7 @@ const RosterTable = ({
         </Td>
         <Td py="12px">
           <Text fontSize="13px" color="gray.700">
-            {s.grade ?? "—"}
+            {s.latestAssessmentScore != null ? `${s.latestAssessmentScore}%` : "—"}
           </Text>
         </Td>
         <Td py="12px">
@@ -170,11 +194,13 @@ const RosterTable = ({
           <Thead bg="gray.50">
             <Tr>
               <TH>Student</TH>
+              <TH>Course</TH>
               <TH>Email</TH>
               <TH>Phone</TH>
-              <TH>Status</TH>
-              <TH>Progress</TH>
-              <TH>Grade</TH>
+              <TH>Enrollment Status</TH>
+              <TH>Attendance (%)</TH>
+              <TH>Score (%)</TH>
+              <TH>Latest Assessment</TH>
               <TH>Date Enrolled</TH>
             </Tr>
           </Thead>

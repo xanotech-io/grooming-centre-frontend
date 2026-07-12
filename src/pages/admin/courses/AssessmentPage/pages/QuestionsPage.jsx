@@ -48,6 +48,7 @@ import {
   adminGetMarkingTemplateById,
   adminGetStandaloneExamTemplateId,
 } from "../../../../../services";
+import { buildBatchUploadLink } from "../../../examQuestionImport/questionRowUtils";
 import {
   appendFormData,
   capitalizeFirstLetter,
@@ -65,6 +66,14 @@ const QuestionsPage = () => {
     courseId === "not-set" && assessmentId === "not-set" && isExamination
       ? true
       : false;
+  const isExistingQuestion = questionId && questionId !== "new";
+
+  const batchUploadLink = buildBatchUploadLink({
+    courseId,
+    assessmentId,
+    examinationId: isExamination || undefined,
+    standalone: isStandaloneExamination,
+  });
 
   const assessmentManager = useAssessmentPreview(null, assessmentId, true);
 
@@ -118,19 +127,34 @@ const QuestionsPage = () => {
 
   return (
     <>
-      <Heading fontSize="heading.h3" paddingTop={3} paddingX={6}>
-        {isQuestionListingPage
-          ? null
-          : questionId === "new"
-            ? "Create "
-            : "Update "}
-        {isStandaloneExamination
-          ? "Standalone Examination"
-          : isExamination
-            ? "Examination"
-            : "Assessment"}
-        {" Question"}
-      </Heading>
+      <Flex
+        justifyContent="space-between"
+        alignItems="center"
+        flexWrap="wrap"
+        gap={3}
+        paddingTop={3}
+        paddingX={6}
+      >
+        <Heading fontSize="heading.h3">
+          {isQuestionListingPage
+            ? null
+            : questionId === "new"
+              ? "Create "
+              : "Update "}
+          {isStandaloneExamination
+            ? "Standalone Examination"
+            : isExamination
+              ? "Examination"
+              : "Assessment"}
+          {" Question"}
+        </Heading>
+
+        {!isQuestionListingPage && !isExistingQuestion && (
+          <Button link={batchUploadLink}>
+            Upload &amp; Batch Import Questions
+          </Button>
+        )}
+      </Flex>
 
       <Flex
         flexDirection={{

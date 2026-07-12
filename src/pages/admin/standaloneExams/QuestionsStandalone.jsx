@@ -42,6 +42,7 @@ import {
   adminGetMarkingTemplateById,
   adminGetStandaloneExamTemplateId,
 } from "../../../services";
+import { buildBatchUploadLink } from "../examQuestionImport/questionRowUtils";
 import { capitalizeFirstLetter, capitalizeWords } from "../../../utils";
 import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import useAssessmentStore from "../../../store/assessmentStore";
@@ -52,6 +53,12 @@ const QuestionsStandalone = () => {
   const isQuestionListingPage = useQueryParams().get("question-listing");
   const isExamination = useQueryParams().get("examination");
   const questionId = useQueryParams().get("question");
+  const isExistingQuestion = questionId && questionId !== "new";
+
+  const batchUploadLink = buildBatchUploadLink({
+    examinationId: isExamination,
+    standalone: true,
+  });
 
   const assessmentManager = useAssessmentPreview(null, isExamination, true);
 
@@ -87,13 +94,28 @@ const QuestionsStandalone = () => {
 
   return (
     <>
-      <Heading fontSize="heading.h3" paddingTop={3} paddingX={6}>
-        {isQuestionListingPage
-          ? null
-          : !questionId
-            ? "Create Standalone Question"
-            : "Update Standalone Question"}
-      </Heading>
+      <Flex
+        justifyContent="space-between"
+        alignItems="center"
+        flexWrap="wrap"
+        gap={3}
+        paddingTop={3}
+        paddingX={6}
+      >
+        <Heading fontSize="heading.h3">
+          {isQuestionListingPage
+            ? null
+            : !questionId
+              ? "Create Standalone Question"
+              : "Update Standalone Question"}
+        </Heading>
+
+        {!isQuestionListingPage && !isExistingQuestion && (
+          <Button link={batchUploadLink}>
+            Upload &amp; Batch Import Questions
+          </Button>
+        )}
+      </Flex>
 
       <Flex
         flexDirection={{

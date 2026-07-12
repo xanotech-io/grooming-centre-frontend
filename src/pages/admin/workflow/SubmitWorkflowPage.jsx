@@ -29,6 +29,7 @@ const REQUEST_TYPE_OPTIONS = [
   { label: "Course Content", value: "CourseContent" },
   { label: "Lesson Content", value: "LessonContent" },
   { label: "Exam", value: "Exam" },
+  { label: "Standalone Exam", value: "StandaloneExam" },
   { label: "Library Material", value: "LibraryMaterial" },
   { label: "Project", value: "Project" },
 ];

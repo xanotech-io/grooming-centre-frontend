@@ -192,6 +192,7 @@ const CourseRosterPage = () => {
           page={page}
           onPageChange={setPage}
           courseSelected={!!courseId}
+          courseName={roster?.courseName}
         />
       </Box>
 

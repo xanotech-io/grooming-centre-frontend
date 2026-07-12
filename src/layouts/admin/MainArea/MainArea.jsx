@@ -99,10 +99,13 @@ import {
   BatchHistoryPageRoute,
   ImportResultPageRoute,
   ImportReportPageRoute,
+  BatchUploadPageRoute,
+  ReviewImportPageRoute,
   PerformanceFiltersPageRoute,
   AdminExamResultAnalysisPageRoute,
   CourseMaterialUploadPageRoute,
   CourseRosterPageRoute,
+  CourseRosterExportPageRoute,
   EnrollmentStatusReportPageRoute,
   AuditTrailReportPageRoute,
 } from "../../../pages/admin";
@@ -434,6 +437,7 @@ const MainArea = () => {
         />
         <CourseMaterialUploadPageRoute exact path="/admin/course-materials" />
         <CourseRosterPageRoute exact path="/admin/course-roster" />
+        <CourseRosterExportPageRoute exact path="/admin/course-roster-export" />
         <UserDocumentsPageRoute exact path="/admin/user-documents" />
         <UserDocumentDetailsPageRoute
           exact
@@ -494,6 +498,11 @@ const MainArea = () => {
         />
         <BatchImportPageRoute exact path="/admin/batch-import/:examinationId" />
         <BatchHistoryPageRoute exact path="/admin/question-imports" />
+        <ReviewImportPageRoute
+          exact
+          path="/admin/exam-question-batch-import/:uploadId/review"
+        />
+        <BatchUploadPageRoute exact path="/admin/exam-question-batch-import" />
         <BadgeSupportPageRoute exact path="/admin/badge-support" />
         <BadgeKPIPageRoute exact path="/admin/badges/kpis" />
         <BadgeReportPageRoute exact path="/admin/badges/report" />

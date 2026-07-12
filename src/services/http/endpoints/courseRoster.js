@@ -21,12 +21,24 @@ export const adminGetCourseRoster = async (courseId, params = {}) => {
     enrollmentStatus: s.enrollment_status ?? s.enrollmentStatus,
     progressPercentage: s.progress_percentage ?? s.progressPercentage,
     grade: s.grade,
+    attendancePercentage: s.attendance_percentage ?? s.attendancePercentage,
+    latestAssessmentScore: s.latest_assessment_score ?? s.latestAssessmentScore,
     enrollmentDate: s.date_enrolled ?? s.enrollmentDate,
   }));
 
   const progressValues = students
     .map((s) => s.progressPercentage)
     .filter((v) => v != null);
+
+  const attendanceValues = students
+    .map((s) => s.attendancePercentage)
+    .filter((v) => v != null);
+
+  const totalStudents = payload.total ?? students.length;
+  const completedCount = students.filter((s) => s.enrollmentStatus === "Completed").length;
+  const activeEnrollmentCount =
+    payload.active_enrollment_count ??
+    students.filter((s) => s.enrollmentStatus === "Enrolled").length;
 
   return {
     roster: {
@@ -37,13 +49,22 @@ export const adminGetCourseRoster = async (courseId, params = {}) => {
         : null,
       students,
       summary: {
-        totalStudents: payload.total ?? students.length,
-        enrolled: students.filter((s) => s.enrollmentStatus === "Enrolled").length || null,
+        totalStudents,
+        enrolled: activeEnrollmentCount || null,
         pending: students.filter((s) => s.enrollmentStatus === "Pending").length || null,
-        completed: students.filter((s) => s.enrollmentStatus === "Completed").length || null,
+        completed: completedCount || null,
         averageProgress: progressValues.length
           ? progressValues.reduce((a, b) => a + b, 0) / progressValues.length
           : null,
+        activeEnrollmentCount,
+        enrollmentToCompletionRatio:
+          payload.enrollment_to_completion_ratio ??
+          (totalStudents ? completedCount / totalStudents : null),
+        averageAttendanceRate:
+          payload.average_attendance_rate ??
+          (attendanceValues.length
+            ? attendanceValues.reduce((a, b) => a + b, 0) / attendanceValues.length
+            : null),
       },
     },
     pagination: {

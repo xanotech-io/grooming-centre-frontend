@@ -92,6 +92,22 @@ export const adminBulkAddUsersToDepartment = async (departmentId, users) => {
 };
 
 /**
+ * Endpoint to fetch supervisors across all departments (used when a poll,
+ * workflow, etc. targets "all departments" rather than a single one).
+ * @returns {Promise<{ supervisors: Array<{ id: string, firstName: string, lastName: string }> }>}
+ */
+export const adminGetAllDepartmentSupervisors = async () => {
+  const path = `/v1/department/supervisors/all`;
+
+  const {
+    data: { data },
+  } = await http.get(path);
+
+  const raw = data?.rows ?? data ?? [];
+  return { supervisors: Array.isArray(raw) ? raw : [] };
+};
+
+/**
  * Endpoint to for admin to create a department
  * @param {object} params
  *
