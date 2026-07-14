@@ -70,7 +70,7 @@ const ModuleAssessmentsPage = () => {
         fraction: "3fr",
         renderContent: (data) => (
           <Link
-            href={`/admin/courses/${courseId}/assessment/${data.assessmentId}/overview`}
+            href={`/admin/courses/${courseId}/assessment/${data.assessmentId}/overview?moduleId=${moduleId}`}
           >
             <Text>{data.text}</Text>
           </Link>
@@ -108,12 +108,12 @@ const ModuleAssessmentsPage = () => {
         {
           text: "View",
           link: (assessment) =>
-            `/admin/courses/${courseId}/assessment/${assessment.id}/overview`,
+            `/admin/courses/${courseId}/assessment/${assessment.id}/overview?moduleId=${moduleId}`,
         },
         {
           text: "Submission",
           link: (assessment) =>
-            `/admin/courses/${courseId}/assessment/${assessment.id}/grading`,
+            `/admin/courses/${courseId}/assessment/${assessment.id}/grading?moduleId=${moduleId}`,
         },
         {
           isDelete: true,

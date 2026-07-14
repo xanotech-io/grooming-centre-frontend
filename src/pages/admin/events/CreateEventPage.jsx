@@ -17,7 +17,7 @@ import {
 } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useApp, useCache } from "../../../contexts";
-import { useDateTimePicker, useUpload } from "../../../hooks";
+import { useDateTimePicker, useIsSuperAdmin, useUpload } from "../../../hooks";
 import { CreatePageLayout } from "../../../layouts";
 import { adminCreateEvent, adminEditEvent } from "../../../services";
 import {
@@ -35,6 +35,7 @@ const CreateEventPage = () => {
     state: { allMetadata: metadata },
   } = useApp();
   const { push, replace } = useHistory();
+  const isSuperAdmin = useIsSuperAdmin();
   const { eventId } = useParams();
   const isEditMode = eventId && eventId !== "new";
 
@@ -135,6 +136,29 @@ const CreateEventPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event]);
 
+  const performEdit = async (body) => {
+    const { message } = await adminEditEvent(eventId, body);
+    cache.handleDelete("admin-events");
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: "top",
+      status: "success",
+    });
+    return { id: eventId };
+  };
+
+  const performCreate = async (body) => {
+    const { message, event: createdEvent } = await adminCreateEvent(body);
+    resultEventRef.current = createdEvent;
+    cache.handleDelete("admin-events");
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: "top",
+      status: "success",
+    });
+    return { id: createdEvent?.id };
+  };
+
   // Handle form submission
   const onSubmit = async (data) => {
     try {
@@ -155,35 +179,31 @@ const CreateEventPage = () => {
 
       const body = appendFormData(data);
 
-      // Clear cache on both admin side
+      const workflowContentBase = {
+        contentTitle: data.title,
+        requestType: "Event",
+        departmentId: data.departmentId,
+      };
+
       if (isEditMode) {
-        const { message } = await adminEditEvent(eventId, body);
-        cache.handleDelete("admin-events");
-
-        toast({
-          description: capitalizeFirstLetter(message),
-          position: "top",
-          status: "success",
-        });
-
-        setWorkflowContent({
-          contentId: eventId,
-          contentTitle: data.title,
-          requestType: "Event",
-          departmentId: data.departmentId,
-        });
-        setWorkflowModalOpen(true);
+        if (isSuperAdmin) {
+          await performEdit(body);
+        } else {
+          pendingBodyRef.current = body;
+        }
+        setWorkflowContent({ ...workflowContentBase, contentId: eventId });
+      } else if (isSuperAdmin) {
+        // Super admins create right away — the modal below only offers an
+        // optional supervisor review afterward.
+        const created = await performCreate(body);
+        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
       } else {
-        // Hold off on creating the event until a supervisor is assigned
-        // and approval is submitted from the modal below.
+        // Instructors must submit for approval before this gets created —
+        // hold off until the modal below completes.
         pendingBodyRef.current = body;
-        setWorkflowContent({
-          contentTitle: data.title,
-          requestType: "Event",
-          departmentId: data.departmentId,
-        });
-        setWorkflowModalOpen(true);
+        setWorkflowContent(workflowContentBase);
       }
+      setWorkflowModalOpen(true);
     } catch (error) {
       console.error(error);
       toast({
@@ -341,28 +361,22 @@ const CreateEventPage = () => {
     {workflowContent && (
       <WorkflowSubmitModal
         isOpen={workflowModalOpen}
-        onClose={() => setWorkflowModalOpen(false)}
-        isDismissable={false}
+        onClose={() => {
+          setWorkflowModalOpen(false);
+          if (isSuperAdmin) push(`/admin/events`);
+        }}
+        isDismissable={isSuperAdmin}
         contentId={workflowContent.contentId}
         contentTitle={workflowContent.contentTitle}
         requestType={workflowContent.requestType}
         departmentId={workflowContent.departmentId}
         onCreate={
-          isEditMode
+          isSuperAdmin
             ? undefined
-            : async () => {
-                const { message, event: createdEvent } = await adminCreateEvent(
-                  pendingBodyRef.current,
-                );
-                resultEventRef.current = createdEvent;
-                cache.handleDelete("admin-events");
-                toast({
-                  description: capitalizeFirstLetter(message),
-                  position: "top",
-                  status: "success",
-                });
-                return { id: createdEvent?.id };
-              }
+            : () =>
+                isEditMode
+                  ? performEdit(pendingBodyRef.current)
+                  : performCreate(pendingBodyRef.current)
         }
         onSuccess={() => push(`/admin/events`)}
       />

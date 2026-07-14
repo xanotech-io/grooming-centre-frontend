@@ -15,7 +15,12 @@ import {
   WorkflowSubmitModal,
 } from "../../../components";
 import { useCache } from "../../../contexts";
-import { useDateTimePicker, useGoBack, useQueryParams } from "../../../hooks";
+import {
+  useDateTimePicker,
+  useGoBack,
+  useIsSuperAdmin,
+  useQueryParams,
+} from "../../../hooks";
 import {
   adminCreateStandaloneExamination,
   adminEditStandaloneExamination,
@@ -88,6 +93,7 @@ const EditStandalonePage = ({ assessment }) => {
 
   const { push } = useHistory();
   const toast = useToast();
+  const isSuperAdmin = useIsSuperAdmin();
   const handleCancel = useGoBack();
   const startTimeManager = useDateTimePicker();
   const { handleDelete } = useCache();
@@ -95,6 +101,27 @@ const EditStandalonePage = ({ assessment }) => {
 
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingBodyRef = useRef(null);
+
+  const performEdit = async (body) => {
+    const { message } = await adminEditStandaloneExamination(
+      examinationId,
+      body,
+    );
+
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: "top",
+      status: "success",
+    });
+
+    return { id: examinationId };
+  };
+
+  const handleWorkflowFinished = () => {
+    handleDelete(examinationId);
+    push(`/admin/standalone-exams`);
+  };
 
   const onSubmit = async (data) => {
     try {
@@ -105,16 +132,15 @@ const EditStandalonePage = ({ assessment }) => {
         startTime: formatDateToISO(startTime),
       };
 
-      const { message } = await adminEditStandaloneExamination(
-        examinationId,
-        body,
-      );
-
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
+      if (isSuperAdmin) {
+        // Super admins' edits apply right away — the modal below only
+        // offers an optional supervisor review afterward.
+        await performEdit(body);
+      } else {
+        // Instructors must submit for approval before this edit takes
+        // effect — hold off until the modal below completes.
+        pendingBodyRef.current = body;
+      }
 
       setWorkflowContent({ contentId: examinationId, contentTitle: data.title });
       setWorkflowModalOpen(true);
@@ -258,14 +284,16 @@ const EditStandalonePage = ({ assessment }) => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => setWorkflowModalOpen(false)}
+          onClose={() => {
+            setWorkflowModalOpen(false);
+            if (isSuperAdmin) handleWorkflowFinished();
+          }}
+          isDismissable={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType="StandaloneExam"
-          onSuccess={() => {
-            handleDelete(examinationId);
-            push(`/admin/standalone-exams`);
-          }}
+          onCreate={isSuperAdmin ? undefined : () => performEdit(pendingBodyRef.current)}
+          onSuccess={handleWorkflowFinished}
         />
       )}
     </Box>
@@ -282,6 +310,7 @@ const CreateStandalonePage = () => {
   } = useForm();
 
   const handleCancel = useGoBack();
+  const isSuperAdmin = useIsSuperAdmin();
   const startTimeManager = useDateTimePicker();
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [templateId, setTemplateId] = useState("");
@@ -301,6 +330,24 @@ const CreateStandalonePage = () => {
       .catch(() => {});
   }, []);
 
+  const performCreate = async (body) => {
+    const { message, examination } = await adminCreateStandaloneExamination(body);
+    resultExaminationRef.current = examination;
+    setAssessment(examination);
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: "top",
+      status: "success",
+    });
+    return { id: examination.id };
+  };
+
+  const handleWorkflowFinished = () => {
+    push(
+      `/admin/standalone-exams/questions/?examination=${resultExaminationRef.current?.id}`,
+    );
+  };
+
   const onSubmit = async (data) => {
     try {
       const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
@@ -318,10 +365,17 @@ const CreateStandalonePage = () => {
         startTime: formatDateToISO(startTime),
       };
 
-      // Hold off on creating the examination until a supervisor is
-      // assigned and approval is submitted from the modal below.
-      pendingBodyRef.current = body;
-      setWorkflowContent({ contentTitle: data.title });
+      if (isSuperAdmin) {
+        // Super admins create right away — the modal below only offers an
+        // optional supervisor review afterward.
+        const created = await performCreate(body);
+        setWorkflowContent({ contentTitle: data.title, contentId: created.id });
+      } else {
+        // Instructors must submit for approval before this gets created —
+        // hold off until the modal below completes.
+        pendingBodyRef.current = body;
+        setWorkflowContent({ contentTitle: data.title });
+      }
       setWorkflowModalOpen(true);
     } catch (error) {
       toast({
@@ -454,28 +508,16 @@ const CreateStandalonePage = () => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => setWorkflowModalOpen(false)}
-          isDismissable={false}
+          onClose={() => {
+            setWorkflowModalOpen(false);
+            if (isSuperAdmin) handleWorkflowFinished();
+          }}
+          isDismissable={isSuperAdmin}
+          contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType="StandaloneExam"
-          onCreate={async () => {
-            const { message, examination } = await adminCreateStandaloneExamination(
-              pendingBodyRef.current,
-            );
-            resultExaminationRef.current = examination;
-            setAssessment(examination);
-            toast({
-              description: capitalizeFirstLetter(message),
-              position: "top",
-              status: "success",
-            });
-            return { id: examination.id, title: workflowContent.contentTitle };
-          }}
-          onSuccess={() => {
-            push(
-              `/admin/standalone-exams/questions/?examination=${resultExaminationRef.current?.id}`,
-            );
-          }}
+          onCreate={isSuperAdmin ? undefined : () => performCreate(pendingBodyRef.current)}
+          onSuccess={handleWorkflowFinished}
         />
       )}
     </Box>

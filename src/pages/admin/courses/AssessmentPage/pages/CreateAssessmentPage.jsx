@@ -15,6 +15,7 @@ import {
 import {
   useDateTimePicker,
   useGoBack,
+  useIsSuperAdmin,
   useQueryParams,
 } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
@@ -48,6 +49,7 @@ const CreateAssessmentPage = ({ users }) => {
 
   const { push } = useHistory();
   const toast = useToast();
+  const isSuperAdmin = useIsSuperAdmin();
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
   const [selectedIDs, setSelectedIDs] = useState([]);
   const [markingTemplates, setMarkingTemplates] = useState([]);
@@ -95,6 +97,37 @@ const CreateAssessmentPage = ({ users }) => {
 
   const startTimeManager = useDateTimePicker();
 
+  const performCreate = async (body) => {
+    const { message, assessment, examination } = await (isStandaloneExamination
+      ? adminCreateStandaloneExamination(body)
+      : isExamination
+      ? adminCreateExamination(body)
+      : adminCreateAssessment(body));
+
+    resultRef.current = isExamination ? examination : assessment;
+    if (isExamination) {
+      setAssessment(examination);
+    } else {
+      setAssessment(assessment);
+    }
+
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: "top",
+      status: "success",
+    });
+
+    return { id: resultRef.current?.id };
+  };
+
+  const handleWorkflowFinished = () => {
+    const id = resultRef.current?.id;
+    const nextRoute = isExamination
+      ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${id}`
+      : `/admin/courses/${courseId}/assessment/${id}/questions/new`;
+    push(nextRoute);
+  };
+
   // Handle form submission
   const onSubmit = async (data) => {
     try {
@@ -129,10 +162,7 @@ const CreateAssessmentPage = ({ users }) => {
           }
         : data;
 
-      // Hold off on creating the assessment/examination until a supervisor
-      // is assigned and approval is submitted from the modal below.
-      pendingBodyRef.current = body;
-      setWorkflowContent({
+      const workflowContentBase = {
         contentTitle: data.title,
         requestType: isStandaloneExamination
           ? "StandaloneExam"
@@ -143,7 +173,19 @@ const CreateAssessmentPage = ({ users }) => {
         description: isExamination
           ? `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`
           : `Assessment: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
-      });
+      };
+
+      if (isSuperAdmin) {
+        // Super admins create right away — the modal below only offers an
+        // optional supervisor review afterward.
+        const created = await performCreate(body);
+        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
+      } else {
+        // Instructors must submit for approval before this gets created —
+        // hold off until the modal below completes.
+        pendingBodyRef.current = body;
+        setWorkflowContent(workflowContentBase);
+      }
       setWorkflowModalOpen(true);
     } catch (error) {
       toast({
@@ -393,42 +435,18 @@ const CreateAssessmentPage = ({ users }) => {
         {workflowContent && (
           <WorkflowSubmitModal
             isOpen={workflowModalOpen}
-            onClose={() => setWorkflowModalOpen(false)}
+            onClose={() => {
+              setWorkflowModalOpen(false);
+              if (isSuperAdmin) handleWorkflowFinished();
+            }}
+            isDismissable={isSuperAdmin}
             contentId={workflowContent.contentId}
             contentTitle={workflowContent.contentTitle}
             requestType={workflowContent.requestType}
             courseId={workflowContent.courseId}
             description={workflowContent.description}
-            onCreate={async () => {
-              const body = pendingBodyRef.current;
-              const { message, assessment, examination } = await (isStandaloneExamination
-                ? adminCreateStandaloneExamination(body)
-                : isExamination
-                ? adminCreateExamination(body)
-                : adminCreateAssessment(body));
-
-              resultRef.current = isExamination ? examination : assessment;
-              if (isExamination) {
-                setAssessment(examination);
-              } else {
-                setAssessment(assessment);
-              }
-
-              toast({
-                description: capitalizeFirstLetter(message),
-                position: "top",
-                status: "success",
-              });
-
-              return { id: resultRef.current?.id };
-            }}
-            onSuccess={() => {
-              const id = resultRef.current?.id;
-              const nextRoute = isExamination
-                ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${id}`
-                : `/admin/courses/${courseId}/assessment/${id}/questions/new`;
-              push(nextRoute);
-            }}
+            onCreate={isSuperAdmin ? undefined : () => performCreate(pendingBodyRef.current)}
+            onSuccess={handleWorkflowFinished}
           />
         )}
       </Box>

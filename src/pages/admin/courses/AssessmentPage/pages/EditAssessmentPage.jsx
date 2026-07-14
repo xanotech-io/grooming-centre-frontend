@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useHistory, useParams } from 'react-router';
 import { Box, Flex, Grid, GridItem } from '@chakra-ui/layout';
@@ -14,6 +14,7 @@ import {
 import {
   useDateTimePicker,
   useGoBack,
+  useIsSuperAdmin,
   useQueryParams,
 } from '../../../../../hooks';
 import { AdminMainAreaWrapper } from '../../../../../layouts';
@@ -49,8 +50,10 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
 
   const { push } = useHistory();
   const toast = useToast();
+  const isSuperAdmin = useIsSuperAdmin();
     const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
     const [workflowContent, setWorkflowContent] = useState(null);
+    const pendingBodyRef = useRef(null);
 
   const {
     register,
@@ -97,6 +100,22 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
 
   // const { handleDelete } = useCache();
 
+  const performEdit = async (body) => {
+    const { message } = await (isStandaloneExamination
+      ? adminEditStandaloneExamination(isExamination, body)
+      : isExamination
+      ? adminEditExamination(assessmentId, body)
+      : adminEditAssessment(assessmentId, body));
+
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: 'top',
+      status: 'success',
+    });
+
+    return { id: isStandaloneExamination ? isExamination : assessmentId };
+  };
+
   // Handle form submission
   const onSubmit = async (data) => {
     try {
@@ -124,19 +143,7 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
       //   : data;
       const body = data;
 
-      const { message } = await (isStandaloneExamination
-        ? adminEditStandaloneExamination(isExamination, body)
-        : isExamination
-        ? adminEditExamination(assessmentId, body)
-        : adminEditAssessment(assessmentId, body));
-
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: 'top',
-        status: 'success',
-      });
-
-      setWorkflowContent({
+      const workflowContentBase = {
         contentId: isStandaloneExamination ? isExamination : assessmentId,
         contentTitle: data.title,
         requestType: isStandaloneExamination
@@ -153,7 +160,18 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
         description: isExamination
           ? `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`
           : `Assessment: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
-      });
+      };
+
+      if (isSuperAdmin) {
+        // Super admins' edits apply right away — the modal below only
+        // offers an optional supervisor review afterward.
+        await performEdit(body);
+      } else {
+        // Instructors must submit for approval before this edit takes
+        // effect — hold off until the modal below completes.
+        pendingBodyRef.current = body;
+      }
+      setWorkflowContent(workflowContentBase);
       setWorkflowModalOpen(true);
     } catch (error) {
       toast({
@@ -398,12 +416,17 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
           {workflowContent && (
             <WorkflowSubmitModal
               isOpen={workflowModalOpen}
-              onClose={() => setWorkflowModalOpen(false)}
+              onClose={() => {
+                setWorkflowModalOpen(false);
+                if (isSuperAdmin) push(workflowContent.nextRoute);
+              }}
+              isDismissable={isSuperAdmin}
               contentId={workflowContent.contentId}
               contentTitle={workflowContent.contentTitle}
               requestType={workflowContent.requestType}
               courseId={workflowContent.courseId}
               description={workflowContent.description}
+              onCreate={isSuperAdmin ? undefined : () => performEdit(pendingBodyRef.current)}
               onSuccess={() => push(workflowContent.nextRoute)}
             />
           )}

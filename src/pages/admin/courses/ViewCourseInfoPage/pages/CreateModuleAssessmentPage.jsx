@@ -13,6 +13,7 @@ import {
 import {
   useDateTimePicker,
   useGoBack,
+  useIsSuperAdmin,
 } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
@@ -27,6 +28,7 @@ const CreateModuleAssessmentPage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
+  const isSuperAdmin = useIsSuperAdmin();
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
@@ -50,6 +52,23 @@ const CreateModuleAssessmentPage = () => {
 
   const startTimeManager = useDateTimePicker();
 
+  const performCreate = async (body) => {
+    const { message, assessment } = await adminCreateAssessment(body);
+    resultAssessmentRef.current = assessment;
+    setAssessment(assessment);
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: "top",
+      status: "success",
+    });
+    return { id: assessment.id };
+  };
+
+  const handleWorkflowFinished = () =>
+    push(
+      `/admin/courses/${courseId}/assessment/${resultAssessmentRef.current?.id}/questions/new?moduleId=${moduleId}`,
+    );
+
   const onSubmit = async (data) => {
     try {
       const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
@@ -66,14 +85,23 @@ const CreateModuleAssessmentPage = () => {
         markingTemplateId,
       };
 
-      // Hold off on creating the assessment until a supervisor is assigned
-      // and approval is submitted from the modal below.
-      pendingBodyRef.current = body;
-      setWorkflowContent({
+      const workflowContentBase = {
         contentTitle: data.title,
         requestType: "CourseAssessment",
         courseId,
-      });
+      };
+
+      if (isSuperAdmin) {
+        // Super admins create right away — the modal below only offers an
+        // optional supervisor review afterward.
+        const created = await performCreate(body);
+        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
+      } else {
+        // Instructors must submit for approval before this gets created —
+        // hold off until the modal below completes.
+        pendingBodyRef.current = body;
+        setWorkflowContent(workflowContentBase);
+      }
       setWorkflowModalOpen(true);
     } catch (error) {
       toast({
@@ -156,30 +184,17 @@ const CreateModuleAssessmentPage = () => {
         {workflowContent && (
           <WorkflowSubmitModal
             isOpen={workflowModalOpen}
-            onClose={() => setWorkflowModalOpen(false)}
-            isDismissable={false}
+            onClose={() => {
+              setWorkflowModalOpen(false);
+              if (isSuperAdmin) handleWorkflowFinished();
+            }}
+            isDismissable={isSuperAdmin}
             contentId={workflowContent.contentId}
             contentTitle={workflowContent.contentTitle}
             requestType={workflowContent.requestType}
             courseId={workflowContent.courseId}
-            onCreate={async () => {
-              const { message, assessment } = await adminCreateAssessment(
-                pendingBodyRef.current,
-              );
-              resultAssessmentRef.current = assessment;
-              setAssessment(assessment);
-              toast({
-                description: capitalizeFirstLetter(message),
-                position: "top",
-                status: "success",
-              });
-              return { id: assessment.id };
-            }}
-            onSuccess={() =>
-              push(
-                `/admin/courses/${courseId}/assessment/${resultAssessmentRef.current?.id}/questions/new`,
-              )
-            }
+            onCreate={isSuperAdmin ? undefined : () => performCreate(pendingBodyRef.current)}
+            onSuccess={handleWorkflowFinished}
           />
         )}
       </Box>
