@@ -394,13 +394,6 @@ const ViewModuleExaminationPage = () => {
           <Button
             secondary
             size="sm"
-            onClick={() => history.push(`/admin/batch-import/${examinationId}`)}
-          >
-            Batch Import
-          </Button>
-          <Button
-            secondary
-            size="sm"
             onClick={() => history.push(`/admin/exam-paper-config/${examinationId}`)}
           >
             Configure Paper

@@ -40,20 +40,30 @@ export const adminSubmitWorkflow = async (body) => {
   return { message: data.message, workflow: data.data };
 };
 
+// Supervisor listing endpoints have been observed to nest the person under
+// `user`/`supervisor` on some responses instead of returning flat fields —
+// normalize so `id`/`firstName`/`lastName` are always present when they exist.
+const normalizeSupervisor = (s) => ({
+  ...s,
+  id: s.id ?? s.userId ?? s.supervisorId ?? s.user?.id,
+  firstName: s.firstName ?? s.user?.firstName ?? "",
+  lastName: s.lastName ?? s.user?.lastName ?? "",
+});
+
 // GET /api/v1/workflows/supervisors
 export const adminGetWorkflowSupervisors = async (departmentId) => {
   const { data } = await http.get('/v1/workflows/supervisors', {
     params: departmentId ? { departmentId } : undefined,
   });
   const raw = data.data?.rows ?? data.data ?? [];
-  return { supervisors: Array.isArray(raw) ? raw : [] };
+  return { supervisors: (Array.isArray(raw) ? raw : []).map(normalizeSupervisor) };
 };
 
 // GET /api/department/supervisors/:courseId
 export const adminGetDepartmentSupervisors = async (courseId) => {
   const { data } = await http.get(`/v1/department/supervisors/${courseId}`);
   const raw = data.data?.rows ?? data.data ?? data.supervisors ?? [];
-  return { supervisors: Array.isArray(raw) ? raw : [] };
+  return { supervisors: (Array.isArray(raw) ? raw : []).map(normalizeSupervisor) };
 };
 
 // GET /api/v1/workflows/pending/{supervisor_id}

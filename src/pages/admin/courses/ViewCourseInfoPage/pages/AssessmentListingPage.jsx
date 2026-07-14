@@ -128,8 +128,8 @@ const AssessmentListingPage = () => {
     <AdminMainAreaWrapper>
       <Breadcrumb
         item2={
-          <BreadcrumbItem isCurrentPage>
-            <Link href="/admin/courses">Courses </Link>
+          <BreadcrumbItem>
+            <Link href={`/admin/courses/details/${courseId}/info`}>Courses </Link>
           </BreadcrumbItem>
         }
         item3={

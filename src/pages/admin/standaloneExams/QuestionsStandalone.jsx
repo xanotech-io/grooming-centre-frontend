@@ -1,4 +1,5 @@
 import {
+  Badge,
   Box,
   Flex,
   Grid,
@@ -48,6 +49,15 @@ import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessm
 import useAssessmentStore from "../../../store/assessmentStore";
 
 const QUESTION_TYPES = ["MCQ", "TrueFalse", "Matching", "FillBlank"];
+
+const TYPE_LABEL = {
+  MCQ: "MCQ",
+  TrueFalse: "True / False",
+  Matching: "Matching",
+  FillBlank: "Fill in the Blank",
+  ShortAnswer: "Short Answer",
+  Essay: "Essay",
+};
 
 const QuestionsStandalone = () => {
   const isQuestionListingPage = useQueryParams().get("question-listing");
@@ -464,6 +474,54 @@ const CreateQuestionPage = ({
           )}
         </Box>
       </Box>
+
+      {/* ── Read-only summary (view mode) ── */}
+      {isExistingQuestion && !isEditMode && (
+        <Box marginTop={6} padding={6} backgroundColor="white">
+          <Heading fontSize="18px" mb={4} color="#1A202C">
+            Question Details
+          </Heading>
+
+          <Flex gap={2} mb={5} flexWrap="wrap">
+            <Badge bg="#F0E6FF" color="#6b006b" borderRadius="4px" fontSize="11px" textTransform="none" px={2} py={1}>
+              {TYPE_LABEL[question?.questionType] ?? question?.questionType ?? "MCQ"}
+            </Badge>
+            {question?.difficultyLevel && (
+              <Badge bg="#F7FAFC" color="gray.500" borderRadius="4px" fontSize="11px" textTransform="none" px={2} py={1}>
+                {question.difficultyLevel}
+              </Badge>
+            )}
+            {question?.tags?.map((tag) => (
+              <Badge key={tag} bg="#EBF4FF" color="#3182CE" borderRadius="4px" fontSize="11px" textTransform="none" px={2} py={1}>
+                {tag}
+              </Badge>
+            ))}
+          </Flex>
+
+          {question?.options?.length > 0 && (
+            <Box>
+              <Text fontSize="sm" fontWeight="500" mb={2} color="#1A202C">
+                Options
+              </Text>
+              {question.options.map((opt) => (
+                <Flex key={opt.id ?? opt.optionIndex} alignItems="center" gap={2} mb={2}>
+                  <Box
+                    boxSize="16px"
+                    borderRadius="full"
+                    border="2px solid"
+                    borderColor={opt.isAnswer ? "#38A169" : "#CBD5E0"}
+                    bg={opt.isAnswer ? "#38A169" : "transparent"}
+                    flexShrink={0}
+                  />
+                  <Text fontSize="14px" color={opt.isAnswer ? "#276749" : "#4A5568"} fontWeight={opt.isAnswer ? "600" : "400"}>
+                    {opt.name}
+                  </Text>
+                </Flex>
+              ))}
+            </Box>
+          )}
+        </Box>
+      )}
 
       {/* ── Settings + Answer Options ── */}
       {(!isExistingQuestion || isEditMode) && (

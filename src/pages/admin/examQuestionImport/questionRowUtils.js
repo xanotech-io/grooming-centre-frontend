@@ -27,6 +27,23 @@ export const normalizeQuestionType = (type) => {
   return TYPE_ALIASES[type] ?? TYPE_ALIASES[String(type).toLowerCase()] ?? "MCQ";
 };
 
+// Inverse of normalizeQuestionType — converts the UI's PascalCase constant
+// back to the lowercase snake_case form the API expects in PATCH payloads.
+const TYPE_TO_API = {
+  MCQ: "mcq",
+  TrueFalse: "true_false",
+  FillBlank: "fill_blank",
+  Matching: "matching",
+  ShortAnswer: "short_answer",
+  Essay: "essay",
+};
+
+export const denormalizeQuestionType = (type) => TYPE_TO_API[type] ?? String(type).toLowerCase();
+
+// The difficulty enum is uppercase on the API side (EASY/MEDIUM/HARD); GET
+// responses have been seen in mixed case, so normalize on the way in too.
+export const normalizeDifficulty = (level) => (level ? String(level).toUpperCase() : "");
+
 const LETTER_TO_INDEX = { A: 1, B: 2, C: 3, D: 4 };
 const INDEX_TO_LETTER = { 1: "A", 2: "B", 3: "C", 4: "D" };
 
@@ -82,7 +99,7 @@ export const normalizeStagedRow = (row) => {
     options,
     correctAnswer: row.correctAnswer ?? row.correct_answer ?? "",
     marks: row.marks ?? 1,
-    difficultyLevel: row.difficultyLevel ?? row.difficulty_level ?? "",
+    difficultyLevel: normalizeDifficulty(row.difficultyLevel ?? row.difficulty_level ?? ""),
     tags: Array.isArray(row.tags)
       ? row.tags
       : row.tags

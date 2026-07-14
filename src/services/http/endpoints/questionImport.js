@@ -46,8 +46,10 @@ export const adminCancelQuestionImport = async (uploadId) => {
  * GET /v1/question-batch-import-v2/template/download
  */
 export const adminGetQuestionImportTemplate = async () => {
-  const { data } = await http.get('/v1/question-batch-import-v2/template/download');
-  return { template: data?.data?.template ?? data?.data ?? data };
+  const response = await http.get('/v1/question-batch-import-v2/template/download', {
+    responseType: 'blob',
+  });
+  return response.data;
 };
 
 /**

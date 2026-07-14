@@ -10,6 +10,7 @@ import {
 } from "@chakra-ui/react";
 import { BsCheckCircle } from "react-icons/bs";
 import { Button, Input } from "../../../components";
+import { denormalizeQuestionType } from "./questionRowUtils";
 
 const QUESTION_TYPES = ["MCQ", "TrueFalse", "FillBlank", "Matching", "ShortAnswer", "Essay"];
 
@@ -51,7 +52,7 @@ const StagedQuestionRow = ({ row, index, onSave, onRemove, saving, removing }) =
     const isObjective = editState.questionType === "MCQ" || editState.questionType === "TrueFalse";
     const patch = {
       questionText: editState.questionText,
-      questionType: editState.questionType,
+      questionType: denormalizeQuestionType(editState.questionType),
       marks: Number(editState.marks) || 1,
       difficultyLevel: editState.difficultyLevel || undefined,
       tags: editState.tagsInput
@@ -123,9 +124,9 @@ const StagedQuestionRow = ({ row, index, onSave, onRemove, saving, removing }) =
               onChange={(e) => setEditState((prev) => ({ ...prev, difficultyLevel: e.target.value }))}
               placeholder="Not set"
             >
-              <option value="Easy">Easy</option>
-              <option value="Medium">Medium</option>
-              <option value="Hard">Hard</option>
+              <option value="EASY">Easy</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HARD">Hard</option>
             </ChakraSelect>
           </Box>
           <Box minW="220px" flex={1}>

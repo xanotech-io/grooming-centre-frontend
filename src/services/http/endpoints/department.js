@@ -104,8 +104,18 @@ export const adminGetAllDepartmentSupervisors = async () => {
   } = await http.get(path);
 
   const raw = data?.rows ?? data ?? [];
-  return { supervisors: Array.isArray(raw) ? raw : [] };
+  return { supervisors: (Array.isArray(raw) ? raw : []).map(normalizeSupervisor) };
 };
+
+// Supervisor listing endpoints have been observed to nest the person under
+// `user`/`supervisor` on some responses instead of returning flat fields —
+// normalize so `id`/`firstName`/`lastName` are always present when they exist.
+const normalizeSupervisor = (s) => ({
+  ...s,
+  id: s.id ?? s.userId ?? s.supervisorId ?? s.user?.id,
+  firstName: s.firstName ?? s.user?.firstName ?? "",
+  lastName: s.lastName ?? s.user?.lastName ?? "",
+});
 
 /**
  * Endpoint to for admin to create a department

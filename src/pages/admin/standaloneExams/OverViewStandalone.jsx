@@ -188,16 +188,6 @@ const EditStandalonePage = ({ assessment }) => {
           </GridItem>
           <GridItem>
             <Select
-              label="Course"
-              id="course"
-              placeholder="Select the course associated with the exam"
-              options={[]}
-              {...register("course")}
-            />
-          </GridItem>
-
-          <GridItem>
-            <Select
               label="Instructor"
               id="instructor"
               placeholder="Select instructor for the exam"

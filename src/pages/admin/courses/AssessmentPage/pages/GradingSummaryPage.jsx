@@ -234,22 +234,22 @@ const GradingSummaryPage = () => {
 
       {!loading && !error && rows.length > 0 && (
         <Box bg="white" border="1px solid #E2E8F0" borderRadius="12px" overflow="hidden">
-          <TableContainer overflowX="auto">
+          <TableContainer overflowX="auto" overflowY="auto" maxH="60vh">
             <Table variant="simple" size="sm">
-              <Thead bg="#F7F9FC">
+              <Thead bg="#F7F9FC" position="sticky" top={0} zIndex={1}>
                 <Tr>
-                  <Th color="gray.500" fontSize="11px" py={3}>#</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Student</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Instructor</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Submitted</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Status</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Score</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Grade</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Pass/Fail</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Remarks</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Grading Duration</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Date Graded</Th>
-                  <Th color="gray.500" fontSize="11px" py={3}>Action</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">#</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">Student</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">Instructor</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">Submitted</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">Status</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">Score</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">Grade</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">Pass/Fail</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">Remarks</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">Grading Duration</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">Date Graded</Th>
+                  <Th color="gray.500" fontSize="11px" py={3} position="sticky" top={0} zIndex={1} bg="#F7F9FC">Action</Th>
                 </Tr>
               </Thead>
               <Tbody>

@@ -301,10 +301,6 @@ export const links = [
         href: "/admin/report/assessment-analytics",
         text: "Assessment Analytics Report",
       },
-      {
-        href: "/admin/compliance",
-        text: "Compliance & Non-Compliance Training Monitor",
-      },
     ],
   },
   {
