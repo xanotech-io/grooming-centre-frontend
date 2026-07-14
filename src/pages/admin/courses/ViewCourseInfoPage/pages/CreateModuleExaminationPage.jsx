@@ -16,6 +16,7 @@ import {
 import {
   useDateTimePicker,
   useGoBack,
+  useIsSuperAdmin,
 } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
@@ -84,6 +85,7 @@ const CreateModuleExaminationPage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
+  const isSuperAdmin = useIsSuperAdmin();
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
@@ -177,6 +179,35 @@ const CreateModuleExaminationPage = () => {
       .finally(() => setLoadingExam(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, examinationId]);
+  const performEdit = async (body) => {
+    const { message } = await adminEditExamination(examinationId, body);
+    toast({
+      description: capitalizeFirstLetter(message || "Examination updated successfully."),
+      position: "top",
+      status: "success",
+    });
+    return { id: examinationId };
+  };
+
+  const performCreate = async (body) => {
+    const { message, examination } = await adminCreateExamination(body);
+    resultExaminationRef.current = examination;
+    setAssessment(examination);
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: "top",
+      status: "success",
+    });
+    return { id: examination.id };
+  };
+
+  const handleWorkflowFinished = () => {
+    const nextRoute = isEditMode
+      ? `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`
+      : `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${resultExaminationRef.current?.id}`;
+    push(nextRoute);
+  };
+
   const onSubmit = async (data) => {
     try {
       const startTime =
@@ -203,32 +234,31 @@ const CreateModuleExaminationPage = () => {
         submissionSettings: submission,
       };
 
+      const workflowContentBase = {
+        contentTitle: data.title,
+        requestType: "CourseExam",
+        courseId,
+      };
+
       if (isEditMode) {
-        const { message } = await adminEditExamination(examinationId, body);
-        toast({
-          description: capitalizeFirstLetter(message || "Examination updated successfully."),
-          position: "top",
-          status: "success",
-        });
-        setWorkflowContent({
-          contentId: examinationId,
-          contentTitle: data.title,
-          requestType: "CourseExam",
-          courseId,
-          nextRoute: `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`,
-        });
-        setWorkflowModalOpen(true);
+        if (isSuperAdmin) {
+          await performEdit(body);
+        } else {
+          pendingBodyRef.current = body;
+        }
+        setWorkflowContent({ ...workflowContentBase, contentId: examinationId });
+      } else if (isSuperAdmin) {
+        // Super admins create right away — the modal below only offers an
+        // optional supervisor review afterward.
+        const created = await performCreate(body);
+        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
       } else {
-        // Hold off on creating the examination until a supervisor is
-        // assigned and approval is submitted from the modal below.
+        // Instructors must submit for approval before this gets created —
+        // hold off until the modal below completes.
         pendingBodyRef.current = body;
-        setWorkflowContent({
-          contentTitle: data.title,
-          requestType: "CourseExam",
-          courseId,
-        });
-        setWorkflowModalOpen(true);
+        setWorkflowContent(workflowContentBase);
       }
+      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(
@@ -366,34 +396,24 @@ const CreateModuleExaminationPage = () => {
           {workflowContent && (
             <WorkflowSubmitModal
               isOpen={workflowModalOpen}
-              onClose={() => setWorkflowModalOpen(false)}
-              isDismissable={false}
+              onClose={() => {
+                setWorkflowModalOpen(false);
+                if (isSuperAdmin) handleWorkflowFinished();
+              }}
+              isDismissable={isSuperAdmin}
               contentId={workflowContent.contentId}
               contentTitle={workflowContent.contentTitle}
               requestType={workflowContent.requestType}
               courseId={workflowContent.courseId}
               onCreate={
-                isEditMode
+                isSuperAdmin
                   ? undefined
-                  : async () => {
-                      const { message, examination } =
-                        await adminCreateExamination(pendingBodyRef.current);
-                      resultExaminationRef.current = examination;
-                      setAssessment(examination);
-                      toast({
-                        description: capitalizeFirstLetter(message),
-                        position: "top",
-                        status: "success",
-                      });
-                      return { id: examination.id };
-                    }
+                  : () =>
+                      isEditMode
+                        ? performEdit(pendingBodyRef.current)
+                        : performCreate(pendingBodyRef.current)
               }
-              onSuccess={() => {
-                const nextRoute = isEditMode
-                  ? `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`
-                  : `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${resultExaminationRef.current?.id}`;
-                push(nextRoute);
-              }}
+              onSuccess={handleWorkflowFinished}
             />
           )}
         </SectionCard>

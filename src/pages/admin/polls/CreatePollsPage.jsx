@@ -16,6 +16,7 @@ import {
 } from "../../../components";
 import { CreatePageLayout } from "../../../layouts";
 import { useApp } from "../../../contexts";
+import { useIsSuperAdmin } from "../../../hooks";
 import { adminCreatePoll } from "../../../services";
 import { capitalizeFirstLetter, capitalizeWords } from "../../../utils";
 
@@ -35,6 +36,7 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
   });
 
   const { push } = useHistory();
+  const isSuperAdmin = useIsSuperAdmin();
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
   const pendingPayloadRef = useRef(null);
@@ -78,6 +80,17 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
     });
   };
 
+  const performCreate = async (payload) => {
+    const { message, poll } = await adminCreatePoll(payload);
+    resultPollRef.current = poll;
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: "top",
+      status: "success",
+    });
+    return { id: poll?.id };
+  };
+
   const onSubmit = async (data) => {
     try {
       const cleanedOptions = options
@@ -95,14 +108,23 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
         ...(data.departmentId ? { departmentId: data.departmentId } : {}),
       };
 
-      // Hold off on creating the poll until a supervisor is assigned and
-      // approval is submitted from the modal below.
-      pendingPayloadRef.current = payload;
-      setWorkflowContent({
+      const workflowContentBase = {
         contentTitle: payload.question,
         requestType: "Poll",
         departmentId: data.departmentId,
-      });
+      };
+
+      if (isSuperAdmin) {
+        // Super admins create right away — the modal below only offers an
+        // optional supervisor review afterward.
+        const created = await performCreate(payload);
+        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
+      } else {
+        // Instructors must submit for approval before this gets created —
+        // hold off until the modal below completes.
+        pendingPayloadRef.current = payload;
+        setWorkflowContent(workflowContentBase);
+      }
       setWorkflowModalOpen(true);
     } catch (err) {
       toast({
@@ -215,24 +237,16 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => setWorkflowModalOpen(false)}
-          isDismissable={false}
+          onClose={() => {
+            setWorkflowModalOpen(false);
+            if (isSuperAdmin) push("/admin/polls/");
+          }}
+          isDismissable={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           departmentId={workflowContent.departmentId}
-          onCreate={async () => {
-            const { message, poll } = await adminCreatePoll(
-              pendingPayloadRef.current,
-            );
-            resultPollRef.current = poll;
-            toast({
-              description: capitalizeFirstLetter(message),
-              position: "top",
-              status: "success",
-            });
-            return { id: poll?.id };
-          }}
+          onCreate={isSuperAdmin ? undefined : () => performCreate(pendingPayloadRef.current)}
           onSuccess={() => push("/admin/polls/")}
         />
       )}

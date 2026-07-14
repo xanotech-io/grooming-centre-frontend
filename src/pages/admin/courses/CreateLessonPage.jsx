@@ -18,7 +18,12 @@ import {
 import { CreatePageLayout } from "../../../layouts";
 import { BreadcrumbItem, Box } from "@chakra-ui/react";
 import { useForm } from "react-hook-form";
-import { useDateTimePicker, useUpload, useRichText } from "../../../hooks";
+import {
+  useDateTimePicker,
+  useIsSuperAdmin,
+  useUpload,
+  useRichText,
+} from "../../../hooks";
 import {
   appendFormData,
   capitalizeFirstLetter,
@@ -38,6 +43,7 @@ const CreateLessonPage = () => {
   const [loader, setUploadProgress] = useState(0);
   const { push } = useHistory();
   const toast = useToast();
+  const isSuperAdmin = useIsSuperAdmin();
   const { handleDelete } = useCache();
 
   const {
@@ -186,6 +192,40 @@ const CreateLessonPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watch, metadata]);
 
+  const performEdit = async (body) => {
+    const { message, lesson } = await adminEditLesson(lessonId, body);
+    resultLessonRef.current = lesson;
+    handleDelete(lesson.id);
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: "top",
+      status: "success",
+    });
+    return { id: lesson?.id ?? lessonId };
+  };
+
+  const performCreate = async (body) => {
+    const { message, lesson } = await adminCreateLesson(
+      body,
+      handleUploadProgress,
+    );
+    resultLessonRef.current = lesson;
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: "top",
+      status: "success",
+    });
+    return { id: lesson?.id };
+  };
+
+  const handleWorkflowFinished = () => {
+    const lessonIdForRoute = resultLessonRef.current?.id ?? lessonId;
+    const nextRoute = isModuleScoped
+      ? `/admin/courses/${courseId}/module/${moduleId}/lessons`
+      : `/admin/courses/${courseId}/lesson/${lessonIdForRoute}/view`;
+    push(nextRoute);
+  };
+
   // Handle form submission
   const onSubmit = async (data) => {
     try {
@@ -211,39 +251,33 @@ const CreateLessonPage = () => {
       if (isEditMode) Reflect.deleteProperty(data, "courseId");
 
       const body = appendFormData(data);
-      {
-        console.log(fileManager.pdf.url);
-      }
+
+      const workflowContentBase = {
+        contentTitle: data.title,
+        requestType: isModuleScoped ? "CourseLesson" : "Lesson",
+        courseId,
+      };
 
       if (isEditMode) {
-        const { message, lesson } = await adminEditLesson(lessonId, body);
-        resultLessonRef.current = lesson;
-        handleDelete(lesson.id);
-
-        toast({
-          description: capitalizeFirstLetter(message),
-          position: "top",
-          status: "success",
-        });
-
-        setWorkflowContent({
-          contentId: lesson?.id ?? lessonId,
-          contentTitle: data.title,
-          requestType: isModuleScoped ? "CourseLesson" : "Lesson",
-          courseId,
-        });
-        setWorkflowModalOpen(true);
+        if (isSuperAdmin) {
+          const edited = await performEdit(body);
+          setWorkflowContent({ ...workflowContentBase, contentId: edited.id });
+        } else {
+          pendingLessonBodyRef.current = body;
+          setWorkflowContent({ ...workflowContentBase, contentId: lessonId });
+        }
+      } else if (isSuperAdmin) {
+        // Super admins create right away — the modal below only offers an
+        // optional supervisor review afterward.
+        const created = await performCreate(body);
+        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
       } else {
-        // Hold off on creating the lesson until a supervisor is assigned
-        // and approval is submitted from the modal below.
+        // Instructors must submit for approval before this gets created —
+        // hold off until the modal below completes.
         pendingLessonBodyRef.current = body;
-        setWorkflowContent({
-          contentTitle: data.title,
-          requestType: isModuleScoped ? "CourseLesson" : "Lesson",
-          courseId,
-        });
-        setWorkflowModalOpen(true);
+        setWorkflowContent(workflowContentBase);
       }
+      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -454,36 +488,24 @@ const CreateLessonPage = () => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => setWorkflowModalOpen(false)}
-          isDismissable={false}
+          onClose={() => {
+            setWorkflowModalOpen(false);
+            if (isSuperAdmin) handleWorkflowFinished();
+          }}
+          isDismissable={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
           onCreate={
-            isEditMode
+            isSuperAdmin
               ? undefined
-              : async () => {
-                  const { message, lesson } = await adminCreateLesson(
-                    pendingLessonBodyRef.current,
-                    handleUploadProgress,
-                  );
-                  resultLessonRef.current = lesson;
-                  toast({
-                    description: capitalizeFirstLetter(message),
-                    position: "top",
-                    status: "success",
-                  });
-                  return { id: lesson?.id };
-                }
+              : () =>
+                  isEditMode
+                    ? performEdit(pendingLessonBodyRef.current)
+                    : performCreate(pendingLessonBodyRef.current)
           }
-          onSuccess={() => {
-            const lessonIdForRoute = resultLessonRef.current?.id ?? lessonId;
-            const nextRoute = isModuleScoped
-              ? `/admin/courses/${courseId}/module/${moduleId}/lessons`
-              : `/admin/courses/${courseId}/lesson/${lessonIdForRoute}/view`;
-            push(nextRoute);
-          }}
+          onSuccess={handleWorkflowFinished}
         />
       )}
     </>

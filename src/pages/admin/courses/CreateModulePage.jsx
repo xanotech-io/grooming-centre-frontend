@@ -20,7 +20,7 @@ import {
   adminGetModule,
   adminUpdateModule,
 } from "../../../services";
-import { useFetch } from "../../../hooks";
+import { useFetch, useIsSuperAdmin } from "../../../hooks";
 import { useCallback } from "react";
 
 const STATUS_OPTIONS = [
@@ -33,6 +33,7 @@ const CreateModulePage = () => {
   const isEditMode = moduleId && moduleId !== "new";
   const { push } = useHistory();
   const toast = useToast();
+  const isSuperAdmin = useIsSuperAdmin();
   const { handleDelete } = useCache();
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
@@ -76,8 +77,29 @@ const CreateModulePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resource]);
 
+  const performEdit = async (body) => {
+    const { message } = await adminUpdateModule(moduleId, body);
+    toast({ title: message, status: "success", duration: 3000 });
+    handleDelete("modules");
+    return { id: moduleId };
+  };
+
+  const performCreate = async (body) => {
+    const { message, module } = await adminCreateModule(courseId, body);
+    resultModuleRef.current = module;
+    toast({ title: message, status: "success", duration: 3000 });
+    handleDelete("modules");
+    return { id: module?.id };
+  };
+
   const onSubmit = async (data) => {
     try {
+      const workflowContentBase = {
+        contentTitle: data.title,
+        requestType: "Module",
+        courseId,
+      };
+
       if (isEditMode) {
         const body = {
           title: data.title,
@@ -85,33 +107,34 @@ const CreateModulePage = () => {
           sequenceOrder: Number(data.sequenceOrder),
           status: data.status,
         };
-        const { message } = await adminUpdateModule(moduleId, body);
-        toast({ title: message, status: "success", duration: 3000 });
-        handleDelete("modules");
 
-        setWorkflowContent({
-          contentId: moduleId,
-          contentTitle: data.title,
-          requestType: "Module",
-          courseId,
-        });
-        setWorkflowModalOpen(true);
+        if (isSuperAdmin) {
+          await performEdit(body);
+        } else {
+          pendingBodyRef.current = body;
+        }
+        setWorkflowContent({ ...workflowContentBase, contentId: moduleId });
       } else {
-        // Hold off on creating the module until a supervisor is assigned
-        // and approval is submitted from the modal below.
-        pendingBodyRef.current = {
+        const body = {
           title: data.title,
           description: data.description,
           sequenceOrder: Number(data.sequenceOrder),
           status: "inactive",
         };
-        setWorkflowContent({
-          contentTitle: data.title,
-          requestType: "Module",
-          courseId,
-        });
-        setWorkflowModalOpen(true);
+
+        if (isSuperAdmin) {
+          // Super admins create right away — the modal below only offers
+          // an optional supervisor review afterward.
+          const created = await performCreate(body);
+          setWorkflowContent({ ...workflowContentBase, contentId: created.id });
+        } else {
+          // Instructors must submit for approval before this gets created
+          // — hold off until the modal below completes.
+          pendingBodyRef.current = body;
+          setWorkflowContent(workflowContentBase);
+        }
       }
+      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         title: error?.response?.data?.message || "An error occurred",
@@ -217,25 +240,22 @@ const CreateModulePage = () => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => setWorkflowModalOpen(false)}
-          isDismissable={false}
+          onClose={() => {
+            setWorkflowModalOpen(false);
+            if (isSuperAdmin) push(`/admin/courses/details/${courseId}/modules`);
+          }}
+          isDismissable={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
           onCreate={
-            isEditMode
+            isSuperAdmin
               ? undefined
-              : async () => {
-                  const { message, module } = await adminCreateModule(
-                    courseId,
-                    pendingBodyRef.current,
-                  );
-                  resultModuleRef.current = module;
-                  toast({ title: message, status: "success", duration: 3000 });
-                  handleDelete("modules");
-                  return { id: module?.id };
-                }
+              : () =>
+                  isEditMode
+                    ? performEdit(pendingBodyRef.current)
+                    : performCreate(pendingBodyRef.current)
           }
           onSuccess={() => push(`/admin/courses/details/${courseId}/modules`)}
         />

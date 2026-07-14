@@ -1,7 +1,7 @@
 import { Route, useParams, useHistory } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Button,
@@ -12,7 +12,7 @@ import {
   Textarea,
   WorkflowSubmitModal,
 } from "../../../../../components";
-import { useDateTimePicker, useGoBack } from "../../../../../hooks";
+import { useDateTimePicker, useGoBack, useIsSuperAdmin } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import { getProjectById, updateProject } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
@@ -27,9 +27,11 @@ const EditModuleProjectPage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
+  const isSuperAdmin = useIsSuperAdmin();
   const [isLoading, setIsLoading] = useState(true);
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingBodyRef = useRef(null);
 
   const {
     register,
@@ -69,6 +71,16 @@ const EditModuleProjectPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  const performEdit = async (body) => {
+    const { message } = await updateProject(projectId, body);
+    toast({
+      description: capitalizeFirstLetter(message),
+      position: "top",
+      status: "success",
+    });
+    return { id: projectId };
+  };
+
   const onSubmit = async (data) => {
     try {
       const dueDate = dueDateManager.handleGetValueAndValidate("Due Date");
@@ -82,13 +94,15 @@ const EditModuleProjectPage = () => {
         status: data.status || "draft",
       };
 
-      const { message } = await updateProject(projectId, body);
-
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
+      if (isSuperAdmin) {
+        // Super admins' edits apply right away — the modal below only
+        // offers an optional supervisor review afterward.
+        await performEdit(body);
+      } else {
+        // Instructors must submit for approval before this edit takes
+        // effect — hold off until the modal below completes.
+        pendingBodyRef.current = body;
+      }
 
       setWorkflowContent({
         contentId: projectId,
@@ -191,12 +205,16 @@ const EditModuleProjectPage = () => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => setWorkflowModalOpen(false)}
-          isDismissable={false}
+          onClose={() => {
+            setWorkflowModalOpen(false);
+            if (isSuperAdmin) push(workflowContent.nextRoute);
+          }}
+          isDismissable={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
+          onCreate={isSuperAdmin ? undefined : () => performEdit(pendingBodyRef.current)}
           onSuccess={() => push(workflowContent.nextRoute)}
         />
       )}
