@@ -119,6 +119,13 @@ export const getStandaloneExaminationDetails = async (id, forAdmin) => {
       question: q.question,
       file: q.file,
       questionIndex: +q.questionIndex || index,
+      questionType: q.questionType ?? q.question_type ?? "MCQ",
+      difficultyLevel: q.difficultyLevel ?? q.difficulty_level ?? "",
+      tags: Array.isArray(q.tags)
+        ? q.tags
+        : q.tags
+          ? String(q.tags).split(",").map((t) => t.trim()).filter(Boolean)
+          : [],
       options: q.standAloneExaminationOption.map((opt, optIndex) => ({
         id: opt.id,
         isAnswer: opt.isAnswer,

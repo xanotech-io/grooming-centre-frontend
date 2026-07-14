@@ -275,7 +275,6 @@ const QuestionImportPage = () => {
   const { resource, handleFetchResource } = useFetch();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
-  const [template, setTemplate] = useState(null);
   const uploadModal = useDisclosure();
   const pollingRef = useRef(null);
 
@@ -289,13 +288,6 @@ const QuestionImportPage = () => {
   useEffect(() => {
     handleFetchResource({ fetcher });
   }, [handleFetchResource, fetcher]);
-
-  // Load template info on mount
-  useEffect(() => {
-    adminGetQuestionImportTemplate()
-      .then(({ template: t }) => setTemplate(t))
-      .catch(() => {});
-  }, []);
 
   // Poll every 5s when PROCESSING uploads exist
   const uploads = useMemo(() => resource.data?.uploads ?? [], [resource.data?.uploads]);
@@ -321,14 +313,22 @@ const QuestionImportPage = () => {
     error: uploads.filter((u) => u.status === "ERROR").length,
   };
 
-  const handleDownloadTemplate = () => {
-    if (template?.downloadUrl) {
-      window.open(template.downloadUrl, "_blank");
-    } else {
+  const handleDownloadTemplate = async () => {
+    try {
+      const blob = await adminGetQuestionImportTemplate();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "question_import_template.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
       toast({
-        title: "Template URL not available",
-        status: "info",
-        duration: 2000,
+        title: "Failed to download template",
+        status: "error",
+        duration: 3000,
         isClosable: true,
       });
     }
@@ -359,31 +359,6 @@ const QuestionImportPage = () => {
           </Button>
         </Flex>
       </Flex>
-
-      {/* Template hint */}
-      {template && (
-        <Box
-          bg="#EBF4FF"
-          border="1px solid #BEE3F8"
-          borderRadius="8px"
-          p="12px 16px"
-          mb="20px"
-        >
-          <Text fontSize="13px" color="#2B6CB0" fontWeight="500" mb="4px">
-            Required CSV columns:
-          </Text>
-          <Text fontSize="12px" color="#2C5282">
-            {template.requiredColumns?.join(", ")}{" "}
-            <Text as="span" color="#718096">
-              + optional: {template.optionalColumns?.join(", ")}
-            </Text>
-          </Text>
-          <Text fontSize="12px" color="#718096" mt="4px">
-            Supported types: {template.questionTypes?.join(", ")} • Difficulty
-            levels: {template.difficultyLevels?.join(", ")}
-          </Text>
-        </Box>
-      )}
 
       {/* Stats cards */}
       <Grid

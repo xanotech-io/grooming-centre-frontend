@@ -259,13 +259,11 @@ const CreateEventPage = () => {
 
         <Select
           label="Select department"
+          placeholder="All departments"
           options={populateSelectOptions(metadata?.departments)}
-          isRequired
           id="departmentId"
           isLoading={!metadata?.departments}
-          {...register("departmentId", {
-            required: "Please select a department",
-          })}
+          {...register("departmentId")}
           error={errors.departmentId?.message}
         />
       </Box>

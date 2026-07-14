@@ -23,10 +23,12 @@ export const WorkflowReviewSection = ({
   supervisorsLoading = false,
   supervisorsError = null,
 }) => {
-  const supervisorOptions = supervisors.map((s) => ({
-    label: `${s.firstName} ${s.lastName}`,
-    value: s.id,
-  }));
+  const supervisorOptions = supervisors
+    .filter((s) => s.id)
+    .map((s) => ({
+      label: `${s.firstName} ${s.lastName}`,
+      value: s.id,
+    }));
 
   return (
     <Box mt={8}>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Route, useHistory, Redirect } from "react-router-dom";
 import {
   Box,
@@ -67,6 +67,7 @@ const AutomatedApprovalWorkflow = () => {
   const { state: appState, getOneMetadata } = useApp();
   const { resource, handleFetchResource } = useFetch();
   const [exporting, setExporting] = useState(false);
+  const pollingRef = useRef(null);
 
   const supervisorId = appState.user?.id;
   const role = getOneMetadata("userRoles", appState.user?.userRoleId);
@@ -81,6 +82,17 @@ const AutomatedApprovalWorkflow = () => {
     if (supervisorId && hasAccess) {
       handleFetchResource({ fetcher });
     }
+  }, [handleFetchResource, fetcher, supervisorId, hasAccess]);
+
+  // Poll every 15s so newly-approved/rejected workflows show up without a manual refresh
+  useEffect(() => {
+    if (!supervisorId || !hasAccess) return undefined;
+    pollingRef.current = setInterval(() => {
+      handleFetchResource({ fetcher });
+    }, 15000);
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
   }, [handleFetchResource, fetcher, supervisorId, hasAccess]);
 
   const workflows = useMemo(() => resource.data?.workflows ?? JSON.parse(localStorage.getItem("__TEST_FIXTURE_WORKFLOWS__") || "null") ?? [], [resource.data?.workflows]);

@@ -72,10 +72,12 @@ export const WorkflowSubmitModal = ({
   }, [isOpen, fetchSupervisors, supervisorFetcher]);
 
   const supervisors = Array.isArray(supervisorsResource.data) ? supervisorsResource.data : [];
-  const supervisorOptions = supervisors.map((s) => ({
-    label: `${s.firstName} ${s.lastName}`,
-    value: s.id,
-  }));
+  const supervisorOptions = supervisors
+    .filter((s) => s.id)
+    .map((s) => ({
+      label: `${s.firstName} ${s.lastName}`,
+      value: s.id,
+    }));
 
   const handleSubmit = async () => {
     if (!selectedSupervisorId) {
@@ -206,6 +208,10 @@ export const WorkflowSubmitModal = ({
             ) : supervisorsResource.err ? (
               <Text fontSize="13px" color="red.500">
                 Could not load supervisors.
+              </Text>
+            ) : supervisorOptions.length === 0 ? (
+              <Text fontSize="13px" color="red.500">
+                No supervisors are available to assign. Contact an admin before submitting.
               </Text>
             ) : (
               <Select

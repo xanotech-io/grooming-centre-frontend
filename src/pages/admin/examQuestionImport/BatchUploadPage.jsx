@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
+  BreadcrumbItem,
   Box,
   Collapse,
   Flex,
@@ -19,14 +20,14 @@ import {
   Tr,
   useToast,
 } from "@chakra-ui/react";
-import { Button, Heading } from "../../../components";
+import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts";
 import { useQueryParams } from "../../../hooks";
 import {
   downloadExamQuestionBatchTemplate,
   uploadExamQuestionBatch,
 } from "../../../services";
 import {
-  FiArrowLeft,
   FiChevronDown,
   FiChevronUp,
   FiDownload,
@@ -34,6 +35,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import {
+  buildQuestionListingLink,
   buildReviewLink,
   contextLabel,
   getUploadContext,
@@ -225,19 +227,27 @@ const BatchUploadPage = () => {
   };
 
   return (
-    <Box marginX="22px" marginY="20px" maxW="860px">
-      <Flex alignItems="center" justifyContent="space-between" mb="20px" flexWrap="wrap" gap="12px">
-        <Flex alignItems="center" gap="12px">
-          <Flex as="button" alignItems="center" gap="6px" color="#6b006b" onClick={() => history.goBack()} _hover={{ opacity: 0.8 }}>
-            <FiArrowLeft size={14} />
-            <Text fontSize="13px" fontWeight="600">Back</Text>
-          </Flex>
-          <Box w="1px" h="20px" bg="#E2E8F0" />
-          <Heading fontSize="20px" fontWeight="600">Batch Upload {contextLabel(context)} Questions</Heading>
-        </Flex>
-      </Flex>
+    <AdminMainAreaWrapper>
+      <Box marginX="22px" marginY="20px" maxW="860px">
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href={buildQuestionListingLink(context)}>{contextLabel(context)} Questions</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Batch Upload</Link>
+            </BreadcrumbItem>
+          }
+        />
 
-      <Flex direction="column" gap="20px">
+        <Flex alignItems="center" justifyContent="space-between" mt="20px" mb="20px" flexWrap="wrap" gap="12px">
+          <Heading fontSize="20px" fontWeight="600">Batch Upload {contextLabel(context)} Questions</Heading>
+          <Button secondary size="sm" onClick={() => history.goBack()}>← Back</Button>
+        </Flex>
+
+        <Flex direction="column" gap="20px">
         {/* Step 1: Download Template */}
         <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" p="24px">
           <Flex alignItems="center" gap="10px" mb="12px">
@@ -319,9 +329,9 @@ const BatchUploadPage = () => {
               onChange={(e) => setDefaultDifficulty(e.target.value)}
               placeholder="Leave blank"
             >
-              <option value="Easy">Easy</option>
-              <option value="Medium">Medium</option>
-              <option value="Hard">Hard</option>
+              <option value="EASY">Easy</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HARD">Hard</option>
             </Select>
           </FormControl>
 
@@ -372,8 +382,9 @@ const BatchUploadPage = () => {
             </Button>
           </Flex>
         </Box>
-      </Flex>
-    </Box>
+        </Flex>
+      </Box>
+    </AdminMainAreaWrapper>
   );
 };
 
