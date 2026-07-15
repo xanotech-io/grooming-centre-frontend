@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/static/css/main.ff44cc48.css",
-    "main.js": "/static/js/main.1c3797e5.js",
+    "main.css": "/static/css/main.9206ce19.css",
+    "main.js": "/static/js/main.55e90639.js",
     "reactPlayerYouTube.js": "/static/js/reactPlayerYouTube.8641f3fe.chunk.js",
     "reactPlayerSoundCloud.js": "/static/js/reactPlayerSoundCloud.4912bea4.chunk.js",
     "reactPlayerVimeo.js": "/static/js/reactPlayerVimeo.aa30e80f.chunk.js",
@@ -18,11 +18,11 @@
     "static/js/213.a493969e.chunk.js": "/static/js/213.a493969e.chunk.js",
     "static/js/667.942bae74.chunk.js": "/static/js/667.942bae74.chunk.js",
     "static/js/453.297c470d.chunk.js": "/static/js/453.297c470d.chunk.js",
-    "static/media/User_CourseDetailsHeader.svg": "/static/media/User_CourseDetailsHeader.5f3041ad2fc5b8e53be5334a48256ec7.svg",
+    "static/media/User_CourseDetailsHeader.svg": "/static/media/User_CourseDetailsHeader.038c3e951619fabb67fd6ce0390f3242.svg",
     "static/media/onboarding1.png": "/static/media/onboarding1.5d19fb3a1613f75f0cea.png",
-    "static/media/Avatar.svg": "/static/media/Avatar.a8b3048f173276b67dd8d7937e9ddc9b.svg",
+    "static/media/Avatar.svg": "/static/media/Avatar.8ad69fe5714ca02c91c672dba61c0fac.svg",
     "static/media/GC Login 1.jpg": "/static/media/GC Login 1.372e522c00b72d4edfc8.jpg",
-    "static/media/Auth.svg": "/static/media/Auth.62cfefaa2ec70b4014419a2006b4cd8a.svg",
+    "static/media/Auth.svg": "/static/media/Auth.cd9b76210523ed5e9d026238eb58f4a1.svg",
     "static/media/newlogo.png": "/static/media/newlogo.79319f440f73b3f78acd.png",
     "static/media/Certificate.png": "/static/media/Certificate.520a68b59de1bc1bd93f.png",
     "static/media/image 11.png": "/static/media/image 11.071ae9ad05a106633e48.png",
@@ -30,13 +30,13 @@
     "static/media/error.svg": "/static/media/error.1d929f68e1cbce8cbca540e7259961ce.svg",
     "static/media/page-not-found.svg": "/static/media/page-not-found.08ded0d8f509f9742022edc266cc8de7.svg",
     "static/media/groom-small.png": "/static/media/groom-small.2b09997494245815224b.png",
-    "static/media/empty-events.svg": "/static/media/empty-events.2eb4494c27d266986f203b847710412e.svg",
+    "static/media/empty-events.svg": "/static/media/empty-events.641777c05da028623e171ed06cb0cd7c.svg",
     "static/media/temp.xlsx": "/static/media/temp.55f6a994a601b7311d51.xlsx",
     "static/media/no-data.svg": "/static/media/no-data.3f697f93fbddcfe18bbd81f73c478238.svg",
-    "static/media/events-banner.svg": "/static/media/events-banner.cb11b79257d479ee926b14353c9d2147.svg",
+    "static/media/events-banner.svg": "/static/media/events-banner.afb6e535aa783e5f9d3a778b8d2e9b1c.svg",
     "index.html": "/index.html",
-    "main.ff44cc48.css.map": "/static/css/main.ff44cc48.css.map",
-    "main.1c3797e5.js.map": "/static/js/main.1c3797e5.js.map",
+    "main.9206ce19.css.map": "/static/css/main.9206ce19.css.map",
+    "main.55e90639.js.map": "/static/js/main.55e90639.js.map",
     "reactPlayerYouTube.8641f3fe.chunk.js.map": "/static/js/reactPlayerYouTube.8641f3fe.chunk.js.map",
     "reactPlayerSoundCloud.4912bea4.chunk.js.map": "/static/js/reactPlayerSoundCloud.4912bea4.chunk.js.map",
     "reactPlayerVimeo.aa30e80f.chunk.js.map": "/static/js/reactPlayerVimeo.aa30e80f.chunk.js.map",
@@ -55,7 +55,7 @@
     "453.297c470d.chunk.js.map": "/static/js/453.297c470d.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.ff44cc48.css",
-    "static/js/main.1c3797e5.js"
+    "static/css/main.9206ce19.css",
+    "static/js/main.55e90639.js"
   ]
 }
