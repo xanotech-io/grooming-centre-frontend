@@ -47,6 +47,7 @@ import {
   updateExaminationById,
 } from "../../../services";
 import { useApp } from "../../../contexts/App/useApp";
+import { useQueryParams } from "../../../hooks";
 import {
   FiArrowLeft,
   FiCheck,
@@ -765,6 +766,10 @@ const ExamPaperConfigPage = () => {
   const { examinationId } = useParams();
   const history = useHistory();
   const toast = useToast();
+  const examType =
+    useQueryParams().get("examType") === "standalone_examination"
+      ? "standalone_examination"
+      : "examination";
   const { state, getOneMetadata } = useApp();
   const userRole = getOneMetadata("userRoles", state.user?.userRoleId);
   const isAdmin = /admin/i.test(userRole?.name);
@@ -840,7 +845,7 @@ const ExamPaperConfigPage = () => {
     let mounted = true;
     setLoading(true);
     Promise.all([
-      getExaminationById(examinationId).catch(() => null),
+      getExaminationById(examinationId, examType).catch(() => null),
       getExamPaperConfigPreview(examinationId).catch(() => null),
     ])
       .then(([examRes, previewRes]) => {
@@ -870,11 +875,12 @@ const ExamPaperConfigPage = () => {
     return () => {
       mounted = false;
     };
-  }, [examinationId, populateFromExam]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examinationId, examType, populateFromExam]);
 
   const handleSaveAsDraft = async () => {
     const payload = {
-      examType: "standalone_examination",
+      examType,
       configuredSections: sections,
       navigationMode,
       timeLimitMinutes: Number(timeLimitMinutes) || 0,

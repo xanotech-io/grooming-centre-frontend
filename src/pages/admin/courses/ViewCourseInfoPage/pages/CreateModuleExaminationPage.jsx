@@ -1,10 +1,22 @@
 import { Route, useParams, useHistory } from "react-router-dom";
-import { Box, Flex, Alert, AlertIcon } from "@chakra-ui/react";
+import {
+  Box,
+  Flex,
+  Alert,
+  AlertIcon,
+  IconButton,
+  NumberDecrementStepper,
+  NumberIncrementStepper,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+} from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { Switch } from "@chakra-ui/switch";
 import { Select as ChakraSelect } from "@chakra-ui/select";
+import { FiTrash2 } from "react-icons/fi";
 import {
   Button,
   DateTimePicker,
@@ -24,6 +36,8 @@ import {
   adminEditExamination,
   adminGetExaminationById,
   adminGetMarkingTemplates,
+  getExaminationById as getExamPaperConfig,
+  updateExaminationById as updateExamPaperConfig,
 } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
 import useAssessmentStore from "../../../../../store/assessmentStore";
@@ -59,6 +73,54 @@ const SectionCard = ({ title, children }) => (
   </Box>
 );
 
+const EMPTY_SECTION = { section_name: "", questions_count: 1, time_limit: null };
+
+const SectionRow = ({ section, idx, onChange, onRemove }) => (
+  <Flex gap={3} alignItems="center" mb={3}>
+    <Box flex={2}>
+      <Input
+        placeholder="Section name e.g. Section A"
+        value={section.section_name}
+        onChange={(e) => onChange(idx, "section_name", e.target.value)}
+      />
+    </Box>
+    <Box flex={1}>
+      <NumberInput
+        min={1}
+        value={section.questions_count}
+        onChange={(val) => onChange(idx, "questions_count", Number(val))}
+      >
+        <NumberInputField placeholder="Questions" />
+        <NumberInputStepper>
+          <NumberIncrementStepper />
+          <NumberDecrementStepper />
+        </NumberInputStepper>
+      </NumberInput>
+    </Box>
+    <Box flex={1}>
+      <NumberInput
+        min={0}
+        value={section.time_limit ?? ""}
+        onChange={(val) => onChange(idx, "time_limit", val ? Number(val) : null)}
+      >
+        <NumberInputField placeholder="Time (min)" />
+        <NumberInputStepper>
+          <NumberIncrementStepper />
+          <NumberDecrementStepper />
+        </NumberInputStepper>
+      </NumberInput>
+    </Box>
+    <IconButton
+      aria-label="Remove section"
+      icon={<FiTrash2 size={14} />}
+      size="sm"
+      variant="ghost"
+      colorScheme="red"
+      onClick={() => onRemove(idx)}
+    />
+  </Flex>
+);
+
 const BoolRow = ({ label, description, checked, onChange }) => (
   <Flex justifyContent="space-between" alignItems="center" py={2}>
     <Box>
@@ -92,6 +154,13 @@ const CreateModuleExaminationPage = () => {
   const [markingTemplateId, setMarkingTemplateId] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [loadingExam, setLoadingExam] = useState(false);
+
+  // Sections
+  const [sections, setSections] = useState([]);
+  const addSection = () => setSections((p) => [...p, { ...EMPTY_SECTION }]);
+  const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
+  const updateSection = (i, field, value) =>
+    setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
 
   // Navigation
   const [navigationMode, setNavigationMode] = useState("free");
@@ -154,20 +223,29 @@ const CreateModuleExaminationPage = () => {
   useEffect(() => {
     if (!isEditMode) return;
     setLoadingExam(true);
-    adminGetExaminationById(examinationId)
-      .then(({ examination: exam }) => {
+    Promise.all([
+      adminGetExaminationById(examinationId),
+      getExamPaperConfig(examinationId, "examination").catch(() => null),
+    ])
+      .then(([{ examination: exam }, paperConfigRes]) => {
         setValue("title", exam.title);
         setValue("duration", exam.duration);
         setValue("amountOfQuestions", exam.amountOfQuestions);
         if (exam.startTime) startTimeManager.handleChange(new Date(exam.startTime));
         if (exam.markingTemplateId) setMarkingTemplateId(exam.markingTemplateId);
-        if (exam.navigationMode) setNavigationMode(exam.navigationMode);
-        if (exam.randomizationConfig) setRandomization(exam.randomizationConfig);
-        if (exam.uiSettings) setUiSettings(exam.uiSettings);
-        if (exam.toolsEnabled) setTools(exam.toolsEnabled);
-        if (exam.accessibilitySettings) setAccessibility(exam.accessibilitySettings);
-        if (exam.submissionSettings) setSubmission(exam.submissionSettings);
-        setIsPublished(exam.active === true || exam.isPublished === true);
+
+        const cfg = paperConfigRes?.data;
+        if (cfg) {
+          if (Array.isArray(cfg.configuredSections)) setSections(cfg.configuredSections);
+          if (cfg.navigationMode) setNavigationMode(cfg.navigationMode);
+          if (cfg.randomization) setRandomization(cfg.randomization);
+          if (cfg.uiSettings) setUiSettings(cfg.uiSettings);
+          if (cfg.toolsEnabled) setTools(cfg.toolsEnabled);
+          if (cfg.accessibilitySettings) setAccessibility(cfg.accessibilitySettings);
+          if (cfg.submissionSettings) setSubmission(cfg.submissionSettings);
+          if (cfg.paperStatus) setIsPublished((p) => p || cfg.paperStatus === "published");
+        }
+        setIsPublished((p) => p || exam.active === true || exam.isPublished === true);
       })
       .catch((err) => {
         toast({
@@ -179,8 +257,9 @@ const CreateModuleExaminationPage = () => {
       .finally(() => setLoadingExam(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, examinationId]);
-  const performEdit = async (body) => {
+  const performEdit = async ({ body, paperConfigBody }) => {
     const { message } = await adminEditExamination(examinationId, body);
+    await updateExamPaperConfig(examinationId, paperConfigBody).catch(() => {});
     toast({
       description: capitalizeFirstLetter(message || "Examination updated successfully."),
       position: "top",
@@ -189,10 +268,11 @@ const CreateModuleExaminationPage = () => {
     return { id: examinationId };
   };
 
-  const performCreate = async (body) => {
+  const performCreate = async ({ body, paperConfigBody }) => {
     const { message, examination } = await adminCreateExamination(body);
+    await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
     resultExaminationRef.current = examination;
-    setAssessment(examination);
+    setAssessment({ ...examination, sections });
     toast({
       description: capitalizeFirstLetter(message),
       position: "top",
@@ -234,6 +314,24 @@ const CreateModuleExaminationPage = () => {
         submissionSettings: submission,
       };
 
+      const paperConfigBody = {
+        examType: "examination",
+        configuredSections: sections.map((s) => ({
+          section_name: s.section_name,
+          questions_count: Number(s.questions_count) || 0,
+          time_limit: s.time_limit ? Number(s.time_limit) : null,
+        })),
+        navigationMode,
+        timeLimitMinutes: Number(data.duration) || 0,
+        randomization,
+        uiSettings: { ...uiSettings, font_size: Number(uiSettings.font_size) },
+        toolsEnabled: tools,
+        accessibilitySettings: accessibility,
+        submissionSettings: submission,
+      };
+
+      const pendingBody = { body, paperConfigBody };
+
       const workflowContentBase = {
         contentTitle: data.title,
         requestType: "CourseExam",
@@ -242,20 +340,20 @@ const CreateModuleExaminationPage = () => {
 
       if (isEditMode) {
         if (isSuperAdmin) {
-          await performEdit(body);
+          await performEdit(pendingBody);
         } else {
-          pendingBodyRef.current = body;
+          pendingBodyRef.current = pendingBody;
         }
         setWorkflowContent({ ...workflowContentBase, contentId: examinationId });
       } else if (isSuperAdmin) {
         // Super admins create right away — the modal below only offers an
         // optional supervisor review afterward.
-        const created = await performCreate(body);
+        const created = await performCreate(pendingBody);
         setWorkflowContent({ ...workflowContentBase, contentId: created.id });
       } else {
         // Instructors must submit for approval before this gets created —
         // hold off until the modal below completes.
-        pendingBodyRef.current = body;
+        pendingBodyRef.current = pendingBody;
         setWorkflowContent(workflowContentBase);
       }
       setWorkflowModalOpen(true);
@@ -341,6 +439,21 @@ const CreateModuleExaminationPage = () => {
               value: t.id,
             }))}
           />
+        </SectionCard>
+
+        {/* ── Sections ── */}
+        <SectionCard title="Sections">
+          {sections.length === 0 && (
+            <Text fontSize="sm" color="gray.500" mb={3}>
+              No sections added yet. Sections let you group questions and optionally cap time per group.
+            </Text>
+          )}
+          {sections.map((s, i) => (
+            <SectionRow key={i} section={s} idx={i} onChange={updateSection} onRemove={removeSection} />
+          ))}
+          <Button secondary type="button" onClick={addSection}>
+            + Add Section
+          </Button>
         </SectionCard>
 
         {/* ── Navigation & Randomization ── */}
