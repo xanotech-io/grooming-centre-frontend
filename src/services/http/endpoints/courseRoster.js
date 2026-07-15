@@ -80,8 +80,36 @@ export const adminGetCourseRoster = async (courseId, params = {}) => {
  * POST /api/v1/course-roster-v2/{courseId}/export
  */
 export const adminExportCourseRoster = async (courseId, body = {}) => {
-  const { data } = await http.post(`/v1/course-roster-v2/${courseId}/export`, body);
-  return data?.data ?? data;
+  const { format, ...rest } = body;
+  const requestBody = {
+    ...rest,
+    export_format: (format ?? "").toLowerCase(),
+  };
+
+  const { data } = await http.post(`/v1/course-roster-v2/${courseId}/export`, requestBody);
+  const payload = data?.data ?? data ?? {};
+
+  return {
+    exportRecord: {
+      exportId: payload.id,
+      operationType: payload.operationType,
+      reportType: payload.reportType,
+      reportName: payload.reportName,
+      format: payload.exportFormat,
+      exportedBy: payload.exportedBy,
+      exporter: payload.exporter,
+      filters: payload.filters,
+      status: payload.status,
+      fileName: payload.fileName,
+      fileUrl: payload.fileUrl,
+      fileSizeMb: payload.fileSizeMb,
+      expiryDate: payload.expiryDate,
+      totalRecords: payload.totalRecords,
+      errorMessage: payload.errorMessage,
+      createdAt: payload.createdAt,
+      updatedAt: payload.updatedAt,
+    },
+  };
 };
 
 /**

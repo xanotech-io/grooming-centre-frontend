@@ -47,6 +47,7 @@ import {
   adminGetExaminationById,
   adminGetMarkingTemplateById,
   adminGetStandaloneExamTemplateId,
+  getExaminationById as getExamPaperConfig,
 } from "../../../../../services";
 import { buildBatchUploadLink } from "../../../examQuestionImport/questionRowUtils";
 import {
@@ -88,7 +89,7 @@ const QuestionsPage = () => {
     if (!isExamination && (!assessmentId || assessmentId === "new")) return;
 
     if (storeSections.length > 0) {
-      setTemplateSections(storeSections.map((s) => s.name));
+      setTemplateSections(storeSections.map((s) => s.name || s.section_name));
       return;
     }
 
@@ -110,13 +111,32 @@ const QuestionsPage = () => {
         .catch(() => setTemplateSections([]))
         .finally(() => setSectionsLoading(false));
 
+    // Exam-level sections configured via "Configure Paper" take priority
+    // over the marking template's sections when both are present.
+    const fetchViaExamPaperConfig = (examType, fallback) =>
+      getExamPaperConfig(isExamination, examType)
+        .then((res) => {
+          const configured = res?.data?.configuredSections;
+          if (Array.isArray(configured) && configured.length > 0) {
+            setTemplateSections(configured.map((s) => s.section_name));
+            setSectionsLoading(false);
+            return;
+          }
+          return fallback();
+        })
+        .catch(() => fallback());
+
     if (isStandaloneExamination) {
-      fetchViaTemplate(() => adminGetStandaloneExamTemplateId(isExamination));
+      fetchViaExamPaperConfig("standalone_examination", () =>
+        fetchViaTemplate(() => adminGetStandaloneExamTemplateId(isExamination)),
+      );
     } else if (isExamination) {
-      fetchViaTemplate(() =>
-        adminGetExaminationById(isExamination).then(
-          ({ examination }) =>
-            examination?.templateId ?? examination?.markingTemplateId ?? null,
+      fetchViaExamPaperConfig("examination", () =>
+        fetchViaTemplate(() =>
+          adminGetExaminationById(isExamination).then(
+            ({ examination }) =>
+              examination?.templateId ?? examination?.markingTemplateId ?? null,
+          ),
         ),
       );
     } else {
@@ -845,16 +865,27 @@ const CreateQuestionPage = ({
                   </Box>
                 </>
               )}
-              {/* Section — populated from the linked marking template */}
+              {/* Section — populated from the exam's configured sections, or the linked marking template */}
               <Box minW="200px">
-                <Text fontSize="sm" mb={1} color="gray.600">
-                  Section{" "}
-                  {sectionsLoading && (
-                    <Text as="span" fontSize="xs" color="gray.400">
-                      (loading…)
-                    </Text>
+                <Flex justifyContent="space-between" alignItems="baseline">
+                  <Text fontSize="sm" mb={1} color="gray.600">
+                    Section{" "}
+                    {sectionsLoading && (
+                      <Text as="span" fontSize="xs" color="gray.400">
+                        (loading…)
+                      </Text>
+                    )}
+                  </Text>
+                  {isExamination && (
+                    <Link
+                      href={`/admin/exam-paper-config/${isExamination}?examType=${isStandaloneExamination ? "standalone_examination" : "examination"}`}
+                    >
+                      <Text fontSize="xs" color="primary.base">
+                        Configure sections
+                      </Text>
+                    </Link>
                   )}
-                </Text>
+                </Flex>
                 <ChakraSelect
                   value={selectedSectionId}
                   onChange={(e) => setSelectedSectionId(e.target.value)}

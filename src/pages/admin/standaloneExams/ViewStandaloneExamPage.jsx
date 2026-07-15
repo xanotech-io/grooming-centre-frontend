@@ -296,23 +296,27 @@ const SubmissionsTab = ({ examId }) => {
         </Button>
       </Flex>
 
-      {rows.length === 0 ? (
-        <Flex direction="column" alignItems="center" justifyContent="center" py="60px" gap={3}>
-          <Text fontSize="16px" fontWeight="600" color="#1A202C">No submissions match these filters</Text>
-          <Text fontSize="14px" color="gray.500">Students haven't submitted this exam yet.</Text>
-        </Flex>
-      ) : (
-        <Box overflowX="auto" mt={5}>
-          <Box as="table" w="100%" fontSize="sm">
-            <Box as="thead" bg="#F7FAFC">
-              <Box as="tr">
-                {["Student", "Submitted At", "Status", "Score", "Grade", "Pass/Fail", "Remarks", "Grading Duration", "Date Graded", "Action"].map((h) => (
-                  <Box key={h} as="th" textAlign="left" py="14px" px={4} color="gray.500" fontSize="12px" fontWeight="600" whiteSpace="nowrap">{h}</Box>
-                ))}
-              </Box>
+      <Box overflowX="auto" mt={5}>
+        <Box as="table" w="100%" fontSize="sm">
+          <Box as="thead" bg="#F7FAFC">
+            <Box as="tr">
+              {["Student", "Submitted At", "Status", "Score", "Grade", "Pass/Fail", "Remarks", "Grading Duration", "Date Graded", "Action"].map((h) => (
+                <Box key={h} as="th" textAlign="left" py="14px" px={4} color="gray.500" fontSize="12px" fontWeight="600" whiteSpace="nowrap">{h}</Box>
+              ))}
             </Box>
-            <Box as="tbody">
-              {rows.map((row, i) => {
+          </Box>
+          <Box as="tbody">
+            {rows.length === 0 && (
+              <Box as="tr">
+                <Box as="td" colSpan={10} py="60px">
+                  <Flex direction="column" alignItems="center" justifyContent="center" gap={3}>
+                    <Text fontSize="16px" fontWeight="600" color="#1A202C">No submissions match these filters</Text>
+                    <Text fontSize="14px" color="gray.500">Students haven't submitted this exam yet.</Text>
+                  </Flex>
+                </Box>
+              </Box>
+            )}
+            {rows.map((row, i) => {
                 const sc = submissionStatusColor(row.status);
                 const pfc = submissionPassFailColor(row.passFail);
                 return (
@@ -371,10 +375,10 @@ const SubmissionsTab = ({ examId }) => {
             </Box>
           </Box>
         </Box>
-      )}
-    </Box>
+      </Box>
   );
 };
+
 
 /* ─── Page ─────────────────────────────────────────────── */
 const ViewStandaloneExamPage = () => {
@@ -445,6 +449,15 @@ const ViewStandaloneExamPage = () => {
           </Flex>
         </Box>
         <Flex gap="8px">
+          <Button
+            secondary
+            size="sm"
+            onClick={() =>
+              history.push(`/admin/exam-paper-config/${examId}?examType=standalone_examination`)
+            }
+          >
+            Configure Paper
+          </Button>
           <Button secondary size="sm" onClick={() => history.goBack()}>← Back</Button>
         </Flex>
       </Flex>

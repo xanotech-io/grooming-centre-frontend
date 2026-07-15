@@ -226,13 +226,7 @@ const ExamGradingSummaryPage = () => {
         </Box>
       )}
 
-      {!loading && !error && rows.length === 0 && (
-        <Box bg="white" border="1px solid #E2E8F0" borderRadius="md" p={12} textAlign="center">
-          <Text color="gray.500" fontSize="15px">No submissions match these filters.</Text>
-        </Box>
-      )}
-
-      {!loading && !error && rows.length > 0 && (
+      {!loading && !error && (
         <Box bg="white" border="1px solid #E2E8F0" borderRadius="12px" overflow="hidden">
           <TableContainer overflowX="auto">
             <Table variant="simple" size="sm">
@@ -253,6 +247,13 @@ const ExamGradingSummaryPage = () => {
                 </Tr>
               </Thead>
               <Tbody>
+                {rows.length === 0 && (
+                  <Tr>
+                    <Td colSpan={12} textAlign="center" py={12}>
+                      <Text color="gray.500" fontSize="15px">No submissions match these filters.</Text>
+                    </Td>
+                  </Tr>
+                )}
                 {rows.map((row, i) => {
                   const sc = statusColor(row.status);
                   const pfc = passFailColor(row.passFail);

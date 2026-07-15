@@ -54,6 +54,7 @@ const MOCK_EXAMS = [
     examId: "exam-001",
     examTitle: "Microfinance Midterm",
     course: { id: "course-001", title: "Microfinance Principles" },
+    examType: "course",
     randomizationMethod: "full",
     totalAttempts: 100,
     duplicateDetectionCount: 2,
@@ -67,6 +68,7 @@ const MOCK_EXAMS = [
     examId: "exam-002",
     examTitle: "Data Privacy Final",
     course: { id: "course-002", title: "Data Privacy & Compliance" },
+    examType: "course",
     randomizationMethod: "full",
     totalAttempts: 80,
     duplicateDetectionCount: 0,
@@ -80,6 +82,7 @@ const MOCK_EXAMS = [
     examId: "exam-003",
     examTitle: "Network Security Quiz",
     course: { id: "course-003", title: "Network Security" },
+    examType: "standalone",
     randomizationMethod: "partial",
     totalAttempts: 55,
     duplicateDetectionCount: 6,
@@ -93,6 +96,7 @@ const MOCK_EXAMS = [
     examId: "exam-004",
     examTitle: "Introduction to Cybersecurity",
     course: { id: "course-004", title: "Cybersecurity Fundamentals" },
+    examType: "standalone",
     randomizationMethod: "none",
     totalAttempts: 120,
     duplicateDetectionCount: 15,
@@ -106,6 +110,7 @@ const MOCK_EXAMS = [
     examId: "exam-005",
     examTitle: "Ethics in Technology",
     course: { id: "course-005", title: "Tech Ethics & Society" },
+    examType: "course",
     randomizationMethod: "partial",
     totalAttempts: 40,
     duplicateDetectionCount: 1,
@@ -119,6 +124,7 @@ const MOCK_EXAMS = [
     examId: "exam-006",
     examTitle: "Cloud Computing Fundamentals",
     course: { id: "course-006", title: "Cloud Computing" },
+    examType: "standalone",
     randomizationMethod: "full",
     totalAttempts: 65,
     duplicateDetectionCount: 0,
@@ -215,6 +221,24 @@ const randomMethodScheme = (method) => {
   if (method === "partial") return "yellow";
   return "gray";
 };
+
+const EXAM_TYPE_OPTIONS = [
+  { value: "", label: "All Exam Types" },
+  { value: "course", label: "Course Exam" },
+  { value: "standalone", label: "Standalone Exam" },
+];
+
+const examTypeLabel = {
+  course: "Course Exam",
+  standalone: "Standalone Exam",
+};
+
+const RANDOMIZATION_TYPE_OPTIONS = [
+  { value: "", label: "All Randomization Types" },
+  { value: "full", label: "Full" },
+  { value: "partial", label: "Partial" },
+  { value: "none", label: "None" },
+];
 
 const anomalyLabel = {
   same_ip: "Same IP",
@@ -775,6 +799,9 @@ const LIMIT_OPTIONS = [10, 20, 50];
 const ExamIntegrityPage = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [courseId, setCourseId] = useState("");
+  const [search, setSearch] = useState("");
+  const [examType, setExamType] = useState("");
+  const [randomizationType, setRandomizationType] = useState("");
   const [courses, setCourses] = useState([]);
   const [exams, setExams] = useState([]);
   const [total, setTotal] = useState(0);
@@ -782,6 +809,7 @@ const ExamIntegrityPage = () => {
   const [limit, setLimit] = useState(20);
   const [tableLoading, setTableLoading] = useState(true);
   const [selectedExamId, setSelectedExamId] = useState(null);
+  const searchDebounceRef = useRef(null);
 
   useEffect(() => {
     adminGetCourseListing({ page: 1, limit: 200 })
@@ -789,10 +817,14 @@ const ExamIntegrityPage = () => {
       .catch(() => {});
   }, []);
 
-  const fetchExams = useCallback((cId, p, l) => {
+  const fetchExams = useCallback((filters, p, l) => {
+    const { courseId: cId, search: s, examType: eType, randomizationType: rType } = filters;
     setTableLoading(true);
     const params = { page: p, limit: l };
     if (cId) params.courseId = cId;
+    if (s) params.search = s;
+    if (eType) params.examType = eType;
+    if (rType) params.randomizationMethod = rType;
     getExamIntegrityList(params)
       .then((res) => {
         const d = res?.data ?? res;
@@ -804,26 +836,57 @@ const ExamIntegrityPage = () => {
         console.warn(
           "[ExamIntegrity] /exams failed, falling back to mock data",
         );
-        setExams(MOCK_EXAMS);
-        setTotal(MOCK_EXAMS.length);
+        const filtered = MOCK_EXAMS.filter((exam) => {
+          if (cId && String(exam.course?.id) !== String(cId)) return false;
+          if (eType && exam.examType !== eType) return false;
+          if (rType && exam.randomizationMethod !== rType) return false;
+          if (s && !exam.examTitle.toLowerCase().includes(s.toLowerCase())) return false;
+          return true;
+        });
+        setExams(filtered);
+        setTotal(filtered.length);
       })
       .finally(() => setTableLoading(false));
   }, []);
 
   useEffect(() => {
-    fetchExams(courseId, page, limit);
+    fetchExams({ courseId, search, examType, randomizationType }, page, limit);
   }, []); // eslint-disable-line
 
   const handleCourseChange = (val) => {
     setCourseId(val);
     setPage(1);
-    fetchExams(val, 1, limit);
+    fetchExams({ courseId: val, search, examType, randomizationType }, 1, limit);
+  };
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setPage(1);
+      fetchExams({ courseId, search: val, examType, randomizationType }, 1, limit);
+    }, 400);
+  };
+
+  const handleExamTypeChange = (val) => {
+    setExamType(val);
+    setPage(1);
+    fetchExams({ courseId, search, examType: val, randomizationType }, 1, limit);
+  };
+
+  const handleRandomizationTypeChange = (val) => {
+    setRandomizationType(val);
+    setPage(1);
+    fetchExams({ courseId, search, examType, randomizationType: val }, 1, limit);
   };
 
   const clearFilter = () => {
     setCourseId("");
+    setSearch("");
+    setExamType("");
+    setRandomizationType("");
     setPage(1);
-    fetchExams("", 1, limit);
+    fetchExams({ courseId: "", search: "", examType: "", randomizationType: "" }, 1, limit);
   };
 
   const handleRowClick = (examId) => {
@@ -833,12 +896,12 @@ const ExamIntegrityPage = () => {
 
   const handlePage = (p) => {
     setPage(p);
-    fetchExams(courseId, p, limit);
+    fetchExams({ courseId, search, examType, randomizationType }, p, limit);
   };
   const handleLimit = (l) => {
     setLimit(l);
     setPage(1);
-    fetchExams(courseId, 1, l);
+    fetchExams({ courseId, search, examType, randomizationType }, 1, l);
   };
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -876,7 +939,45 @@ const ExamIntegrityPage = () => {
               maxW="280px"
             />
           </FormControl>
-          {courseId && (
+          <FormControl maxW="240px">
+            <FormLabel fontSize="xs">Exam</FormLabel>
+            <Input
+              size="sm"
+              borderRadius="md"
+              value={search}
+              placeholder="Search exam…"
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+          </FormControl>
+          <FormControl maxW="200px">
+            <FormLabel fontSize="xs">Exam Type</FormLabel>
+            <Select
+              size="sm"
+              value={examType}
+              onChange={(e) => handleExamTypeChange(e.target.value)}
+            >
+              {EXAM_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl maxW="220px">
+            <FormLabel fontSize="xs">Randomization Type</FormLabel>
+            <Select
+              size="sm"
+              value={randomizationType}
+              onChange={(e) => handleRandomizationTypeChange(e.target.value)}
+            >
+              {RANDOMIZATION_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </FormControl>
+          {(courseId || search || examType || randomizationType) && (
             <Button
               size="sm"
               secondary
@@ -889,7 +990,9 @@ const ExamIntegrityPage = () => {
           <Button
             size="sm"
             secondary
-            onClick={() => fetchExams(courseId, page, limit)}
+            onClick={() =>
+              fetchExams({ courseId, search, examType, randomizationType }, page, limit)
+            }
             leftIcon={<FiRefreshCw />}
           >
             Refresh
@@ -938,6 +1041,7 @@ const ExamIntegrityPage = () => {
                   <Tr>
                     <Th>Exam Title</Th>
                     <Th>Course</Th>
+                    <Th>Exam Type</Th>
                     <Th>Randomization</Th>
                     <Th isNumeric>Attempts</Th>
                     <Th isNumeric>Dup. Sets</Th>
@@ -973,6 +1077,17 @@ const ExamIntegrityPage = () => {
                           <Text fontSize="sm" color="gray.700" noOfLines={1}>
                             {exam.course?.title ?? "—"}
                           </Text>
+                        </Td>
+                        <Td>
+                          <Badge
+                            colorScheme={
+                              exam.examType === "standalone" ? "purple" : "cyan"
+                            }
+                            borderRadius="full"
+                            px={2}
+                          >
+                            {examTypeLabel[exam.examType] ?? "—"}
+                          </Badge>
                         </Td>
                         <Td>
                           <Badge

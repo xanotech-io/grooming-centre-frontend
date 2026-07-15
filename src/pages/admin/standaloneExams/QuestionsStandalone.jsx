@@ -42,6 +42,7 @@ import {
   adminEditStandaloneExaminationQuestion,
   adminGetMarkingTemplateById,
   adminGetStandaloneExamTemplateId,
+  getExaminationById as getExamPaperConfig,
 } from "../../../services";
 import { buildBatchUploadLink } from "../examQuestionImport/questionRowUtils";
 import { capitalizeFirstLetter, capitalizeWords } from "../../../utils";
@@ -80,25 +81,41 @@ const QuestionsStandalone = () => {
     if (!isExamination) return;
 
     if (storeSections.length > 0) {
-      setTemplateSections(storeSections.map((s) => s.name));
+      setTemplateSections(storeSections.map((s) => s.name || s.section_name));
       return;
     }
 
     setSectionsLoading(true);
-    adminGetStandaloneExamTemplateId(isExamination)
-      .then((templateId) => {
-        if (!templateId) throw new Error("no-template");
-        return adminGetMarkingTemplateById(templateId);
+
+    const fetchViaTemplate = () =>
+      adminGetStandaloneExamTemplateId(isExamination)
+        .then((templateId) => {
+          if (!templateId) throw new Error("no-template");
+          return adminGetMarkingTemplateById(templateId);
+        })
+        .then(({ template }) =>
+          setTemplateSections(
+            Array.isArray(template?.sections)
+              ? template.sections.map((s) => s.name)
+              : [],
+          ),
+        )
+        .catch(() => setTemplateSections([]))
+        .finally(() => setSectionsLoading(false));
+
+    // Exam-level sections configured via "Configure Paper" take priority
+    // over the marking template's sections when both are present.
+    getExamPaperConfig(isExamination, "standalone_examination")
+      .then((res) => {
+        const configured = res?.data?.configuredSections;
+        if (Array.isArray(configured) && configured.length > 0) {
+          setTemplateSections(configured.map((s) => s.section_name));
+          setSectionsLoading(false);
+          return;
+        }
+        return fetchViaTemplate();
       })
-      .then(({ template }) =>
-        setTemplateSections(
-          Array.isArray(template?.sections)
-            ? template.sections.map((s) => s.name)
-            : [],
-        ),
-      )
-      .catch(() => setTemplateSections([]))
-      .finally(() => setSectionsLoading(false));
+      .catch(() => fetchViaTemplate());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExamination, storeSections]);
 
@@ -551,14 +568,25 @@ const CreateQuestionPage = ({
 
             {/* Section */}
             <Box minW="220px">
-              <Text fontSize="sm" fontWeight="500" mb={1} color="#1A202C">
-                Section{" "}
-                {sectionsLoading && (
-                  <Text as="span" fontSize="xs" color="gray.400">
-                    (loading…)
-                  </Text>
+              <Flex justifyContent="space-between" alignItems="baseline">
+                <Text fontSize="sm" fontWeight="500" mb={1} color="#1A202C">
+                  Section{" "}
+                  {sectionsLoading && (
+                    <Text as="span" fontSize="xs" color="gray.400">
+                      (loading…)
+                    </Text>
+                  )}
+                </Text>
+                {isExamination && (
+                  <Link
+                    href={`/admin/exam-paper-config/${isExamination}?examType=standalone_examination`}
+                  >
+                    <Text fontSize="xs" color="#6b006b">
+                      Configure sections
+                    </Text>
+                  </Link>
                 )}
-              </Text>
+              </Flex>
               <ChakraSelect
                 value={selectedSectionId}
                 onChange={(e) => setSelectedSectionId(e.target.value)}
