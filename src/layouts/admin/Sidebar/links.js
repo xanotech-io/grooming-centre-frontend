@@ -151,10 +151,10 @@ export const links = [
         href: "/admin/report/archived",
         text: "Archived Reports",
       },
-      {
-        href: "/admin/report/compliance",
-        text: "Compliance & Security",
-      },
+      // {
+      //   href: "/admin/report/compliance",
+      //   text: "Compliance & Security",
+      // },
       {
         href: "/admin/report/instructorReport",
         text: "Instructor Report",
@@ -300,6 +300,10 @@ export const links = [
       {
         href: "/admin/report/assessment-analytics",
         text: "Assessment Analytics Report",
+      },
+      {
+        href: "/admin/compliance",
+        text: "Compliance & Non-Compliance Training Monitor",
       },
     ],
   },
