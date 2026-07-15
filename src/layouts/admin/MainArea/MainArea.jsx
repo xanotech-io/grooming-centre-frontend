@@ -104,8 +104,6 @@ import {
   PerformanceFiltersPageRoute,
   AdminExamResultAnalysisPageRoute,
   CourseMaterialUploadPageRoute,
-  CourseRosterPageRoute,
-  CourseRosterExportPageRoute,
   EnrollmentStatusReportPageRoute,
   AuditTrailReportPageRoute,
 } from "../../../pages/admin";
@@ -436,8 +434,6 @@ const MainArea = () => {
           path="/admin/certificate-management"
         />
         <CourseMaterialUploadPageRoute exact path="/admin/course-materials" />
-        <CourseRosterPageRoute exact path="/admin/course-roster" />
-        <CourseRosterExportPageRoute exact path="/admin/course-roster-export" />
         <UserDocumentsPageRoute exact path="/admin/user-documents" />
         <UserDocumentDetailsPageRoute
           exact

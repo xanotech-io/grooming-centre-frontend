@@ -394,7 +394,7 @@ const ViewModuleExaminationPage = () => {
           <Button
             secondary
             size="sm"
-            onClick={() => history.push(`/admin/exam-paper-config/${examinationId}`)}
+            onClick={() => history.push(`/admin/exam-paper-config/${examinationId}?examType=examination`)}
           >
             Configure Paper
           </Button>

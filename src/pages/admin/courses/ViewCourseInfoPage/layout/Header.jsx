@@ -15,6 +15,10 @@ const links = [
     href: (courseId) => `/admin/courses/details/${courseId}/edit-history`,
     text: 'Edit History',
   },
+  {
+    href: (courseId) => `/admin/courses/details/${courseId}/roster`,
+    text: 'Roster',
+  },
   // {
   //   href: (courseId) => `/admin/courses/details/${courseId}/assessment`,
   //   text: 'Assessment',

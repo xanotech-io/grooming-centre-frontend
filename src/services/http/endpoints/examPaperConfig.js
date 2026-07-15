@@ -15,8 +15,10 @@ export const getExamPaperConfigKPIs = async () => {
   return data;
 };
 
-export const getExaminationById = async (examinationId) => {
-  const { data } = await http.get(`/v1/examinations/${examinationId}`);
+export const getExaminationById = async (examinationId, examType) => {
+  const { data } = await http.get(`/v1/examinations/${examinationId}`, {
+    params: { examType },
+  });
   return data;
 };
 

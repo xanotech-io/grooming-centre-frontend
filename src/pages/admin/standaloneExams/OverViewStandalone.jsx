@@ -1,6 +1,17 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { Box, Flex, Grid, GridItem } from "@chakra-ui/layout";
-import { Alert, AlertIcon } from "@chakra-ui/react";
+import {
+  Alert,
+  AlertIcon,
+  IconButton,
+  NumberDecrementStepper,
+  NumberIncrementStepper,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  Switch,
+  Text,
+} from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -25,11 +36,72 @@ import {
   adminCreateStandaloneExamination,
   adminEditStandaloneExamination,
   adminGetMarkingTemplates,
+  getExaminationById as getExamPaperConfig,
+  updateExaminationById as updateExamPaperConfig,
 } from "../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../utils";
 import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import useAssessmentStore from "../../../store/assessmentStore";
 import { FaRegSave, FaFileAlt } from "react-icons/fa";
+import { FiTrash2 } from "react-icons/fi";
+
+const EMPTY_SECTION = { section_name: "", questions_count: 1, time_limit: null };
+
+const SectionRow = ({ section, idx, onChange, onRemove }) => (
+  <Flex gap={3} alignItems="center" mb={3}>
+    <Box flex={2}>
+      <Input
+        placeholder="Section name e.g. Section A"
+        value={section.section_name}
+        onChange={(e) => onChange(idx, "section_name", e.target.value)}
+      />
+    </Box>
+    <Box flex={1}>
+      <NumberInput
+        min={1}
+        value={section.questions_count}
+        onChange={(val) => onChange(idx, "questions_count", Number(val))}
+      >
+        <NumberInputField placeholder="Questions" />
+        <NumberInputStepper>
+          <NumberIncrementStepper />
+          <NumberDecrementStepper />
+        </NumberInputStepper>
+      </NumberInput>
+    </Box>
+    <Box flex={1}>
+      <NumberInput
+        min={0}
+        value={section.time_limit ?? ""}
+        onChange={(val) => onChange(idx, "time_limit", val ? Number(val) : null)}
+      >
+        <NumberInputField placeholder="Time (min)" />
+        <NumberInputStepper>
+          <NumberIncrementStepper />
+          <NumberDecrementStepper />
+        </NumberInputStepper>
+      </NumberInput>
+    </Box>
+    <IconButton
+      aria-label="Remove section"
+      icon={<FiTrash2 size={14} />}
+      size="sm"
+      variant="ghost"
+      colorScheme="red"
+      onClick={() => onRemove(idx)}
+    />
+  </Flex>
+);
+
+const BoolRow = ({ label, description, checked, onChange }) => (
+  <Flex justifyContent="space-between" alignItems="center" py={2}>
+    <Box>
+      <Text fontSize="sm" fontWeight="500">{label}</Text>
+      {description && <Text fontSize="xs" color="gray.500">{description}</Text>}
+    </Box>
+    <Switch isChecked={checked} onChange={(e) => onChange(e.target.checked)} colorScheme="purple" />
+  </Flex>
+);
 
 const OverViewStandalone = () => {
   const examinationId = useQueryParams().get("examination");
@@ -97,17 +169,42 @@ const EditStandalonePage = ({ assessment }) => {
   const handleCancel = useGoBack();
   const startTimeManager = useDateTimePicker();
   const { handleDelete } = useCache();
-  const isPublished = assessment?.isPublished === true;
+  const [isConfigPublished, setIsConfigPublished] = useState(false);
+  const isPublished = assessment?.isPublished === true || isConfigPublished;
 
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
   const pendingBodyRef = useRef(null);
 
-  const performEdit = async (body) => {
+  const [sections, setSections] = useState([]);
+  const addSection = () => setSections((p) => [...p, { ...EMPTY_SECTION }]);
+  const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
+  const updateSection = (i, field, value) =>
+    setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
+  const [randomization, setRandomization] = useState({
+    question_order: false,
+    option_order: false,
+  });
+
+  useEffect(() => {
+    if (!examinationId) return;
+    getExamPaperConfig(examinationId, "standalone_examination")
+      .then((res) => {
+        const cfg = res?.data;
+        if (!cfg) return;
+        if (Array.isArray(cfg.configuredSections)) setSections(cfg.configuredSections);
+        if (cfg.randomization) setRandomization(cfg.randomization);
+        if (cfg.paperStatus) setIsConfigPublished(cfg.paperStatus === "published");
+      })
+      .catch(() => {});
+  }, [examinationId]);
+
+  const performEdit = async ({ body, paperConfigBody }) => {
     const { message } = await adminEditStandaloneExamination(
       examinationId,
       body,
     );
+    await updateExamPaperConfig(examinationId, paperConfigBody).catch(() => {});
 
     toast({
       description: capitalizeFirstLetter(message),
@@ -132,14 +229,26 @@ const EditStandalonePage = ({ assessment }) => {
         startTime: formatDateToISO(startTime),
       };
 
+      const paperConfigBody = {
+        examType: "standalone_examination",
+        configuredSections: sections.map((s) => ({
+          section_name: s.section_name,
+          questions_count: Number(s.questions_count) || 0,
+          time_limit: s.time_limit ? Number(s.time_limit) : null,
+        })),
+        randomization,
+      };
+
+      const pendingBody = { body, paperConfigBody };
+
       if (isSuperAdmin) {
         // Super admins' edits apply right away — the modal below only
         // offers an optional supervisor review afterward.
-        await performEdit(body);
+        await performEdit(pendingBody);
       } else {
         // Instructors must submit for approval before this edit takes
         // effect — hold off until the modal below completes.
-        pendingBodyRef.current = body;
+        pendingBodyRef.current = pendingBody;
       }
 
       setWorkflowContent({ contentId: examinationId, contentTitle: data.title });
@@ -238,6 +347,37 @@ const EditStandalonePage = ({ assessment }) => {
           </GridItem>
         </Grid>
 
+        <Heading as="h3" size="md" marginTop="32px" marginBottom="16px" color="#1A202C">
+          Sections
+        </Heading>
+        {sections.length === 0 && (
+          <Text fontSize="sm" color="gray.500" mb={3}>
+            No sections added yet. Sections let you group questions and optionally cap time per group.
+          </Text>
+        )}
+        {sections.map((s, i) => (
+          <SectionRow key={i} section={s} idx={i} onChange={updateSection} onRemove={removeSection} />
+        ))}
+        <Button secondary type="button" onClick={addSection}>
+          + Add Section
+        </Button>
+
+        <Heading as="h3" size="md" marginTop="32px" marginBottom="8px" color="#1A202C">
+          Randomization
+        </Heading>
+        <BoolRow
+          label="Randomize question order"
+          description="Questions are presented in a random order for each student"
+          checked={randomization.question_order}
+          onChange={(v) => setRandomization((p) => ({ ...p, question_order: v }))}
+        />
+        <BoolRow
+          label="Randomize option order"
+          description="Answer options for each question are shuffled"
+          checked={randomization.option_order}
+          onChange={(v) => setRandomization((p) => ({ ...p, option_order: v }))}
+        />
+
         <Flex marginTop="40px" justifyContent="flex-end" gap="16px">
           <Button
             secondary
@@ -312,6 +452,16 @@ const CreateStandalonePage = () => {
   const pendingBodyRef = useRef(null);
   const resultExaminationRef = useRef(null);
 
+  const [sections, setSections] = useState([]);
+  const addSection = () => setSections((p) => [...p, { ...EMPTY_SECTION }]);
+  const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
+  const updateSection = (i, field, value) =>
+    setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
+  const [randomization, setRandomization] = useState({
+    question_order: false,
+    option_order: false,
+  });
+
   useEffect(() => {
     adminGetMarkingTemplates()
       .then(({ templates }) =>
@@ -320,10 +470,11 @@ const CreateStandalonePage = () => {
       .catch(() => {});
   }, []);
 
-  const performCreate = async (body) => {
+  const performCreate = async ({ body, paperConfigBody }) => {
     const { message, examination } = await adminCreateStandaloneExamination(body);
+    await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
     resultExaminationRef.current = examination;
-    setAssessment(examination);
+    setAssessment({ ...examination, sections });
     toast({
       description: capitalizeFirstLetter(message),
       position: "top",
@@ -355,15 +506,27 @@ const CreateStandalonePage = () => {
         startTime: formatDateToISO(startTime),
       };
 
+      const paperConfigBody = {
+        examType: "standalone_examination",
+        configuredSections: sections.map((s) => ({
+          section_name: s.section_name,
+          questions_count: Number(s.questions_count) || 0,
+          time_limit: s.time_limit ? Number(s.time_limit) : null,
+        })),
+        randomization,
+      };
+
+      const pendingBody = { body, paperConfigBody };
+
       if (isSuperAdmin) {
         // Super admins create right away — the modal below only offers an
         // optional supervisor review afterward.
-        const created = await performCreate(body);
+        const created = await performCreate(pendingBody);
         setWorkflowContent({ contentTitle: data.title, contentId: created.id });
       } else {
         // Instructors must submit for approval before this gets created —
         // hold off until the modal below completes.
-        pendingBodyRef.current = body;
+        pendingBodyRef.current = pendingBody;
         setWorkflowContent({ contentTitle: data.title });
       }
       setWorkflowModalOpen(true);
@@ -462,6 +625,37 @@ const CreateStandalonePage = () => {
             />
           </GridItem>
         </Grid>
+
+        <Heading as="h3" size="md" marginTop="32px" marginBottom="16px" color="#1A202C">
+          Sections
+        </Heading>
+        {sections.length === 0 && (
+          <Text fontSize="sm" color="gray.500" mb={3}>
+            No sections added yet. Sections let you group questions and optionally cap time per group.
+          </Text>
+        )}
+        {sections.map((s, i) => (
+          <SectionRow key={i} section={s} idx={i} onChange={updateSection} onRemove={removeSection} />
+        ))}
+        <Button secondary type="button" onClick={addSection}>
+          + Add Section
+        </Button>
+
+        <Heading as="h3" size="md" marginTop="32px" marginBottom="8px" color="#1A202C">
+          Randomization
+        </Heading>
+        <BoolRow
+          label="Randomize question order"
+          description="Questions are presented in a random order for each student"
+          checked={randomization.question_order}
+          onChange={(v) => setRandomization((p) => ({ ...p, question_order: v }))}
+        />
+        <BoolRow
+          label="Randomize option order"
+          description="Answer options for each question are shuffled"
+          checked={randomization.option_order}
+          onChange={(v) => setRandomization((p) => ({ ...p, option_order: v }))}
+        />
 
         <Flex marginTop="40px" justifyContent="flex-end" gap="16px">
           <Button
