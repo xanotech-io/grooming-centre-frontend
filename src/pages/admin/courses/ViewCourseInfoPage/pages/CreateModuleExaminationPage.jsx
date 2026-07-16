@@ -218,6 +218,9 @@ const CreateModuleExaminationPage = () => {
           if (cfg.navigationMode) setNavigationMode(cfg.navigationMode);
           if (cfg.randomization) setRandomization(cfg.randomization);
           if (cfg.uiSettings) setUiSettings(cfg.uiSettings);
+          if (cfg.toolsEnabled) setTools(cfg.toolsEnabled);
+          if (cfg.accessibilitySettings) setAccessibility(cfg.accessibilitySettings);
+          if (cfg.submissionSettings) setSubmission(cfg.submissionSettings);
           if (cfg.paperStatus) setIsPublished((p) => p || cfg.paperStatus === "published");
         }
         setIsPublished((p) => p || exam.active === true || exam.isPublished === true);
@@ -297,6 +300,9 @@ const CreateModuleExaminationPage = () => {
         timeLimitMinutes: Number(data.duration) || 0,
         randomization,
         uiSettings: { ...uiSettings, font_size: Number(uiSettings.font_size) },
+        toolsEnabled: tools,
+        accessibilitySettings: accessibility,
+        submissionSettings: submission,
       };
 
       const pendingBody = { body, paperConfigBody };
