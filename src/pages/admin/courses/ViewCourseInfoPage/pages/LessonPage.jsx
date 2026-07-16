@@ -14,6 +14,7 @@ import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrap
 import {
   adminDeleteLesson,
   adminGetLessonListing,
+  auditTrailV2PostLog,
 } from "../../../../../services";
 import { Tag } from "@chakra-ui/tag";
 import dayjs from "dayjs";
@@ -148,10 +149,28 @@ const LessonPage = () => {
       ],
       selection: true,
       multipleDeleteFetcher: async (selectedDepartments) => {
-        let format = [];
-        format.push(selectedDepartments.map((datum) => datum.id));
-
-        await adminDeleteLesson(selectedDepartments);
+        const titles = selectedDepartments.map((l) => l.title?.text).join(", ");
+        try {
+          await adminDeleteLesson(selectedDepartments);
+          auditTrailV2PostLog({
+            eventType: "delete",
+            module: "LMS",
+            status: "success",
+            resourceId: selectedDepartments.map((l) => l.id).join(","),
+            resourceType: "Lesson",
+            remarks: `Deleted lesson(s) "${titles}"`,
+          }).catch(() => {});
+        } catch (error) {
+          auditTrailV2PostLog({
+            eventType: "delete",
+            module: "LMS",
+            status: "failure",
+            resourceId: selectedDepartments.map((l) => l.id).join(","),
+            resourceType: "Lesson",
+            remarks: error?.response?.data?.message || error.message || `Failed to delete lesson(s) "${titles}"`,
+          }).catch(() => {});
+          throw error;
+        }
       },
       pagination: true,
     },

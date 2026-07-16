@@ -16,6 +16,7 @@ import {
   adminListModules,
   adminPublishModule,
   adminUnpublishModule,
+  auditTrailV2PostLog,
 } from "../../../../../services";
 import { useTableRows } from "../../../../../hooks";
 
@@ -184,7 +185,29 @@ const ModulesListingPage = () => {
       ],
       selection: true,
       multipleDeleteFetcher: async (selectedModules) => {
-        await adminDeleteModule(selectedModules[0]?.id);
+        const moduleId = selectedModules[0]?.id;
+        const moduleTitle = selectedModules[0]?.title?.text;
+        try {
+          await adminDeleteModule(moduleId);
+          auditTrailV2PostLog({
+            eventType: "delete",
+            module: "LMS",
+            status: "success",
+            resourceId: moduleId,
+            resourceType: "Module",
+            remarks: `Deleted module "${moduleTitle}"`,
+          }).catch(() => {});
+        } catch (error) {
+          auditTrailV2PostLog({
+            eventType: "delete",
+            module: "LMS",
+            status: "failure",
+            resourceId: moduleId,
+            resourceType: "Module",
+            remarks: error?.response?.data?.message || error.message || `Failed to delete module "${moduleTitle}"`,
+          }).catch(() => {});
+          throw error;
+        }
       },
       pagination: false,
     },

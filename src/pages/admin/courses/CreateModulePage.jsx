@@ -19,6 +19,7 @@ import {
   adminCreateModule,
   adminGetModule,
   adminUpdateModule,
+  auditTrailV2PostLog,
 } from "../../../services";
 import { useFetch, useIsSuperAdmin } from "../../../hooks";
 import { useCallback } from "react";
@@ -78,18 +79,58 @@ const CreateModulePage = () => {
   }, [resource]);
 
   const performEdit = async (body) => {
-    const { message } = await adminUpdateModule(moduleId, body);
-    toast({ title: message, status: "success", duration: 3000 });
-    handleDelete("modules");
-    return { id: moduleId };
+    try {
+      const { message } = await adminUpdateModule(moduleId, body);
+      toast({ title: message, status: "success", duration: 3000 });
+      handleDelete("modules");
+      auditTrailV2PostLog({
+        eventType: "update",
+        module: "LMS",
+        status: "success",
+        resourceId: moduleId,
+        resourceType: "Module",
+        remarks: `Updated module "${body.title}"`,
+      }).catch(() => {});
+      return { id: moduleId };
+    } catch (error) {
+      auditTrailV2PostLog({
+        eventType: "update",
+        module: "LMS",
+        status: "failure",
+        resourceId: moduleId,
+        resourceType: "Module",
+        remarks: error?.response?.data?.message || error.message || `Failed to update module "${body.title}"`,
+      }).catch(() => {});
+      throw error;
+    }
   };
 
   const performCreate = async (body) => {
-    const { message, module } = await adminCreateModule(courseId, body);
-    resultModuleRef.current = module;
-    toast({ title: message, status: "success", duration: 3000 });
-    handleDelete("modules");
-    return { id: module?.id };
+    try {
+      const { message, module } = await adminCreateModule(courseId, body);
+      resultModuleRef.current = module;
+      toast({ title: message, status: "success", duration: 3000 });
+      handleDelete("modules");
+      auditTrailV2PostLog({
+        eventType: "create",
+        module: "LMS",
+        status: "success",
+        resourceId: module?.id,
+        resourceType: "Module",
+        remarks: `Created module "${body.title}"`,
+      }).catch(() => {});
+      return { id: module?.id };
+    } catch (error) {
+      auditTrailV2PostLog({
+        eventType: "create",
+        module: "LMS",
+        status: "failure",
+        resourceId: courseId,
+        resourceType: "Module",
+        remarks: error?.response?.data?.message || error.message || `Failed to create module "${body.title}"`,
+      }).catch(() => {});
+      throw error;
+    }
   };
 
   const onSubmit = async (data) => {
