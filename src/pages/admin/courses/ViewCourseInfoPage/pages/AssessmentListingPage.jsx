@@ -14,6 +14,7 @@ import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrap
 import {
   adminDeleteAssessment,
   adminGetAssessmentListing,
+  auditTrailV2PostLog,
 } from "../../../../../services";
 import { getDuration } from "../../../../../utils";
 import dayjs from "dayjs";
@@ -96,8 +97,29 @@ const tableProps = {
     ],
     selection: true,
     multipleDeleteFetcher: async (selectedAssessments) => {
-      console.log(selectedAssessments[0]?.id, "id");
-      await adminDeleteAssessment(selectedAssessments[0]?.id);
+      const assessmentId = selectedAssessments[0]?.id;
+      const assessmentTitle = selectedAssessments[0]?.title?.text;
+      try {
+        await adminDeleteAssessment(assessmentId);
+        auditTrailV2PostLog({
+          eventType: "delete",
+          module: "LMS",
+          status: "success",
+          resourceId: assessmentId,
+          resourceType: "Assessment",
+          remarks: `Deleted assessment "${assessmentTitle}"`,
+        }).catch(() => {});
+      } catch (error) {
+        auditTrailV2PostLog({
+          eventType: "delete",
+          module: "LMS",
+          status: "failure",
+          resourceId: assessmentId,
+          resourceType: "Assessment",
+          remarks: error?.response?.data?.message || error.message || `Failed to delete assessment "${assessmentTitle}"`,
+        }).catch(() => {});
+        throw error;
+      }
     },
     pagination: false,
   },

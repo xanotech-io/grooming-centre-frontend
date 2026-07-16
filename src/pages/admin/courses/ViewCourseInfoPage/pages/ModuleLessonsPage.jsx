@@ -14,6 +14,7 @@ import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrap
 import {
   adminDeleteLesson,
   adminGetModuleLessons,
+  auditTrailV2PostLog,
 } from "../../../../../services";
 import { useTableRows } from "../../../../../hooks";
 
@@ -123,7 +124,28 @@ const ModuleLessonsPage = () => {
       ],
       selection: true,
       multipleDeleteFetcher: async (selectedLessons) => {
-        await adminDeleteLesson(selectedLessons);
+        const titles = selectedLessons.map((l) => l.title?.text).join(", ");
+        try {
+          await adminDeleteLesson(selectedLessons);
+          auditTrailV2PostLog({
+            eventType: "delete",
+            module: "LMS",
+            status: "success",
+            resourceId: selectedLessons.map((l) => l.id).join(","),
+            resourceType: "Lesson",
+            remarks: `Deleted lesson(s) "${titles}"`,
+          }).catch(() => {});
+        } catch (error) {
+          auditTrailV2PostLog({
+            eventType: "delete",
+            module: "LMS",
+            status: "failure",
+            resourceId: selectedLessons.map((l) => l.id).join(","),
+            resourceType: "Lesson",
+            remarks: error?.response?.data?.message || error.message || `Failed to delete lesson(s) "${titles}"`,
+          }).catch(() => {});
+          throw error;
+        }
       },
       pagination: false,
     },

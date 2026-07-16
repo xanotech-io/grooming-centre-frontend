@@ -14,7 +14,7 @@ import {
 } from "../../../../../components";
 import { useDateTimePicker, useGoBack, useIsSuperAdmin } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
-import { getProjectById, updateProject } from "../../../../../services";
+import { getProjectById, updateProject, auditTrailV2PostLog } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
 
 const STATUS_OPTIONS = [
@@ -72,13 +72,33 @@ const EditModuleProjectPage = () => {
   }, [projectId]);
 
   const performEdit = async (body) => {
-    const { message } = await updateProject(projectId, body);
-    toast({
-      description: capitalizeFirstLetter(message),
-      position: "top",
-      status: "success",
-    });
-    return { id: projectId };
+    try {
+      const { message } = await updateProject(projectId, body);
+      toast({
+        description: capitalizeFirstLetter(message),
+        position: "top",
+        status: "success",
+      });
+      auditTrailV2PostLog({
+        eventType: "update",
+        module: "LMS",
+        status: "success",
+        resourceId: projectId,
+        resourceType: "Project",
+        remarks: `Updated project "${body.title}"`,
+      }).catch(() => {});
+      return { id: projectId };
+    } catch (error) {
+      auditTrailV2PostLog({
+        eventType: "update",
+        module: "LMS",
+        status: "failure",
+        resourceId: projectId,
+        resourceType: "Project",
+        remarks: error?.response?.data?.message || error.message || `Failed to update project "${body.title}"`,
+      }).catch(() => {});
+      throw error;
+    }
   };
 
   const onSubmit = async (data) => {

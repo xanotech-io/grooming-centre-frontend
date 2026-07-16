@@ -32,7 +32,11 @@ import {
 } from "../../../utils";
 import { useApp, useCache } from "../../../contexts";
 import { useEffect, useRef, useState } from "react";
-import { adminCreateLesson, adminEditLesson } from "../../../services";
+import {
+  adminCreateLesson,
+  adminEditLesson,
+  auditTrailV2PostLog,
+} from "../../../services";
 import useViewLessonInfo from "./hooks/useViewLessonInfo";
 
 const CreateLessonPage = () => {
@@ -63,6 +67,7 @@ const CreateLessonPage = () => {
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
   const pendingLessonBodyRef = useRef(null);
+  const pendingLessonTitleRef = useRef(null);
   const resultLessonRef = useRef(null);
   const handleUploadProgress = (progress) => {
     setUploadProgress(progress);
@@ -192,30 +197,70 @@ const CreateLessonPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watch, metadata]);
 
-  const performEdit = async (body) => {
-    const { message, lesson } = await adminEditLesson(lessonId, body);
-    resultLessonRef.current = lesson;
-    handleDelete(lesson.id);
-    toast({
-      description: capitalizeFirstLetter(message),
-      position: "top",
-      status: "success",
-    });
-    return { id: lesson?.id ?? lessonId };
+  const performEdit = async (body, title) => {
+    try {
+      const { message, lesson } = await adminEditLesson(lessonId, body);
+      resultLessonRef.current = lesson;
+      handleDelete(lesson.id);
+      toast({
+        description: capitalizeFirstLetter(message),
+        position: "top",
+        status: "success",
+      });
+      auditTrailV2PostLog({
+        eventType: "update",
+        module: "LMS",
+        status: "success",
+        resourceId: lesson?.id ?? lessonId,
+        resourceType: "Lesson",
+        remarks: `Updated lesson "${title ?? lesson?.title}"`,
+      }).catch(() => {});
+      return { id: lesson?.id ?? lessonId };
+    } catch (error) {
+      auditTrailV2PostLog({
+        eventType: "update",
+        module: "LMS",
+        status: "failure",
+        resourceId: lessonId,
+        resourceType: "Lesson",
+        remarks: error?.response?.data?.message || error.message || `Failed to update lesson "${title}"`,
+      }).catch(() => {});
+      throw error;
+    }
   };
 
-  const performCreate = async (body) => {
-    const { message, lesson } = await adminCreateLesson(
-      body,
-      handleUploadProgress,
-    );
-    resultLessonRef.current = lesson;
-    toast({
-      description: capitalizeFirstLetter(message),
-      position: "top",
-      status: "success",
-    });
-    return { id: lesson?.id };
+  const performCreate = async (body, title) => {
+    try {
+      const { message, lesson } = await adminCreateLesson(
+        body,
+        handleUploadProgress,
+      );
+      resultLessonRef.current = lesson;
+      toast({
+        description: capitalizeFirstLetter(message),
+        position: "top",
+        status: "success",
+      });
+      auditTrailV2PostLog({
+        eventType: "create",
+        module: "LMS",
+        status: "success",
+        resourceId: lesson?.id,
+        resourceType: "Lesson",
+        remarks: `Created lesson "${title ?? lesson?.title}"`,
+      }).catch(() => {});
+      return { id: lesson?.id };
+    } catch (error) {
+      auditTrailV2PostLog({
+        eventType: "create",
+        module: "LMS",
+        status: "failure",
+        resourceId: courseId,
+        resourceType: "Lesson",
+        remarks: error?.response?.data?.message || error.message || `Failed to create lesson "${title}"`,
+      }).catch(() => {});
+      throw error;
+    }
   };
 
   const handleWorkflowFinished = () => {
@@ -258,9 +303,11 @@ const CreateLessonPage = () => {
         courseId,
       };
 
+      pendingLessonTitleRef.current = data.title;
+
       if (isEditMode) {
         if (isSuperAdmin) {
-          const edited = await performEdit(body);
+          const edited = await performEdit(body, data.title);
           setWorkflowContent({ ...workflowContentBase, contentId: edited.id });
         } else {
           pendingLessonBodyRef.current = body;
@@ -269,7 +316,7 @@ const CreateLessonPage = () => {
       } else if (isSuperAdmin) {
         // Super admins create right away — the modal below only offers an
         // optional supervisor review afterward.
-        const created = await performCreate(body);
+        const created = await performCreate(body, data.title);
         setWorkflowContent({ ...workflowContentBase, contentId: created.id });
       } else {
         // Instructors must submit for approval before this gets created —
@@ -502,8 +549,8 @@ const CreateLessonPage = () => {
               ? undefined
               : () =>
                   isEditMode
-                    ? performEdit(pendingLessonBodyRef.current)
-                    : performCreate(pendingLessonBodyRef.current)
+                    ? performEdit(pendingLessonBodyRef.current, pendingLessonTitleRef.current)
+                    : performCreate(pendingLessonBodyRef.current, pendingLessonTitleRef.current)
           }
           onSuccess={handleWorkflowFinished}
         />

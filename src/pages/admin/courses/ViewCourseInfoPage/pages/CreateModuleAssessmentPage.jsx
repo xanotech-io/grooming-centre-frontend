@@ -19,6 +19,7 @@ import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
   adminCreateAssessment,
   adminGetMarkingTemplates,
+  auditTrailV2PostLog,
 } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
 import useAssessmentStore from "../../../../../store/assessmentStore";
@@ -53,15 +54,35 @@ const CreateModuleAssessmentPage = () => {
   const startTimeManager = useDateTimePicker();
 
   const performCreate = async (body) => {
-    const { message, assessment } = await adminCreateAssessment(body);
-    resultAssessmentRef.current = assessment;
-    setAssessment(assessment);
-    toast({
-      description: capitalizeFirstLetter(message),
-      position: "top",
-      status: "success",
-    });
-    return { id: assessment.id };
+    try {
+      const { message, assessment } = await adminCreateAssessment(body);
+      resultAssessmentRef.current = assessment;
+      setAssessment(assessment);
+      toast({
+        description: capitalizeFirstLetter(message),
+        position: "top",
+        status: "success",
+      });
+      auditTrailV2PostLog({
+        eventType: "create",
+        module: "LMS",
+        status: "success",
+        resourceId: assessment.id,
+        resourceType: "Assessment",
+        remarks: `Created assessment "${body.title}"`,
+      }).catch(() => {});
+      return { id: assessment.id };
+    } catch (error) {
+      auditTrailV2PostLog({
+        eventType: "create",
+        module: "LMS",
+        status: "failure",
+        resourceId: courseId,
+        resourceType: "Assessment",
+        remarks: error?.response?.data?.message || error.message || `Failed to create assessment "${body.title}"`,
+      }).catch(() => {});
+      throw error;
+    }
   };
 
   const handleWorkflowFinished = () =>

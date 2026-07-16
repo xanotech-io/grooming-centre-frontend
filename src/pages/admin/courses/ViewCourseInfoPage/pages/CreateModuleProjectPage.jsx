@@ -17,7 +17,7 @@ import {
   useRichText,
 } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
-import { createModuleProject } from "../../../../../services";
+import { createModuleProject, auditTrailV2PostLog } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
 
 const CreateModuleProjectPage = () => {
@@ -42,14 +42,34 @@ const CreateModuleProjectPage = () => {
   const instructionsManager = useRichText();
 
   const performCreate = async (body) => {
-    const { message, project } = await createModuleProject(moduleId, body);
-    resultProjectRef.current = project;
-    toast({
-      description: capitalizeFirstLetter(message),
-      position: "top",
-      status: "success",
-    });
-    return { id: project?.id ?? moduleId };
+    try {
+      const { message, project } = await createModuleProject(moduleId, body);
+      resultProjectRef.current = project;
+      toast({
+        description: capitalizeFirstLetter(message),
+        position: "top",
+        status: "success",
+      });
+      auditTrailV2PostLog({
+        eventType: "create",
+        module: "LMS",
+        status: "success",
+        resourceId: project?.id,
+        resourceType: "Project",
+        remarks: `Created project "${body.title}"`,
+      }).catch(() => {});
+      return { id: project?.id ?? moduleId };
+    } catch (error) {
+      auditTrailV2PostLog({
+        eventType: "create",
+        module: "LMS",
+        status: "failure",
+        resourceId: moduleId,
+        resourceType: "Project",
+        remarks: error?.response?.data?.message || error.message || `Failed to create project "${body.title}"`,
+      }).catch(() => {});
+      throw error;
+    }
   };
 
   const onSubmit = async (data) => {

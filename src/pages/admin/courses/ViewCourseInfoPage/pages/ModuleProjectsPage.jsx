@@ -11,7 +11,7 @@ import {
 } from "../../../../../components";
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrapper";
-import { getModuleProjects, deleteProject } from "../../../../../services";
+import { getModuleProjects, deleteProject, auditTrailV2PostLog } from "../../../../../services";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../../hooks";
 
@@ -136,7 +136,29 @@ const ModuleProjectsPage = () => {
       ],
       selection: true,
       multipleDeleteFetcher: async (selectedProjects) => {
-        await deleteProject(selectedProjects[0]?.id);
+        const projectId = selectedProjects[0]?.id;
+        const projectTitle = selectedProjects[0]?.title;
+        try {
+          await deleteProject(projectId);
+          auditTrailV2PostLog({
+            eventType: "delete",
+            module: "LMS",
+            status: "success",
+            resourceId: projectId,
+            resourceType: "Project",
+            remarks: `Deleted project "${projectTitle}"`,
+          }).catch(() => {});
+        } catch (error) {
+          auditTrailV2PostLog({
+            eventType: "delete",
+            module: "LMS",
+            status: "failure",
+            resourceId: projectId,
+            resourceType: "Project",
+            remarks: error?.response?.data?.message || error.message || `Failed to delete project "${projectTitle}"`,
+          }).catch(() => {});
+          throw error;
+        }
       },
       pagination: false,
     },

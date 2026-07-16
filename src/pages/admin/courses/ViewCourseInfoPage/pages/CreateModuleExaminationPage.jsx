@@ -176,28 +176,6 @@ const CreateModuleExaminationPage = () => {
     theme: "default",
     font_size: 16,
     font_family: "default",
-    progress_indicator: true,
-  });
-
-  // Tools
-  const [tools, setTools] = useState({
-    calculator: "none",
-    spellchecker: false,
-    scratchpad: false,
-  });
-
-  // Accessibility
-  const [accessibility, setAccessibility] = useState({
-    font_scaling: false,
-    dyslexia_font: false,
-    high_contrast: false,
-    screen_reader: false,
-  });
-
-  // Submission
-  const [submission, setSubmission] = useState({
-    confirmation_dialog: true,
-    auto_submit: false,
   });
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
@@ -240,9 +218,6 @@ const CreateModuleExaminationPage = () => {
           if (cfg.navigationMode) setNavigationMode(cfg.navigationMode);
           if (cfg.randomization) setRandomization(cfg.randomization);
           if (cfg.uiSettings) setUiSettings(cfg.uiSettings);
-          if (cfg.toolsEnabled) setTools(cfg.toolsEnabled);
-          if (cfg.accessibilitySettings) setAccessibility(cfg.accessibilitySettings);
-          if (cfg.submissionSettings) setSubmission(cfg.submissionSettings);
           if (cfg.paperStatus) setIsPublished((p) => p || cfg.paperStatus === "published");
         }
         setIsPublished((p) => p || exam.active === true || exam.isPublished === true);
@@ -309,9 +284,6 @@ const CreateModuleExaminationPage = () => {
         navigationMode,
         randomizationConfig: randomization,
         uiSettings: { ...uiSettings, font_size: Number(uiSettings.font_size) },
-        toolsEnabled: tools,
-        accessibilitySettings: accessibility,
-        submissionSettings: submission,
       };
 
       const paperConfigBody = {
@@ -325,9 +297,6 @@ const CreateModuleExaminationPage = () => {
         timeLimitMinutes: Number(data.duration) || 0,
         randomization,
         uiSettings: { ...uiSettings, font_size: Number(uiSettings.font_size) },
-        toolsEnabled: tools,
-        accessibilitySettings: accessibility,
-        submissionSettings: submission,
       };
 
       const pendingBody = { body, paperConfigBody };
@@ -475,14 +444,6 @@ const CreateModuleExaminationPage = () => {
               </option>
             </ChakraSelect>
           </Box>
-          <Box display="flex" gap={4} justifyContent="flex-end" marginTop={8}>
-            <Button secondary onClick={handleCancel} type="button">
-              Cancel
-            </Button>
-            <Button type="submit" isLoading={isSubmitting} isDisabled={isPublished}>
-              {isEditMode ? "Save Changes" : "Create Examination"}
-            </Button>
-          </Box>
 
           <Box borderTop="1px solid" borderColor="gray.100" pt={4}>
             <Text fontSize="sm" fontWeight="500" mb={3}>
@@ -589,105 +550,6 @@ const CreateModuleExaminationPage = () => {
               </ChakraSelect>
             </Box>
           </Flex>
-          <Box borderTop="1px solid" borderColor="gray.100" pt={3}>
-            <BoolRow
-              label="Show progress indicator"
-              description="Display a progress bar or question counter during the exam"
-              checked={uiSettings.progress_indicator}
-              onChange={(v) =>
-                setUiSettings((p) => ({ ...p, progress_indicator: v }))
-              }
-            />
-          </Box>
-        </SectionCard>
-
-        {/* ── Tools ── */}
-        <SectionCard title="Tools">
-          <Box mb={4}>
-            <Text fontSize="sm" fontWeight="500" mb={1}>
-              Calculator
-            </Text>
-            <ChakraSelect
-              value={tools.calculator}
-              onChange={(e) =>
-                setTools((p) => ({ ...p, calculator: e.target.value }))
-              }
-              size="sm"
-              maxW="220px"
-            >
-              <option value="none">None</option>
-              <option value="basic">Basic</option>
-              <option value="scientific">Scientific</option>
-            </ChakraSelect>
-          </Box>
-          <Box borderTop="1px solid" borderColor="gray.100" pt={3}>
-            <BoolRow
-              label="Spellchecker"
-              description="Underline misspelled words in text responses"
-              checked={tools.spellchecker}
-              onChange={(v) => setTools((p) => ({ ...p, spellchecker: v }))}
-            />
-            <BoolRow
-              label="Scratchpad"
-              description="Allow students to make working notes during the exam"
-              checked={tools.scratchpad}
-              onChange={(v) => setTools((p) => ({ ...p, scratchpad: v }))}
-            />
-          </Box>
-        </SectionCard>
-
-        {/* ── Accessibility ── */}
-        <SectionCard title="Accessibility">
-          <BoolRow
-            label="Font scaling"
-            description="Students can increase or decrease the text size"
-            checked={accessibility.font_scaling}
-            onChange={(v) =>
-              setAccessibility((p) => ({ ...p, font_scaling: v }))
-            }
-          />
-          <BoolRow
-            label="Dyslexia-friendly font"
-            description="Use OpenDyslexic or similar font"
-            checked={accessibility.dyslexia_font}
-            onChange={(v) =>
-              setAccessibility((p) => ({ ...p, dyslexia_font: v }))
-            }
-          />
-          <BoolRow
-            label="High contrast mode"
-            description="Increase contrast for visually impaired students"
-            checked={accessibility.high_contrast}
-            onChange={(v) =>
-              setAccessibility((p) => ({ ...p, high_contrast: v }))
-            }
-          />
-          <BoolRow
-            label="Screen reader support"
-            description="Optimise layout for screen reader compatibility"
-            checked={accessibility.screen_reader}
-            onChange={(v) =>
-              setAccessibility((p) => ({ ...p, screen_reader: v }))
-            }
-          />
-        </SectionCard>
-
-        {/* ── Submission Settings ── */}
-        <SectionCard title="Submission Settings">
-          <BoolRow
-            label="Confirmation dialog"
-            description="Show a confirmation prompt before final submission"
-            checked={submission.confirmation_dialog}
-            onChange={(v) =>
-              setSubmission((p) => ({ ...p, confirmation_dialog: v }))
-            }
-          />
-          <BoolRow
-            label="Auto-submit on time expiry"
-            description="Automatically submit the paper when the timer runs out"
-            checked={submission.auto_submit}
-            onChange={(v) => setSubmission((p) => ({ ...p, auto_submit: v }))}
-          />
         </SectionCard>
 
         <Flex gap={4} justifyContent="flex-end" mt={2} mb={10}>
