@@ -4,6 +4,7 @@ import {
   Flex,
   Alert,
   AlertIcon,
+  Checkbox,
   IconButton,
   NumberDecrementStepper,
   NumberIncrementStepper,
@@ -39,7 +40,7 @@ import {
   getExaminationById as getExamPaperConfig,
   updateExaminationById as updateExamPaperConfig,
 } from "../../../../../services";
-import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
+import { capitalizeFirstLetter, formatDateToISO, setAutoAddToBank } from "../../../../../utils";
 import useAssessmentStore from "../../../../../store/assessmentStore";
 
 const SectionCard = ({ title, children }) => (
@@ -153,6 +154,7 @@ const CreateModuleExaminationPage = () => {
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
   const [isPublished, setIsPublished] = useState(false);
+  const [addToBank, setAddToBank] = useState(false);
   const [loadingExam, setLoadingExam] = useState(false);
 
   // Sections
@@ -247,6 +249,7 @@ const CreateModuleExaminationPage = () => {
     const { message, examination } = await adminCreateExamination(body);
     await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
     resultExaminationRef.current = examination;
+    if (!isEditMode && addToBank) setAutoAddToBank("examination", examination.id);
     setAssessment({ ...examination, sections });
     toast({
       description: capitalizeFirstLetter(message),
@@ -551,6 +554,17 @@ const CreateModuleExaminationPage = () => {
             </Box>
           </Flex>
         </SectionCard>
+
+        {!isEditMode && (
+          <Checkbox
+            isChecked={addToBank}
+            onChange={(e) => setAddToBank(e.target.checked)}
+            colorScheme="purple"
+            mt={2}
+          >
+            Add to Question Bank — automatically save every question created for this examination to the bank
+          </Checkbox>
+        )}
 
         <Flex gap={4} justifyContent="flex-end" mt={2} mb={10}>
           <Button secondary onClick={handleCancel} type="button">

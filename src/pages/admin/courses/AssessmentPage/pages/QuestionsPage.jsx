@@ -2,9 +2,12 @@ import { Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/menu";
 import {
   Box,
   ButtonGroup,
+  Checkbox,
   Select as ChakraSelect,
+  Input as ChakraInput,
   Flex,
   Grid,
+  Switch,
   Stack,
 } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
@@ -47,17 +50,37 @@ import {
   adminGetExaminationById,
   adminGetMarkingTemplateById,
   adminGetStandaloneExamTemplateId,
+  createExamQuestionBankItem,
   getExaminationById as getExamPaperConfig,
+  listExamQuestionBank,
 } from "../../../../../services";
 import { buildBatchUploadLink } from "../../../examQuestionImport/questionRowUtils";
 import {
   appendFormData,
   capitalizeFirstLetter,
   capitalizeWords,
+  isAutoAddToBank,
 } from "../../../../../utils";
 import useAssessmentPreview from "../../../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import useAssessmentStore from "../../../../../store/assessmentStore";
 import { useSections } from "./useSections";
+
+// Question Bank type mapping — the bank has no "Matching" equivalent.
+const FORM_TYPE_TO_BANK_TYPE = {
+  MCQ: "mcq",
+  TrueFalse: "true_false",
+  FillBlank: "fill_blank",
+  ShortAnswer: "short_answer",
+  Essay: "essay",
+};
+
+const BANK_TYPE_TO_FORM_TYPE = {
+  mcq: "MCQ",
+  true_false: "TrueFalse",
+  fill_blank: "FillBlank",
+  short_answer: "ShortAnswer",
+  essay: "Essay",
+};
 
 const QuestionsPage = () => {
   const isQuestionListingPage = useQueryParams().get("question-listing");
@@ -397,6 +420,93 @@ const CreateQuestionPage = ({
 
   const questionRichTextManager = useRichText();
 
+  // ── Add this question to the Question Bank on save ─────────────────────
+  const [addToBank, setAddToBank] = useState(false);
+  const bankExamType = isStandaloneExamination
+    ? "standalone"
+    : isExamination
+      ? "examination"
+      : "assessment";
+  const bankExamId = isStandaloneExamination || isExamination ? isExamination : assessmentId;
+  const autoAddToBank = isAutoAddToBank(bankExamType, bankExamId);
+
+  useEffect(() => {
+    if (autoAddToBank) setAddToBank(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAddToBank]);
+
+  // ── Select from Question Bank ──────────────────────────────────────────
+  const [useBank, setUseBank] = useState(false);
+  const [bankSearch, setBankSearch] = useState("");
+  const [bankResults, setBankResults] = useState([]);
+  const [bankLoading, setBankLoading] = useState(false);
+  const [bankApplyKey, setBankApplyKey] = useState(0);
+
+  const searchBank = useCallback(async () => {
+    setBankLoading(true);
+    try {
+      const params = { limit: 10, status: "active" };
+      if (bankSearch) params.search = bankSearch;
+      if (courseId && courseId !== "not-set") params.courseId = courseId;
+      const res = await listExamQuestionBank(params);
+      const payload = res?.data ?? res;
+      const items = Array.isArray(payload?.questions)
+        ? payload.questions
+        : Array.isArray(payload)
+          ? payload
+          : [];
+      setBankResults(items);
+    } catch {
+      setBankResults([]);
+    } finally {
+      setBankLoading(false);
+    }
+  }, [bankSearch, courseId]);
+
+  useEffect(() => {
+    if (useBank) searchBank();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useBank]);
+
+  const applyBankQuestion = (bankQuestion) => {
+    const mappedType = BANK_TYPE_TO_FORM_TYPE[bankQuestion.questionType] || "Essay";
+    setQuestionType(mappedType);
+    setMarks(bankQuestion.marks || 1);
+    if (isExamination && !isStandaloneExamination) {
+      setDifficultyLevel((bankQuestion.difficultyLevel || "Medium").toLowerCase());
+    }
+    questionRichTextManager.handleInitData(bankQuestion.question);
+    setBankApplyKey((k) => k + 1);
+
+    if (mappedType === "MCQ" || mappedType === "TrueFalse") {
+      const opts =
+        mappedType === "TrueFalse"
+          ? ["True", "False"]
+          : (bankQuestion.options || []).map((o) => o.text);
+      opts.slice(0, 4).forEach((text, idx) => setValue(`option-${idx + 1}`, text));
+      const correctIdx =
+        mappedType === "TrueFalse"
+          ? bankQuestion.correctAnswer === "False"
+            ? 2
+            : 1
+          : (bankQuestion.options || []).findIndex((o) => o.isCorrect) + 1;
+      setAnswer(String(correctIdx || 1));
+    } else if (mappedType === "FillBlank") {
+      setValue("correctAnswer", bankQuestion.correctAnswer || "");
+    } else if (mappedType === "ShortAnswer") {
+      setValue("modelAnswer", bankQuestion.correctAnswer || "");
+    } else if (mappedType === "Essay") {
+      setValue("rubricDescription", bankQuestion.explanation || "");
+    }
+
+    setUseBank(false);
+    toast({
+      description: "Question loaded from the bank — review and edit before saving",
+      position: "top",
+      status: "info",
+    });
+  };
+
   useEffect(() => {
     if (question) {
       const isTrueFalse = question.options?.length === 2;
@@ -559,6 +669,13 @@ const CreateQuestionPage = ({
                   questionType: "Essay",
                 };
 
+      // Captured here because `data` gets reassigned into the request body below.
+      const bankSourceFields = {
+        correctAnswer: data.correctAnswer,
+        modelAnswer: data.modelAnswer,
+        rubricDescription: data.rubricDescription,
+      };
+
       // selectedSectionId is the section name string for both examination and assessment
       const editSectionTitle = selectedSectionId || undefined;
 
@@ -702,6 +819,55 @@ const CreateQuestionPage = ({
 
       const message = response?.message || "Question saved successfully";
 
+      if (!isEditMode && (addToBank || autoAddToBank)) {
+        const bankType = FORM_TYPE_TO_BANK_TYPE[questionType];
+        if (!bankType) {
+          toast({
+            description: "This question type isn't supported by the Question Bank yet",
+            position: "top",
+            status: "warning",
+          });
+        } else {
+          let bankPayload;
+          try {
+            bankPayload = {
+              question: questionPlainText,
+              questionType: bankType,
+              marks: Number(marks) || 1,
+              difficultyLevel: capitalizeFirstLetter(difficultyLevel || "medium"),
+              status: "draft",
+            };
+            if (isObjectiveType) {
+              const bankOptions = options.map((o) => ({
+                text: o.name ?? o.option ?? "",
+                isCorrect: !!o.isAnswer,
+              }));
+              bankPayload.options = bankOptions.filter((o) => o.text);
+              bankPayload.correctAnswer =
+                bankOptions.find((o) => o.isCorrect)?.text ?? "";
+            } else if (questionType === "FillBlank") {
+              bankPayload.correctAnswer = bankSourceFields.correctAnswer || "";
+            } else if (questionType === "ShortAnswer") {
+              bankPayload.correctAnswer = bankSourceFields.modelAnswer || "";
+            } else if (questionType === "Essay" && bankSourceFields.rubricDescription) {
+              bankPayload.explanation = bankSourceFields.rubricDescription;
+            }
+            if (courseId && courseId !== "not-set") bankPayload.courseId = courseId;
+
+            await createExamQuestionBankItem(bankPayload);
+          } catch (bankErr) {
+            console.error("[QuestionsPage] failed to add question to bank", bankPayload, bankErr?.response?.data ?? bankErr);
+            toast({
+              description:
+                bankErr?.response?.data?.message ||
+                "Question saved, but failed to add it to the Question Bank",
+              position: "top",
+              status: "warning",
+            });
+          }
+        }
+      }
+
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",
@@ -772,6 +938,7 @@ const CreateQuestionPage = ({
           />
         ) : (
           <RichText
+            key={bankApplyKey}
             height="250px"
             id="question"
             label={getQuestionNumber(
@@ -802,6 +969,67 @@ const CreateQuestionPage = ({
         <Heading fontSize="heading.h4" mb={4}>
           Question Type & Answer
         </Heading>
+
+        {/* Select from Question Bank — only shown in create mode */}
+        {(!isExistingQuestion || isEditMode) && (
+          <Box borderBottom="1px" borderColor="accent.2" pb={4} mb={6}>
+            <Flex justifyContent="space-between" alignItems="center" mb={useBank ? 3 : 0}>
+              <Text fontSize="sm" fontWeight="600" color="gray.700">
+                Select from Question Bank
+              </Text>
+              <Switch
+                isChecked={useBank}
+                onChange={(e) => setUseBank(e.target.checked)}
+                colorScheme="purple"
+                size="sm"
+              />
+            </Flex>
+            {useBank && (
+              <Box backgroundColor="gray.50" borderRadius="md" p={3}>
+                <Flex gap={2} mb={3}>
+                  <ChakraInput
+                    size="sm"
+                    backgroundColor="white"
+                    placeholder="Search bank questions..."
+                    value={bankSearch}
+                    onChange={(e) => setBankSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && searchBank()}
+                  />
+                  <Button size="xs" onClick={searchBank} disabled={bankLoading}>
+                    Search
+                  </Button>
+                </Flex>
+                <Stack spacing={2} maxHeight="220px" overflowY="auto">
+                  {bankResults.map((bq) => (
+                    <Flex
+                      key={bq.id}
+                      justifyContent="space-between"
+                      alignItems="center"
+                      backgroundColor="white"
+                      p={2}
+                      borderRadius="md"
+                      border="1px solid"
+                      borderColor="gray.200"
+                      gap={3}
+                    >
+                      <Text fontSize="xs" noOfLines={2}>
+                        {bq.question}
+                      </Text>
+                      <Button size="xs" onClick={() => applyBankQuestion(bq)}>
+                        Use
+                      </Button>
+                    </Flex>
+                  ))}
+                  {!bankLoading && bankResults.length === 0 && (
+                    <Text fontSize="xs" color="gray.400">
+                      No matching questions found.
+                    </Text>
+                  )}
+                </Stack>
+              </Box>
+            )}
+          </Box>
+        )}
 
         {/* Question type selector — only shown in create mode */}
         {(!isExistingQuestion || isEditMode) && (
@@ -1079,6 +1307,25 @@ const CreateQuestionPage = ({
               disabled={isExistingQuestion && !isEditMode}
               {...register("rubricDescription")}
             />
+          </Box>
+        )}
+
+        {/* Add to Question Bank — only offered while creating a brand-new question */}
+        {!isExistingQuestion && (
+          <Box borderTop="1px" borderColor="accent.2" pt={4} mt={6}>
+            <Checkbox
+              isChecked={addToBank}
+              onChange={(e) => setAddToBank(e.target.checked)}
+              isDisabled={autoAddToBank}
+              colorScheme="purple"
+            >
+              Add to Question Bank
+            </Checkbox>
+            {autoAddToBank && (
+              <Text fontSize="xs" color="gray.500" mt={1}>
+                Auto-enabled — this exam was set to add every question to the bank on creation.
+              </Text>
+            )}
           </Box>
         )}
       </Box>

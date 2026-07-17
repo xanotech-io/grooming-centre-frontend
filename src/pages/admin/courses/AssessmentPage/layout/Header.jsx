@@ -176,9 +176,21 @@ const Header = () => {
               </li>
             ))}
           </Flex>
-          <Flex justifyContent="end" width="180px">
+          <Flex justifyContent="end" gap={2}>
             <Button
-              width="100%"
+              secondary
+              link={
+                isStandaloneExamination
+                  ? "/admin/exam-question-bank"
+                  : `/admin/exam-question-bank?courseId=${courseId}${
+                      moduleId ? `&moduleId=${moduleId}` : ""
+                    }`
+              }
+            >
+              Question Bank
+            </Button>
+            <Button
+              width="180px"
               leftIcon={<IoArrowBack />}
               link={isExamination ? undefined : backToAssessmentsLink}
               secondary

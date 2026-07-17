@@ -141,6 +141,12 @@ const StandAloneHeader = () => {
         </Flex>
 
         <Flex gap="10px">
+          <Button
+            secondary
+            onClick={() => push("/admin/exam-question-bank")}
+          >
+            Question Bank
+          </Button>
           {examinationId && (
             <Button
               secondary

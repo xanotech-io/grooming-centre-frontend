@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Route } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
 import {
@@ -8,7 +9,7 @@ import {
   Breadcrumb,
   Link,
 } from "../../../components";
-import { BreadcrumbItem, Tag } from "@chakra-ui/react";
+import { BreadcrumbItem, Tag, useDisclosure } from "@chakra-ui/react";
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
@@ -18,8 +19,9 @@ import {
 import { getDuration } from "../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../hooks";
+import AddStandaloneExamToBankModal from "../examQuestionBank/AddStandaloneExamToBankModal";
 
-const tableProps = {
+const buildTableProps = ({ onAddToBank }) => ({
   filterControls: [
     {
       triggerText: "Sort",
@@ -141,6 +143,10 @@ const tableProps = {
           `/admin/standalone-exams/view/${examination.id}?tab=submissions`,
       },
       {
+        text: "Add to Question Bank",
+        onClick: onAddToBank,
+      },
+      {
         isDelete: true,
       },
     ],
@@ -150,9 +156,19 @@ const tableProps = {
     selection: true,
     pagination: true,
   },
-};
+});
 
 const StandaloneExaminationListingPage = () => {
+  const [selectedExam, setSelectedExam] = useState(null);
+  const { isOpen: isBankOpen, onOpen: onBankOpen, onClose: onBankClose } = useDisclosure();
+
+  const tableProps = buildTableProps({
+    onAddToBank: (examination) => {
+      setSelectedExam(examination);
+      onBankOpen();
+    },
+  });
+
   const mapExaminationToRow = (examination) => ({
     id: examination.id,
     title: {
@@ -202,6 +218,8 @@ const StandaloneExaminationListingPage = () => {
         </Heading>
 
         <Box display={"flex"} gap="8px">
+          <Button link={`/admin/exam-question-bank`} secondary>Question Bank</Button>
+
           <Button link={`/admin/standalone-exams/temporary-library`} secondary>Exam Template Library</Button>
 
           <Button link={`/admin/standalone-exams/overview`}>Create New Exam</Button>
@@ -215,6 +233,13 @@ const StandaloneExaminationListingPage = () => {
         rows={rows}
         setRows={setRows}
         handleFetch={fetchRowItems}
+      />
+
+      <AddStandaloneExamToBankModal
+        isOpen={isBankOpen}
+        onClose={onBankClose}
+        examinationId={selectedExam?.id}
+        examinationTitle={selectedExam?.title?.text}
       />
     </AdminMainAreaWrapper>
   );

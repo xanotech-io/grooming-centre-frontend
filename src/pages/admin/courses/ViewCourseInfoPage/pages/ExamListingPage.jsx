@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Route, useParams } from "react-router-dom";
 import { Flex } from "@chakra-ui/layout";
-import { BreadcrumbItem } from "@chakra-ui/react";
+import { BreadcrumbItem, useDisclosure } from "@chakra-ui/react";
 import {
   Button,
   Heading,
@@ -18,9 +19,12 @@ import {
 import { getDuration } from "../../../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../../hooks";
+import AddExaminationToBankModal from "../../../examQuestionBank/AddExaminationToBankModal";
 
 const ExamListingPage = () => {
   const { id: courseId } = useParams();
+  const [selectedExam, setSelectedExam] = useState(null);
+  const { isOpen: isBankOpen, onOpen: onBankOpen, onClose: onBankClose } = useDisclosure();
   const tableProps = {
     filterControls: [
       {
@@ -93,6 +97,13 @@ const ExamListingPage = () => {
             `/admin/courses/${examination.courseId}/assessment/${examination.courseId}/overview?examination=${examination.id}`,
         },
         {
+          text: "Add to Question Bank",
+          onClick: (examination) => {
+            setSelectedExam(examination);
+            onBankOpen();
+          },
+        },
+        {
           isDelete: true,
         },
       ],
@@ -152,11 +163,16 @@ const ExamListingPage = () => {
           Examination
         </Heading>
 
-        <Button
-          link={`/admin/courses/${courseId}/assessment/new/overview?examination=true`}
-        >
-          Add Examination
-        </Button>
+        <Flex gap="8px">
+          <Button secondary link={`/admin/exam-question-bank?courseId=${courseId}`}>
+            Question Bank
+          </Button>
+          <Button
+            link={`/admin/courses/${courseId}/assessment/new/overview?examination=true`}
+          >
+            Add Examination
+          </Button>
+        </Flex>
       </Flex>
 
       <Table
@@ -165,6 +181,14 @@ const ExamListingPage = () => {
         rows={rows}
         setRows={setRows}
         handleFetch={fetchRowItems}
+      />
+
+      <AddExaminationToBankModal
+        isOpen={isBankOpen}
+        onClose={onBankClose}
+        examinationId={selectedExam?.id}
+        courseId={selectedExam?.courseId}
+        examinationTitle={selectedExam?.title?.text}
       />
     </AdminMainAreaWrapper>
   );
