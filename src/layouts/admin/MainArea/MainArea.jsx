@@ -182,6 +182,9 @@ import { PerformanceDrillDownPageRoute } from "../../../pages/admin/performanceD
 import { InlineMarkupPageRoute } from "../../../pages/admin/inlineMarkup/InlineMarkupPage";
 import { CourseCompletionReportPageRoute } from "../../../pages/admin/report/courseCompletion/CourseCompletionReportPage";
 import { TC01CoursePassRateReportRoute } from "../../../pages/admin/report/tc01CoursePassRate/TC01CoursePassRateReport";
+import { ExamQuestionBankListPageRoute } from "../../../pages/admin/examQuestionBank/ExamQuestionBankListPage";
+import { ExamQuestionBankFormPageRoute } from "../../../pages/admin/examQuestionBank/ExamQuestionBankFormPage";
+import { ExamQuestionBankPreviewPageRoute } from "../../../pages/admin/examQuestionBank/ExamQuestionBankPreviewPage";
 
 const MainArea = () => {
   return (
@@ -480,6 +483,22 @@ const MainArea = () => {
           path="/admin/exam-paper-config/:examinationId"
         />
         <ExamConfigKPIPageRoute exact path="/admin/exam-config/kpis" />
+        <ExamQuestionBankFormPageRoute
+          exact
+          path="/admin/exam-question-bank/new"
+        />
+        <ExamQuestionBankFormPageRoute
+          exact
+          path="/admin/exam-question-bank/:questionId/edit"
+        />
+        <ExamQuestionBankPreviewPageRoute
+          exact
+          path="/admin/exam-question-bank/:questionId/preview"
+        />
+        <ExamQuestionBankListPageRoute
+          exact
+          path="/admin/exam-question-bank"
+        />
         <ImportReportPageRoute
           exact
           path="/admin/batch-import/:examinationId/result/:uploadId/report"

@@ -53,6 +53,8 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiFilter,
+  FiEye,
+  FiUsers,
 } from "react-icons/fi";
 import dayjs from "dayjs";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
@@ -64,9 +66,11 @@ import {
   sendComplianceNotification,
   resendComplianceNotification,
   escalateComplianceNotification,
+  getComplianceTrainingReport,
   adminGetUserListing,
   adminGetCourseListing,
   adminGetStandaloneExaminationListing,
+  adminGetDepartmentListing,
 } from "../../../services";
 
 const useStyles = makeStyles(() => ({
@@ -214,6 +218,53 @@ const completionBadgeColor = (s) =>
 const notifTypeBadgeColor = (t) =>
   ({ Reminder: "blue", Warning: "orange", "Final Notice": "red", Confirmation: "green", Escalation: "red" }[t] || "gray");
 const deliveryBadgeColor = (s) => (s === "Sent" ? "green" : "red");
+const overdueBadgeColor = (s) => ({ Compliant: "green", Warning: "orange", Overdue: "red" }[s] || "gray");
+
+const NOTIFICATION_TEMPLATES = ["Standard Compliance", "Warning Notice", "Final Notice", "Escalation Notice", "Completion Confirmation"];
+
+// An assignment flips to "Warning" this many days before its due date if not yet compliant.
+const WARNING_WINDOW_DAYS = 7;
+const computeOverdueStatus = ({ complianceDate, dueDate }) => {
+  if (complianceDate) return "Compliant";
+  if (!dueDate) return "Compliant";
+  const due = dayjs(dueDate);
+  const now = dayjs();
+  if (now.isAfter(due)) return "Overdue";
+  if (now.isAfter(due.subtract(WARNING_WINDOW_DAYS, "day"))) return "Warning";
+  return "Compliant";
+};
+
+// Defensive field-mapping for /v1/compliance-training/report rows — key names aren't finalized upstream.
+const normalizeReportRow = (r) => {
+  const entityType = r.entityType ?? (r.examId ? "Exam" : "Course");
+  const complianceDate = r.complianceDate ?? r.completionDate ?? null;
+  const dueDate = r.dueDate ?? null;
+  const base = {
+    id: r.id ?? r.assignmentId ?? `${r.recipientId ?? r.studentId ?? r.userId ?? "row"}-${r.courseId ?? r.examId ?? ""}`,
+    studentId: r.recipientId ?? r.studentId ?? r.userId ?? r.recipient?.id ?? r.student?.id,
+    studentName:
+      r.studentName ??
+      r.recipientName ??
+      ((r.recipient ? `${r.recipient.firstName ?? ""} ${r.recipient.lastName ?? ""}`.trim() : "") ||
+        (r.student ? `${r.student.firstName ?? ""} ${r.student.lastName ?? ""}`.trim() : "") ||
+        "—"),
+    departmentId: r.departmentId ?? r.department?.id ?? null,
+    departmentName: r.departmentName ?? r.department?.name ?? null,
+    entityType,
+    entityId: r.entityId ?? r.courseId ?? r.examId ?? null,
+    entityTag: r.entityTag ?? r.tag ?? r.displayId ?? entityType,
+    entityTitle: r.entityTitle ?? r.courseTitle ?? r.examTitle ?? r.title ?? r.course?.title ?? r.exam?.title ?? "—",
+    completionStatus: r.completionStatus ?? "—",
+    assignedAt: r.assignedAt ?? r.createdAt ?? r.dateAssigned ?? null,
+    dueDate,
+    complianceDate,
+    complianceStatus: r.complianceStatus ?? "—",
+    lastNotificationType: r.lastNotificationType ?? r.notificationType ?? null,
+    lastNotificationDate: r.lastNotificationDate ?? r.sentAt ?? r.lastNotifiedAt ?? null,
+    deliveryStatus: r.deliveryStatus ?? r.lastDeliveryStatus ?? null,
+  };
+  return { ...base, overdueStatus: r.overdueStatus ?? computeOverdueStatus(base) };
+};
 
 const PaginationBar = ({ page, totalPages, total, limit, onPageChange, onLimitChange }) => (
   <Flex align="center" justify="space-between" flexWrap="wrap" gap={3} mt={4}>
@@ -849,6 +900,498 @@ const SendEvaluateTab = ({ onDone }) => {
   );
 };
 
+// ─── Send Notification Modal (single row or bulk-by-filter) ──────────────────
+
+const SendNotificationModal = ({ isOpen, onClose, targets, title, onSent }) => {
+  const toast = useToast();
+  const [notificationType, setNotificationType] = useState("");
+  const [channel, setChannel] = useState("");
+  const [template, setTemplate] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [errors, setErrors] = useState({});
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setNotificationType("");
+      setChannel("");
+      setTemplate("");
+      setRemarks("");
+      setErrors({});
+    }
+  }, [isOpen]);
+
+  const needsTemplate = channel === "Email" || channel === "Both";
+  const count = targets?.length ?? 0;
+
+  const validate = () => {
+    const errs = {};
+    if (!notificationType) errs.notificationType = "Required";
+    if (!channel) errs.channel = "Required";
+    if (needsTemplate && !template) errs.template = "Please select an email template.";
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSend = async () => {
+    if (!validate()) return;
+    if (count === 0) {
+      toast({ title: "No recipients to notify.", status: "warning", duration: 3000 });
+      return;
+    }
+    setSending(true);
+    const results = await Promise.allSettled(
+      targets.map((t) =>
+        sendComplianceNotification({
+          recipientId: t.recipientId,
+          entityType: t.entityType,
+          courseId: t.entityType === "Course" ? t.entityId : undefined,
+          examId: t.entityType === "Exam" ? t.entityId : undefined,
+          notificationType,
+          notificationChannel: channel,
+          templateUsed: needsTemplate ? template : undefined,
+          remarks: remarks || undefined,
+        })
+      )
+    );
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.length - succeeded;
+    setSending(false);
+    toast({
+      title:
+        failed === 0
+          ? `Notification sent to ${succeeded} student${succeeded === 1 ? "" : "s"}.`
+          : `${succeeded} sent, ${failed} failed to send.`,
+      status: failed === 0 ? "success" : "warning",
+      duration: 4000,
+    });
+    onSent?.();
+    onClose();
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} isCentered size="md">
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>{title}</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <Flex direction="column" gap={4}>
+            {count > 1 && (
+              <Alert status="info" borderRadius="md">
+                <AlertIcon />
+                This will notify {count} student{count === 1 ? "" : "s"} matching your current filters.
+              </Alert>
+            )}
+            {count === 1 && (
+              <Box fontSize="sm" color="gray.600">
+                <Text><b>Student:</b> {targets[0].recipientLabel}</Text>
+                <Text><b>Course / Exam:</b> {targets[0].entityTitle}</Text>
+              </Box>
+            )}
+
+            <FormControl isInvalid={!!errors.notificationType}>
+              <FormLabel fontSize="sm">Notification Type</FormLabel>
+              <Select size="sm" placeholder="Select type" value={notificationType} onChange={(e) => setNotificationType(e.target.value)}>
+                {["Reminder", "Warning", "Final Notice", "Confirmation", "Escalation"].map((t) => <option key={t} value={t}>{t}</option>)}
+              </Select>
+              <FormErrorMessage>{errors.notificationType}</FormErrorMessage>
+            </FormControl>
+
+            <FormControl isInvalid={!!errors.channel}>
+              <FormLabel fontSize="sm">Channel</FormLabel>
+              <Select size="sm" placeholder="Select channel" value={channel} onChange={(e) => setChannel(e.target.value)}>
+                <option value="Email">Email</option>
+                <option value="In-App">Push / In-App</option>
+                <option value="Both">Both</option>
+              </Select>
+              <FormErrorMessage>{errors.channel}</FormErrorMessage>
+            </FormControl>
+
+            {needsTemplate && (
+              <FormControl isInvalid={!!errors.template}>
+                <FormLabel fontSize="sm">Email Template</FormLabel>
+                <Select size="sm" placeholder="Select template" value={template} onChange={(e) => setTemplate(e.target.value)}>
+                  {NOTIFICATION_TEMPLATES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </Select>
+                <FormErrorMessage>{errors.template}</FormErrorMessage>
+              </FormControl>
+            )}
+
+            <FormControl>
+              <FormLabel fontSize="sm">Remarks (optional)</FormLabel>
+              <Textarea size="sm" placeholder="Admin notes…" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+            </FormControl>
+          </Flex>
+        </ModalBody>
+        <ModalFooter gap={2}>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button colorScheme="blue" leftIcon={<FiSend />} onClick={handleSend} isLoading={sending} loadingText="Sending…">
+            Send{count > 1 ? ` to ${count}` : ""}
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+};
+
+// ─── Per-Student, Per-Course/Exam Notification Log Modal ─────────────────────
+
+const StudentEntityLogModal = ({ isOpen, onClose, studentId, studentName, entityType, entityId, entityTitle }) => {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !studentId) return;
+    setLoading(true);
+    setError(false);
+    const params = { recipientId: studentId };
+    if (entityType === "Exam") params.examId = entityId;
+    else params.courseId = entityId;
+    getComplianceNotifications(params)
+      .then((res) => {
+        const d = res?.data ?? res;
+        const list = Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : Array.isArray(d?.rows) ? d.rows : [];
+        setLogs(list);
+      })
+      .catch(() => {
+        setError(true);
+        setLogs([]);
+      })
+      .finally(() => setLoading(false));
+  }, [isOpen, studentId, entityType, entityId]);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="xl" isCentered>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>
+          Notification Log
+          <Text fontSize="sm" fontWeight={400} color="gray.500" mt={1}>
+            {studentName} — {entityTitle}
+          </Text>
+        </ModalHeader>
+        <ModalCloseButton />
+        <ModalBody pb={6}>
+          {loading ? (
+            <Flex direction="column" gap={2}>{[...Array(4)].map((_, i) => <Skeleton key={i} height="32px" />)}</Flex>
+          ) : error ? (
+            <Alert status="error" borderRadius="md"><AlertIcon />Failed to load notification log.</Alert>
+          ) : logs.length === 0 ? (
+            <Text color="gray.400" textAlign="center" py={6}>No notifications have been sent yet.</Text>
+          ) : (
+            <Box overflowX="auto">
+              <Table size="sm" variant="striped">
+                <Thead>
+                  <Tr>
+                    <Th>Type</Th>
+                    <Th>Channel</Th>
+                    <Th>Delivery</Th>
+                    <Th>Sent At</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {logs.map((l) => (
+                    <Tr key={l.id}>
+                      <Td><Badge colorScheme={notifTypeBadgeColor(l.notificationType)} fontSize="xs">{l.notificationType}</Badge></Td>
+                      <Td fontSize="xs">{l.notificationChannel}</Td>
+                      <Td><Badge colorScheme={deliveryBadgeColor(l.deliveryStatus)} fontSize="xs">{l.deliveryStatus}</Badge></Td>
+                      <Td fontSize="xs" whiteSpace="nowrap">{fmtDateTime(l.sentAt)}</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
+          )}
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
+};
+
+// ─── Compliance Report Tab ─────────────────────────────────────────────────────
+
+const EMPTY_REPORT_FILTERS = { departmentId: "", entityType: "", courseId: "", examId: "", complianceStatus: "", overdueStatus: "", notificationType: "", deliveryStatus: "", page: 1, limit: 20 };
+
+const buildReportParams = (filters) => {
+  const params = {};
+  Object.entries(filters).forEach(([k, v]) => { if (v !== "" && v != null) params[k] = v; });
+  return params;
+};
+
+const extractReportList = (res) => {
+  const d = res?.data ?? res;
+  return Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : Array.isArray(d?.rows) ? d.rows : [];
+};
+
+const ComplianceReportTab = () => {
+  const toast = useToast();
+  const [filters, setFilters] = useState(EMPTY_REPORT_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+
+  const [courseLabel, setCourseLabel] = useState("");
+  const [examLabel, setExamLabel] = useState("");
+
+  const [sendModalTargets, setSendModalTargets] = useState(null);
+  const [sendModalTitle, setSendModalTitle] = useState("");
+  const { isOpen: isSendOpen, onOpen: openSend, onClose: closeSend } = useDisclosure();
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  const [logTarget, setLogTarget] = useState(null);
+  const { isOpen: isLogOpen, onOpen: openLog, onClose: closeLog } = useDisclosure();
+
+  useEffect(() => {
+    adminGetDepartmentListing()
+      .then((res) => setDepartments(res?.departments ?? []))
+      .catch(() => setDepartments([]));
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const res = await getComplianceTrainingReport(buildReportParams(filters));
+      const d = res?.data ?? res;
+      const list = extractReportList(res);
+      setRows(list.map(normalizeReportRow));
+      setTotal(d?.total ?? list.length);
+      setTotalPages(d?.totalPages ?? 1);
+    } catch (err) {
+      console.error("[ExamCompliance] GET /compliance-training/report failed", err);
+      setRows([]);
+      setTotal(0);
+      setTotalPages(1);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const setFilter = (k, v) => setFilters((f) => ({ ...f, [k]: v, page: 1 }));
+
+  const departmentOptions = departments.map((d) => ({ value: d.id, label: d.name }));
+
+  const activeFilterCount = [
+    filters.departmentId,
+    filters.entityType,
+    filters.courseId,
+    filters.examId,
+    filters.complianceStatus,
+    filters.overdueStatus,
+    filters.notificationType,
+    filters.deliveryStatus,
+  ].filter(Boolean).length;
+
+  const handleClearFilters = () => {
+    setFilters(EMPTY_REPORT_FILTERS);
+    setCourseLabel("");
+    setExamLabel("");
+  };
+
+  const handleOpenSingleSend = (row) => {
+    setSendModalTargets([{ recipientId: row.studentId, recipientLabel: row.studentName, entityType: row.entityType, entityId: row.entityId, entityTitle: row.entityTitle }]);
+    setSendModalTitle("Send Notification");
+    openSend();
+  };
+
+  const handleOpenBulkSend = async () => {
+    if (total === 0) {
+      toast({ title: "No students match the current filters.", status: "warning", duration: 3000 });
+      return;
+    }
+    setBulkLoading(true);
+    try {
+      const res = await getComplianceTrainingReport(buildReportParams({ ...filters, page: undefined, limit: 1000 }));
+      const normalized = extractReportList(res).map(normalizeReportRow);
+      if (normalized.length === 0) {
+        toast({ title: "No students match the current filters.", status: "warning", duration: 3000 });
+        return;
+      }
+      setSendModalTargets(normalized.map((r) => ({ recipientId: r.studentId, recipientLabel: r.studentName, entityType: r.entityType, entityId: r.entityId, entityTitle: r.entityTitle })));
+      setSendModalTitle("Send Bulk Notification");
+      openSend();
+    } catch (err) {
+      toast({ title: err?.response?.data?.message ?? "Failed to load matching students.", status: "error", duration: 4000 });
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleOpenLog = (row) => {
+    setLogTarget(row);
+    openLog();
+  };
+
+  return (
+    <Box>
+      <Flex align="center" justify="space-between" mb={3} flexWrap="wrap" gap={2}>
+        <Button
+          size="sm"
+          variant="outline"
+          leftIcon={<FiFilter />}
+          rightIcon={filtersOpen ? <FiChevronUp /> : <FiChevronDown />}
+          onClick={() => setFiltersOpen((o) => !o)}
+          colorScheme={activeFilterCount > 0 ? "blue" : "gray"}
+        >
+          Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+        </Button>
+        <Flex gap={2}>
+          <Button size="sm" colorScheme="blue" leftIcon={<FiRefreshCw />} onClick={fetchData}>Refresh</Button>
+          <Button size="sm" colorScheme="purple" leftIcon={<FiUsers />} onClick={handleOpenBulkSend} isLoading={bulkLoading} loadingText="Loading…">
+            Send Bulk Notification
+          </Button>
+        </Flex>
+      </Flex>
+
+      <Collapse in={filtersOpen} animateOpacity>
+        <Box bg="gray.50" border="1px solid" borderColor="gray.200" borderRadius="md" p={4} mb={4}>
+          <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4, 1fr)" }} gap={3}>
+            <Select placeholder="All Departments" size="sm" value={filters.departmentId} onChange={(e) => setFilter("departmentId", e.target.value)}>
+              {departmentOptions.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </Select>
+            <Select
+              placeholder="All Entities"
+              size="sm"
+              value={filters.entityType}
+              onChange={(e) => setFilters((f) => ({ ...f, entityType: e.target.value, courseId: "", examId: "", page: 1 }))}
+            >
+              <option value="Course">Course</option>
+              <option value="Exam">Exam</option>
+            </Select>
+            {filters.entityType === "Exam" ? (
+              <SearchableSelect
+                placeholder="Search exam…"
+                fetchOptions={fetchExamOptions}
+                selectedLabel={examLabel}
+                onSelect={(id, label) => { setExamLabel(label); setFilter("examId", id); }}
+              />
+            ) : (
+              <SearchableSelect
+                placeholder="Search course…"
+                fetchOptions={fetchCourseOptions}
+                selectedLabel={courseLabel}
+                onSelect={(id, label) => { setCourseLabel(label); setFilter("courseId", id); }}
+              />
+            )}
+            <Select placeholder="All Compliance" size="sm" value={filters.complianceStatus} onChange={(e) => setFilter("complianceStatus", e.target.value)}>
+              <option value="Compliant">Compliant</option>
+              <option value="Non-Compliant">Non-Compliant</option>
+            </Select>
+            <Select placeholder="All Overdue Status" size="sm" value={filters.overdueStatus} onChange={(e) => setFilter("overdueStatus", e.target.value)}>
+              <option value="Compliant">Compliant</option>
+              <option value="Warning">Warning</option>
+              <option value="Overdue">Overdue</option>
+            </Select>
+            <Select placeholder="All Notification Types" size="sm" value={filters.notificationType} onChange={(e) => setFilter("notificationType", e.target.value)}>
+              {["Reminder", "Warning", "Final Notice", "Confirmation", "Escalation"].map((t) => <option key={t} value={t}>{t}</option>)}
+            </Select>
+            <Select placeholder="All Delivery Status" size="sm" value={filters.deliveryStatus} onChange={(e) => setFilter("deliveryStatus", e.target.value)}>
+              <option value="Sent">Sent</option>
+              <option value="Failed">Failed</option>
+            </Select>
+          </Grid>
+          <Flex justify="flex-end" mt={3}>
+            <Button size="sm" variant="outline" onClick={handleClearFilters}>Clear Filters</Button>
+          </Flex>
+        </Box>
+      </Collapse>
+
+      {loadError && (
+        <Alert status="error" borderRadius="md" mb={4}>
+          <AlertIcon />
+          Failed to load the compliance report from the server.
+        </Alert>
+      )}
+
+      {loading ? (
+        <Flex direction="column" gap={2}>{[...Array(5)].map((_, i) => <Skeleton key={i} height="38px" />)}</Flex>
+      ) : (
+        <Box overflowX="auto">
+          <Table size="sm" variant="striped">
+            <Thead>
+              <Tr>
+                <Th>Student</Th>
+                <Th>Tag</Th>
+                <Th>Course / Exam</Th>
+                <Th>Completion</Th>
+                <Th>Assigned</Th>
+                <Th>Due Date</Th>
+                <Th>Compliance Date</Th>
+                <Th>Compliance</Th>
+                <Th>Overdue</Th>
+                <Th>Last Notif. Type</Th>
+                <Th>Last Notif. Date</Th>
+                <Th>Delivery</Th>
+                <Th>Actions</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {rows.length === 0 ? (
+                <Tr><Td colSpan={13} textAlign="center" color="gray.400" py={8}>No records found.</Td></Tr>
+              ) : rows.map((r) => (
+                <Tr key={r.id}>
+                  <Td fontSize="xs">{r.studentName}</Td>
+                  <Td><Badge colorScheme={r.entityType === "Course" ? "blue" : "purple"} fontSize="xs">{r.entityTag}</Badge></Td>
+                  <Td fontSize="xs" maxW="140px" isTruncated>{r.entityTitle}</Td>
+                  <Td><Badge colorScheme={completionBadgeColor(r.completionStatus)} fontSize="xs">{r.completionStatus}</Badge></Td>
+                  <Td fontSize="xs" whiteSpace="nowrap">{fmtDate(r.assignedAt)}</Td>
+                  <Td fontSize="xs" whiteSpace="nowrap">{fmtDate(r.dueDate)}</Td>
+                  <Td fontSize="xs" whiteSpace="nowrap">{fmtDate(r.complianceDate)}</Td>
+                  <Td><Badge colorScheme={complianceBadgeColor(r.complianceStatus)} fontSize="xs">{r.complianceStatus}</Badge></Td>
+                  <Td><Badge colorScheme={overdueBadgeColor(r.overdueStatus)} fontSize="xs">{r.overdueStatus}</Badge></Td>
+                  <Td>{r.lastNotificationType ? <Badge colorScheme={notifTypeBadgeColor(r.lastNotificationType)} fontSize="xs">{r.lastNotificationType}</Badge> : "—"}</Td>
+                  <Td fontSize="xs" whiteSpace="nowrap">{fmtDateTime(r.lastNotificationDate)}</Td>
+                  <Td>{r.deliveryStatus ? <Badge colorScheme={deliveryBadgeColor(r.deliveryStatus)} fontSize="xs">{r.deliveryStatus}</Badge> : "—"}</Td>
+                  <Td>
+                    <Flex gap={1}>
+                      <Tooltip label="Send notification">
+                        <Button size="xs" colorScheme="blue" onClick={() => handleOpenSingleSend(r)}><FiSend /></Button>
+                      </Tooltip>
+                      <Tooltip label="View notification log">
+                        <Button size="xs" variant="outline" onClick={() => handleOpenLog(r)}><FiEye /></Button>
+                      </Tooltip>
+                    </Flex>
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
+
+      <PaginationBar
+        page={filters.page}
+        totalPages={totalPages}
+        total={total}
+        limit={filters.limit}
+        onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))}
+        onLimitChange={(l) => setFilters((f) => ({ ...f, limit: l, page: 1 }))}
+      />
+
+      <SendNotificationModal isOpen={isSendOpen} onClose={closeSend} targets={sendModalTargets} title={sendModalTitle} onSent={fetchData} />
+
+      <StudentEntityLogModal
+        isOpen={isLogOpen}
+        onClose={closeLog}
+        studentId={logTarget?.studentId}
+        studentName={logTarget?.studentName}
+        entityType={logTarget?.entityType}
+        entityId={logTarget?.entityId}
+        entityTitle={logTarget?.entityTitle}
+      />
+    </Box>
+  );
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const ExamCompliancePage = () => {
@@ -898,11 +1441,13 @@ const ExamCompliancePage = () => {
         <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} className={classes.tabs} indicatorColor="primary" textColor="primary">
           <Tab label="Notification Log" className={classes.tab} />
           <Tab label="Send / Evaluate" className={classes.tab} />
+          <Tab label="Compliance Report" className={classes.tab} />
         </Tabs>
 
         <Box mt={2}>
           {activeTab === 0 && <LogTableTab onOpenDetail={handleOpenDetail} refreshKey={logRefreshKey} />}
           {activeTab === 1 && <SendEvaluateTab onDone={handleRefresh} />}
+          {activeTab === 2 && <ComplianceReportTab />}
         </Box>
       </Box>
 

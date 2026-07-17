@@ -1,5 +1,6 @@
 import { Route, useParams, useHistory } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
+import { Checkbox } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
@@ -21,7 +22,7 @@ import {
   adminGetMarkingTemplates,
   auditTrailV2PostLog,
 } from "../../../../../services";
-import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
+import { capitalizeFirstLetter, formatDateToISO, setAutoAddToBank } from "../../../../../utils";
 import useAssessmentStore from "../../../../../store/assessmentStore";
 
 const CreateModuleAssessmentPage = () => {
@@ -38,6 +39,7 @@ const CreateModuleAssessmentPage = () => {
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
+  const [addToBank, setAddToBank] = useState(false);
 
   useEffect(() => {
     adminGetMarkingTemplates()
@@ -58,6 +60,7 @@ const CreateModuleAssessmentPage = () => {
       const { message, assessment } = await adminCreateAssessment(body);
       resultAssessmentRef.current = assessment;
       setAssessment(assessment);
+      if (addToBank) setAutoAddToBank("assessment", assessment.id);
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",
@@ -191,6 +194,15 @@ const CreateModuleAssessmentPage = () => {
             options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
             mb={6}
           />
+
+          <Checkbox
+            isChecked={addToBank}
+            onChange={(e) => setAddToBank(e.target.checked)}
+            colorScheme="purple"
+            mt={2}
+          >
+            Add to Question Bank — automatically save every question created for this assessment to the bank
+          </Checkbox>
 
           <Box display="flex" gap={4} justifyContent="flex-end" marginTop={8}>
             <Button secondary onClick={handleCancel} type="button">

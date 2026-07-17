@@ -7,3 +7,4 @@ export * from "./formData";
 export * from "./HTMLEvents";
 export * from "./populateSelectOptions";
 export * from "./DateNow";
+export * from "./questionBankAutoAdd";

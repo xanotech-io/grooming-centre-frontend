@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Route, useParams } from "react-router-dom";
 import { Flex } from "@chakra-ui/layout";
-import { Badge, BreadcrumbItem } from "@chakra-ui/react";
+import { Badge, BreadcrumbItem, useDisclosure } from "@chakra-ui/react";
 import {
   Button,
   Heading,
@@ -18,6 +19,7 @@ import {
 import { getDuration } from "../../../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../../hooks";
+import AddExaminationToBankModal from "../../../examQuestionBank/AddExaminationToBankModal";
 
 const getStatusBadge = (approvalStatus) => {
   const colorSchemes = { Approved: "green", Pending: "orange", Rejected: "red" };
@@ -26,6 +28,8 @@ const getStatusBadge = (approvalStatus) => {
 
 const ModuleExaminationsPage = () => {
   const { courseId, moduleId } = useParams();
+  const [selectedExam, setSelectedExam] = useState(null);
+  const { isOpen: isBankOpen, onOpen: onBankOpen, onClose: onBankClose } = useDisclosure();
 
   const tableProps = {
     filterControls: [
@@ -121,6 +125,13 @@ const ModuleExaminationsPage = () => {
             `/admin/courses/${courseId}/module/${moduleId}/examinations/${examination.id}/grading`,
         },
         {
+          text: "Add to Question Bank",
+          onClick: (examination) => {
+            setSelectedExam(examination);
+            onBankOpen();
+          },
+        },
+        {
           isDelete: true,
         },
       ],
@@ -183,11 +194,16 @@ const ModuleExaminationsPage = () => {
           Examinations
         </Heading>
 
-        <Button
-          link={`/admin/courses/${courseId}/module/${moduleId}/examinations/edit/new`}
-        >
-          Add Examination
-        </Button>
+        <Flex gap="8px">
+          <Button secondary link={`/admin/exam-question-bank?courseId=${courseId}&moduleId=${moduleId}`}>
+            Question Bank
+          </Button>
+          <Button
+            link={`/admin/courses/${courseId}/module/${moduleId}/examinations/edit/new`}
+          >
+            Add Examination
+          </Button>
+        </Flex>
       </Flex>
 
       <Table
@@ -196,6 +212,15 @@ const ModuleExaminationsPage = () => {
         rows={rows}
         setRows={setRows}
         handleFetch={fetchRowItems}
+      />
+
+      <AddExaminationToBankModal
+        isOpen={isBankOpen}
+        onClose={onBankClose}
+        examinationId={selectedExam?.id}
+        courseId={courseId}
+        moduleId={moduleId}
+        examinationTitle={selectedExam?.title?.text}
       />
     </AdminMainAreaWrapper>
   );

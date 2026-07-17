@@ -3,6 +3,7 @@ import { Box, Flex, Grid, GridItem } from "@chakra-ui/layout";
 import {
   Alert,
   AlertIcon,
+  Checkbox,
   IconButton,
   NumberDecrementStepper,
   NumberIncrementStepper,
@@ -39,7 +40,7 @@ import {
   getExaminationById as getExamPaperConfig,
   updateExaminationById as updateExamPaperConfig,
 } from "../../../services";
-import { capitalizeFirstLetter, formatDateToISO } from "../../../utils";
+import { capitalizeFirstLetter, formatDateToISO, setAutoAddToBank } from "../../../utils";
 import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import useAssessmentStore from "../../../store/assessmentStore";
 import { FaRegSave, FaFileAlt } from "react-icons/fa";
@@ -445,6 +446,7 @@ const CreateStandalonePage = () => {
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [templateId, setTemplateId] = useState("");
   const [markingMode, setMarkingMode] = useState("automatic");
+  const [addToBank, setAddToBank] = useState(false);
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
 
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
@@ -474,6 +476,7 @@ const CreateStandalonePage = () => {
     const { message, examination } = await adminCreateStandaloneExamination(body);
     await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
     resultExaminationRef.current = examination;
+    if (addToBank) setAutoAddToBank("standalone", examination.id);
     setAssessment({ ...examination, sections });
     toast({
       description: capitalizeFirstLetter(message),
@@ -656,6 +659,15 @@ const CreateStandalonePage = () => {
           checked={randomization.option_order}
           onChange={(v) => setRandomization((p) => ({ ...p, option_order: v }))}
         />
+
+        <Checkbox
+          isChecked={addToBank}
+          onChange={(e) => setAddToBank(e.target.checked)}
+          colorScheme="purple"
+          mt={2}
+        >
+          Add to Question Bank — automatically save every question created for this exam to the bank
+        </Checkbox>
 
         <Flex marginTop="40px" justifyContent="flex-end" gap="16px">
           <Button
