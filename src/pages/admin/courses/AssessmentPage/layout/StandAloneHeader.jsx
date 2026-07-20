@@ -136,7 +136,7 @@ const StandAloneHeader = () => {
             </Flex>
           </Button>
           <Heading as="h1" fontSize="28px" fontWeight="600" color="#1A202C">
-            New Exams
+            {examinationId ? "Edit Exam" : "New Exams"}
           </Heading>
         </Flex>
 

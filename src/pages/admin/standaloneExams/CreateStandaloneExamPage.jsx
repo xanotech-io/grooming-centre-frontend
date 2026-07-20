@@ -33,7 +33,7 @@ export const CreateStandaloneExamPage = () => {
       <Flex justify="space-between" align="center" mb={6}>
         <Breadcrumb
           item2={<BreadcrumbItem><Link href="/admin/standalone-exams">Standalone Exams</Link></BreadcrumbItem>}
-          item3={<BreadcrumbItem isCurrentPage><Link href="#">Create Exam</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">{isExamination ? "Edit Exam" : "Create Exam"}</Link></BreadcrumbItem>}
         />
       </Flex>
       {/* commented out previous header and box components */}

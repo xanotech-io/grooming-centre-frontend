@@ -516,6 +516,15 @@ const CreateQuestionPage = ({
 
       const option1 = question.options?.find((opt) => opt.optionIndex === 1);
       setValue("option-1", isTrueFalse ? "True" : option1?.name);
+
+      questionRichTextManager.handleInitData(question.question);
+      // MUIRichTextEditor only reads defaultValue on mount, so force a
+      // remount (same trick applyBankQuestion uses) to pick up the loaded text.
+      setBankApplyKey((k) => k + 1);
+
+      setValue("correctAnswer", question.correctAnswer || "");
+      setValue("modelAnswer", question.modelAnswer || "");
+      setValue("rubricDescription", question.rubric || "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question]);
