@@ -1342,13 +1342,14 @@ const CreateQuestionPage = ({
         {isExistingQuestion && !isEditMode && (
           <Button
             onClick={() => {
-              const editLink =
+              const editLink = appendEditParam(
                 getEditQuestionLink(
                   courseId,
                   assessmentId,
                   questionId,
                   isExamination,
-                ) + "&edit=true";
+                ),
+              );
               push(editLink);
             }}
           >
@@ -1800,7 +1801,7 @@ export const MoreIconButton = ({
   const { push } = useHistory();
 
   const handleViewClick = () => push(editLink);
-  const handleEditClick = () => push(editLink + "&edit=true");
+  const handleEditClick = () => push(appendEditParam(editLink));
 
   const otherSections =
     sections?.filter((s) => s.id !== currentSectionId) ?? [];
@@ -1856,6 +1857,12 @@ const getEditQuestionLink = (
     isExamination ? `?examination=${isExamination}` : ""
   }`;
 };
+
+// Appends `edit=true` to a link built by getEditQuestionLink, which only has
+// a `?` when isExamination is set — plain course-assessment links have none,
+// so a naive `link + "&edit=true"` silently drops the query param entirely.
+const appendEditParam = (link) =>
+  `${link}${link.includes("?") ? "&" : "?"}edit=true`;
 
 const getQuestionNumber = (index) =>
   `Question ${
