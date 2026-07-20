@@ -218,7 +218,7 @@ const EditStandalonePage = ({ assessment }) => {
 
   const handleWorkflowFinished = () => {
     handleDelete(examinationId);
-    push(`/admin/standalone-exams`);
+    push(`/admin/standalone-exams/template?examination=${examinationId}`);
   };
 
   const onSubmit = async (data) => {
@@ -227,6 +227,8 @@ const EditStandalonePage = ({ assessment }) => {
         startTimeManager.handleGetValueAndValidate("Start Time");
       const body = {
         ...data,
+        amountOfQuestions: Number(data.amountOfQuestions),
+        duration: Number(data.duration),
         startTime: formatDateToISO(startTime),
       };
 

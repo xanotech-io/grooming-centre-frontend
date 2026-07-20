@@ -427,6 +427,11 @@ const CreateQuestionPage = ({
     const correct = question.options?.find((o) => o.isAnswer);
     if (correct) setAnswer(`${correct.optionIndex}`);
 
+    questionRichTextManager.handleInitData(question.question);
+    // MUIRichTextEditor only reads defaultValue on mount, so force a
+    // remount (same trick applyBankQuestion uses) to pick up the loaded text.
+    setBankApplyKey((k) => k + 1);
+
     questionImageManager.handleInitialImageSelect(question.file);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question]);

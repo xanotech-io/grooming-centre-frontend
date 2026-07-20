@@ -215,7 +215,7 @@ const SubmissionsTab = ({ examId }) => {
   return (
     <Box>
       {overview && (
-        <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4, 1fr)" }} gap={4} px={5} pt={5}>
+        <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4, 1fr)" }} gap={4} pt={5} mb={6}>
           <SubmissionStatCard label="Total Submissions" value={overview.totalSubmissions ?? 0} />
           <SubmissionStatCard label="Pending" value={overview.totalPending ?? 0} />
           <SubmissionStatCard label="Graded" value={overview.totalGraded ?? 0} />
@@ -226,77 +226,80 @@ const SubmissionsTab = ({ examId }) => {
         </Grid>
       )}
 
-      <Flex gap={3} flexWrap="wrap" alignItems="flex-end" px={5} pt={5}>
-        <Box>
-          <Text fontSize="11px" color="gray.500" mb={1}>Student ID</Text>
-          <Input
+      <Box bg="gray.50" border="1px" borderColor="gray.200" borderRadius="md" p={4} mb={6}>
+        <Flex gap={3} flexWrap="wrap" alignItems="flex-end">
+          <Box>
+            <Text fontSize="11px" color="gray.500" mb={1}>Student ID</Text>
+            <Input
+              size="sm"
+              placeholder="Student ID"
+              value={filters.studentId}
+              onChange={(e) => setFilters((f) => ({ ...f, studentId: e.target.value }))}
+              w="160px"
+            />
+          </Box>
+          <Box>
+            <Text fontSize="11px" color="gray.500" mb={1}>Status</Text>
+            <Select
+              size="sm"
+              value={filters.status}
+              onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+              w="130px"
+            >
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="graded">Graded</option>
+            </Select>
+          </Box>
+          <Box>
+            <Text fontSize="11px" color="gray.500" mb={1}>Pass/Fail</Text>
+            <Select
+              size="sm"
+              value={filters.passFail}
+              onChange={(e) => setFilters((f) => ({ ...f, passFail: e.target.value }))}
+              w="130px"
+            >
+              <option value="">All</option>
+              <option value="Pass">Pass</option>
+              <option value="Fail">Fail</option>
+            </Select>
+          </Box>
+          <Box>
+            <Text fontSize="11px" color="gray.500" mb={1}>Start Date</Text>
+            <Input
+              size="sm"
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))}
+              w="145px"
+            />
+          </Box>
+          <Box>
+            <Text fontSize="11px" color="gray.500" mb={1}>End Date</Text>
+            <Input
+              size="sm"
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))}
+              w="145px"
+            />
+          </Box>
+          <Button size="sm" onClick={() => setAppliedFilters(filters)}>Apply Filters</Button>
+          <Button
             size="sm"
-            placeholder="Student ID"
-            value={filters.studentId}
-            onChange={(e) => setFilters((f) => ({ ...f, studentId: e.target.value }))}
-            w="160px"
-          />
-        </Box>
-        <Box>
-          <Text fontSize="11px" color="gray.500" mb={1}>Status</Text>
-          <Select
-            size="sm"
-            value={filters.status}
-            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
-            w="130px"
+            secondary
+            onClick={() => {
+              setFilters(SUBMISSIONS_EMPTY_FILTERS);
+              setAppliedFilters(SUBMISSIONS_EMPTY_FILTERS);
+            }}
           >
-            <option value="">All</option>
-            <option value="pending">Pending</option>
-            <option value="graded">Graded</option>
-          </Select>
-        </Box>
-        <Box>
-          <Text fontSize="11px" color="gray.500" mb={1}>Pass/Fail</Text>
-          <Select
-            size="sm"
-            value={filters.passFail}
-            onChange={(e) => setFilters((f) => ({ ...f, passFail: e.target.value }))}
-            w="130px"
-          >
-            <option value="">All</option>
-            <option value="Pass">Pass</option>
-            <option value="Fail">Fail</option>
-          </Select>
-        </Box>
-        <Box>
-          <Text fontSize="11px" color="gray.500" mb={1}>Start Date</Text>
-          <Input
-            size="sm"
-            type="date"
-            value={filters.startDate}
-            onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))}
-            w="145px"
-          />
-        </Box>
-        <Box>
-          <Text fontSize="11px" color="gray.500" mb={1}>End Date</Text>
-          <Input
-            size="sm"
-            type="date"
-            value={filters.endDate}
-            onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))}
-            w="145px"
-          />
-        </Box>
-        <Button size="sm" onClick={() => setAppliedFilters(filters)}>Apply Filters</Button>
-        <Button
-          size="sm"
-          secondary
-          onClick={() => {
-            setFilters(SUBMISSIONS_EMPTY_FILTERS);
-            setAppliedFilters(SUBMISSIONS_EMPTY_FILTERS);
-          }}
-        >
-          Reset
-        </Button>
-      </Flex>
+            Clear
+          </Button>
+        </Flex>
+      </Box>
 
-      <Box overflowX="auto" mt={5}>
+      <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" mb={5} overflow="hidden">
+      <Box overflowX="auto">
         <Box as="table" w="100%" fontSize="sm">
           <Box as="thead" bg="#F7FAFC">
             <Box as="tr">
@@ -375,6 +378,7 @@ const SubmissionsTab = ({ examId }) => {
             </Box>
           </Box>
         </Box>
+      </Box>
       </Box>
   );
 };
@@ -463,18 +467,21 @@ const ViewStandaloneExamPage = () => {
       </Flex>
 
       <Box bg="white" borderRadius="md" border="1px solid" borderColor="gray.200" mt={4} overflow="hidden">
-        <Flex borderBottom="1px solid #E2E8F0" px={2} bg="white" overflowX="auto">
+        <Flex borderBottom={paddedTabs.has(activeTab) ? "none" : "1px solid #E2E8F0"} px={2} bg="white" overflowX="auto">
           {tabs.map((tab) => (
             <Tab key={tab.key} label={tab.label} active={activeTab === tab.key} count={tab.count} onClick={() => setActiveTab(tab.key)} />
           ))}
         </Flex>
 
-        <Box p={paddedTabs.has(activeTab) ? 0 : 6}>
-          {activeTab === "overview" && <OverviewTab exam={exam} examId={examId} />}
-          {activeTab === "questions" && <QuestionsTab examId={examId} />}
-          {activeTab === "submissions" && <SubmissionsTab examId={examId} />}
-        </Box>
+        {!paddedTabs.has(activeTab) && (
+          <Box p={6}>
+            {activeTab === "overview" && <OverviewTab exam={exam} examId={examId} />}
+            {activeTab === "questions" && <QuestionsTab examId={examId} />}
+          </Box>
+        )}
       </Box>
+
+      {activeTab === "submissions" && <SubmissionsTab examId={examId} />}
     </AdminMainAreaWrapper>
   );
 };

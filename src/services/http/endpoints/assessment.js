@@ -46,6 +46,7 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
           pairs: q?.pairs ?? null,
           modelAnswer: q?.modelAnswer ?? null,
           correctAnswer: q?.correctAnswer ?? null,
+          rubric: q?.rubric ?? q?.rubricDescription ?? null,
           options: opts.map((opt) => ({
             id: opt?.id,
             isAnswer: opt?.isAnswer,
