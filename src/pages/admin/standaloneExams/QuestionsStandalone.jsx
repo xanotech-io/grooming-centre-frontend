@@ -27,8 +27,9 @@ import {
   Spinner,
   Text,
   Upload,
+  WorkflowSubmitModal,
 } from "../../../components";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaArrowRight, FaTrash } from "react-icons/fa";
 import { FiMoreHorizontal } from "react-icons/fi";
@@ -36,11 +37,14 @@ import { Route, useHistory } from "react-router-dom";
 import { PageLoaderLayout } from "../../../layouts";
 import {
   useFetch,
+  useGoBack,
+  useIsSuperAdmin,
   useQueryParams,
   useRichText,
   useUpload,
 } from "../../../hooks";
 import {
+  adminCreateStandaloneExamination,
   adminCreateStandaloneExaminationQuestion,
   adminDeleteStandaloneExaminationQuestion,
   adminEditStandaloneExaminationQuestion,
@@ -49,9 +53,15 @@ import {
   createExamQuestionBankItem,
   getExaminationById as getExamPaperConfig,
   listExamQuestionBank,
+  updateExaminationById as updateExamPaperConfig,
 } from "../../../services";
 import { buildBatchUploadLink } from "../examQuestionImport/questionRowUtils";
-import { capitalizeFirstLetter, capitalizeWords, isAutoAddToBank } from "../../../utils";
+import {
+  capitalizeFirstLetter,
+  capitalizeWords,
+  isAutoAddToBank,
+  setAutoAddToBank,
+} from "../../../utils";
 import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import useAssessmentStore from "../../../store/assessmentStore";
 
@@ -84,7 +94,12 @@ const QuestionsStandalone = () => {
   const isQuestionListingPage = useQueryParams().get("question-listing");
   const isExamination = useQueryParams().get("examination");
   const questionId = useQueryParams().get("question");
+  const isEditMode = useQueryParams().get("edit") === "true";
+  const submitForApproval = useQueryParams().get("submitForApproval") === "1";
   const isExistingQuestion = questionId && questionId !== "new";
+  // "Next" on the details form hands off here without creating anything —
+  // this page renders from `pendingCreate` instead of fetching a real record.
+  const isPendingCreation = submitForApproval && !isExistingQuestion && !isEditMode;
 
   const batchUploadLink = buildBatchUploadLink({
     examinationId: isExamination,
@@ -94,10 +109,36 @@ const QuestionsStandalone = () => {
   const assessmentManager = useAssessmentPreview(null, isExamination, true);
 
   const storeSections = useAssessmentStore((s) => s.sections);
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const handleGoBack = useGoBack();
   const [templateSections, setTemplateSections] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
 
   useEffect(() => {
+    if (isPendingCreation) {
+      const configuredSections = pendingCreate?.paperConfigBody?.configuredSections;
+      if (Array.isArray(configuredSections) && configuredSections.length > 0) {
+        setTemplateSections(configuredSections.map((s) => s.section_name));
+        return;
+      }
+      if (!pendingCreate?.body?.templateId) {
+        setTemplateSections([]);
+        return;
+      }
+      setSectionsLoading(true);
+      adminGetMarkingTemplateById(pendingCreate.body.templateId)
+        .then(({ template }) =>
+          setTemplateSections(
+            Array.isArray(template?.sections)
+              ? template.sections.map((s) => s.name)
+              : [],
+          ),
+        )
+        .catch(() => setTemplateSections([]))
+        .finally(() => setSectionsLoading(false));
+      return;
+    }
+
     if (!isExamination) return;
 
     if (storeSections.length > 0) {
@@ -137,7 +178,25 @@ const QuestionsStandalone = () => {
       })
       .catch(() => fetchViaTemplate());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExamination, storeSections]);
+  }, [isExamination, storeSections, isPendingCreation, pendingCreate]);
+
+  // Nothing was ever saved to the backend, so if the in-memory details-form
+  // data is gone (e.g. the page was refreshed) there's nothing to recover.
+  if (isPendingCreation && !pendingCreate) {
+    return (
+      <Box padding={10} textAlign="center">
+        <Text bold mb={2}>
+          The details for this exam were lost.
+        </Text>
+        <Text color="gray.500" mb={4}>
+          Nothing was created yet, so there&apos;s nothing to recover — please go back and fill in the details again.
+        </Text>
+        <Button onClick={handleGoBack} type="button">
+          Go Back
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <>
@@ -312,8 +371,83 @@ const CreateQuestionPage = ({
   const isExamination = useQueryParams().get("examination");
   const questionId = useQueryParams().get("question");
   const isEditMode = useQueryParams().get("edit") === "true";
+  const submitForApproval = useQueryParams().get("submitForApproval") === "1";
+  const isSuperAdmin = useIsSuperAdmin();
 
   const isExistingQuestion = questionId && questionId !== "new";
+  // Nothing was created when "Next" was clicked on the details form — this
+  // is the first question, and saving it is also what creates the exam
+  // (and, for instructors, what the approval modal gates).
+  const isPendingCreation = submitForApproval && !isExistingQuestion && !isEditMode;
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
+  const setAssessment = useAssessmentStore((s) => s.setAssessment);
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
+  const [createdSuccess, setCreatedSuccess] = useState(null);
+  const pendingCreateBothRef = useRef(null);
+  const createdParentRef = useRef(null);
+
+  // How many questions this exam was configured for — read from the
+  // not-yet-created details form while pending, or the real record once
+  // it exists (the fetched record calls this field `questionCount`).
+  const amountOfQuestions =
+    Number(
+      pendingCreate?.body?.amountOfQuestions ??
+        assessmentManager.assessment?.questionCount ??
+        assessmentManager.assessment?.amountOfQuestions,
+    ) || null;
+
+  const buildRealQuestionRoute = (realParentId, { listing }) => {
+    const finalExamination = realParentId ?? isExamination;
+    return listing
+      ? getQuestionListingLink(finalExamination)
+      : `/admin/standalone-exams/questions/?examination=${finalExamination}`;
+  };
+
+  const goToQuestionListing = (realParentId) => {
+    // Only clear here, on the way out — clearing as soon as creation
+    // succeeds would wipe `pendingCreate` while the success modal for a
+    // super admin is still showing, tripping the "details were lost" guard
+    // above on content that was, in fact, just created successfully.
+    clearPendingCreate();
+    push(buildRealQuestionRoute(realParentId, { listing: true }));
+  };
+
+  const goToAddAnotherQuestion = (realParentId) => {
+    clearPendingCreate();
+    push(buildRealQuestionRoute(realParentId, { listing: false }));
+  };
+
+  // After a question is saved: if this exam was set up for more than one
+  // question, offer to add another right away instead of always dropping
+  // straight to the question list.
+  const finishSaving = (realParentId) => {
+    if (amountOfQuestions > 1) {
+      setCreatedSuccess({ realParentId });
+    } else {
+      goToQuestionListing(realParentId);
+    }
+  };
+
+  // Creates the exam that "Next" deferred, using the details form values
+  // held in `pendingCreate`. Called either immediately (super admin) or
+  // from inside the approval modal's `onCreate` (instructor) — either way,
+  // this is the first thing that ever gets saved.
+  const performCreateParent = async (supervisorId) => {
+    const { body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
+    const finalBody = supervisorId ? { ...body, supervisor_id: supervisorId } : body;
+    const { examination } = await adminCreateStandaloneExamination(finalBody);
+    await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
+    if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
+    setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+    return { id: examination.id };
+  };
+
+  const withRealParentId = (body, realParentId) => ({
+    ...body,
+    standAloneExaminationId: realParentId,
+  });
 
   const { question, isLoading, error } = useQuestionDetails(assessmentManager);
 
@@ -492,70 +626,115 @@ const CreateQuestionPage = ({
           throw new Error("All matching pairs must have both values filled");
       }
 
+      const maybeAddToBank = async (forceAdd) => {
+        if (isEditMode || !(addToBank || autoAddToBank || forceAdd)) return;
+        const bankType = FORM_TYPE_TO_BANK_TYPE[questionType];
+        if (!bankType) {
+          toast({
+            description: "This question type isn't supported by the Question Bank yet",
+            position: "top",
+            status: "warning",
+          });
+          return;
+        }
+        let bankPayload;
+        try {
+          bankPayload = {
+            question: questionPlainText,
+            questionType: bankType,
+            marks: 1,
+            difficultyLevel: "Medium",
+            status: "draft",
+          };
+          if (isObjectiveType) {
+            const bankOptions = options.map((o) => ({
+              text: o.option ?? o.name ?? "",
+              isCorrect: !!o.isAnswer,
+            }));
+            bankPayload.options = bankOptions.filter((o) => o.text);
+            bankPayload.correctAnswer =
+              bankOptions.find((o) => o.isCorrect)?.text ?? "";
+          } else if (questionType === "FillBlank") {
+            bankPayload.correctAnswer = data.correctAnswer || "";
+          }
+          await createExamQuestionBankItem(bankPayload);
+        } catch (bankErr) {
+          console.error("[QuestionsStandalone] failed to add question to bank", bankPayload, bankErr?.response?.data ?? bankErr);
+          toast({
+            description:
+              bankErr?.response?.data?.message ||
+              "Question saved, but failed to add it to the Question Bank",
+            position: "top",
+            status: "warning",
+          });
+        }
+      };
+
       // ── Build payload ──
-      let body;
-      if (isEditMode) {
-        body = {
-          questionId,
-          question: questionPlainText,
-          ...(sectionTitle && { section: sectionTitle }),
-          markingType,
-          ...(isObjectiveType && { options }),
-        };
-        await adminEditStandaloneExaminationQuestion(body);
-      } else {
-        body = {
+      const saveQuestion = async (realParentId) => {
+        if (isEditMode) {
+          const body = {
+            questionId,
+            question: questionPlainText,
+            ...(sectionTitle && { section: sectionTitle }),
+            markingType,
+            ...(isObjectiveType && { options }),
+          };
+          return adminEditStandaloneExaminationQuestion(body);
+        }
+        const baseBody = {
           standAloneExaminationId: isExamination,
           question: questionPlainText,
           ...(sectionTitle && { section: sectionTitle }),
           markingType,
           ...(isObjectiveType && { options }),
         };
-        await adminCreateStandaloneExaminationQuestion(body);
+        const body = isPendingCreation ? withRealParentId(baseBody, realParentId) : baseBody;
+        return adminCreateStandaloneExaminationQuestion(body);
+      };
 
-        if (addToBank || autoAddToBank) {
-          const bankType = FORM_TYPE_TO_BANK_TYPE[questionType];
-          if (!bankType) {
-            toast({
-              description: "This question type isn't supported by the Question Bank yet",
-              position: "top",
-              status: "warning",
-            });
-          } else {
-            let bankPayload;
-            try {
-              bankPayload = {
-                question: questionPlainText,
-                questionType: bankType,
-                marks: 1,
-                difficultyLevel: "Medium",
-                status: "draft",
-              };
-              if (isObjectiveType) {
-                const bankOptions = options.map((o) => ({
-                  text: o.option ?? o.name ?? "",
-                  isCorrect: !!o.isAnswer,
-                }));
-                bankPayload.options = bankOptions.filter((o) => o.text);
-                bankPayload.correctAnswer =
-                  bankOptions.find((o) => o.isCorrect)?.text ?? "";
-              } else if (questionType === "FillBlank") {
-                bankPayload.correctAnswer = data.correctAnswer || "";
-              }
-              await createExamQuestionBankItem(bankPayload);
-            } catch (bankErr) {
-              console.error("[QuestionsStandalone] failed to add question to bank", bankPayload, bankErr?.response?.data ?? bankErr);
-              toast({
-                description:
-                  bankErr?.response?.data?.message ||
-                  "Question saved, but failed to add it to the Question Bank",
-                position: "top",
-                status: "warning",
-              });
-            }
-          }
+      if (isPendingCreation) {
+        // Nothing exists yet. "createBoth" is the single unit of work that
+        // actually saves anything — run it now for super admins, or hand it
+        // to the approval modal so an instructor's supervisor pick is what
+        // triggers it.
+        const createBoth = async (supervisorId) => {
+          const parent = await performCreateParent(supervisorId);
+          createdParentRef.current = parent;
+          await saveQuestion(parent.id);
+          // The exam-level "auto add every question" flag was just set on
+          // the real ID above — the render-scoped `autoAddToBank` above is
+          // still stale for this same call, so check the source directly.
+          await maybeAddToBank(pendingCreate.addToBank);
+          return { id: parent.id };
+        };
+
+        if (isSuperAdmin) {
+          await createBoth(undefined);
+          toast({
+            description: capitalizeFirstLetter(`${pendingCreate.title} created successfully.`),
+            position: "top",
+            status: "success",
+          });
+          reset();
+          setWorkflowContent({
+            contentId: createdParentRef.current?.id,
+            contentTitle: pendingCreate.title,
+            requestType: "StandaloneExam",
+          });
+        } else {
+          pendingCreateBothRef.current = createBoth;
+          setWorkflowContent({
+            contentTitle: pendingCreate.title,
+            requestType: "StandaloneExam",
+          });
         }
+        setWorkflowModalOpen(true);
+        return;
       }
+
+      await saveQuestion();
+      await maybeAddToBank();
 
       toast({
         description: "Question saved successfully",
@@ -568,7 +747,7 @@ const CreateQuestionPage = ({
       if (isEditMode) {
         push(getEditQuestionLink(isExamination, questionId));
       } else {
-        push(getQuestionListingLink(isExamination));
+        finishSaving();
       }
     } catch (err) {
       toast({
@@ -578,6 +757,33 @@ const CreateQuestionPage = ({
       });
     }
   };
+
+  if (createdSuccess) {
+    return (
+      <Box padding={10} textAlign="center" width="70%">
+        <Text bold fontSize="lg" mb={2}>
+          Question added successfully!
+        </Text>
+        <Text color="gray.500" mb={6}>
+          This exam is set for {amountOfQuestions} questions — add the rest
+          now, or come back to it later.
+        </Text>
+        <Flex gap={4} justifyContent="center">
+          <Button
+            onClick={() => goToAddAnotherQuestion(createdSuccess.realParentId)}
+          >
+            Add more questions
+          </Button>
+          <Button
+            secondary
+            onClick={() => goToQuestionListing(createdSuccess.realParentId)}
+          >
+            Done for now
+          </Button>
+        </Flex>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -1033,13 +1239,34 @@ const CreateQuestionPage = ({
           leftIcon={isExistingQuestion && !isEditMode ? <FaTrash /> : null}
         >
           {isExistingQuestion && !isEditMode
-            ? "Delete"
+            ? "Delete Question"
             : isEditMode
-              ? "Update"
-              : "Add"}{" "}
-          Question
+              ? "Update Question"
+              : isPendingCreation
+                ? "Create and Submit"
+                : "Add Question"}
         </Button>
       </Flex>
+
+      {isPendingCreation && workflowContent && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => {
+            setWorkflowModalOpen(false);
+            if (isSuperAdmin) finishSaving(createdParentRef.current?.id);
+          }}
+          isDismissable={isSuperAdmin}
+          contentId={workflowContent.contentId}
+          contentTitle={workflowContent.contentTitle}
+          requestType={workflowContent.requestType}
+          onCreate={
+            isSuperAdmin
+              ? undefined
+              : (supervisorId) => pendingCreateBothRef.current(supervisorId)
+          }
+          onSuccess={() => finishSaving(createdParentRef.current?.id)}
+        />
+      )}
     </Box>
   );
 };
@@ -1088,7 +1315,7 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
         <Button
           link={`/admin/standalone-exams/questions/?examination=${assessment?.id}`}
         >
-          Add New Question
+          Add more questions
         </Button>
       </Box>
     </Box>

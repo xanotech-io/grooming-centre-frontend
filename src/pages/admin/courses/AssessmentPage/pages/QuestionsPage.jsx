@@ -49,6 +49,7 @@ import {
   adminDeleteAssessmentQuestion,
   adminDeleteExaminationQuestion,
   adminDeleteStandaloneExaminationQuestion,
+  adminEditAssessment,
   adminEditAssessmentQuestion,
   adminEditExaminationQuestion,
   adminEditStandaloneExaminationQuestion,
@@ -72,7 +73,6 @@ import {
 } from "../../../../../utils";
 import useAssessmentPreview from "../../../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import useAssessmentStore from "../../../../../store/assessmentStore";
-import { useSections } from "./useSections";
 
 // Question Bank type mapping — the bank has no "Matching" equivalent.
 const FORM_TYPE_TO_BANK_TYPE = {
@@ -89,6 +89,72 @@ const BANK_TYPE_TO_FORM_TYPE = {
   fill_blank: "FillBlank",
   short_answer: "ShortAnswer",
   essay: "Essay",
+};
+
+// ── Section-level locks & weightage ─────────────────────────────────────────
+// A section's constraints can come from two different places:
+//  - the exam's own `configuredSections` (ExamPaperConfigPage.jsx) — an exact
+//    question_type/marking_type lock plus a total_marks weightage to divide
+//    across the section's questions.
+//  - a linked Marking Template's `sections` — a coarser "objective / essay /
+//    mixed" category plus a fixed marksPerQuestion.
+// Both are normalized into the same shape here so CreateQuestionPage and
+// QuestionListingPage only need one lookup, keyed by section name.
+const OBJECTIVE_QUESTION_TYPES = ["MCQ", "TrueFalse", "FillBlank", "Matching"];
+const SUBJECTIVE_QUESTION_TYPES = ["ShortAnswer", "Essay"];
+
+const buildSectionConfigMap = (sections, shape) => {
+  const map = {};
+  (Array.isArray(sections) ? sections : []).forEach((s) => {
+    const name = shape === "template" ? s.name : s.section_name;
+    if (!name) return;
+    map[name] =
+      shape === "template"
+        ? {
+            questionsCount: Number(s.questionCount) || null,
+            questionTypeLock: "",
+            typeCategory: s.type || "",
+            markingTypeLock: "",
+            marksPerQuestion: Number(s.marksPerQuestion) || null,
+            totalMarks: null,
+          }
+        : {
+            questionsCount: Number(s.questions_count) || null,
+            questionTypeLock: s.question_type || "",
+            typeCategory: "",
+            markingTypeLock: s.marking_type || "",
+            marksPerQuestion: null,
+            totalMarks: s.total_marks ? Number(s.total_marks) : null,
+          };
+  });
+  return map;
+};
+
+// null return means "no restriction" — every question type/marking type is allowed.
+const getAllowedQuestionTypes = (cfg) => {
+  if (!cfg) return null;
+  if (cfg.questionTypeLock) return [cfg.questionTypeLock];
+  if (cfg.typeCategory === "objective") return OBJECTIVE_QUESTION_TYPES;
+  if (cfg.typeCategory === "essay") return SUBJECTIVE_QUESTION_TYPES;
+  return null;
+};
+
+const getAllowedMarkingTypes = (cfg) => {
+  if (!cfg) return null;
+  if (cfg.markingTypeLock) return [cfg.markingTypeLock];
+  if (cfg.typeCategory === "objective") return ["automatic"];
+  if (cfg.typeCategory === "essay") return ["manual", "hybrid"];
+  return null;
+};
+
+// Weightage lives on the section, never on the question — this is what a
+// question's marks resolve to when a section's total_marks (or a template's
+// fixed marksPerQuestion) applies. Null means "no section-driven weightage".
+const getSectionMarks = (cfg) => {
+  if (!cfg) return null;
+  if (cfg.totalMarks && cfg.questionsCount) return cfg.totalMarks / cfg.questionsCount;
+  if (cfg.marksPerQuestion) return cfg.marksPerQuestion;
+  return null;
 };
 
 const QuestionsPage = () => {
@@ -121,28 +187,43 @@ const QuestionsPage = () => {
 
   const [templateSections, setTemplateSections] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
+  // Raw `configuredSections` entries ({section_name, questions_count, time_limit})
+  // straight from the exam record — the editable source of truth for
+  // Examinations/Standalone Examinations, kept separate from `templateSections`
+  // (plain names) which also covers the Marking-Template-derived, read-only
+  // case for plain Assessments.
+  const [configuredSections, setConfiguredSections] = useState([]);
+  // Normalized {sectionName: {questionsCount, questionTypeLock, markingTypeLock,
+  // totalMarks, marksPerQuestion, typeCategory}} — the single source CreateQuestionPage
+  // and QuestionListingPage read to enforce section locks/weightage/count caps,
+  // regardless of whether the section came from the exam's own configuredSections
+  // or from a linked Marking Template.
+  const [sectionConfigMap, setSectionConfigMap] = useState({});
 
   useEffect(() => {
     if (isPendingCreation) {
       const configuredSections = pendingCreate?.paperConfigBody?.configuredSections;
       if (Array.isArray(configuredSections) && configuredSections.length > 0) {
         setTemplateSections(configuredSections.map((s) => s.section_name));
+        setSectionConfigMap(buildSectionConfigMap(configuredSections, "exam"));
         return;
       }
       if (!pendingCreate?.markingTemplateId) {
         setTemplateSections([]);
+        setSectionConfigMap({});
         return;
       }
       setSectionsLoading(true);
       adminGetMarkingTemplateById(pendingCreate.markingTemplateId)
-        .then(({ template }) =>
-          setTemplateSections(
-            Array.isArray(template?.sections)
-              ? template.sections.map((s) => s.name)
-              : [],
-          ),
-        )
-        .catch(() => setTemplateSections([]))
+        .then(({ template }) => {
+          const sections = Array.isArray(template?.sections) ? template.sections : [];
+          setTemplateSections(sections.map((s) => s.name));
+          setSectionConfigMap(buildSectionConfigMap(sections, "template"));
+        })
+        .catch(() => {
+          setTemplateSections([]);
+          setSectionConfigMap({});
+        })
         .finally(() => setSectionsLoading(false));
       return;
     }
@@ -151,6 +232,7 @@ const QuestionsPage = () => {
 
     if (storeSections.length > 0) {
       setTemplateSections(storeSections.map((s) => s.name || s.section_name));
+      setSectionConfigMap(buildSectionConfigMap(storeSections, "exam"));
       return;
     }
 
@@ -162,14 +244,15 @@ const QuestionsPage = () => {
           if (!templateId) throw new Error("no-template");
           return adminGetMarkingTemplateById(templateId);
         })
-        .then(({ template }) =>
-          setTemplateSections(
-            Array.isArray(template?.sections)
-              ? template.sections.map((s) => s.name)
-              : [],
-          ),
-        )
-        .catch(() => setTemplateSections([]))
+        .then(({ template }) => {
+          const sections = Array.isArray(template?.sections) ? template.sections : [];
+          setTemplateSections(sections.map((s) => s.name));
+          setSectionConfigMap(buildSectionConfigMap(sections, "template"));
+        })
+        .catch(() => {
+          setTemplateSections([]);
+          setSectionConfigMap({});
+        })
         .finally(() => setSectionsLoading(false));
 
     // Exam-level sections configured via "Configure Paper" take priority
@@ -178,8 +261,12 @@ const QuestionsPage = () => {
       getExamPaperConfig(isExamination, examType)
         .then((res) => {
           const configured = res?.data?.configuredSections;
+          // Kept in sync regardless of length so the Listing page always has
+          // the exam's real, editable section list (even when empty).
+          setConfiguredSections(Array.isArray(configured) ? configured : []);
           if (Array.isArray(configured) && configured.length > 0) {
             setTemplateSections(configured.map((s) => s.section_name));
+            setSectionConfigMap(buildSectionConfigMap(configured, "exam"));
             setSectionsLoading(false);
             return;
           }
@@ -201,10 +288,21 @@ const QuestionsPage = () => {
         ),
       );
     } else {
-      fetchViaTemplate(() => adminGetAssessmentMarkingTemplateId(assessmentId));
+      // Plain Assessments can self-manage sections the same way Examinations
+      // do (added directly on the assessment record via the Listing page's
+      // "+ Add Section") — that takes priority over the linked Marking
+      // Template's sections, same precedence as the exam-paper-config case.
+      const ownSections = assessmentManager.assessment?.sections;
+      if (Array.isArray(ownSections) && ownSections.length > 0) {
+        setTemplateSections(ownSections.map((s) => s.section_name));
+        setSectionConfigMap(buildSectionConfigMap(ownSections, "exam"));
+        setSectionsLoading(false);
+      } else {
+        fetchViaTemplate(() => adminGetAssessmentMarkingTemplateId(assessmentId));
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessmentId, isExamination, isStandaloneExamination, storeSections, isPendingCreation, pendingCreate]);
+  }, [assessmentId, isExamination, isStandaloneExamination, storeSections, isPendingCreation, pendingCreate, assessmentManager.assessment?.sections]);
 
   // Nothing was ever saved to the backend, so if the in-memory details-form
   // data is gone (e.g. the page was refreshed) there's nothing to recover.
@@ -248,7 +346,7 @@ const QuestionsPage = () => {
           {" Question"}
         </Heading>
 
-        {!isQuestionListingPage && !isExistingQuestion && !isPendingCreation && (
+        {!isQuestionListingPage && !isExistingQuestion && (
           <Button link={batchUploadLink}>
             Upload &amp; Batch Import Questions
           </Button>
@@ -264,12 +362,17 @@ const QuestionsPage = () => {
         alignItems={{ base: "flex-start", md: "column", lg: "row" }}
       >
         {isQuestionListingPage ? (
-          <QuestionListingPage {...assessmentManager} />
+          <QuestionListingPage
+            {...assessmentManager}
+            configuredSections={configuredSections}
+            setConfiguredSections={setConfiguredSections}
+          />
         ) : (
           <CreateQuestionPage
             {...assessmentManager}
             templateSections={templateSections}
             sectionsLoading={sectionsLoading}
+            sectionConfigMap={sectionConfigMap}
           />
         )}
 
@@ -414,6 +517,7 @@ const useQuestionDetails = (assessmentManager) => {
 const CreateQuestionPage = ({
   templateSections,
   sectionsLoading,
+  sectionConfigMap = {},
   ...assessmentManager
 }) => {
   const { push } = useHistory();
@@ -504,6 +608,58 @@ const CreateQuestionPage = ({
   const [bloomLevel, setBloomLevel] = useState("");
 
   const activeSections = templateSections;
+
+  // The selected section's question-type/marking-type locks, count cap, and
+  // weightage — null allowed-lists mean "no restriction" from this section.
+  const selectedSectionConfig = sectionConfigMap[selectedSectionId];
+  const allowedQuestionTypes = getAllowedQuestionTypes(selectedSectionConfig);
+  const allowedMarkingTypes = getAllowedMarkingTypes(selectedSectionConfig);
+  const sectionMarks = getSectionMarks(selectedSectionConfig);
+  const existingSectionQuestionCount = (
+    assessmentManager.assessment?.questions || []
+  ).filter((q) => q.section === selectedSectionId).length;
+  const sectionAtCapacity =
+    !isEditMode &&
+    !!selectedSectionConfig?.questionsCount &&
+    existingSectionQuestionCount >= selectedSectionConfig.questionsCount;
+
+  // Snap to a section's locked type/marking type as soon as it's picked —
+  // covers arriving via a section's "Add Question" link and switching
+  // sections mid-form. A user actively clicking a disallowed type button is
+  // handled separately below, with an error instead of a silent correction.
+  useEffect(() => {
+    if (allowedQuestionTypes && !allowedQuestionTypes.includes(questionType)) {
+      setQuestionType(allowedQuestionTypes[0]);
+    }
+    if (allowedMarkingTypes && !allowedMarkingTypes.includes(markingType)) {
+      setMarkingType(allowedMarkingTypes[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSectionId]);
+
+  const handleQuestionTypeClick = (type) => {
+    if (allowedQuestionTypes && !allowedQuestionTypes.includes(type)) {
+      toast({
+        description: `Section "${selectedSectionId}" only accepts ${allowedQuestionTypes.join(" / ")} questions.`,
+        position: "top",
+        status: "error",
+      });
+      return;
+    }
+    setQuestionType(type);
+  };
+
+  const handleMarkingTypeChange = (type) => {
+    if (allowedMarkingTypes && !allowedMarkingTypes.includes(type)) {
+      toast({
+        description: `Section "${selectedSectionId}" only allows ${allowedMarkingTypes.join(" / ")} marking.`,
+        position: "top",
+        status: "error",
+      });
+      return;
+    }
+    setMarkingType(type);
+  };
 
   const [answer, setAnswer] = useState();
   const [matchingPairs, setMatchingPairs] = useState([{ left: "", right: "" }]);
@@ -794,6 +950,25 @@ const CreateQuestionPage = ({
         return;
       }
 
+      // Defense in depth — the UI already disables/blocks disallowed
+      // choices, but a section can be locked or filled after this form was
+      // opened, so re-validate the section's constraints right before save.
+      if (allowedQuestionTypes && !allowedQuestionTypes.includes(questionType)) {
+        throw new Error(
+          `Section "${selectedSectionId}" only accepts ${allowedQuestionTypes.join(" / ")} questions.`,
+        );
+      }
+      if (allowedMarkingTypes && !allowedMarkingTypes.includes(markingType)) {
+        throw new Error(
+          `Section "${selectedSectionId}" only allows ${allowedMarkingTypes.join(" / ")} marking.`,
+        );
+      }
+      if (sectionAtCapacity) {
+        throw new Error(
+          `Section "${selectedSectionId}" already has its configured limit of ${selectedSectionConfig.questionsCount} question(s).`,
+        );
+      }
+
       const file = questionImageManager.handleGetFileAndValidate(
         "Question Cover",
         true,
@@ -847,8 +1022,13 @@ const CreateQuestionPage = ({
       // selectedSectionId is the section name string for both examination and assessment
       const editSectionTitle = selectedSectionId || undefined;
 
+      // Weightage lives on the section, never the question — when the
+      // section carries one, it overrides whatever `marks` would otherwise
+      // resolve to, so per-question marks can't be assigned by hand.
+      const effectiveMarks = sectionMarks != null ? sectionMarks : Number(marks);
+
       const editMeta = {
-        marks: Number(marks),
+        marks: effectiveMarks,
         markingType,
         ...(editSectionTitle && { section: editSectionTitle }),
         ...(rubric && { rubric }),
@@ -923,7 +1103,7 @@ const CreateQuestionPage = ({
       } else {
         // Create mode
         const examMeta = {
-          marks: Number(marks),
+          marks: effectiveMarks,
           markingType,
           ...(sectionTitle && { section: sectionTitle }),
           ...(rubric && { rubric }),
@@ -1112,10 +1292,6 @@ const CreateQuestionPage = ({
         );
         push(viewLink);
       } else {
-        // After create, persist pending section so listing page can assign it
-        if (pendingSectionId) {
-          sessionStorage.setItem(`ps_${assessmentId}`, pendingSectionId);
-        }
         finishSaving();
       }
     } catch (error) {
@@ -1288,10 +1464,15 @@ const CreateQuestionPage = ({
               {QUESTION_TYPES.map((type) => (
                 <Button
                   key={type}
-                  onClick={() => setQuestionType(type)}
+                  onClick={() => handleQuestionTypeClick(type)}
                   leftIcon={questionType === type && <BsCheckCircle />}
                   ghost={questionType !== type}
                   disabled={isExistingQuestion && !isEditMode}
+                  opacity={
+                    allowedQuestionTypes && !allowedQuestionTypes.includes(type)
+                      ? 0.4
+                      : 1
+                  }
                 >
                   {type === "TrueFalse"
                     ? "True / False"
@@ -1303,6 +1484,12 @@ const CreateQuestionPage = ({
                 </Button>
               ))}
             </ButtonGroup>
+            {allowedQuestionTypes && (
+              <Text fontSize="xs" color="orange.500" mt={2}>
+                Section &quot;{selectedSectionId}&quot; is locked to{" "}
+                {allowedQuestionTypes.join(" / ")} questions.
+              </Text>
+            )}
           </Box>
         )}
 
@@ -1316,13 +1503,18 @@ const CreateQuestionPage = ({
                 </Text>
                 <ChakraSelect
                   value={markingType}
-                  onChange={(e) => setMarkingType(e.target.value)}
+                  onChange={(e) => handleMarkingTypeChange(e.target.value)}
                   size="sm"
                 >
                   <option value="automatic">Automatic</option>
                   <option value="manual">Manual</option>
                   <option value="hybrid">Hybrid</option>
                 </ChakraSelect>
+                {allowedMarkingTypes && (
+                  <Text fontSize="xs" color="orange.500" mt={1}>
+                    Locked to {allowedMarkingTypes.join(" / ")} by this section.
+                  </Text>
+                )}
               </Box>
               {/* Difficulty — only for regular examination */}
               {isExamination && !isStandaloneExamination && (
@@ -1383,6 +1575,24 @@ const CreateQuestionPage = ({
                     </option>
                   ))}
                 </ChakraSelect>
+                {!!selectedSectionConfig?.questionsCount && (
+                  <Text
+                    fontSize="xs"
+                    color={sectionAtCapacity ? "red.500" : "gray.500"}
+                    mt={1}
+                  >
+                    {existingSectionQuestionCount}/{selectedSectionConfig.questionsCount}{" "}
+                    questions used
+                    {sectionAtCapacity && " — section is full"}
+                  </Text>
+                )}
+                {isExamination && !isStandaloneExamination && (
+                  <Text fontSize="xs" color="gray.500" mt={1}>
+                    {sectionMarks != null
+                      ? `Marks: ${sectionMarks} (from section weightage)`
+                      : "Marks: distributed equally at marking time"}
+                  </Text>
+                )}
               </Box>
             </Flex>
           </>
@@ -1652,65 +1862,278 @@ const CreateQuestionPage = ({
   );
 };
 
-const QuestionListingPage = ({ assessment, isLoading, error }) => {
+// Persists a section list to whichever record actually owns it: an
+// Examination/Standalone Examination's `configuredSections`, or a plain
+// Assessment's own `sections` field.
+const saveSectionsList = (
+  next,
+  { isExamination, isStandaloneExamination, assessmentId },
+) => {
+  if (isExamination) {
+    const examType = isStandaloneExamination
+      ? "standalone_examination"
+      : "examination";
+    return updateExamPaperConfig(isExamination, {
+      examType,
+      configuredSections: next,
+    });
+  }
+  return adminEditAssessment(assessmentId, { sections: next });
+};
+
+// Rebuilds a full edit-question payload (mirroring onSubmit's edit-mode
+// branches above) from a question's already-fetched, stored data rather
+// than live form state — so section (re)assignment from the Listing page
+// can resave a question for real, through the same endpoints the question
+// form uses, without needing the form to be open.
+const buildQuestionEditPayload = (
+  question,
+  section,
+  { isExamination, isStandaloneExamination },
+) => {
+  const isObjectiveType =
+    question.questionType === "MCQ" || question.questionType === "TrueFalse";
+  const options = (question.options || []).map((opt) => ({
+    id: opt.id,
+    name: opt.name,
+    isAnswer: opt.isAnswer,
+    optionIndex: opt.optionIndex,
+  }));
+
+  if (isStandaloneExamination) {
+    return {
+      questionId: question.id,
+      question: question.question,
+      ...(section !== undefined && { section }),
+      markingType: question.markingType || "automatic",
+      ...(isObjectiveType && { options }),
+    };
+  }
+
+  const meta = {
+    marks: Number(question.marks) || 1,
+    markingType: question.markingType || "automatic",
+    ...(section !== undefined && { section }),
+    ...(question.rubric && { rubric: question.rubric }),
+    difficultyLevel: question.difficultyLevel || "medium",
+    ...(question.bloomLevel && { bloomLevel: question.bloomLevel }),
+  };
+
+  const typeSpecificFields = isObjectiveType
+    ? {}
+    : question.questionType === "FillBlank"
+      ? { correctAnswer: question.correctAnswer }
+      : question.questionType === "Matching"
+        ? { pairs: JSON.stringify(question.pairs) }
+        : question.questionType === "ShortAnswer"
+          ? { modelAnswer: question.modelAnswer }
+          : { rubricDescription: question.rubric };
+
+  if (isExamination) {
+    return {
+      question: JSON.stringify({
+        id: question.id,
+        question: question.question,
+        examinationId: isExamination,
+        ...meta,
+        questionType: question.questionType,
+      }),
+      ...(isObjectiveType
+        ? {
+            options: JSON.stringify(
+              options.map((opt) => ({
+                ...opt,
+                examinationQuestionId: question.id,
+              })),
+            ),
+          }
+        : typeSpecificFields),
+    };
+  }
+
+  return {
+    questionId: question.id,
+    question: question.question,
+    markingType: meta.markingType,
+    questionType: question.questionType,
+    ...(section !== undefined && { section }),
+    ...(isObjectiveType
+      ? { options: JSON.stringify(options) }
+      : typeSpecificFields),
+  };
+};
+
+const persistQuestionSection = (
+  question,
+  section,
+  { isExamination, isStandaloneExamination },
+) => {
+  const payload = buildQuestionEditPayload(question, section, {
+    isExamination,
+    isStandaloneExamination,
+  });
+  if (isStandaloneExamination)
+    return adminEditStandaloneExaminationQuestion(payload);
+  if (isExamination)
+    return adminEditExaminationQuestion(appendFormData(payload));
+  return adminEditAssessmentQuestion(appendFormData(payload));
+};
+
+const QuestionListingPage = ({
+  assessment,
+  isLoading,
+  error,
+  handleFetch,
+  configuredSections,
+  setConfiguredSections,
+}) => {
   const { id: courseId, assessmentId } = useParams();
   const isExamination = useQueryParams().get("examination");
+  const isStandaloneExamination =
+    courseId === "not-set" && assessmentId === "not-set" && isExamination
+      ? true
+      : false;
+  const toast = useToast();
 
   const questions = Array.isArray(assessment?.questions)
     ? assessment.questions
     : [];
 
-  const sm = useSections(assessmentId);
+  // Sections belong to the exam (like a Google Form), not to any one
+  // question — Examinations/Standalone Examinations store them in the
+  // exam's own `configuredSections`; plain Assessments in the assessment's
+  // own `sections` field. Either way, every question just carries the
+  // section's name in its real `section` field.
+  const rawSections = isExamination
+    ? configuredSections
+    : Array.isArray(assessment?.sections)
+      ? assessment.sections
+      : [];
+  const sectionNames = rawSections.map((s) => s.section_name).filter(Boolean);
+  // Same lock/weightage/count-cap lookup CreateQuestionPage uses — lets this
+  // page show each section's "x/N questions" limit for visibility.
+  const sectionConfigMap = buildSectionConfigMap(rawSections, "exam");
+  const scrollToSection = (name) =>
+    document
+      .getElementById(`section-${name}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  const [editingId, setEditingId] = useState(null);
+  const [editingSection, setEditingSection] = useState(null);
   const [titleInput, setTitleInput] = useState("");
   const [showNewSection, setShowNewSection] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-
-  // After a question is created with a section context, assign it
-  useEffect(() => {
-    if (!questions.length) return;
-    const pending = sessionStorage.getItem(`ps_${assessmentId}`);
-    if (!pending) return;
-    const unassigned = questions.filter((q) => !sm.assignments[q.id]);
-    if (unassigned.length) {
-      sm.assign(unassigned[unassigned.length - 1].id, pending);
-      sessionStorage.removeItem(`ps_${assessmentId}`);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questions, assessmentId]);
+  const [savingSections, setSavingSections] = useState(false);
+  const [reassigningId, setReassigningId] = useState(null);
 
   const questionsIsEmpty = !isLoading && !error && !questions.length;
 
-  const buildAddLink = (sectionId) => {
+  const buildAddLink = (sectionName) => {
     const base = `/admin/courses/${courseId}/assessment/${assessmentId}/questions/new`;
     const parts = [
       isExamination && `examination=${isExamination}`,
-      sectionId && `section=${sectionId}`,
+      sectionName && `section=${encodeURIComponent(sectionName)}`,
     ].filter(Boolean);
     return parts.length ? `${base}?${parts.join("&")}` : base;
   };
 
-  const handleAddSection = () => {
-    if (newTitle.trim()) {
-      sm.add(newTitle.trim());
+  const saveConfiguredSections = async (next) => {
+    setSavingSections(true);
+    try {
+      await saveSectionsList(next, {
+        isExamination,
+        isStandaloneExamination,
+        assessmentId,
+      });
+      if (isExamination) setConfiguredSections(next);
+      else handleFetch(true);
+      return true;
+    } catch (err) {
+      toast({
+        description:
+          err?.response?.data?.message || "Failed to save sections",
+        position: "top",
+        status: "error",
+      });
+      return false;
+    } finally {
+      setSavingSections(false);
+    }
+  };
+
+  const handleAddSection = async () => {
+    const title = newTitle.trim();
+    if (!title) return;
+    const next = [
+      ...rawSections,
+      { section_name: title, questions_count: 1, time_limit: null },
+    ];
+    if (await saveConfiguredSections(next)) {
       setNewTitle("");
       setShowNewSection(false);
     }
   };
 
-  const handleRename = (sId) => {
-    if (titleInput.trim()) sm.rename(sId, titleInput.trim());
-    setEditingId(null);
+  const handleRename = async (oldName) => {
+    const title = titleInput.trim();
+    if (!title || title === oldName) {
+      setEditingSection(null);
+      return;
+    }
+    const next = rawSections.map((s) =>
+      s.section_name === oldName ? { ...s, section_name: title } : s,
+    );
+    const saved = await saveConfiguredSections(next);
+    if (saved) {
+      // Section identity is the name string end-to-end, so a rename has to
+      // follow through to every question already tagged with the old name.
+      const affected = questions.filter((q) => q.section === oldName);
+      if (affected.length) {
+        await Promise.all(
+          affected.map((q) =>
+            persistQuestionSection(q, title, {
+              isExamination,
+              isStandaloneExamination,
+            }),
+          ),
+        );
+        handleFetch(true);
+      }
+    }
+    setEditingSection(null);
   };
 
-  const unassigned = questions.filter((q) => !sm.assignments[q.id]);
+  const handleRemoveSection = (name) => {
+    const next = rawSections.filter((s) => s.section_name !== name);
+    saveConfiguredSections(next);
+  };
+
+  const handleAssign = async (question, sectionName) => {
+    setReassigningId(question.id);
+    try {
+      await persistQuestionSection(question, sectionName, {
+        isExamination,
+        isStandaloneExamination,
+      });
+      handleFetch(true);
+    } catch (err) {
+      toast({
+        description:
+          err?.response?.data?.message || "Failed to update the question's section",
+        position: "top",
+        status: "error",
+      });
+    } finally {
+      setReassigningId(null);
+    }
+  };
+
+  const unassigned = questions.filter((q) => !q.section);
 
   return (
     <Box padding={6} width="70%">
       {isLoading && <PageLoaderLayout height="70%" width="100%" />}
 
-      {questionsIsEmpty && !sm.sections.length && (
+      {questionsIsEmpty && !sectionNames.length && (
         <PageLoaderLayout height="70%" width="100%">
           <Heading as="h3" marginBottom={3}>
             No Questions Asked Yet
@@ -1729,14 +2152,30 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
         </PageLoaderLayout>
       )}
 
+      {/* ── Section quick-nav ── */}
+      {sectionNames.length > 1 && (
+        <Flex gap={2} flexWrap="wrap" mb={6}>
+          {sectionNames.map((name, si) => (
+            <Button
+              key={name}
+              size="xs"
+              ghost
+              onClick={() => scrollToSection(name)}
+            >
+              {si + 1}. {name}
+            </Button>
+          ))}
+        </Flex>
+      )}
+
       {/* ── Sections ── */}
-      {sm.sections.map((section, si) => {
-        const sectionQs = questions.filter(
-          (q) => sm.assignments[q.id] === section.id,
-        );
+      {sectionNames.map((name, si) => {
+        const sectionQs = questions.filter((q) => q.section === name);
+        const sectionCap = sectionConfigMap[name]?.questionsCount;
         return (
           <Box
-            key={section.id}
+            key={name}
+            id={`section-${name}`}
             marginBottom={8}
             border="1px"
             borderColor="gray.200"
@@ -1751,15 +2190,15 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
               py={3}
               backgroundColor="primary.base"
             >
-              {editingId === section.id ? (
+              {editingSection === name ? (
                 <Flex gap={2} flex={1} alignItems="center">
                   <input
                     autoFocus
                     value={titleInput}
                     onChange={(e) => setTitleInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") handleRename(section.id);
-                      if (e.key === "Escape") setEditingId(null);
+                      if (e.key === "Enter") handleRename(name);
+                      if (e.key === "Escape") setEditingSection(null);
                     }}
                     style={{
                       flex: 1,
@@ -1769,24 +2208,45 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
                       fontSize: 14,
                     }}
                   />
-                  <Button size="sm" onClick={() => handleRename(section.id)}>
+                  <Button
+                    size="sm"
+                    disabled={savingSections}
+                    onClick={() => handleRename(name)}
+                  >
                     Save
                   </Button>
-                  <Button size="sm" ghost onClick={() => setEditingId(null)}>
+                  <Button
+                    size="sm"
+                    ghost
+                    onClick={() => setEditingSection(null)}
+                  >
                     Cancel
                   </Button>
                 </Flex>
               ) : (
                 <>
                   <Heading fontSize="heading.h5" color="white" flex={1}>
-                    Section {si + 1}: {section.title}
+                    Section {si + 1}: {name}
+                    {!!sectionCap && (
+                      <Text
+                        as="span"
+                        fontSize="xs"
+                        fontWeight="normal"
+                        color="whiteAlpha.800"
+                        ml={2}
+                      >
+                        ({sectionQs.length}/{sectionCap}
+                        {sectionQs.length >= sectionCap ? " — full" : ""})
+                      </Text>
+                    )}
                   </Heading>
                   <Button
                     size="xs"
                     ghost
+                    disabled={savingSections}
                     onClick={() => {
-                      setEditingId(section.id);
-                      setTitleInput(section.title);
+                      setEditingSection(name);
+                      setTitleInput(name);
                     }}
                     color="white"
                   >
@@ -1795,7 +2255,8 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
                   <Button
                     size="xs"
                     ghost
-                    onClick={() => sm.remove(section.id)}
+                    disabled={savingSections}
+                    onClick={() => handleRemoveSection(name)}
                     color="red.200"
                   >
                     Delete
@@ -1827,14 +2288,15 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
                   question={q.question}
                   image={q.file}
                   marginBottom={4}
-                  sections={sm.sections}
-                  currentSectionId={section.id}
-                  onAssign={(qId, sId) => sm.assign(qId, sId)}
-                  onUnassign={(qId) => sm.unassign(qId)}
+                  sections={sectionNames}
+                  currentSection={name}
+                  assigning={reassigningId === q.id}
+                  onAssign={(sectionName) => handleAssign(q, sectionName)}
+                  onUnassign={() => handleAssign(q, undefined)}
                 />
               ))}
               <Box pb={4}>
-                <Button link={buildAddLink(section.id)} size="sm" ghost>
+                <Button link={buildAddLink(name)} size="sm" ghost>
                   + Add Question to this Section
                 </Button>
               </Box>
@@ -1844,9 +2306,9 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
       })}
 
       {/* ── Unassigned / no-section questions ── */}
-      {(unassigned.length > 0 || sm.sections.length === 0) && (
+      {(unassigned.length > 0 || sectionNames.length === 0) && (
         <Box marginBottom={8}>
-          {sm.sections.length > 0 && (
+          {sectionNames.length > 0 && (
             <Flex
               alignItems="center"
               mb={4}
@@ -1868,10 +2330,11 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
               question={q.question}
               image={q.file}
               marginBottom={4}
-              sections={sm.sections}
-              currentSectionId={null}
-              onAssign={(qId, sId) => sm.assign(qId, sId)}
-              onUnassign={(qId) => sm.unassign(qId)}
+              sections={sectionNames}
+              currentSection={null}
+              assigning={reassigningId === q.id}
+              onAssign={(sectionName) => handleAssign(q, sectionName)}
+              onUnassign={() => handleAssign(q, undefined)}
             />
           ))}
 
@@ -1898,7 +2361,7 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
             </Box>
             <Button
               onClick={handleAddSection}
-              disabled={!newTitle.trim()}
+              disabled={!newTitle.trim() || savingSections}
               mb={2}
             >
               Add Section
@@ -1930,7 +2393,8 @@ const QuestionCard = ({
   image,
   id,
   sections,
-  currentSectionId,
+  currentSection,
+  assigning,
   onAssign,
   onUnassign,
   ...rest
@@ -2043,9 +2507,10 @@ const QuestionCard = ({
             editLink={editLink}
             onDelete={handleDelete}
             sections={sections}
-            currentSectionId={currentSectionId}
-            onAssign={onAssign ? (sId) => onAssign(id, sId) : null}
-            onUnassign={onUnassign ? () => onUnassign(id) : null}
+            currentSection={currentSection}
+            assigning={assigning}
+            onAssign={onAssign}
+            onUnassign={onUnassign}
           />
         </Box>
       </Flex>
@@ -2057,7 +2522,8 @@ export const MoreIconButton = ({
   editLink,
   onDelete,
   sections,
-  currentSectionId,
+  currentSection,
+  assigning,
   onAssign,
   onUnassign,
 }) => {
@@ -2066,8 +2532,7 @@ export const MoreIconButton = ({
   const handleViewClick = () => push(editLink);
   const handleEditClick = () => push(appendEditParam(editLink));
 
-  const otherSections =
-    sections?.filter((s) => s.id !== currentSectionId) ?? [];
+  const otherSections = (sections ?? []).filter((s) => s !== currentSection);
 
   return (
     <Menu placement="bottom-end">
@@ -2086,13 +2551,21 @@ export const MoreIconButton = ({
 
         {/* Section assignment */}
         {otherSections.length > 0 &&
-          otherSections.map((s) => (
-            <MenuItem key={s.id} onClick={() => onAssign && onAssign(s.id)}>
-              Move to: {s.title}
+          otherSections.map((name) => (
+            <MenuItem
+              key={name}
+              isDisabled={assigning}
+              onClick={() => onAssign && onAssign(name)}
+            >
+              Move to: {name}
             </MenuItem>
           ))}
-        {currentSectionId && onUnassign && (
-          <MenuItem onClick={onUnassign} color="orange.500">
+        {currentSection && onUnassign && (
+          <MenuItem
+            isDisabled={assigning}
+            onClick={onUnassign}
+            color="orange.500"
+          >
             Remove from section
           </MenuItem>
         )}
