@@ -37,7 +37,7 @@ import {
   useDisclosure,
   useToast,
 } from "@chakra-ui/react";
-import { FiChevronDown, FiEdit2, FiEye, FiMoreHorizontal, FiPlus, FiRefreshCw, FiTrash2 } from "react-icons/fi";
+import { FiChevronDown, FiCopy, FiEdit2, FiEye, FiMoreHorizontal, FiPlus, FiRefreshCw, FiTrash2 } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { Breadcrumb, Link } from "../../../components";
 import { useQueryParams } from "../../../hooks";
@@ -549,6 +549,14 @@ function ExamQuestionBankListPage() {
                             </MenuItem>
                             <MenuItem icon={<FiEdit2 />} onClick={() => history.push(`/admin/exam-question-bank/${q.id}/edit`)}>
                               Edit
+                            </MenuItem>
+                            <MenuItem
+                              icon={<FiCopy />}
+                              onClick={() =>
+                                history.push("/admin/exam-question-bank/new", { duplicateFromId: q.id })
+                              }
+                            >
+                              Create this question
                             </MenuItem>
                             <MenuItem icon={<FiTrash2 />} color="red.500" onClick={() => handleDelete(q)} isDisabled={deletingId === q.id}>
                               Delete

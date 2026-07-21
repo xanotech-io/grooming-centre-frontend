@@ -12,18 +12,22 @@ const splitName = (fullName = "") => {
 export const adminGetCourseRoster = async (courseId, params = {}) => {
   const { data } = await http.get(`/v1/course-roster-v2/${courseId}`, { params });
   const payload = data?.data ?? data ?? {};
+  const overview = payload.overview ?? payload;
 
   const students = (payload.students ?? []).map((s) => ({
     studentId: s.student_id ?? s.studentId,
-    ...splitName(s.student_name ?? s.studentName),
-    email: s.email,
+    firstName: s.first_name ?? s.firstName ?? splitName(s.student_name ?? s.studentName).firstName,
+    lastName: s.last_name ?? s.lastName ?? splitName(s.student_name ?? s.studentName).lastName,
+    email: s.student_email ?? s.email,
     phoneNumber: s.phone_number ?? s.phoneNumber,
     enrollmentStatus: s.enrollment_status ?? s.enrollmentStatus,
+    currentStatus: s.current_status ?? s.currentStatus,
     progressPercentage: s.progress_percentage ?? s.progressPercentage,
     grade: s.grade,
     attendancePercentage: s.attendance_percentage ?? s.attendancePercentage,
     latestAssessmentScore: s.latest_assessment_score ?? s.latestAssessmentScore,
-    enrollmentDate: s.date_enrolled ?? s.enrollmentDate,
+    enrollmentDate: s.enrollment_date ?? s.date_enrolled ?? s.enrollmentDate,
+    courseTitle: s.course_title ?? s.courseTitle,
   }));
 
   const progressValues = students
@@ -35,9 +39,11 @@ export const adminGetCourseRoster = async (courseId, params = {}) => {
     .filter((v) => v != null);
 
   const totalStudents = payload.total ?? students.length;
-  const completedCount = students.filter((s) => s.enrollmentStatus === "Completed").length;
+  const completedCount =
+    overview.completed_count ??
+    students.filter((s) => s.enrollmentStatus === "Completed" || s.currentStatus === "Completed").length;
   const activeEnrollmentCount =
-    payload.active_enrollment_count ??
+    overview.active_enrollment_count ??
     students.filter((s) => s.enrollmentStatus === "Enrolled").length;
 
   return {
@@ -58,17 +64,18 @@ export const adminGetCourseRoster = async (courseId, params = {}) => {
           : null,
         activeEnrollmentCount,
         enrollmentToCompletionRatio:
-          payload.enrollment_to_completion_ratio ??
+          overview.active_to_completion_ratio ??
+          overview.enrollment_to_completion_ratio ??
           (totalStudents ? completedCount / totalStudents : null),
         averageAttendanceRate:
-          payload.average_attendance_rate ??
+          overview.average_attendance_rate ??
           (attendanceValues.length
             ? attendanceValues.reduce((a, b) => a + b, 0) / attendanceValues.length
             : null),
       },
     },
     pagination: {
-      page: payload.page ?? params.page ?? 1,
+      page: payload.page ?? overview.page ?? params.page ?? 1,
       totalItems: payload.total ?? students.length,
       totalPages: payload.total_pages ?? payload.totalPages ?? 1,
     },
@@ -80,9 +87,9 @@ export const adminGetCourseRoster = async (courseId, params = {}) => {
  * POST /api/v1/course-roster-v2/{courseId}/export
  */
 export const adminExportCourseRoster = async (courseId, body = {}) => {
-  const { format, ...rest } = body;
+  const { format, fields } = body;
   const requestBody = {
-    ...rest,
+    fields,
     export_format: (format ?? "").toLowerCase(),
   };
 

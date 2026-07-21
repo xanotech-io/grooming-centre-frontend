@@ -246,7 +246,12 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           departmentId={workflowContent.departmentId}
-          onCreate={isSuperAdmin ? undefined : () => performCreate(pendingPayloadRef.current)}
+          onCreate={
+            isSuperAdmin
+              ? undefined
+              : (supervisorId) =>
+                  performCreate({ ...pendingPayloadRef.current, supervisor_id: supervisorId })
+          }
           onSuccess={() => push("/admin/polls/")}
         />
       )}

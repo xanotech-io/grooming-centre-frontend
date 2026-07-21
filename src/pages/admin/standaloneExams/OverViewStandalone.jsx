@@ -425,7 +425,15 @@ const EditStandalonePage = ({ assessment }) => {
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType="StandaloneExam"
-          onCreate={isSuperAdmin ? undefined : () => performEdit(pendingBodyRef.current)}
+          onCreate={
+            isSuperAdmin
+              ? undefined
+              : (supervisorId) =>
+                  performEdit({
+                    ...pendingBodyRef.current,
+                    body: { ...pendingBodyRef.current.body, supervisor_id: supervisorId },
+                  })
+          }
           onSuccess={handleWorkflowFinished}
         />
       )}
@@ -714,7 +722,15 @@ const CreateStandalonePage = () => {
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType="StandaloneExam"
-          onCreate={isSuperAdmin ? undefined : () => performCreate(pendingBodyRef.current)}
+          onCreate={
+            isSuperAdmin
+              ? undefined
+              : (supervisorId) =>
+                  performCreate({
+                    ...pendingBodyRef.current,
+                    body: { ...pendingBodyRef.current.body, supervisor_id: supervisorId },
+                  })
+          }
           onSuccess={handleWorkflowFinished}
         />
       )}

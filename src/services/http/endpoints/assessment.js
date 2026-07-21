@@ -110,7 +110,7 @@ export const adminCreateAssessment = async (body) => {
 
   const assessment = {
     id: data.id,
-    templateId: data.templateId ?? null,
+    templateId: data.templateId ?? data.markingTemplateId ?? null,
     sections: Array.isArray(data.sections) ? data.sections : [],
   };
   return { message, assessment };

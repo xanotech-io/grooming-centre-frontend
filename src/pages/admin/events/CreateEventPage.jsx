@@ -371,10 +371,12 @@ const CreateEventPage = () => {
         onCreate={
           isSuperAdmin
             ? undefined
-            : () =>
-                isEditMode
+            : (supervisorId) => {
+                pendingBodyRef.current.set("supervisor_id", supervisorId);
+                return isEditMode
                   ? performEdit(pendingBodyRef.current)
-                  : performCreate(pendingBodyRef.current)
+                  : performCreate(pendingBodyRef.current);
+              }
         }
         onSuccess={() => push(`/admin/events`)}
       />

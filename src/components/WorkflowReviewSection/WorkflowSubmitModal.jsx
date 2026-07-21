@@ -91,9 +91,11 @@ export const WorkflowSubmitModal = ({
       let finalContentTitle = contentTitle;
 
       // Nothing has been created yet in this flow — creation only happens
-      // once a supervisor is assigned and approval is submitted.
+      // once a supervisor is assigned and approval is submitted. The backend
+      // requires the supervisor on the create/edit call itself, not just on
+      // the later workflow submission, so it's passed through here.
       if (onCreate) {
-        const created = await onCreate();
+        const created = await onCreate(selectedSupervisorId);
         finalContentId = created?.id;
         finalContentTitle = created?.title ?? contentTitle;
       }

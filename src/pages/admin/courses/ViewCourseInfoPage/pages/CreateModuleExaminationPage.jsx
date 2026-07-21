@@ -33,14 +33,13 @@ import {
 } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
-  adminCreateExamination,
   adminEditExamination,
   adminGetExaminationById,
   adminGetMarkingTemplates,
   getExaminationById as getExamPaperConfig,
   updateExaminationById as updateExamPaperConfig,
 } from "../../../../../services";
-import { capitalizeFirstLetter, formatDateToISO, setAutoAddToBank } from "../../../../../utils";
+import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
 import useAssessmentStore from "../../../../../store/assessmentStore";
 
 const SectionCard = ({ title, children }) => (
@@ -149,7 +148,7 @@ const CreateModuleExaminationPage = () => {
   const toast = useToast();
   const handleCancel = useGoBack();
   const isSuperAdmin = useIsSuperAdmin();
-  const setAssessment = useAssessmentStore((s) => s.setAssessment);
+  const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
@@ -182,7 +181,6 @@ const CreateModuleExaminationPage = () => {
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
   const pendingBodyRef = useRef(null);
-  const resultExaminationRef = useRef(null);
 
   useEffect(() => {
     adminGetMarkingTemplates()
@@ -245,25 +243,10 @@ const CreateModuleExaminationPage = () => {
     return { id: examinationId };
   };
 
-  const performCreate = async ({ body, paperConfigBody }) => {
-    const { message, examination } = await adminCreateExamination(body);
-    await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
-    resultExaminationRef.current = examination;
-    if (!isEditMode && addToBank) setAutoAddToBank("examination", examination.id);
-    setAssessment({ ...examination, sections });
-    toast({
-      description: capitalizeFirstLetter(message),
-      position: "top",
-      status: "success",
-    });
-    return { id: examination.id };
-  };
-
   const handleWorkflowFinished = () => {
-    const nextRoute = isEditMode
-      ? `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`
-      : `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${resultExaminationRef.current?.id}`;
-    push(nextRoute);
+    push(
+      `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`,
+    );
   };
 
   const onSubmit = async (data) => {
@@ -304,31 +287,36 @@ const CreateModuleExaminationPage = () => {
 
       const pendingBody = { body, paperConfigBody };
 
-      const workflowContentBase = {
-        contentTitle: data.title,
-        requestType: "CourseExam",
-        courseId,
-      };
-
       if (isEditMode) {
+        const workflowContentBase = {
+          contentTitle: data.title,
+          requestType: "CourseExam",
+          courseId,
+        };
+
         if (isSuperAdmin) {
           await performEdit(pendingBody);
         } else {
           pendingBodyRef.current = pendingBody;
         }
         setWorkflowContent({ ...workflowContentBase, contentId: examinationId });
-      } else if (isSuperAdmin) {
-        // Super admins create right away — the modal below only offers an
-        // optional supervisor review afterward.
-        const created = await performCreate(pendingBody);
-        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
+        setWorkflowModalOpen(true);
       } else {
-        // Instructors must submit for approval before this gets created —
-        // hold off until the modal below completes.
-        pendingBodyRef.current = pendingBody;
-        setWorkflowContent(workflowContentBase);
+        // Nothing is created yet — hold the details in memory and create
+        // both the exam and the first question together once "Create and
+        // Submit" is clicked on the question step below.
+        setPendingCreate({
+          kind: "ModuleExam",
+          body,
+          paperConfigBody,
+          markingTemplateId,
+          addToBank,
+          title: data.title,
+        });
+        push(
+          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=new&submitForApproval=1`,
+        );
       }
-      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(
@@ -485,10 +473,11 @@ const CreateModuleExaminationPage = () => {
               onCreate={
                 isSuperAdmin
                   ? undefined
-                  : () =>
-                      isEditMode
-                        ? performEdit(pendingBodyRef.current)
-                        : performCreate(pendingBodyRef.current)
+                  : (supervisorId) =>
+                      performEdit({
+                        ...pendingBodyRef.current,
+                        body: { ...pendingBodyRef.current.body, supervisor_id: supervisorId },
+                      })
               }
               onSuccess={handleWorkflowFinished}
             />
@@ -571,7 +560,7 @@ const CreateModuleExaminationPage = () => {
             Cancel
           </Button>
           <Button type="submit" isLoading={isSubmitting || loadingExam} isDisabled={isPublished}>
-            {isEditMode ? "Save Changes" : "Create Examination"}
+            {isEditMode ? "Save Changes" : "Next"}
           </Button>
         </Flex>
       </Box>

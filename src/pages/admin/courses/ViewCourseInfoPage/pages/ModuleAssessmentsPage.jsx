@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { Route, useParams } from "react-router-dom";
 import { Flex } from "@chakra-ui/layout";
-import { Badge, BreadcrumbItem, useDisclosure } from "@chakra-ui/react";
+import { Badge, BreadcrumbItem } from "@chakra-ui/react";
 import {
   Button,
   Heading,
@@ -20,7 +19,7 @@ import {
 import { getDuration } from "../../../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../../hooks";
-import AddAssessmentToBankModal from "../../../examQuestionBank/AddAssessmentToBankModal";
+import { useAddAssessmentToBank } from "../../../examQuestionBank/useAddAssessmentToBank";
 
 const getStatusBadge = (approvalStatus) => {
   const colorSchemes = { Approved: "green", Pending: "orange", Rejected: "red" };
@@ -29,8 +28,7 @@ const getStatusBadge = (approvalStatus) => {
 
 const ModuleAssessmentsPage = () => {
   const { courseId, moduleId } = useParams();
-  const [selectedAssessment, setSelectedAssessment] = useState(null);
-  const { isOpen: isBankOpen, onOpen: onBankOpen, onClose: onBankClose } = useDisclosure();
+  const { addAssessmentToBank } = useAddAssessmentToBank();
 
   const tableProps = {
     filterControls: [
@@ -122,10 +120,12 @@ const ModuleAssessmentsPage = () => {
         },
         {
           text: "Add to Question Bank",
-          onClick: (assessment) => {
-            setSelectedAssessment(assessment);
-            onBankOpen();
-          },
+          onClick: (assessment) =>
+            addAssessmentToBank({
+              assessmentId: assessment.id,
+              courseId,
+              assessmentTitle: assessment.title?.text,
+            }),
         },
         {
           isDelete: true,
@@ -230,14 +230,6 @@ const ModuleAssessmentsPage = () => {
         rows={rows}
         setRows={setRows}
         handleFetch={fetchRowItems}
-      />
-
-      <AddAssessmentToBankModal
-        isOpen={isBankOpen}
-        onClose={onBankClose}
-        assessmentId={selectedAssessment?.id}
-        courseId={courseId}
-        assessmentTitle={selectedAssessment?.title?.text}
       />
     </AdminMainAreaWrapper>
   );

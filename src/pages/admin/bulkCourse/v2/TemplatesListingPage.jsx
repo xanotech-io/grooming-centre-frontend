@@ -99,7 +99,7 @@ const TemplatesListingPage = () => {
             <Table variant="simple" size="sm">
               <Thead bg="#F7FAFC">
                 <Tr>
-                  {["Name", "Description", "Category", "Status", "Actions"].map((h) => (
+                  {["Name", "Description", "Status", "Actions"].map((h) => (
                     <Th key={h} py="14px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">
                       {h}
                     </Th>
@@ -115,7 +115,6 @@ const TemplatesListingPage = () => {
                     <Td py="14px" fontSize="13px" color="gray.600" maxW="300px">
                       <Text noOfLines={2}>{tpl.description || "—"}</Text>
                     </Td>
-                    <Td py="14px" fontSize="13px">{tpl.category || "—"}</Td>
                     <Td py="14px">
                       <Badge
                         bg={tpl.isActive !== false ? "#E6F4EA" : "#F7FAFC"}

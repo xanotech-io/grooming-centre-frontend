@@ -547,10 +547,12 @@ const CreateLessonPage = () => {
           onCreate={
             isSuperAdmin
               ? undefined
-              : () =>
-                  isEditMode
+              : (supervisorId) => {
+                  pendingLessonBodyRef.current.set("supervisor_id", supervisorId);
+                  return isEditMode
                     ? performEdit(pendingLessonBodyRef.current, pendingLessonTitleRef.current)
-                    : performCreate(pendingLessonBodyRef.current, pendingLessonTitleRef.current)
+                    : performCreate(pendingLessonBodyRef.current, pendingLessonTitleRef.current);
+                }
           }
           onSuccess={handleWorkflowFinished}
         />

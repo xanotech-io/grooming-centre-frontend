@@ -20,6 +20,7 @@ export const Upload = forwardRef(
       id,
       previewElementId,
       isRequired,
+      isDisabled,
       isMini,
       imageUrl,
       videoUrl,
@@ -51,6 +52,7 @@ export const Upload = forwardRef(
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
       onDrop,
       accept,
+      disabled: isDisabled,
     });
 
     const hasUploaded = imageUrl || videoUrl || pdfUrl || audioUrl || excelUrl || powerpointUrl || wordUrl;
@@ -188,7 +190,7 @@ export const Upload = forwardRef(
 
                 <Text color="accent.2">Or</Text>
 
-                <Button width="fit-content" sm>
+                <Button width="fit-content" sm isDisabled={isDisabled}>
                   Browse files
                 </Button>
               </Stack>
