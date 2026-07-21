@@ -40,6 +40,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
   const [supervisors, setSupervisors] = useState([]);
   const [prerequisiteLoading, setPrerequisiteLoading] = useState(true);
   const [supervisorsLoading, setSupervisorsLoading] = useState(true);
+  const [useDefaultCertificate, setUseDefaultCertificate] = useState(true);
   const toast = useToast();
   const {
     register,
@@ -81,14 +82,16 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
       const description = descriptionManager.handleGetValueAndValidate("Course Description");
       const courseThumbnail =
         thumbnailUpload.handleGetFileAndValidate("Course Image");
-      const certificate =
-        certificateUpload.handleGetFileAndValidate("Certificate");
+      const certificate = certificateUpload.handleGetFileAndValidate(
+        "Certificate",
+        true
+      );
 
       data = {
         ...data,
         description,
         departmentId: selectedDepartmentId,
-        supervisorId: selectedSupervisorId,
+        supervisor_id: selectedSupervisorId,
         courseThumbnail,
         certificate,
       };
@@ -412,7 +415,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
             <Upload
               id="course-certificate"
               label="Course Certificate"
-              isRequired
+              isDisabled={useDefaultCertificate}
               onFileSelect={certificateUpload.handleFileSelect}
               imageUrl={certificateUpload.image.url}
               accept={certificateUpload.accept}
@@ -425,8 +428,8 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
             <Checkbox
               label="Use default certificate"
               borderColor="primary.base"
-              isChecked
-              disabled
+              isChecked={useDefaultCertificate}
+              onChange={(e) => setUseDefaultCertificate(e.target.checked)}
             />
           </GridItem>
         </Grid>

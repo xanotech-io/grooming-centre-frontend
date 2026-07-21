@@ -197,7 +197,12 @@ const CreateModuleProjectPage = () => {
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          onCreate={isSuperAdmin ? undefined : () => performCreate(pendingBodyRef.current)}
+          onCreate={
+            isSuperAdmin
+              ? undefined
+              : (supervisorId) =>
+                  performCreate({ ...pendingBodyRef.current, supervisor_id: supervisorId })
+          }
           onSuccess={() =>
             push(`/admin/courses/${courseId}/module/${moduleId}/projects`)
           }

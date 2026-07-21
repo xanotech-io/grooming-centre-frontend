@@ -1,6 +1,6 @@
 import { Box, Flex, GridItem } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useParams, useHistory } from "react-router-dom";
 import {
@@ -10,19 +10,14 @@ import {
   Select,
   Spinner,
   Text,
-  WorkflowSubmitModal,
 } from "../../../../../components";
 import {
   useDateTimePicker,
   useGoBack,
-  useIsSuperAdmin,
   useQueryParams,
 } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
-  adminCreateAssessment,
-  adminCreateExamination,
-  adminCreateStandaloneExamination,
   adminGetMarkingTemplateById,
   adminGetMarkingTemplates,
 } from "../../../../../services";
@@ -49,16 +44,11 @@ const CreateAssessmentPage = ({ users }) => {
 
   const { push } = useHistory();
   const toast = useToast();
-  const isSuperAdmin = useIsSuperAdmin();
-  const setAssessment = useAssessmentStore((s) => s.setAssessment);
+  const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
   const [selectedIDs, setSelectedIDs] = useState([]);
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
   const [templateSections, setTemplateSections] = useState([]);
-  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
-  const [workflowContent, setWorkflowContent] = useState(null);
-  const pendingBodyRef = useRef(null);
-  const resultRef = useRef(null);
 
   const usageScope = isStandaloneExamination
     ? "Standalone Exam"
@@ -97,37 +87,6 @@ const CreateAssessmentPage = ({ users }) => {
 
   const startTimeManager = useDateTimePicker();
 
-  const performCreate = async (body) => {
-    const { message, assessment, examination } = await (isStandaloneExamination
-      ? adminCreateStandaloneExamination(body)
-      : isExamination
-      ? adminCreateExamination(body)
-      : adminCreateAssessment(body));
-
-    resultRef.current = isExamination ? examination : assessment;
-    if (isExamination) {
-      setAssessment(examination);
-    } else {
-      setAssessment(assessment);
-    }
-
-    toast({
-      description: capitalizeFirstLetter(message),
-      position: "top",
-      status: "success",
-    });
-
-    return { id: resultRef.current?.id };
-  };
-
-  const handleWorkflowFinished = () => {
-    const id = resultRef.current?.id;
-    const nextRoute = isExamination
-      ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${id}`
-      : `/admin/courses/${courseId}/assessment/${id}/questions/new`;
-    push(nextRoute);
-  };
-
   // Handle form submission
   const onSubmit = async (data) => {
     try {
@@ -162,31 +121,23 @@ const CreateAssessmentPage = ({ users }) => {
           }
         : data;
 
-      const workflowContentBase = {
-        contentTitle: data.title,
-        requestType: isStandaloneExamination
+      // Nothing is created yet — hold the details in memory and create both
+      // the assessment/exam and the first question together once "Create
+      // and Submit" is clicked on the question step below.
+      setPendingCreate({
+        kind: isStandaloneExamination
           ? "StandaloneExam"
           : isExamination
-          ? "CourseExam"
-          : "CourseAssessment",
-        courseId: courseId !== "not-set" ? courseId : undefined,
-        description: isExamination
-          ? `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`
-          : `Assessment: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
-      };
-
-      if (isSuperAdmin) {
-        // Super admins create right away — the modal below only offers an
-        // optional supervisor review afterward.
-        const created = await performCreate(body);
-        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
-      } else {
-        // Instructors must submit for approval before this gets created —
-        // hold off until the modal below completes.
-        pendingBodyRef.current = body;
-        setWorkflowContent(workflowContentBase);
-      }
-      setWorkflowModalOpen(true);
+            ? "Exam"
+            : "Assessment",
+        body,
+        markingTemplateId,
+        title: data.title,
+      });
+      const nextRoute = isExamination
+        ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=new&submitForApproval=1`
+        : `/admin/courses/${courseId}/assessment/new/questions/new?submitForApproval=1`;
+      push(nextRoute);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -428,27 +379,9 @@ const CreateAssessmentPage = ({ users }) => {
             loadingText="Saving"
             type="submit"
           >
-            Save
+            Next
           </Button>
         </Flex>
-
-        {workflowContent && (
-          <WorkflowSubmitModal
-            isOpen={workflowModalOpen}
-            onClose={() => {
-              setWorkflowModalOpen(false);
-              if (isSuperAdmin) handleWorkflowFinished();
-            }}
-            isDismissable={isSuperAdmin}
-            contentId={workflowContent.contentId}
-            contentTitle={workflowContent.contentTitle}
-            requestType={workflowContent.requestType}
-            courseId={workflowContent.courseId}
-            description={workflowContent.description}
-            onCreate={isSuperAdmin ? undefined : () => performCreate(pendingBodyRef.current)}
-            onSuccess={handleWorkflowFinished}
-          />
-        )}
       </Box>
     </AdminMainAreaWrapper>
   );

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Route, useHistory, useParams } from "react-router-dom";
+import { Route, useHistory, useLocation, useParams } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogBody,
@@ -32,7 +32,8 @@ import {
   useDisclosure,
   useToast,
 } from "@chakra-ui/react";
-import { Breadcrumb, Button, Heading, Link } from "../../../components";
+import { Breadcrumb, Button, Heading, Link, WorkflowSubmitModal } from "../../../components";
+import { useIsSuperAdmin } from "../../../hooks";
 import {
   addExamQuestionBankMedia,
   adminGetCourseListing,
@@ -375,8 +376,11 @@ const QUESTION_TYPE_OPTIONS = [
 const ExamQuestionBankFormPage = () => {
   const { questionId } = useParams();
   const history = useHistory();
+  const location = useLocation();
   const toast = useToast();
   const isEdit = Boolean(questionId);
+  const isSuperAdmin = useIsSuperAdmin();
+  const duplicateFromId = !isEdit ? location.state?.duplicateFromId : null;
 
   const { isOpen: isAddMediaOpen, onOpen: onAddMediaOpen, onClose: onAddMediaClose } = useDisclosure();
 
@@ -404,6 +408,11 @@ const ExamQuestionBankFormPage = () => {
 
   const [initialLoading, setInitialLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingPayloadRef = useRef(null);
+  const createdIdRef = useRef(null);
 
   useEffect(() => {
     adminGetCourseListing({ limit: 200 })
@@ -460,6 +469,33 @@ const ExamQuestionBankFormPage = () => {
       .finally(() => setInitialLoading(false));
   }, [isEdit, questionId, toast]);
 
+  // "Create this question" from the bank list — pull in the source question's
+  // fields as a starting point, but this is always a brand new item, so it
+  // never carries over the source's media or status.
+  useEffect(() => {
+    if (isEdit || !duplicateFromId) return;
+    setInitialLoading(true);
+    getExamQuestionBankItem(duplicateFromId)
+      .then((qRes) => {
+        const q = qRes?.data ?? qRes;
+        setQuestion(q.question ?? "");
+        setQuestionType(q.questionType ?? "mcq");
+        if (Array.isArray(q.options) && q.options.length) {
+          setOptions(q.options.map((o) => ({ text: o.text ?? "", isCorrect: !!o.isCorrect })));
+        }
+        setCorrectAnswer(q.correctAnswer ?? "");
+        setExplanation(q.explanation ?? "");
+        setMarks(String(q.marks ?? 1));
+        setDifficultyLevel(q.difficultyLevel ?? "Medium");
+        setCategory(q.category ?? "");
+        setTags(Array.isArray(q.tags) ? q.tags.join(", ") : "");
+        setCourseId(q.courseId ?? "");
+        setModuleId(q.moduleId ?? "");
+      })
+      .catch(() => toast({ title: "Failed to load question to duplicate", status: "error", duration: 3000, isClosable: true }))
+      .finally(() => setInitialLoading(false));
+  }, [isEdit, duplicateFromId, toast]);
+
   const addOption = () => {
     setOptions((prev) => [...prev, { text: "", isCorrect: false }]);
   };
@@ -507,6 +543,9 @@ const ExamQuestionBankFormPage = () => {
       const cleaned = options.filter((o) => o.text.trim());
       payload.options = cleaned.map((o) => ({ text: o.text.trim(), isCorrect: o.isCorrect }));
       payload.correctAnswer = cleaned.find((o) => o.isCorrect)?.text ?? "";
+    } else if (questionType === "true_false") {
+      payload.options = ["True", "False"].map((text) => ({ text, isCorrect: text === correctAnswer }));
+      payload.correctAnswer = correctAnswer.trim();
     } else {
       payload.correctAnswer = correctAnswer.trim();
     }
@@ -535,6 +574,18 @@ const ExamQuestionBankFormPage = () => {
     return true;
   };
 
+  const performCreate = async (payload) => {
+    const res = await createExamQuestionBankItem(payload);
+    const d = res?.data ?? res;
+    const newId = d?.id ?? d?._id ?? d?.questionId;
+    createdIdRef.current = newId;
+    return { id: newId };
+  };
+
+  const goToCreatedQuestion = () => {
+    history.push(createdIdRef.current ? `/admin/exam-question-bank/${createdIdRef.current}/edit` : "/admin/exam-question-bank");
+  };
+
   const handleSave = async () => {
     if (!validate()) return;
     const payload = buildPayload();
@@ -543,17 +594,22 @@ const ExamQuestionBankFormPage = () => {
       if (isEdit) {
         await updateExamQuestionBankItem(questionId, payload);
         toast({ title: "Question updated", status: "success", duration: 3000, isClosable: true });
-      } else {
-        const res = await createExamQuestionBankItem(payload);
-        const d = res?.data ?? res;
-        const newId = d?.id ?? d?._id ?? d?.questionId;
-        toast({ title: "Question added to bank", status: "success", duration: 3000, isClosable: true });
-        if (newId) {
-          history.push(`/admin/exam-question-bank/${newId}/edit`);
-        } else {
-          history.push("/admin/exam-question-bank");
-        }
+        return;
       }
+
+      // Creation always goes through the approval modal: super admins create
+      // right away and get an optional supervisor review afterward, everyone
+      // else must assign a supervisor before the question is created at all.
+      const contentTitle = payload.question.length > 80 ? `${payload.question.slice(0, 80)}...` : payload.question;
+      if (isSuperAdmin) {
+        const created = await performCreate(payload);
+        toast({ title: "Question added to bank", status: "success", duration: 3000, isClosable: true });
+        setWorkflowContent({ contentId: created.id, contentTitle, requestType: "ExamQuestionBankItem" });
+      } else {
+        pendingPayloadRef.current = payload;
+        setWorkflowContent({ contentTitle, requestType: "ExamQuestionBankItem" });
+      }
+      setWorkflowModalOpen(true);
     } catch (err) {
       console.error("[ExamQuestionBankFormPage] failed to save question", payload, err?.response?.data ?? err);
       toast({
@@ -850,7 +906,9 @@ const ExamQuestionBankFormPage = () => {
         {!isEdit && (
           <Box bg="#EBF4FF" border="1px solid #BEE3F8" borderRadius="8px" p="12px">
             <Text fontSize="13px" color="#2B6CB0">
-              Save the question first, then you can attach media files from the edit view.
+              {duplicateFromId
+                ? "This is a new question pre-filled from the one you duplicated — review or edit it, then create it. It won't affect the original."
+                : "Save the question first, then you can attach media files from the edit view."}
             </Text>
           </Box>
         )}
@@ -870,6 +928,30 @@ const ExamQuestionBankFormPage = () => {
       </Flex>
 
       <AddMediaModal isOpen={isAddMediaOpen} onClose={onAddMediaClose} questionId={questionId} currentCount={media.length} onAdded={loadMedia} />
+
+      {!isEdit && workflowContent && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => {
+            setWorkflowModalOpen(false);
+            if (isSuperAdmin) goToCreatedQuestion();
+          }}
+          isDismissable={isSuperAdmin}
+          contentId={workflowContent.contentId}
+          contentTitle={workflowContent.contentTitle}
+          requestType={workflowContent.requestType}
+          onCreate={
+            isSuperAdmin
+              ? undefined
+              : // The exam-question-bank create endpoint rejects unknown fields —
+                // it has no supervisor_id column, unlike assessment/poll/project.
+                // The supervisor link is recorded separately by the workflow
+                // submission call this modal makes right after onCreate resolves.
+                () => performCreate(pendingPayloadRef.current)
+          }
+          onSuccess={goToCreatedQuestion}
+        />
+      )}
     </Box>
   );
 };

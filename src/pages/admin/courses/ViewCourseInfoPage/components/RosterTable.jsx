@@ -61,7 +61,7 @@ const EmptyRow = ({ colSpan, message }) => (
   </Tr>
 );
 
-const COLUMN_COUNT = 9;
+const COLUMN_COUNT = 8;
 
 const RosterTable = ({
   students,
@@ -107,20 +107,10 @@ const RosterTable = ({
               color="blue.700"
               fontSize="12px"
             />
-            <Box>
-              <Text fontSize="13px" fontWeight="600" color="gray.800">
-                {s.firstName} {s.lastName}
-              </Text>
-              <Text fontSize="11px" color="gray.500">
-                {s.studentId}
-              </Text>
-            </Box>
+            <Text fontSize="13px" fontWeight="600" color="gray.800">
+              {s.firstName} {s.lastName}
+            </Text>
           </Flex>
-        </Td>
-        <Td py="12px">
-          <Text fontSize="13px" color="gray.700">
-            {courseName || "—"}
-          </Text>
         </Td>
         <Td py="12px">
           <Text fontSize="13px" color="gray.700">
@@ -134,6 +124,9 @@ const RosterTable = ({
         </Td>
         <Td py="12px">
           <StatusBadge status={s.enrollmentStatus} />
+        </Td>
+        <Td py="12px">
+          <StatusBadge status={s.currentStatus} />
         </Td>
         <Td py="12px">
           <Box>
@@ -194,10 +187,10 @@ const RosterTable = ({
           <Thead bg="gray.50">
             <Tr>
               <TH>Student</TH>
-              <TH>Course</TH>
               <TH>Email</TH>
               <TH>Phone</TH>
               <TH>Enrollment Status</TH>
+              <TH>Current Status</TH>
               <TH>Attendance (%)</TH>
               <TH>Score (%)</TH>
               <TH>Latest Assessment</TH>

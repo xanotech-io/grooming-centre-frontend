@@ -245,7 +245,7 @@ export const adminGetStandaloneExamTemplateId = async (id) => {
   const {
     data: { data },
   } = await http.get(`/v1/stand-alone-examination/admin/${id}`);
-  return data?.templateId ?? null;
+  return data?.templateId ?? data?.markingTemplateId ?? null;
 };
 
 export const adminCreateStandaloneExaminationQuestion = async (body) => {

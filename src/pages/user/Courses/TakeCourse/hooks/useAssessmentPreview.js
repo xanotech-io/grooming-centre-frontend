@@ -82,6 +82,7 @@ const useAssessmentPreview = (
   const handleFetch = (bypassCache) => {
     if (
       !assessmentIsNew &&
+      isExamination !== "new" &&
       assessmentId !== isStandaloneExaminationAndIsNotEditMode
     )
       fetchAssessmentDetails(bypassCache);

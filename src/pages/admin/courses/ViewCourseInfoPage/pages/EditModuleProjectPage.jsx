@@ -234,7 +234,12 @@ const EditModuleProjectPage = () => {
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          onCreate={isSuperAdmin ? undefined : () => performEdit(pendingBodyRef.current)}
+          onCreate={
+            isSuperAdmin
+              ? undefined
+              : (supervisorId) =>
+                  performEdit({ ...pendingBodyRef.current, supervisor_id: supervisorId })
+          }
           onSuccess={() => push(workflowContent.nextRoute)}
         />
       )}

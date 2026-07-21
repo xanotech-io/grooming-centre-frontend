@@ -293,10 +293,10 @@ const CreateModulePage = () => {
           onCreate={
             isSuperAdmin
               ? undefined
-              : () =>
+              : (supervisorId) =>
                   isEditMode
-                    ? performEdit(pendingBodyRef.current)
-                    : performCreate(pendingBodyRef.current)
+                    ? performEdit({ ...pendingBodyRef.current, supervisor_id: supervisorId })
+                    : performCreate({ ...pendingBodyRef.current, supervisor_id: supervisorId })
           }
           onSuccess={() => push(`/admin/courses/details/${courseId}/modules`)}
         />

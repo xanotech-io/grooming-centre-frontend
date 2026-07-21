@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Route } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
 import {
@@ -9,7 +8,7 @@ import {
   Breadcrumb,
   Link,
 } from "../../../components";
-import { BreadcrumbItem, Tag, useDisclosure } from "@chakra-ui/react";
+import { BreadcrumbItem, Tag } from "@chakra-ui/react";
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
@@ -19,7 +18,7 @@ import {
 import { getDuration } from "../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../hooks";
-import AddStandaloneExamToBankModal from "../examQuestionBank/AddStandaloneExamToBankModal";
+import { useAddStandaloneExamToBank } from "../examQuestionBank/useAddStandaloneExamToBank";
 
 const buildTableProps = ({ onAddToBank }) => ({
   filterControls: [
@@ -159,14 +158,14 @@ const buildTableProps = ({ onAddToBank }) => ({
 });
 
 const StandaloneExaminationListingPage = () => {
-  const [selectedExam, setSelectedExam] = useState(null);
-  const { isOpen: isBankOpen, onOpen: onBankOpen, onClose: onBankClose } = useDisclosure();
+  const { addStandaloneExamToBank } = useAddStandaloneExamToBank();
 
   const tableProps = buildTableProps({
-    onAddToBank: (examination) => {
-      setSelectedExam(examination);
-      onBankOpen();
-    },
+    onAddToBank: (examination) =>
+      addStandaloneExamToBank({
+        examinationId: examination.id,
+        examinationTitle: examination.title?.text,
+      }),
   });
 
   const mapExaminationToRow = (examination) => ({
@@ -233,13 +232,6 @@ const StandaloneExaminationListingPage = () => {
         rows={rows}
         setRows={setRows}
         handleFetch={fetchRowItems}
-      />
-
-      <AddStandaloneExamToBankModal
-        isOpen={isBankOpen}
-        onClose={onBankClose}
-        examinationId={selectedExam?.id}
-        examinationTitle={selectedExam?.title?.text}
       />
     </AdminMainAreaWrapper>
   );
