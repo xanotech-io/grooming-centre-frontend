@@ -73,18 +73,44 @@ const SectionCard = ({ title, children }) => (
   </Box>
 );
 
-const EMPTY_SECTION = { section_name: "", questions_count: 1, time_limit: null };
+const EMPTY_SECTION = {
+  section_name: "",
+  questions_count: 1,
+  time_limit: null,
+  question_type: "",
+  marking_type: "",
+  total_marks: null,
+};
+
+// Kept identical to ExamPaperConfigPage.jsx's — QuestionsPage.jsx enforces
+// these three fields against whichever section a question is saved under.
+const QUESTION_TYPE_LOCK_OPTIONS = [
+  { label: "Any type", value: "" },
+  { label: "MCQ", value: "MCQ" },
+  { label: "True / False", value: "TrueFalse" },
+  { label: "Fill in the Blank", value: "FillBlank" },
+  { label: "Matching", value: "Matching" },
+  { label: "Short Answer", value: "ShortAnswer" },
+  { label: "Essay", value: "Essay" },
+];
+
+const MARKING_TYPE_LOCK_OPTIONS = [
+  { label: "Any marking type", value: "" },
+  { label: "Automatic", value: "automatic" },
+  { label: "Manual", value: "manual" },
+  { label: "Hybrid", value: "hybrid" },
+];
 
 const SectionRow = ({ section, idx, onChange, onRemove }) => (
-  <Flex gap={3} alignItems="center" mb={3}>
-    <Box flex={2}>
+  <Flex gap={3} alignItems="center" mb={3} flexWrap="wrap">
+    <Box flex={2} minW="160px">
       <Input
         placeholder="Section name e.g. Section A"
         value={section.section_name}
         onChange={(e) => onChange(idx, "section_name", e.target.value)}
       />
     </Box>
-    <Box flex={1}>
+    <Box flex={1} minW="100px">
       <NumberInput
         min={1}
         value={section.questions_count}
@@ -97,13 +123,50 @@ const SectionRow = ({ section, idx, onChange, onRemove }) => (
         </NumberInputStepper>
       </NumberInput>
     </Box>
-    <Box flex={1}>
+    <Box flex={1} minW="100px">
       <NumberInput
         min={0}
         value={section.time_limit ?? ""}
         onChange={(val) => onChange(idx, "time_limit", val ? Number(val) : null)}
       >
         <NumberInputField placeholder="Time (min)" />
+        <NumberInputStepper>
+          <NumberIncrementStepper />
+          <NumberDecrementStepper />
+        </NumberInputStepper>
+      </NumberInput>
+    </Box>
+    <Box flex={1} minW="130px">
+      <ChakraSelect
+        value={section.question_type ?? ""}
+        onChange={(e) => onChange(idx, "question_type", e.target.value)}
+      >
+        {QUESTION_TYPE_LOCK_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </ChakraSelect>
+    </Box>
+    <Box flex={1} minW="130px">
+      <ChakraSelect
+        value={section.marking_type ?? ""}
+        onChange={(e) => onChange(idx, "marking_type", e.target.value)}
+      >
+        {MARKING_TYPE_LOCK_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </ChakraSelect>
+    </Box>
+    <Box flex={1} minW="100px">
+      <NumberInput
+        min={0}
+        value={section.total_marks ?? ""}
+        onChange={(val) => onChange(idx, "total_marks", val ? Number(val) : null)}
+      >
+        <NumberInputField placeholder="Weightage" />
         <NumberInputStepper>
           <NumberIncrementStepper />
           <NumberDecrementStepper />
@@ -278,6 +341,9 @@ const CreateModuleExaminationPage = () => {
           section_name: s.section_name,
           questions_count: Number(s.questions_count) || 0,
           time_limit: s.time_limit ? Number(s.time_limit) : null,
+          question_type: s.question_type || "",
+          marking_type: s.marking_type || "",
+          total_marks: s.total_marks ? Number(s.total_marks) : null,
         })),
         navigationMode,
         timeLimitMinutes: Number(data.duration) || 0,
@@ -392,6 +458,7 @@ const CreateModuleExaminationPage = () => {
             label="Marking Template"
             placeholder="Select a marking template"
             isRequired
+            isDisabled={isEditMode}
             value={markingTemplateId}
             onChange={(e) => setMarkingTemplateId(e.target.value)}
             options={markingTemplates.map((t) => ({
@@ -399,6 +466,22 @@ const CreateModuleExaminationPage = () => {
               value: t.id,
             }))}
           />
+          {isEditMode && (
+            <Text fontSize="xs" color="gray.500" mt={2}>
+              The template can&apos;t be changed here once an exam has been
+              created — go to the{" "}
+              <Box
+                as="span"
+                color="primary.base"
+                fontWeight="600"
+                cursor="pointer"
+                onClick={() => push("/admin/marking-templates")}
+              >
+                Exam Template Library
+              </Box>{" "}
+              to customize it instead.
+            </Text>
+          )}
         </SectionCard>
 
         {/* ── Sections ── */}
