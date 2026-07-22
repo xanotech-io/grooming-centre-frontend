@@ -58,6 +58,7 @@ const CreateModuleAssessmentPage = () => {
         moduleId,
         duration: Number(data.duration),
         amountOfQuestions: Number(data.amountOfQuestions),
+        totalMarks: Number(data.totalMarks),
         startTime: formatDateToISO(startTime),
         markingTemplateId,
       };
@@ -122,6 +123,19 @@ const CreateModuleAssessmentPage = () => {
             {...register("amountOfQuestions", {
               required: "Number of questions is required",
               min: { value: 1, message: "Must have at least 1 question" },
+            })}
+          />
+
+          <Input
+            label="Total Marks"
+            type="number"
+            placeholder="e.g. 100"
+            isRequired
+            error={errors.totalMarks?.message}
+            mb={6}
+            {...register("totalMarks", {
+              required: "Total marks is required",
+              min: { value: 1, message: "Must be at least 1 mark" },
             })}
           />
 

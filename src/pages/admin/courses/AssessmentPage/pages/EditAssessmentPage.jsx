@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useHistory, useParams } from 'react-router';
 import { Box, Flex, Grid, GridItem } from '@chakra-ui/layout';
@@ -9,26 +9,20 @@ import {
   Input,
   Spinner,
   Text,
-  WorkflowSubmitModal,
 } from '../../../../../components';
 import {
   useDateTimePicker,
   useGoBack,
-  useIsSuperAdmin,
   useQueryParams,
 } from '../../../../../hooks';
 import { AdminMainAreaWrapper } from '../../../../../layouts';
-import {
-  adminEditStandaloneExamination,
-  adminEditAssessment,
-  adminEditExamination,
-} from '../../../../../services';
 import {
   capitalizeFirstLetter,
   capitalizeWords,
   formatDateToISO,
 } from '../../../../../utils';
 import { useApp } from '../../../../../contexts';
+import useAssessmentStore from '../../../../../store/assessmentStore';
 import { MultiSelect } from 'react-multi-select-component';
 import { Tag, TagLabel } from '@chakra-ui/react';
 
@@ -36,6 +30,7 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
   const { id: courseId, assessmentId } = useParams();
 
   const isExamination = useQueryParams().get('examination');
+  const moduleId = useQueryParams().get('moduleId');
   const isStandaloneExamination =
     courseId === 'not-set' && assessmentId === 'not-set' && isExamination
       ? true
@@ -50,10 +45,7 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
 
   const { push } = useHistory();
   const toast = useToast();
-  const isSuperAdmin = useIsSuperAdmin();
-    const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
-    const [workflowContent, setWorkflowContent] = useState(null);
-    const pendingBodyRef = useRef(null);
+  const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
 
   const {
     register,
@@ -100,23 +92,10 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
 
   // const { handleDelete } = useCache();
 
-  const performEdit = async (body) => {
-    const { message } = await (isStandaloneExamination
-      ? adminEditStandaloneExamination(isExamination, body)
-      : isExamination
-      ? adminEditExamination(assessmentId, body)
-      : adminEditAssessment(assessmentId, body));
-
-    toast({
-      description: capitalizeFirstLetter(message),
-      position: 'top',
-      status: 'success',
-    });
-
-    return { id: isStandaloneExamination ? isExamination : assessmentId };
-  };
-
-  // Handle form submission
+  // Handle form submission — nothing is saved yet. The edit is held in
+  // memory and only actually applied (together with the workflow submit
+  // modal) once a question has been saved on the other side of "Next",
+  // mirroring the shell-plus-question deferral the create flow already uses.
   const onSubmit = async (data) => {
     try {
       const startTime =
@@ -129,23 +108,17 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
       };
 
       isStandaloneExamination && Reflect.deleteProperty(data, 'courseId');
-      // const body = isStandaloneExamination
-      //   ? {
-      //       ...data,
-      //       ...(standaloneExamType === "users"
-      //         ? {
-      //             usersId: selectedIDs.map(({ value }) => value),
-      //           }
-      //         : {
-      //             departmentIds: selectedIDs.map(({ value }) => value),
-      //           }),
-      //     }
-      //   : data;
       const body = data;
 
-      const workflowContentBase = {
+      setPendingEdit({
+        kind: isStandaloneExamination
+          ? 'StandaloneExam'
+          : isExamination
+          ? 'Exam'
+          : 'Assessment',
         contentId: isStandaloneExamination ? isExamination : assessmentId,
-        contentTitle: data.title,
+        body,
+        title: data.title,
         requestType: isStandaloneExamination
           ? 'StandaloneExam'
           : isExamination
@@ -154,25 +127,25 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
         courseId: courseId !== 'not-set' ? courseId : undefined,
         nextRoute: isStandaloneExamination
           ? `/admin/standalone-exams/${isExamination}/${data.title}`
+          : moduleId
+          ? `/admin/courses/${courseId}/module/${moduleId}/${
+              isExamination ? 'examinations' : 'assessments'
+            }`
           : isExamination
           ? `/admin/courses/details/${courseId}/exam`
           : `/admin/courses/details/${courseId}/assessment`,
         description: isExamination
           ? `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`
           : `Assessment: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
-      };
+      });
 
-      if (isSuperAdmin) {
-        // Super admins' edits apply right away — the modal below only
-        // offers an optional supervisor review afterward.
-        await performEdit(body);
-      } else {
-        // Instructors must submit for approval before this edit takes
-        // effect — hold off until the modal below completes.
-        pendingBodyRef.current = body;
-      }
-      setWorkflowContent(workflowContentBase);
-      setWorkflowModalOpen(true);
+      const moduleQuery = moduleId ? `&moduleId=${moduleId}` : '';
+      const questionsRoute = isStandaloneExamination
+        ? `/admin/standalone-exams/questions/?examination=${isExamination}&editSubmit=1`
+        : isExamination
+        ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${isExamination}&editSubmit=1${moduleQuery}`
+        : `/admin/courses/${courseId}/assessment/${assessmentId}/questions/new?editSubmit=1${moduleQuery}`;
+      push(questionsRoute);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -408,33 +381,11 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
               !metadata?.departments ||
               users.err
             }
-            loadingText="Updating"
+            loadingText="Saving"
             type="submit"
           >
-            Update
+            Next
           </Button>
-          {workflowContent && (
-            <WorkflowSubmitModal
-              isOpen={workflowModalOpen}
-              onClose={() => {
-                setWorkflowModalOpen(false);
-                if (isSuperAdmin) push(workflowContent.nextRoute);
-              }}
-              isDismissable={isSuperAdmin}
-              contentId={workflowContent.contentId}
-              contentTitle={workflowContent.contentTitle}
-              requestType={workflowContent.requestType}
-              courseId={workflowContent.courseId}
-              description={workflowContent.description}
-              onCreate={
-                isSuperAdmin
-                  ? undefined
-                  : (supervisorId) =>
-                      performEdit({ ...pendingBodyRef.current, supervisor_id: supervisorId })
-              }
-              onSuccess={() => push(workflowContent.nextRoute)}
-            />
-          )}
         </Flex>
       </Box>
     </AdminMainAreaWrapper>

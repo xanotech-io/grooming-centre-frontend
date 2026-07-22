@@ -305,25 +305,14 @@ const CreateLessonPage = () => {
 
       pendingLessonTitleRef.current = data.title;
 
-      if (isEditMode) {
-        if (isSuperAdmin) {
-          const edited = await performEdit(body, data.title);
-          setWorkflowContent({ ...workflowContentBase, contentId: edited.id });
-        } else {
-          pendingLessonBodyRef.current = body;
-          setWorkflowContent({ ...workflowContentBase, contentId: lessonId });
-        }
-      } else if (isSuperAdmin) {
-        // Super admins create right away — the modal below only offers an
-        // optional supervisor review afterward.
-        const created = await performCreate(body, data.title);
-        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
-      } else {
-        // Instructors must submit for approval before this gets created —
-        // hold off until the modal below completes.
-        pendingLessonBodyRef.current = body;
-        setWorkflowContent(workflowContentBase);
-      }
+      // Everyone, including super admin, must submit for approval before
+      // this takes effect — hold off until the modal below completes. Super
+      // admin submissions carry a null supervisor instead of skipping the
+      // workflow.
+      pendingLessonBodyRef.current = body;
+      setWorkflowContent(
+        isEditMode ? { ...workflowContentBase, contentId: lessonId } : workflowContentBase,
+      );
       setWorkflowModalOpen(true);
     } catch (error) {
       toast({
@@ -535,25 +524,18 @@ const CreateLessonPage = () => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => {
-            setWorkflowModalOpen(false);
-            if (isSuperAdmin) handleWorkflowFinished();
-          }}
-          isDismissable={isSuperAdmin}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          onCreate={
-            isSuperAdmin
-              ? undefined
-              : (supervisorId) => {
-                  pendingLessonBodyRef.current.set("supervisor_id", supervisorId);
-                  return isEditMode
-                    ? performEdit(pendingLessonBodyRef.current, pendingLessonTitleRef.current)
-                    : performCreate(pendingLessonBodyRef.current, pendingLessonTitleRef.current);
-                }
-          }
+          onCreate={(supervisorId) => {
+            pendingLessonBodyRef.current.set("supervisor_id", supervisorId);
+            return isEditMode
+              ? performEdit(pendingLessonBodyRef.current, pendingLessonTitleRef.current)
+              : performCreate(pendingLessonBodyRef.current, pendingLessonTitleRef.current);
+          }}
           onSuccess={handleWorkflowFinished}
         />
       )}

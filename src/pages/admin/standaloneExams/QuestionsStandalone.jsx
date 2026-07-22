@@ -52,10 +52,12 @@ import {
   adminCreateStandaloneExamination,
   adminCreateStandaloneExaminationQuestion,
   adminDeleteStandaloneExaminationQuestion,
+  adminEditStandaloneExamination,
   adminEditStandaloneExaminationQuestion,
   adminGetMarkingTemplateById,
   adminGetStandaloneExamTemplateId,
   createExamQuestionBankItem,
+  getExamQuestionBankItem,
   getExaminationById as getExamPaperConfig,
   listExamQuestionBank,
   updateExaminationById as updateExamPaperConfig,
@@ -101,10 +103,15 @@ const QuestionsStandalone = () => {
   const questionId = useQueryParams().get("question");
   const isEditMode = useQueryParams().get("edit") === "true";
   const submitForApproval = useQueryParams().get("submitForApproval") === "1";
+  const editSubmit = useQueryParams().get("editSubmit") === "1";
   const isExistingQuestion = questionId && questionId !== "new";
   // "Next" on the details form hands off here without creating anything —
   // this page renders from `pendingCreate` instead of fetching a real record.
   const isPendingCreation = submitForApproval && !isExistingQuestion && !isEditMode;
+  // "Next" on the *edit* details form hands off here the same way, except
+  // the exam already exists — this page renders it normally, but the
+  // actual update (from `pendingEdit`) is deferred until a question is saved.
+  const isPendingEditSubmit = editSubmit && !isExistingQuestion && !isEditMode;
 
   const batchUploadLink = buildBatchUploadLink({
     examinationId: isExamination,
@@ -115,6 +122,7 @@ const QuestionsStandalone = () => {
 
   const storeSections = useAssessmentStore((s) => s.sections);
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
   const handleGoBack = useGoBack();
   const [templateSections, setTemplateSections] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
@@ -195,6 +203,24 @@ const QuestionsStandalone = () => {
         </Text>
         <Text color="gray.500" mb={4}>
           Nothing was created yet, so there&apos;s nothing to recover — please go back and fill in the details again.
+        </Text>
+        <Button onClick={handleGoBack} type="button">
+          Go Back
+        </Button>
+      </Box>
+    );
+  }
+
+  // Same recovery guard, but for a pending edit — the edit itself hasn't
+  // been saved either, so a lost `pendingEdit` means going back to redo it.
+  if (isPendingEditSubmit && !pendingEdit) {
+    return (
+      <Box padding={10} textAlign="center">
+        <Text bold mb={2}>
+          The changes to this exam were lost.
+        </Text>
+        <Text color="gray.500" mb={4}>
+          Nothing was saved yet, so there&apos;s nothing to recover — please go back and make your changes again.
         </Text>
         <Button onClick={handleGoBack} type="button">
           Go Back
@@ -377,6 +403,7 @@ const CreateQuestionPage = ({
   const questionId = useQueryParams().get("question");
   const isEditMode = useQueryParams().get("edit") === "true";
   const submitForApproval = useQueryParams().get("submitForApproval") === "1";
+  const editSubmit = useQueryParams().get("editSubmit") === "1";
   const isSuperAdmin = useIsSuperAdmin();
 
   const isExistingQuestion = questionId && questionId !== "new";
@@ -384,9 +411,16 @@ const CreateQuestionPage = ({
   // is the first question, and saving it is also what creates the exam
   // (and, for instructors, what the approval modal gates).
   const isPendingCreation = submitForApproval && !isExistingQuestion && !isEditMode;
+  // Same deferral, but the exam already exists — saving this question is
+  // what finally applies the held-back edit (and, for instructors, what
+  // the approval modal gates).
+  const isPendingEditSubmit = editSubmit && !isExistingQuestion && !isEditMode;
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
   const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
+  const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const clearPendingEdit = useAssessmentStore((s) => s.clearPendingEdit);
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
+  const fromBankQuestionId = pendingCreate?.fromBankQuestionId;
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
   const [createdSuccess, setCreatedSuccess] = useState(null);
@@ -412,15 +446,17 @@ const CreateQuestionPage = ({
 
   const goToQuestionListing = (realParentId) => {
     // Only clear here, on the way out — clearing as soon as creation
-    // succeeds would wipe `pendingCreate` while the success modal for a
-    // super admin is still showing, tripping the "details were lost" guard
-    // above on content that was, in fact, just created successfully.
+    // succeeds would wipe `pendingCreate`/`pendingEdit` while the success
+    // modal for a super admin is still showing, tripping the "details were
+    // lost" guard above on content that was, in fact, just saved successfully.
     clearPendingCreate();
+    clearPendingEdit();
     push(buildRealQuestionRoute(realParentId, { listing: true }));
   };
 
   const goToAddAnotherQuestion = (realParentId) => {
     clearPendingCreate();
+    clearPendingEdit();
     push(buildRealQuestionRoute(realParentId, { listing: false }));
   };
 
@@ -436,17 +472,29 @@ const CreateQuestionPage = ({
   };
 
   // Creates the exam that "Next" deferred, using the details form values
-  // held in `pendingCreate`. Called either immediately (super admin) or
-  // from inside the approval modal's `onCreate` (instructor) — either way,
-  // this is the first thing that ever gets saved.
+  // held in `pendingCreate`. Called from inside the approval modal's
+  // `onCreate` — this is the first thing that ever gets saved, for both
+  // instructors (real supervisor id) and super admin (explicit null).
   const performCreateParent = async (supervisorId) => {
     const { body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
-    const finalBody = supervisorId ? { ...body, supervisor_id: supervisorId } : body;
+    const finalBody = { ...body, supervisor_id: supervisorId };
     const { examination } = await adminCreateStandaloneExamination(finalBody);
     await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
     if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
     setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
     return { id: examination.id };
+  };
+
+  // Applies the edit that "Next" deferred, using the details form values
+  // held in `pendingEdit`. Called from inside the approval modal's
+  // `onCreate` — this is the first thing that actually changes, for both
+  // instructors (real supervisor id) and super admin (explicit null).
+  const performEditParent = async (supervisorId) => {
+    const { contentId, body, paperConfigBody } = pendingEdit;
+    const finalBody = { ...body, supervisor_id: supervisorId };
+    await adminEditStandaloneExamination(contentId, finalBody);
+    if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+    return { id: contentId };
   };
 
   const withRealParentId = (body, realParentId) => ({
@@ -517,13 +565,31 @@ const CreateQuestionPage = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useBank]);
 
+  // The option/answer fields only exist in the DOM once the tab has actually
+  // switched (e.g. FillBlank's field isn't rendered while MCQ's tab is still
+  // active), so setting them can't happen in the same synchronous call as
+  // `setTabIndex` — it has to wait for the re-render that follows. Stash the
+  // bank question here and let the `[bankApplyKey]` effect below fill in the
+  // type-specific fields once that render has actually happened.
+  const pendingBankApplyRef = useRef(null);
+
   const applyBankQuestion = (bankQuestion) => {
     const mappedType = BANK_TYPE_TO_FORM_TYPE[bankQuestion.questionType];
     if (!mappedType) return;
 
-    setTabIndex(QUESTION_TYPES.indexOf(mappedType));
+    pendingBankApplyRef.current = bankQuestion;
     questionRichTextManager.handleInitData(bankQuestion.question);
     setBankApplyKey((k) => k + 1);
+    setUseBank(false);
+    setTabIndex(QUESTION_TYPES.indexOf(mappedType));
+  };
+
+  useEffect(() => {
+    const bankQuestion = pendingBankApplyRef.current;
+    if (!bankQuestion) return;
+    pendingBankApplyRef.current = null;
+    const mappedType = BANK_TYPE_TO_FORM_TYPE[bankQuestion.questionType];
+    if (!mappedType) return;
 
     if (mappedType === "MCQ" || mappedType === "TrueFalse") {
       const opts =
@@ -542,13 +608,37 @@ const CreateQuestionPage = ({
       setValue("correctAnswer", bankQuestion.correctAnswer || "");
     }
 
-    setUseBank(false);
     toast({
       description: "Question loaded from the bank — review and edit before saving",
       position: "top",
       status: "info",
     });
-  };
+    // `bankApplyKey` (not the tab index) is the trigger: it changes on every
+    // apply even when the picked question's type matches the current tab.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankApplyKey]);
+
+  // Arrived here straight from the Question Bank via "Next" on the details
+  // form — prefill this first question from the bank item the admin picked,
+  // same mapping as manually applying a bank question above.
+  const appliedFromBankRef = useRef(false);
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[QuestionsStandalone] bank prefill check", { isPendingCreation, fromBankQuestionId, alreadyApplied: appliedFromBankRef.current });
+    if (!isPendingCreation || !fromBankQuestionId || appliedFromBankRef.current) return;
+    appliedFromBankRef.current = true;
+    getExamQuestionBankItem(fromBankQuestionId)
+      .then((res) => {
+        // eslint-disable-next-line no-console
+        console.log("[QuestionsStandalone] fetched bank question", res);
+        applyBankQuestion(res?.data ?? res);
+      })
+      .catch((err) => {
+        console.error("[QuestionsStandalone] failed to load bank question for prefill", fromBankQuestionId, err?.response?.data ?? err);
+        toast({ description: "Couldn't load the picked question from the bank", position: "top", status: "error" });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPendingCreation, fromBankQuestionId]);
 
   // Hydrate form when editing an existing question
   useEffect(() => {
@@ -744,9 +834,9 @@ const CreateQuestionPage = ({
 
       if (isPendingCreation) {
         // Nothing exists yet. "createBoth" is the single unit of work that
-        // actually saves anything — run it now for super admins, or hand it
-        // to the approval modal so an instructor's supervisor pick is what
-        // triggers it.
+        // actually saves anything — hand it to the approval modal so the
+        // assigned supervisor (or an explicit null, for super admin) is
+        // what triggers it.
         const createBoth = async (supervisorId) => {
           const parent = await performCreateParent(supervisorId);
           createdParentRef.current = parent;
@@ -758,26 +848,34 @@ const CreateQuestionPage = ({
           return { id: parent.id };
         };
 
-        if (isSuperAdmin) {
-          await createBoth(undefined);
-          toast({
-            description: capitalizeFirstLetter(`${pendingCreate.title} created successfully.`),
-            position: "top",
-            status: "success",
-          });
-          reset();
-          setWorkflowContent({
-            contentId: createdParentRef.current?.id,
-            contentTitle: pendingCreate.title,
-            requestType: "StandaloneExam",
-          });
-        } else {
-          pendingCreateBothRef.current = createBoth;
-          setWorkflowContent({
-            contentTitle: pendingCreate.title,
-            requestType: "StandaloneExam",
-          });
-        }
+        pendingCreateBothRef.current = createBoth;
+        setWorkflowContent({
+          contentTitle: pendingCreate.title,
+          requestType: "StandaloneExam",
+        });
+        setWorkflowModalOpen(true);
+        return;
+      }
+
+      if (isPendingEditSubmit) {
+        // The exam already exists — "editBoth" is the single unit of work
+        // that actually changes anything, held back until the approval
+        // modal's assigned supervisor (or an explicit null, for super
+        // admin) triggers it.
+        const editBoth = async (supervisorId) => {
+          const parent = await performEditParent(supervisorId);
+          createdParentRef.current = parent;
+          await saveQuestion();
+          return { id: parent.id };
+        };
+
+        pendingCreateBothRef.current = editBoth;
+        setWorkflowContent({
+          contentId: pendingEdit.contentId,
+          contentTitle: pendingEdit.title,
+          requestType: pendingEdit.requestType,
+          courseId: pendingEdit.courseId,
+        });
         setWorkflowModalOpen(true);
         return;
       }
@@ -1335,27 +1433,34 @@ const CreateQuestionPage = ({
               ? "Update Question"
               : isPendingCreation
                 ? "Create and Submit"
-                : "Add Question"}
+                : isPendingEditSubmit
+                  ? "Update and Submit"
+                  : "Add Question"}
         </Button>
+        {isEditMode && (
+          <Button ghost link={`/admin/standalone-exams/questions/?examination=${isExamination}`}>
+            Add Question
+          </Button>
+        )}
       </Flex>
 
-      {isPendingCreation && workflowContent && (
+      {(isPendingCreation || isPendingEditSubmit) && workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => {
-            setWorkflowModalOpen(false);
-            if (isSuperAdmin) finishSaving(createdParentRef.current?.id);
-          }}
-          isDismissable={isSuperAdmin}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
-          onCreate={
-            isSuperAdmin
-              ? undefined
-              : (supervisorId) => pendingCreateBothRef.current(supervisorId)
-          }
-          onSuccess={() => finishSaving(createdParentRef.current?.id)}
+          onCreate={(supervisorId) => pendingCreateBothRef.current(supervisorId)}
+          onSuccess={() => {
+            if (isPendingEditSubmit) {
+              clearPendingEdit();
+              push(pendingEdit.nextRoute);
+            } else {
+              finishSaving(createdParentRef.current?.id);
+            }
+          }}
         />
       )}
     </Box>
