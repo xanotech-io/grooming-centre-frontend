@@ -96,12 +96,14 @@ const CreateAssessmentPage = ({ users }) => {
   const handleCancel = useGoBack();
 
   const startTimeManager = useDateTimePicker();
+  const endTimeManager = useDateTimePicker();
 
   // Handle form submission
   const onSubmit = async (data) => {
     try {
       const startTime =
         startTimeManager.handleGetValueAndValidate("Start Time");
+      const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
       if (selectedIDs.length === 0 && isStandaloneExamination)
         throw new Error("Please select at least one User or Department");
@@ -114,6 +116,7 @@ const CreateAssessmentPage = ({ users }) => {
         courseId,
         markingTemplateId,
         startTime: formatDateToISO(startTime),
+        endTime: formatDateToISO(endTime),
       };
 
       isStandaloneExamination && Reflect.deleteProperty(data, "courseId");
@@ -308,6 +311,15 @@ const CreateAssessmentPage = ({ users }) => {
                 label="Start date & time"
                 value={startTimeManager.value}
                 onChange={startTimeManager.handleChange}
+              />
+            </GridItem>
+            <GridItem>
+              <DateTimePicker
+                id="endTime"
+                isRequired
+                label="End date & time"
+                value={endTimeManager.value}
+                onChange={endTimeManager.handleChange}
               />
             </GridItem>
             <GridItem>

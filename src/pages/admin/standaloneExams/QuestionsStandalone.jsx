@@ -123,9 +123,40 @@ const QuestionsStandalone = () => {
   const storeSections = useAssessmentStore((s) => s.sections);
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
   const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const setAssessment = useAssessmentStore((s) => s.setAssessment);
   const handleGoBack = useGoBack();
+  const { push } = useHistory();
+  const toast = useToast();
+  const [creatingForUpload, setCreatingForUpload] = useState(false);
   const [templateSections, setTemplateSections] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
+
+  // The batch-upload endpoint requires a real examination UUID — it never
+  // accepts the "new" placeholder. While pending creation, clicking
+  // "Upload & Batch Import Questions" creates the exam first (same create
+  // call `performCreateParent` uses below) and only then navigates, so the
+  // batch-upload page always receives a real id.
+  const handleBatchUploadClick = async () => {
+    if (!pendingCreate) return;
+    setCreatingForUpload(true);
+    try {
+      const { body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
+      const { examination } = await adminCreateStandaloneExamination(body);
+      await updateExamPaperConfig(examination.id, paperConfigBody);
+      if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
+      setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+
+      push(buildBatchUploadLink({ examinationId: examination.id, standalone: true }));
+    } catch (err) {
+      toast({
+        description: "Couldn't create the exam before uploading — please try again",
+        position: "top",
+        status: "error",
+      });
+    } finally {
+      setCreatingForUpload(false);
+    }
+  };
 
   useEffect(() => {
     if (isPendingCreation) {
@@ -247,10 +278,16 @@ const QuestionsStandalone = () => {
               : "Update Standalone Question"}
         </Heading>
 
-        {!isQuestionListingPage && !isExistingQuestion && !isPendingCreation && (
-          <Button link={batchUploadLink}>
-            Upload &amp; Batch Import Questions
-          </Button>
+        {!isQuestionListingPage && !isExistingQuestion && (
+          isPendingCreation ? (
+            <Button onClick={handleBatchUploadClick} disabled={creatingForUpload}>
+              {creatingForUpload ? "Creating..." : "Upload & Batch Import Questions"}
+            </Button>
+          ) : (
+            <Button link={batchUploadLink}>
+              Upload &amp; Batch Import Questions
+            </Button>
+          )
         )}
       </Flex>
 

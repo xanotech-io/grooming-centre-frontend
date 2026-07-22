@@ -45,10 +45,12 @@ const CreateModuleAssessmentPage = () => {
   } = useForm();
 
   const startTimeManager = useDateTimePicker();
+  const endTimeManager = useDateTimePicker();
 
   const onSubmit = async (data) => {
     try {
       const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
+      const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
       if (!markingTemplateId) throw new Error("A marking template must be selected before creating an assessment.");
 
@@ -60,6 +62,7 @@ const CreateModuleAssessmentPage = () => {
         amountOfQuestions: Number(data.amountOfQuestions),
         totalMarks: Number(data.totalMarks),
         startTime: formatDateToISO(startTime),
+        endTime: formatDateToISO(endTime),
         markingTemplateId,
       };
 
@@ -144,6 +147,14 @@ const CreateModuleAssessmentPage = () => {
             isRequired
             value={startTimeManager.value}
             onChange={startTimeManager.handleChange}
+            mb={6}
+          />
+
+          <DateTimePicker
+            label="End Time"
+            isRequired
+            value={endTimeManager.value}
+            onChange={endTimeManager.handleChange}
             mb={6}
           />
 

@@ -59,10 +59,6 @@ const Header = () => {
     courseId === "not-set" && assessmentId === "not-set" && examinationId
       ? true
       : false;
-  // Nothing exists yet (still in the "Next" → add question hand-off) —
-  // Overview and Grading have nothing to show, so only Questions applies.
-  const isPendingCreation = assessmentId === "new" || examinationId === "new";
-
   const backToAssessmentsLink = moduleId
     ? `/admin/courses/${courseId}/module/${moduleId}/assessments`
     : `/admin/courses/details/${courseId}/assessment`;
@@ -162,9 +158,7 @@ const Header = () => {
         >
           {/** Empty box */}
           <Flex as="ul" listStyleType="none">
-            {links
-              .filter((link) => !isPendingCreation || link.text === "Questions")
-              .map((link) => (
+            {links.map((link) => (
               <li key={link.text}>
                 <Link
                   href={link.href(courseId, assessmentId, examinationId, moduleId)}
