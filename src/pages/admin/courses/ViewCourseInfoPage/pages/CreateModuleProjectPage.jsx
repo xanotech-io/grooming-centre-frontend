@@ -188,9 +188,7 @@ const CreateModuleProjectPage = () => {
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          onCreate={(supervisorId) =>
-            performCreate({ ...pendingBodyRef.current, supervisor_id: supervisorId })
-          }
+          onCreate={() => performCreate(pendingBodyRef.current)}
           onSuccess={() =>
             push(`/admin/courses/${courseId}/module/${moduleId}/projects`)
           }

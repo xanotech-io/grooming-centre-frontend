@@ -530,12 +530,11 @@ const CreateLessonPage = () => {
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          onCreate={(supervisorId) => {
-            pendingLessonBodyRef.current.set("supervisor_id", supervisorId);
-            return isEditMode
+          onCreate={() =>
+            isEditMode
               ? performEdit(pendingLessonBodyRef.current, pendingLessonTitleRef.current)
-              : performCreate(pendingLessonBodyRef.current, pendingLessonTitleRef.current);
-          }}
+              : performCreate(pendingLessonBodyRef.current, pendingLessonTitleRef.current)
+          }
           onSuccess={handleWorkflowFinished}
         />
       )}

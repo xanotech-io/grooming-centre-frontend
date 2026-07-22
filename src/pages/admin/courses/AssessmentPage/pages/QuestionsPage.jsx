@@ -374,7 +374,7 @@ const QuestionsPage = () => {
           {" Question"}
         </Heading>
 
-        {!isQuestionListingPage && !isExistingQuestion && (
+        {!isQuestionListingPage && !isExistingQuestion && !isPendingCreation && (
           <Button link={batchUploadLink}>
             Upload &amp; Batch Import Questions
           </Button>
@@ -969,11 +969,12 @@ const CreateQuestionPage = ({
 
   // Creates the exam/assessment that "Next" deferred, using the details
   // form values held in `pendingCreate`. Called from inside the approval
-  // modal's `onCreate` — this is the first thing that ever gets saved, for
-  // both instructors (real supervisor id) and super admin (explicit null).
-  const performCreateParent = async (supervisorId) => {
-    const { kind, body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
-    const finalBody = { ...body, supervisor_id: supervisorId };
+  // modal's `onCreate` — this is the first thing that ever gets saved.
+  // Creation is a separate endpoint from approval submission, so no
+  // supervisor field is sent here; the supervisor is only attached on the
+  // later workflow submit call.
+  const performCreateParent = async () => {
+    const { kind, body: finalBody, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
 
     if (kind === "ModuleExam" || kind === "Exam") {
       const { examination } = await adminCreateExamination(finalBody);
@@ -1008,11 +1009,12 @@ const CreateQuestionPage = ({
 
   // Applies the edit that "Next" deferred, using the details form values
   // held in `pendingEdit`. Called from inside the approval modal's
-  // `onCreate` — this is the first thing that actually changes, for both
-  // instructors (real supervisor id) and super admin (explicit null).
-  const performEditParent = async (supervisorId) => {
-    const { kind, contentId, body, paperConfigBody } = pendingEdit;
-    const finalBody = { ...body, supervisor_id: supervisorId };
+  // `onCreate` — this is the first thing that actually changes. Editing is
+  // a separate endpoint from approval submission, so no supervisor field
+  // is sent here; the supervisor is only attached on the later workflow
+  // submit call.
+  const performEditParent = async () => {
+    const { kind, contentId, body: finalBody, paperConfigBody } = pendingEdit;
 
     if (kind === "StandaloneExam") {
       await adminEditStandaloneExamination(contentId, finalBody);
@@ -1345,8 +1347,8 @@ const CreateQuestionPage = ({
         // actually saves anything — hand it to the approval modal so the
         // assigned supervisor (or an explicit null, for super admin) is
         // what triggers it.
-        const createBoth = async (supervisorId) => {
-          const parent = await performCreateParent(supervisorId);
+        const createBoth = async () => {
+          const parent = await performCreateParent();
           createdParentRef.current = parent;
           await saveQuestion(parent.id);
           // The exam-level "auto add every question" flag was just set on
@@ -1379,8 +1381,8 @@ const CreateQuestionPage = ({
         // that actually changes anything, held back until the approval
         // modal's assigned supervisor (or an explicit null, for super
         // admin) triggers it.
-        const editBoth = async (supervisorId) => {
-          const parent = await performEditParent(supervisorId);
+        const editBoth = async () => {
+          const parent = await performEditParent();
           createdParentRef.current = parent;
           await saveQuestion();
           return { id: parent.id };
@@ -1971,7 +1973,7 @@ const CreateQuestionPage = ({
                   ? "Update and Submit"
                   : "Add Question"}
         </Button>
-        {isPendingEditSubmit && (
+        {(isPendingCreation || isPendingEditSubmit) && (
           <Button
             type="submit"
             ghost
@@ -2008,7 +2010,7 @@ const CreateQuestionPage = ({
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          onCreate={(supervisorId) => pendingCreateBothRef.current(supervisorId)}
+          onCreate={() => pendingCreateBothRef.current()}
           onSuccess={() => {
             const realParentId = createdParentRef.current?.id;
             if (addAnotherRef.current) {

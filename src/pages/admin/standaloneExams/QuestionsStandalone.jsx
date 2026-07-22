@@ -247,7 +247,7 @@ const QuestionsStandalone = () => {
               : "Update Standalone Question"}
         </Heading>
 
-        {!isQuestionListingPage && !isExistingQuestion && (
+        {!isQuestionListingPage && !isExistingQuestion && !isPendingCreation && (
           <Button link={batchUploadLink}>
             Upload &amp; Batch Import Questions
           </Button>
@@ -426,6 +426,7 @@ const CreateQuestionPage = ({
   const [createdSuccess, setCreatedSuccess] = useState(null);
   const pendingCreateBothRef = useRef(null);
   const createdParentRef = useRef(null);
+  const addAnotherRef = useRef(false);
 
   // How many questions this exam was configured for — read from the
   // not-yet-created details form while pending, or the real record once
@@ -473,13 +474,14 @@ const CreateQuestionPage = ({
 
   // Creates the exam that "Next" deferred, using the details form values
   // held in `pendingCreate`. Called from inside the approval modal's
-  // `onCreate` — this is the first thing that ever gets saved, for both
-  // instructors (real supervisor id) and super admin (explicit null).
-  const performCreateParent = async (supervisorId) => {
+  // `onCreate` — this is the first thing that ever gets saved. Creation is
+  // a separate endpoint from approval submission, so no supervisor field
+  // is sent here; the supervisor is only attached on the later workflow
+  // submit call.
+  const performCreateParent = async () => {
     const { body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
-    const finalBody = { ...body, supervisor_id: supervisorId };
-    const { examination } = await adminCreateStandaloneExamination(finalBody);
-    await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
+    const { examination } = await adminCreateStandaloneExamination(body);
+    await updateExamPaperConfig(examination.id, paperConfigBody);
     if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
     setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
     return { id: examination.id };
@@ -487,13 +489,14 @@ const CreateQuestionPage = ({
 
   // Applies the edit that "Next" deferred, using the details form values
   // held in `pendingEdit`. Called from inside the approval modal's
-  // `onCreate` — this is the first thing that actually changes, for both
-  // instructors (real supervisor id) and super admin (explicit null).
-  const performEditParent = async (supervisorId) => {
+  // `onCreate` — this is the first thing that actually changes. Editing is
+  // a separate endpoint from approval submission, so no supervisor field
+  // is sent here; the supervisor is only attached on the later workflow
+  // submit call.
+  const performEditParent = async () => {
     const { contentId, body, paperConfigBody } = pendingEdit;
-    const finalBody = { ...body, supervisor_id: supervisorId };
-    await adminEditStandaloneExamination(contentId, finalBody);
-    if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+    await adminEditStandaloneExamination(contentId, body);
+    if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody);
     return { id: contentId };
   };
 
@@ -837,8 +840,8 @@ const CreateQuestionPage = ({
         // actually saves anything — hand it to the approval modal so the
         // assigned supervisor (or an explicit null, for super admin) is
         // what triggers it.
-        const createBoth = async (supervisorId) => {
-          const parent = await performCreateParent(supervisorId);
+        const createBoth = async () => {
+          const parent = await performCreateParent();
           createdParentRef.current = parent;
           await saveQuestion(parent.id);
           // The exam-level "auto add every question" flag was just set on
@@ -862,8 +865,8 @@ const CreateQuestionPage = ({
         // that actually changes anything, held back until the approval
         // modal's assigned supervisor (or an explicit null, for super
         // admin) triggers it.
-        const editBoth = async (supervisorId) => {
-          const parent = await performEditParent(supervisorId);
+        const editBoth = async () => {
+          const parent = await performEditParent();
           createdParentRef.current = parent;
           await saveQuestion();
           return { id: parent.id };
@@ -1423,6 +1426,9 @@ const CreateQuestionPage = ({
         )}
         <Button
           type="submit"
+          onClick={() => {
+            addAnotherRef.current = false;
+          }}
           disabled={isLoading || isSubmitting || error}
           isLoading={isLoading || isSubmitting}
           leftIcon={isExistingQuestion && !isEditMode ? <FaTrash /> : null}
@@ -1437,6 +1443,19 @@ const CreateQuestionPage = ({
                   ? "Update and Submit"
                   : "Add Question"}
         </Button>
+        {(isPendingCreation || isPendingEditSubmit) && (
+          <Button
+            type="submit"
+            ghost
+            onClick={() => {
+              addAnotherRef.current = true;
+            }}
+            disabled={isLoading || isSubmitting || error}
+            isLoading={isLoading || isSubmitting}
+          >
+            Add more questions
+          </Button>
+        )}
         {isEditMode && (
           <Button ghost link={`/admin/standalone-exams/questions/?examination=${isExamination}`}>
             Add Question
@@ -1452,13 +1471,17 @@ const CreateQuestionPage = ({
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
-          onCreate={(supervisorId) => pendingCreateBothRef.current(supervisorId)}
+          onCreate={() => pendingCreateBothRef.current()}
           onSuccess={() => {
-            if (isPendingEditSubmit) {
+            const realParentId = createdParentRef.current?.id;
+            if (addAnotherRef.current) {
+              addAnotherRef.current = false;
+              goToAddAnotherQuestion(realParentId);
+            } else if (isPendingEditSubmit) {
               clearPendingEdit();
               push(pendingEdit.nextRoute);
             } else {
-              finishSaving(createdParentRef.current?.id);
+              finishSaving(realParentId);
             }
           }}
         />
@@ -1645,7 +1668,7 @@ const buildOptions = (data) => {
       const optionIndex = +key.replace("option-", "");
       const isAnswer = +data.answer === optionIndex;
       if (optionText)
-        options.push({ option: optionText, optionIndex, isAnswer });
+        options.push({ name: optionText, optionIndex, isAnswer });
     }
   }
   return options;

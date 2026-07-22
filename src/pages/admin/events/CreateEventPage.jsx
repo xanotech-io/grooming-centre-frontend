@@ -358,12 +358,11 @@ const CreateEventPage = () => {
         contentTitle={workflowContent.contentTitle}
         requestType={workflowContent.requestType}
         departmentId={workflowContent.departmentId}
-        onCreate={(supervisorId) => {
-          pendingBodyRef.current.set("supervisor_id", supervisorId);
-          return isEditMode
+        onCreate={() =>
+          isEditMode
             ? performEdit(pendingBodyRef.current)
-            : performCreate(pendingBodyRef.current);
-        }}
+            : performCreate(pendingBodyRef.current)
+        }
         onSuccess={() => push(`/admin/events`)}
       />
     )}

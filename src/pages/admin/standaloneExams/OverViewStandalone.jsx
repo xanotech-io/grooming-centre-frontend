@@ -268,7 +268,7 @@ const EditStandalonePage = ({ assessment }) => {
       examinationId,
       body,
     );
-    await updateExamPaperConfig(examinationId, paperConfigBody).catch(() => {});
+    await updateExamPaperConfig(examinationId, paperConfigBody);
 
     toast({
       description: capitalizeFirstLetter(message),
@@ -297,14 +297,19 @@ const EditStandalonePage = ({ assessment }) => {
 
       const paperConfigBody = {
         examType: "standalone_examination",
-        configuredSections: sections.map((s) => ({
-          section_name: s.section_name,
-          questions_count: Number(s.questions_count) || 0,
-          time_limit: s.time_limit ? Number(s.time_limit) : null,
-          question_type: s.question_type || "",
-          marking_type: s.marking_type || "",
-          total_marks: s.total_marks ? Number(s.total_marks) : null,
-        })),
+        // Sections are optional — the backend rejects an empty
+        // `configuredSections` array, so leave the key out entirely
+        // when none were added instead of sending `[]`.
+        ...(sections.length > 0 && {
+          configuredSections: sections.map((s) => ({
+            section_name: s.section_name,
+            questions_count: Number(s.questions_count) || 0,
+            time_limit: s.time_limit ? Number(s.time_limit) : null,
+            question_type: s.question_type || "",
+            marking_type: s.marking_type || "",
+            total_marks: s.total_marks ? Number(s.total_marks) : null,
+          })),
+        }),
         randomization,
       };
 
@@ -475,12 +480,7 @@ const EditStandalonePage = ({ assessment }) => {
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType="StandaloneExam"
-          onCreate={(supervisorId) =>
-            performEdit({
-              ...pendingBodyRef.current,
-              body: { ...pendingBodyRef.current.body, supervisor_id: supervisorId },
-            })
-          }
+          onCreate={() => performEdit(pendingBodyRef.current)}
           onSuccess={handleWorkflowFinished}
         />
       )}
@@ -552,14 +552,19 @@ const CreateStandalonePage = () => {
 
       const paperConfigBody = {
         examType: "standalone_examination",
-        configuredSections: sections.map((s) => ({
-          section_name: s.section_name,
-          questions_count: Number(s.questions_count) || 0,
-          time_limit: s.time_limit ? Number(s.time_limit) : null,
-          question_type: s.question_type || "",
-          marking_type: s.marking_type || "",
-          total_marks: s.total_marks ? Number(s.total_marks) : null,
-        })),
+        // Sections are optional — the backend rejects an empty
+        // `configuredSections` array, so leave the key out entirely
+        // when none were added instead of sending `[]`.
+        ...(sections.length > 0 && {
+          configuredSections: sections.map((s) => ({
+            section_name: s.section_name,
+            questions_count: Number(s.questions_count) || 0,
+            time_limit: s.time_limit ? Number(s.time_limit) : null,
+            question_type: s.question_type || "",
+            marking_type: s.marking_type || "",
+            total_marks: s.total_marks ? Number(s.total_marks) : null,
+          })),
+        }),
         randomization,
       };
 

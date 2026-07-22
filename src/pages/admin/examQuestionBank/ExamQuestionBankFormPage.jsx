@@ -934,10 +934,9 @@ const ExamQuestionBankFormPage = () => {
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           onCreate={
-            // The exam-question-bank create endpoint rejects unknown fields —
-            // it has no supervisor_id column, unlike assessment/poll/project.
-            // The supervisor link is recorded separately by the workflow
-            // submission call this modal makes right after onCreate resolves.
+            // Create and submit-for-approval are separate endpoints — the
+            // supervisor link is recorded by the workflow submission call
+            // this modal makes right after onCreate resolves, not here.
             () => performCreate(pendingPayloadRef.current)
           }
           onSuccess={goToCreatedQuestion}
