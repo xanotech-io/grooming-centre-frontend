@@ -12,8 +12,13 @@ import {
   TabPanel,
   TabPanels,
   Tabs,
+  Tag,
+  TagCloseButton,
+  TagLabel,
   Input as ChakraInput,
   useToast,
+  Wrap,
+  WrapItem,
 } from "@chakra-ui/react";
 import { Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/menu";
 import {
@@ -31,7 +36,7 @@ import {
 } from "../../../components";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaArrowRight, FaTrash } from "react-icons/fa";
+import { FaArrowRight, FaPlus, FaTrash } from "react-icons/fa";
 import { FiMoreHorizontal } from "react-icons/fi";
 import { Route, useHistory } from "react-router-dom";
 import { PageLoaderLayout } from "../../../layouts";
@@ -456,6 +461,8 @@ const CreateQuestionPage = ({
 
   const [answer, setAnswer] = useState("");
   const [matchingPairs, setMatchingPairs] = useState([{ left: "", right: "" }]);
+  const [acceptVariants, setAcceptVariants] = useState([]);
+  const [variantInput, setVariantInput] = useState("");
   const [markingType, setMarkingType] = useState("automatic");
   const [selectedSectionId, setSelectedSectionId] = useState("");
 
@@ -464,7 +471,7 @@ const CreateQuestionPage = ({
     reset,
     handleSubmit,
     setValue,
-    formState: { isSubmitting },
+    formState: { isSubmitting, errors },
   } = useForm();
   const questionRichTextManager = useRichText();
   const questionImageManager = useUpload();
@@ -548,10 +555,20 @@ const CreateQuestionPage = ({
     if (!question) return;
     if (question.markingType) setMarkingType(question.markingType);
     if (question.section) setSelectedSectionId(question.section);
-    // Detect question type from options count
-    if (question.options?.length === 2)
+
+    // Detect question type: prefer the explicit field, fall back to shape-sniffing
+    // for questions saved before questionType was sent.
+    if (question.questionType && QUESTION_TYPES.includes(question.questionType)) {
+      setTabIndex(QUESTION_TYPES.indexOf(question.questionType));
+    } else if (question.pairs?.length) {
+      setTabIndex(QUESTION_TYPES.indexOf("Matching"));
+    } else if (question.correctAnswer && !question.options?.length) {
+      setTabIndex(QUESTION_TYPES.indexOf("FillBlank"));
+    } else if (question.options?.length === 2) {
       setTabIndex(1); // TrueFalse
-    else setTabIndex(0); // MCQ default
+    } else {
+      setTabIndex(0); // MCQ default
+    }
 
     [1, 2, 3, 4].forEach((num) => {
       const opt = question.options?.find((o) => o.optionIndex === num);
@@ -560,6 +577,14 @@ const CreateQuestionPage = ({
 
     const correct = question.options?.find((o) => o.isAnswer);
     if (correct) setAnswer(`${correct.optionIndex}`);
+
+    if (question.correctAnswer) setValue("correctAnswer", question.correctAnswer);
+    if (Array.isArray(question.acceptVariants) && question.acceptVariants.length > 0) {
+      setAcceptVariants(question.acceptVariants);
+    }
+    if (Array.isArray(question.pairs) && question.pairs.length > 0) {
+      setMatchingPairs(question.pairs);
+    }
 
     questionRichTextManager.handleInitData(question.question);
     // MUIRichTextEditor only reads defaultValue on mount, so force a
@@ -586,6 +611,16 @@ const CreateQuestionPage = ({
     setMatchingPairs((p) =>
       p.map((pair, i) => (i === idx ? { ...pair, [side]: value } : pair)),
     );
+
+  const handleAddVariant = () => {
+    const variant = variantInput.trim();
+    if (variant && !acceptVariants.includes(variant)) {
+      setAcceptVariants((prev) => [...prev, variant]);
+    }
+    setVariantInput("");
+  };
+  const handleRemoveVariant = (variant) =>
+    setAcceptVariants((prev) => prev.filter((v) => v !== variant));
 
   const onSubmit = async (data) => {
     try {
@@ -670,6 +705,20 @@ const CreateQuestionPage = ({
         }
       };
 
+      // ── Type-specific fields (FillBlank/Matching need explicit questionType
+      // since they carry neither `options` nor an inferable shape) ──
+      const typeSpecificFields = isObjectiveType
+        ? { options }
+        : questionType === "FillBlank"
+          ? {
+              questionType: "FillBlank",
+              correctAnswer: data.correctAnswer,
+              ...(acceptVariants.length > 0 && { acceptVariants }),
+            }
+          : questionType === "Matching"
+            ? { questionType: "Matching", pairs: JSON.stringify(matchingPairs) }
+            : {};
+
       // ── Build payload ──
       const saveQuestion = async (realParentId) => {
         if (isEditMode) {
@@ -678,7 +727,7 @@ const CreateQuestionPage = ({
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
             markingType,
-            ...(isObjectiveType && { options }),
+            ...typeSpecificFields,
           };
           return adminEditStandaloneExaminationQuestion(body);
         }
@@ -687,7 +736,7 @@ const CreateQuestionPage = ({
           question: questionPlainText,
           ...(sectionTitle && { section: sectionTitle }),
           markingType,
-          ...(isObjectiveType && { options }),
+          ...typeSpecificFields,
         };
         const body = isPendingCreation ? withRealParentId(baseBody, realParentId) : baseBody;
         return adminCreateStandaloneExaminationQuestion(body);
@@ -1180,10 +1229,52 @@ const CreateQuestionPage = ({
                   label="Correct Answer"
                   isRequired
                   placeholder="e.g. Paris"
+                  error={errors.correctAnswer?.message}
                   {...register("correctAnswer", {
-                    required: "Correct answer is required",
+                    required:
+                      questionType === "FillBlank"
+                        ? "Correct answer is required"
+                        : false,
                   })}
                 />
+
+                <Box mt={4}>
+                  <Text fontSize="13px" fontWeight="500" color="#1A202C" mb={2}>
+                    Accepted Answer Variants (optional)
+                  </Text>
+                  <Flex gap={2} mb={3}>
+                    <Box flex={1}>
+                      <Input
+                        placeholder="e.g. paris (alternate spelling/case)"
+                        value={variantInput}
+                        onChange={(e) => setVariantInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddVariant();
+                          }
+                        }}
+                      />
+                    </Box>
+                    <Button ghost onClick={handleAddVariant} type="button">
+                      <Flex alignItems="center" gap="6px">
+                        <FaPlus size="11px" /> Add
+                      </Flex>
+                    </Button>
+                  </Flex>
+                  {acceptVariants.length > 0 && (
+                    <Wrap spacing="8px">
+                      {acceptVariants.map((variant) => (
+                        <WrapItem key={variant}>
+                          <Tag size="md" borderRadius="full" variant="solid" bg="#6b006b" color="white">
+                            <TagLabel>{variant}</TagLabel>
+                            <TagCloseButton onClick={() => handleRemoveVariant(variant)} />
+                          </Tag>
+                        </WrapItem>
+                      ))}
+                    </Wrap>
+                  )}
+                </Box>
               </TabPanel>
             </TabPanels>
           </Tabs>

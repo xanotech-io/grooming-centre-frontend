@@ -1,5 +1,4 @@
-import { Box, Flex, Grid, HStack, Stack } from "@chakra-ui/layout";
-import { Radio, RadioGroup } from "@chakra-ui/radio";
+import { Box, Flex, Grid, HStack } from "@chakra-ui/layout";
 import { useCallback, useEffect, useState } from "react";
 import { Route } from "react-router";
 import {
@@ -13,6 +12,10 @@ import {
 } from "../../../components";
 import { EmptyState, PageLoaderLayout } from "../../../layouts";
 import { CustomModal } from "../../../layouts/user/Assessment/Modal";
+import {
+  QuestionInput,
+  normalizeQuestionType,
+} from "../../../layouts/user/Examination/ExaminationLayout";
 import breakpoints from "../../../theme/breakpoints";
 import useStandalone from "./standaloneHooks/useStandalone";
 import { useToast } from "@chakra-ui/toast";
@@ -333,27 +336,16 @@ const StandaloneExamsStart = () => {
                       )}
                     </Box>
 
-                    <RadioGroup
-                      defaultValue="1"
-                      marginBottom={8}
-                      flex={1}
-                      onChange={handleOptionSelect}
-                      value={selectedAnswers[currentQuestion?.id] || "default"}
-                    >
-                      <Stack spacing={4}>
-                        {currentQuestion?.standAloneExaminationOption?.map(
-                          (option) => (
-                            <Radio key={option.id} value={option.id}>
-                              <Text>{option.name}</Text>
-                            </Radio>
-                          ),
-                        )}
-
-                        <Radio value={"default"} display="none">
-                          <Text>default</Text>
-                        </Radio>
-                      </Stack>
-                    </RadioGroup>
+                    <QuestionInput
+                      question={{
+                        ...currentQuestion,
+                        questionType: normalizeQuestionType(currentQuestion?.questionType),
+                        options: currentQuestion?.standAloneExaminationOption,
+                      }}
+                      selectedAnswers={selectedAnswers}
+                      onOptionSelect={handleOptionSelect}
+                      onAnswerChange={handleOptionSelect}
+                    />
 
                     <Flex justifyContent="space-between">
                       <Button

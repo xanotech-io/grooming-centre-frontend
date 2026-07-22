@@ -25,6 +25,7 @@ import {
   MOCK_ANSWER_SHEET,
   MOCK_SUBMISSIONS,
 } from "../../../../services/http/endpoints/submissionsReport";
+import { isSubmissionGraded, submissionStatusLabel } from "../../../../utils";
 import dayjs from "dayjs";
 
 const fmtDateTime = (d) => (d ? dayjs(d).format("MMM D, YYYY h:mm A") : "—");
@@ -150,7 +151,7 @@ const SubmissionGradingModal = ({ submissionId, type, isOpen, onClose, onGraded 
 
   const fullName = submission?.studentName || "—";
   const isProject = type === "project";
-  const alreadyGraded = submission?.status === "graded";
+  const alreadyGraded = isSubmissionGraded(submission?.status);
 
   const handleSave = async () => {
     setSaving(true);
@@ -202,7 +203,7 @@ const SubmissionGradingModal = ({ submissionId, type, isOpen, onClose, onGraded 
             </Text>
             {submission?.status && (
               <Badge colorScheme={alreadyGraded ? "green" : "orange"}>
-                {alreadyGraded ? "Graded" : "Pending"}
+                {submissionStatusLabel(submission.status)}
               </Badge>
             )}
           </Flex>

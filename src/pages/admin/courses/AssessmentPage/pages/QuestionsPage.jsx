@@ -112,9 +112,9 @@ const buildSectionConfigMap = (sections, shape) => {
       shape === "template"
         ? {
             questionsCount: Number(s.questionCount) || null,
-            questionTypeLock: "",
+            questionTypeLock: s.questionType || "",
             typeCategory: s.type || "",
-            markingTypeLock: "",
+            markingTypeLock: s.markingType || "",
             marksPerQuestion: Number(s.marksPerQuestion) || null,
             totalMarks: null,
           }
