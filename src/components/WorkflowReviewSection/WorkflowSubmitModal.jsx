@@ -84,23 +84,18 @@ export const WorkflowSubmitModal = ({
       return;
     }
 
-    // Super admin submissions still go through approval, but carry no
-    // supervisor assignment — the backend expects an explicit null rather
-    // than an actual supervisor id.
-    const supervisorIdToSubmit = isSuperAdmin ? null : selectedSupervisorId;
-
     setIsSubmitting(true);
     try {
       let finalContentId = contentId;
       let finalContentTitle = contentTitle;
 
       // Nothing has been created yet in this flow — creation only happens
-      // once approval is submitted. The backend requires the supervisor
-      // (or explicit null for super admin) on the create/edit call itself,
-      // not just on the later workflow submission, so it's passed through
-      // here.
+      // once approval is submitted. Creation and approval are separate
+      // endpoints: the create/edit call itself takes no supervisor field
+      // (the backend rejects it), so `onCreate` runs as a plain create.
+      // The supervisor is only ever sent below, on the workflow submit call.
       if (onCreate) {
-        const created = await onCreate(supervisorIdToSubmit);
+        const created = await onCreate();
         finalContentId = created?.id;
         finalContentTitle = created?.title ?? contentTitle;
       }
@@ -110,7 +105,10 @@ export const WorkflowSubmitModal = ({
         content_id: finalContentId,
         content_title: finalContentTitle,
         submitted_by: appState.user?.id,
-        supervisor_id: supervisorIdToSubmit,
+        // Super admin submissions carry no supervisor assignment. The
+        // backend rejects the key outright for them (even set to null),
+        // so it's left out entirely rather than sent as an explicit null.
+        ...(!isSuperAdmin && { supervisor_id: selectedSupervisorId }),
         submission_date: new Date().toISOString(),
       };
 

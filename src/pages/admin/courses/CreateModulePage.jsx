@@ -278,10 +278,10 @@ const CreateModulePage = () => {
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          onCreate={(supervisorId) =>
+          onCreate={() =>
             isEditMode
-              ? performEdit({ ...pendingBodyRef.current, supervisor_id: supervisorId })
-              : performCreate({ ...pendingBodyRef.current, supervisor_id: supervisorId })
+              ? performEdit(pendingBodyRef.current)
+              : performCreate(pendingBodyRef.current)
           }
           onSuccess={() => push(`/admin/courses/details/${courseId}/modules`)}
         />

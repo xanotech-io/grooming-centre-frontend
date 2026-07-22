@@ -291,6 +291,18 @@ const AssessmentOverviewPage = () => {
       .finally(() => setAssessmentsLoading(false));
   }, [courseId]);
 
+  // Assessment options narrow to the selected module (client-side filter —
+  // the module-scoped endpoint currently returns unrelated project data
+  // on the backend, so we filter the course-wide list by moduleId instead)
+  const moduleAssessments = useMemo(
+    () => (moduleId ? assessments.filter((a) => a.moduleId === moduleId) : assessments),
+    [assessments, moduleId],
+  );
+
+  useEffect(() => {
+    setAssessmentId("");
+  }, [moduleId]);
+
   // Auto-load on mount
   useEffect(() => {
     fetchOverview({});
@@ -444,17 +456,17 @@ const AssessmentOverviewPage = () => {
                   ? "Select a course first"
                   : assessmentsLoading
                   ? "Loading..."
-                  : assessments.length === 0
+                  : moduleAssessments.length === 0
                   ? "No assessments"
                   : "All assessments"
               }
               value={assessmentId}
               onChange={(e) => setAssessmentId(e.target.value)}
-              isDisabled={!courseId || assessmentsLoading || assessments.length === 0}
+              isDisabled={!courseId || assessmentsLoading || moduleAssessments.length === 0}
               size="sm"
               borderRadius="md"
             >
-              {assessments.map((a) => (
+              {moduleAssessments.map((a) => (
                 <option key={a.id} value={a.id}>{a.title}</option>
               ))}
             </Select>

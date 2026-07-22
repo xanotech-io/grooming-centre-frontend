@@ -84,7 +84,13 @@ const GradingSummaryPage = () => {
       .then(({ overview: ov, rows: data }) => {
         if (cancelled) return;
         setOverview(ov);
-        setRows(data);
+        setRows(
+          [...data].sort(
+            (a, b) =>
+              new Date(b.dateGraded || b.submissionDate) -
+              new Date(a.dateGraded || a.submissionDate),
+          ),
+        );
         setLoading(false);
       })
       .catch((err) => {

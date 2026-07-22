@@ -187,6 +187,7 @@ export const adminGetAssessmentListing = async (courseId) => {
     id: assessment.id,
     title: assessment.title,
     courseId: assessment.courseId,
+    moduleId: assessment.moduleId,
     duration: assessment.duration,
     startTime: assessment.startTime,
   }));
