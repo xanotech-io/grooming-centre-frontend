@@ -26,6 +26,7 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
     hasCompleted: data?.assessmentScoreSheets?.[0] ? true : false,
     minimumPercentageScoreToEarnABadge:
       data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
+    sections: Array.isArray(data?.sections) ? data.sections : [],
     questions: data?.assessmentQuestions
       ? data?.assessmentQuestions?.map((q, index) => {
         const opts = q?.options ?? [];
@@ -47,6 +48,10 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
           modelAnswer: q?.modelAnswer ?? null,
           correctAnswer: q?.correctAnswer ?? null,
           rubric: q?.rubric ?? q?.rubricDescription ?? null,
+          marks: q?.marks ?? null,
+          section: q?.section ?? null,
+          bloomLevel: q?.bloomLevel ?? null,
+          difficultyLevel: q?.difficultyLevel ?? null,
           options: opts.map((opt) => ({
             id: opt?.id,
             isAnswer: opt?.isAnswer,
@@ -110,7 +115,7 @@ export const adminCreateAssessment = async (body) => {
 
   const assessment = {
     id: data.id,
-    templateId: data.templateId ?? null,
+    templateId: data.templateId ?? data.markingTemplateId ?? null,
     sections: Array.isArray(data.sections) ? data.sections : [],
   };
   return { message, assessment };
@@ -182,6 +187,7 @@ export const adminGetAssessmentListing = async (courseId) => {
     id: assessment.id,
     title: assessment.title,
     courseId: assessment.courseId,
+    moduleId: assessment.moduleId,
     duration: assessment.duration,
     startTime: assessment.startTime,
   }));

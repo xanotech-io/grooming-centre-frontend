@@ -24,23 +24,18 @@ import {
   Input,
   Select,
   Text,
-  WorkflowSubmitModal,
 } from "../../../../../components";
 import {
   useDateTimePicker,
   useGoBack,
-  useIsSuperAdmin,
 } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
-  adminCreateExamination,
-  adminEditExamination,
   adminGetExaminationById,
   adminGetMarkingTemplates,
   getExaminationById as getExamPaperConfig,
-  updateExaminationById as updateExamPaperConfig,
 } from "../../../../../services";
-import { capitalizeFirstLetter, formatDateToISO, setAutoAddToBank } from "../../../../../utils";
+import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
 import useAssessmentStore from "../../../../../store/assessmentStore";
 
 const SectionCard = ({ title, children }) => (
@@ -74,18 +69,44 @@ const SectionCard = ({ title, children }) => (
   </Box>
 );
 
-const EMPTY_SECTION = { section_name: "", questions_count: 1, time_limit: null };
+const EMPTY_SECTION = {
+  section_name: "",
+  questions_count: 1,
+  time_limit: null,
+  question_type: "",
+  marking_type: "",
+  total_marks: null,
+};
+
+// Kept identical to ExamPaperConfigPage.jsx's — QuestionsPage.jsx enforces
+// these three fields against whichever section a question is saved under.
+const QUESTION_TYPE_LOCK_OPTIONS = [
+  { label: "Any type", value: "" },
+  { label: "MCQ", value: "MCQ" },
+  { label: "True / False", value: "TrueFalse" },
+  { label: "Fill in the Blank", value: "FillBlank" },
+  { label: "Matching", value: "Matching" },
+  { label: "Short Answer", value: "ShortAnswer" },
+  { label: "Essay", value: "Essay" },
+];
+
+const MARKING_TYPE_LOCK_OPTIONS = [
+  { label: "Any marking type", value: "" },
+  { label: "Automatic", value: "automatic" },
+  { label: "Manual", value: "manual" },
+  { label: "Hybrid", value: "hybrid" },
+];
 
 const SectionRow = ({ section, idx, onChange, onRemove }) => (
-  <Flex gap={3} alignItems="center" mb={3}>
-    <Box flex={2}>
+  <Flex gap={3} alignItems="center" mb={3} flexWrap="wrap">
+    <Box flex={2} minW="160px">
       <Input
         placeholder="Section name e.g. Section A"
         value={section.section_name}
         onChange={(e) => onChange(idx, "section_name", e.target.value)}
       />
     </Box>
-    <Box flex={1}>
+    <Box flex={1} minW="100px">
       <NumberInput
         min={1}
         value={section.questions_count}
@@ -98,13 +119,50 @@ const SectionRow = ({ section, idx, onChange, onRemove }) => (
         </NumberInputStepper>
       </NumberInput>
     </Box>
-    <Box flex={1}>
+    <Box flex={1} minW="100px">
       <NumberInput
         min={0}
         value={section.time_limit ?? ""}
         onChange={(val) => onChange(idx, "time_limit", val ? Number(val) : null)}
       >
         <NumberInputField placeholder="Time (min)" />
+        <NumberInputStepper>
+          <NumberIncrementStepper />
+          <NumberDecrementStepper />
+        </NumberInputStepper>
+      </NumberInput>
+    </Box>
+    <Box flex={1} minW="130px">
+      <ChakraSelect
+        value={section.question_type ?? ""}
+        onChange={(e) => onChange(idx, "question_type", e.target.value)}
+      >
+        {QUESTION_TYPE_LOCK_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </ChakraSelect>
+    </Box>
+    <Box flex={1} minW="130px">
+      <ChakraSelect
+        value={section.marking_type ?? ""}
+        onChange={(e) => onChange(idx, "marking_type", e.target.value)}
+      >
+        {MARKING_TYPE_LOCK_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </ChakraSelect>
+    </Box>
+    <Box flex={1} minW="100px">
+      <NumberInput
+        min={0}
+        value={section.total_marks ?? ""}
+        onChange={(val) => onChange(idx, "total_marks", val ? Number(val) : null)}
+      >
+        <NumberInputField placeholder="Weightage" />
         <NumberInputStepper>
           <NumberIncrementStepper />
           <NumberDecrementStepper />
@@ -148,8 +206,18 @@ const CreateModuleExaminationPage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
-  const isSuperAdmin = useIsSuperAdmin();
-  const setAssessment = useAssessmentStore((s) => s.setAssessment);
+  const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
+  const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
+  const fromBankQuestionId = useAssessmentStore((s) => s.fromBankQuestionId);
+  const clearFromBankQuestionId = useAssessmentStore((s) => s.clearFromBankQuestionId);
+  // Captured once on mount: whatever the Question Bank's "use in a new exam"
+  // picker left behind belongs to this visit — consume it immediately so a
+  // later, unrelated create flow can never pick up a stale value.
+  const bankQuestionIdRef = useRef(fromBankQuestionId);
+  useEffect(() => {
+    if (fromBankQuestionId) clearFromBankQuestionId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
@@ -179,11 +247,6 @@ const CreateModuleExaminationPage = () => {
     font_size: 16,
     font_family: "default",
   });
-  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
-  const [workflowContent, setWorkflowContent] = useState(null);
-  const pendingBodyRef = useRef(null);
-  const resultExaminationRef = useRef(null);
-
   useEffect(() => {
     adminGetMarkingTemplates()
       .then(({ templates }) => setMarkingTemplates(templates))
@@ -211,6 +274,7 @@ const CreateModuleExaminationPage = () => {
         setValue("title", exam.title);
         setValue("duration", exam.duration);
         setValue("amountOfQuestions", exam.amountOfQuestions);
+        setValue("totalMarks", exam.totalMarks);
         if (exam.startTime) startTimeManager.handleChange(new Date(exam.startTime));
         if (exam.markingTemplateId) setMarkingTemplateId(exam.markingTemplateId);
 
@@ -237,38 +301,6 @@ const CreateModuleExaminationPage = () => {
       .finally(() => setLoadingExam(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, examinationId]);
-  const performEdit = async ({ body, paperConfigBody }) => {
-    const { message } = await adminEditExamination(examinationId, body);
-    await updateExamPaperConfig(examinationId, paperConfigBody).catch(() => {});
-    toast({
-      description: capitalizeFirstLetter(message || "Examination updated successfully."),
-      position: "top",
-      status: "success",
-    });
-    return { id: examinationId };
-  };
-
-  const performCreate = async ({ body, paperConfigBody }) => {
-    const { message, examination } = await adminCreateExamination(body);
-    await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
-    resultExaminationRef.current = examination;
-    if (!isEditMode && addToBank) setAutoAddToBank("examination", examination.id);
-    setAssessment({ ...examination, sections });
-    toast({
-      description: capitalizeFirstLetter(message),
-      position: "top",
-      status: "success",
-    });
-    return { id: examination.id };
-  };
-
-  const handleWorkflowFinished = () => {
-    const nextRoute = isEditMode
-      ? `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`
-      : `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${resultExaminationRef.current?.id}`;
-    push(nextRoute);
-  };
-
   const onSubmit = async (data) => {
     try {
       const startTime =
@@ -283,6 +315,7 @@ const CreateModuleExaminationPage = () => {
         title: data.title,
         duration: Number(data.duration),
         amountOfQuestions: Number(data.amountOfQuestions),
+        totalMarks: Number(data.totalMarks),
         startTime: formatDateToISO(startTime),
         courseId,
         moduleId,
@@ -298,6 +331,9 @@ const CreateModuleExaminationPage = () => {
           section_name: s.section_name,
           questions_count: Number(s.questions_count) || 0,
           time_limit: s.time_limit ? Number(s.time_limit) : null,
+          question_type: s.question_type || "",
+          marking_type: s.marking_type || "",
+          total_marks: s.total_marks ? Number(s.total_marks) : null,
         })),
         navigationMode,
         timeLimitMinutes: Number(data.duration) || 0,
@@ -308,33 +344,41 @@ const CreateModuleExaminationPage = () => {
         submissionSettings: submission,
       };
 
-      const pendingBody = { body, paperConfigBody };
-
-      const workflowContentBase = {
-        contentTitle: data.title,
-        requestType: "CourseExam",
-        courseId,
-      };
-
       if (isEditMode) {
-        if (isSuperAdmin) {
-          await performEdit(pendingBody);
-        } else {
-          pendingBodyRef.current = pendingBody;
-        }
-        setWorkflowContent({ ...workflowContentBase, contentId: examinationId });
-      } else if (isSuperAdmin) {
-        // Super admins create right away — the modal below only offers an
-        // optional supervisor review afterward.
-        const created = await performCreate(pendingBody);
-        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
+        // Nothing is saved yet — hold the edit in memory and only actually
+        // apply it (together with the workflow submit modal) once a
+        // question has been saved on the other side of "Next", mirroring
+        // the shell-plus-question deferral the create flow above uses.
+        setPendingEdit({
+          kind: "ModuleExam",
+          contentId: examinationId,
+          body,
+          paperConfigBody,
+          title: data.title,
+          requestType: "CourseExam",
+          courseId,
+          nextRoute: `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`,
+        });
+        push(
+          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examinationId}&editSubmit=1`,
+        );
       } else {
-        // Instructors must submit for approval before this gets created —
-        // hold off until the modal below completes.
-        pendingBodyRef.current = pendingBody;
-        setWorkflowContent(workflowContentBase);
+        // Nothing is created yet — hold the details in memory and create
+        // both the exam and the first question together once "Create and
+        // Submit" is clicked on the question step below.
+        setPendingCreate({
+          kind: "ModuleExam",
+          body,
+          paperConfigBody,
+          markingTemplateId,
+          addToBank,
+          title: data.title,
+          fromBankQuestionId: bankQuestionIdRef.current,
+        });
+        push(
+          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=new&submitForApproval=1`,
+        );
       }
-      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(
@@ -396,6 +440,19 @@ const CreateModuleExaminationPage = () => {
                 })}
               />
             </Box>
+            <Box flex={1}>
+              <Input
+                label="Total Marks"
+                type="number"
+                placeholder="e.g. 100"
+                isRequired
+                error={errors.totalMarks?.message}
+                {...register("totalMarks", {
+                  required: "Total marks is required",
+                  min: { value: 1, message: "Must be at least 1 mark" },
+                })}
+              />
+            </Box>
           </Flex>
 
           <DateTimePicker
@@ -410,6 +467,7 @@ const CreateModuleExaminationPage = () => {
             label="Marking Template"
             placeholder="Select a marking template"
             isRequired
+            isDisabled={isEditMode}
             value={markingTemplateId}
             onChange={(e) => setMarkingTemplateId(e.target.value)}
             options={markingTemplates.map((t) => ({
@@ -417,6 +475,22 @@ const CreateModuleExaminationPage = () => {
               value: t.id,
             }))}
           />
+          {isEditMode && (
+            <Text fontSize="xs" color="gray.500" mt={2}>
+              The template can&apos;t be changed here once an exam has been
+              created — go to the{" "}
+              <Box
+                as="span"
+                color="primary.base"
+                fontWeight="600"
+                cursor="pointer"
+                onClick={() => push("/admin/marking-templates")}
+              >
+                Exam Template Library
+              </Box>{" "}
+              to customize it instead.
+            </Text>
+          )}
         </SectionCard>
 
         {/* ── Sections ── */}
@@ -475,30 +549,6 @@ const CreateModuleExaminationPage = () => {
               }
             />
           </Box>
-
-          {workflowContent && (
-            <WorkflowSubmitModal
-              isOpen={workflowModalOpen}
-              onClose={() => {
-                setWorkflowModalOpen(false);
-                if (isSuperAdmin) handleWorkflowFinished();
-              }}
-              isDismissable={isSuperAdmin}
-              contentId={workflowContent.contentId}
-              contentTitle={workflowContent.contentTitle}
-              requestType={workflowContent.requestType}
-              courseId={workflowContent.courseId}
-              onCreate={
-                isSuperAdmin
-                  ? undefined
-                  : () =>
-                      isEditMode
-                        ? performEdit(pendingBodyRef.current)
-                        : performCreate(pendingBodyRef.current)
-              }
-              onSuccess={handleWorkflowFinished}
-            />
-          )}
         </SectionCard>
 
         {/* ── UI Settings ── */}
@@ -577,7 +627,7 @@ const CreateModuleExaminationPage = () => {
             Cancel
           </Button>
           <Button type="submit" isLoading={isSubmitting || loadingExam} isDisabled={isPublished}>
-            {isEditMode ? "Save Changes" : "Create Examination"}
+            Next
           </Button>
         </Flex>
       </Box>

@@ -57,6 +57,11 @@ export const requestExaminationDetails = async (id, forAdmin) => {
         pairs: q.pairs ?? null,
         modelAnswer: q.modelAnswer ?? null,
         correctAnswer: q.correctAnswer ?? null,
+        rubric: q.rubric ?? q.rubricDescription ?? null,
+        marks: q.marks ?? null,
+        section: q.section ?? null,
+        bloomLevel: q.bloomLevel ?? null,
+        difficultyLevel: q.difficultyLevel ?? null,
         options: opts.map((opt) => ({
           id: opt.id,
           isAnswer: opt.isAnswer,
@@ -117,7 +122,7 @@ export const adminCreateExamination = async (body) => {
 
   const examination = {
     id: data.id,
-    templateId: data.templateId ?? null,
+    templateId: data.templateId ?? data.markingTemplateId ?? null,
     sections: Array.isArray(data.sections) ? data.sections : [],
   };
 
@@ -133,7 +138,7 @@ export const adminCreateStandaloneExamination = async (body) => {
 
   const examination = {
     id: data.id,
-    templateId: data.templateId ?? null,
+    templateId: data.templateId ?? data.markingTemplateId ?? null,
     sections: Array.isArray(data.sections) ? data.sections : [],
   };
 
@@ -328,6 +333,11 @@ export const requestModuleExaminationDetails = async (moduleId) => {
         pairs: q.pairs ?? null,
         modelAnswer: q.modelAnswer ?? null,
         correctAnswer: q.correctAnswer ?? null,
+        rubric: q.rubric ?? q.rubricDescription ?? null,
+        marks: q.marks ?? null,
+        section: q.section ?? null,
+        bloomLevel: q.bloomLevel ?? null,
+        difficultyLevel: q.difficultyLevel ?? null,
         options: opts.map((opt) => ({
           id: opt.id,
           isAnswer: opt.isAnswer,

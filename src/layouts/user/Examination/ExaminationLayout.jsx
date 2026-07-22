@@ -21,7 +21,7 @@ import { getEndTime, sortByIndexField } from "../../../utils";
 import { http } from "../../../services/http/http";
 import { submitExamMarking } from "../../../services/http/endpoints/examMarking";
 
-const normalizeQuestionType = (raw) => {
+export const normalizeQuestionType = (raw) => {
   if (!raw) return "MCQ";
   const map = {
     mcq: "MCQ",
@@ -516,7 +516,7 @@ const ExaminationLayout = () => {
   );
 };
 
-const QuestionInput = ({ question, selectedAnswers, onOptionSelect, onAnswerChange, disabled }) => {
+export const QuestionInput = ({ question, selectedAnswers, onOptionSelect, onAnswerChange, disabled }) => {
   const qType = question?.questionType || "MCQ";
   const currentAnswer = selectedAnswers[question?.id];
 

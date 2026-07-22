@@ -25,14 +25,17 @@ const FORMAT_OPTIONS = [
 ];
 
 const FIELD_OPTIONS = [
-  { value: "studentId",          label: "Student ID" },
-  { value: "firstName",          label: "First Name" },
-  { value: "lastName",           label: "Last Name" },
-  { value: "email",              label: "Email Address" },
-  { value: "phoneNumber",        label: "Phone Number" },
-  { value: "enrollmentStatus",   label: "Enrollment Status" },
-  { value: "enrollmentDate",     label: "Date Enrolled" },
-  { value: "progressPercentage", label: "Progress %" },
+  { value: "first_name",              label: "First Name" },
+  { value: "last_name",                label: "Last Name" },
+  { value: "student_email",            label: "Email Address" },
+  { value: "phone_number",             label: "Phone Number" },
+  { value: "course_title",             label: "Course" },
+  { value: "enrollment_status",        label: "Enrollment Status" },
+  { value: "current_status",           label: "Current Status" },
+  { value: "enrollment_date",          label: "Date Enrolled" },
+  { value: "progress_percentage",      label: "Progress %" },
+  { value: "attendance_percentage",    label: "Attendance %" },
+  { value: "latest_assessment_score",  label: "Latest Assessment Score" },
 ];
 
 const FormatButton = ({ option, selected, onSelect }) => (
@@ -62,20 +65,12 @@ const FormatButton = ({ option, selected, onSelect }) => (
 const ExportModal = ({ isOpen, onClose, courseId, courseName, onExport, isExporting }) => {
   const [format, setFormat] = useState("EXCEL");
   const [fields, setFields] = useState([
-    "studentId", "firstName", "lastName", "email",
-    "enrollmentStatus", "enrollmentDate", "progressPercentage",
+    "first_name", "last_name", "student_email",
+    "enrollment_status", "enrollment_date", "progress_percentage",
   ]);
-  const [includeGrades, setIncludeGrades] = useState(false);
-  const [includeContactInfo, setIncludeContactInfo] = useState(true);
 
   const handleExport = () => {
-    onExport({
-      format,
-      fields,
-      includeGrades,
-      includeContactInfo,
-      includeEmergencyContact: false,
-    });
+    onExport({ format, fields });
   };
 
   return (
@@ -127,32 +122,6 @@ const ExportModal = ({ isOpen, onClose, courseId, courseName, onExport, isExport
                 ))}
               </Stack>
             </CheckboxGroup>
-          </Box>
-
-          <Divider mb="20px" />
-
-          <Box mb="8px">
-            <Text fontSize="12px" fontWeight="600" color="gray.600" mb="10px" textTransform="uppercase" letterSpacing="0.5px">
-              Additional Data
-            </Text>
-            <Stack spacing="8px">
-              <Checkbox
-                isChecked={includeGrades}
-                onChange={(e) => setIncludeGrades(e.target.checked)}
-                size="sm"
-                colorScheme="blue"
-              >
-                <Text fontSize="13px">Include grades</Text>
-              </Checkbox>
-              <Checkbox
-                isChecked={includeContactInfo}
-                onChange={(e) => setIncludeContactInfo(e.target.checked)}
-                size="sm"
-                colorScheme="blue"
-              >
-                <Text fontSize="13px">Include contact information</Text>
-              </Checkbox>
-            </Stack>
           </Box>
         </ModalBody>
 

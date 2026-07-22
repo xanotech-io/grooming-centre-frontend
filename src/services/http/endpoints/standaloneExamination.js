@@ -121,6 +121,14 @@ export const getStandaloneExaminationDetails = async (id, forAdmin) => {
       questionIndex: +q.questionIndex || index,
       questionType: q.questionType ?? q.question_type ?? "MCQ",
       difficultyLevel: q.difficultyLevel ?? q.difficulty_level ?? "",
+      markingType: q.markingType ?? "automatic",
+      pairs: q.pairs ?? null,
+      modelAnswer: q.modelAnswer ?? null,
+      correctAnswer: q.correctAnswer ?? null,
+      rubric: q.rubric ?? q.rubricDescription ?? null,
+      marks: q.marks ?? null,
+      section: q.section ?? null,
+      bloomLevel: q.bloomLevel ?? null,
       tags: Array.isArray(q.tags)
         ? q.tags
         : q.tags
@@ -245,7 +253,7 @@ export const adminGetStandaloneExamTemplateId = async (id) => {
   const {
     data: { data },
   } = await http.get(`/v1/stand-alone-examination/admin/${id}`);
-  return data?.templateId ?? null;
+  return data?.templateId ?? data?.markingTemplateId ?? null;
 };
 
 export const adminCreateStandaloneExaminationQuestion = async (body) => {

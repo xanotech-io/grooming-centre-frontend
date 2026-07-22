@@ -54,6 +54,7 @@ import {
 } from "../../../../services";
 import { MOCK_SUBMISSIONS } from "../../../../services/http/endpoints/submissionsReport";
 import SubmissionGradingModal from "./SubmissionGradingModal";
+import { isSubmissionGraded, submissionStatusLabel } from "../../../../utils";
 import dayjs from "dayjs";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -67,7 +68,7 @@ const scoreResultOf = (row) => {
   return row.score / row.maxScore >= PASS_THRESHOLD ? "pass" : "fail";
 };
 
-const statusScheme = (status) => (status === "graded" ? "green" : "orange");
+const statusScheme = (status) => (isSubmissionGraded(status) ? "green" : "orange");
 
 const typeLabel = (type) => {
   if (type === "assessment") return "Assessment";
@@ -658,7 +659,7 @@ const SubmissionsReportPage = () => {
               value={String(kpiData?.totalSubmissions ?? "—")}
             />
             <DashboardMetricCard
-              title="Total Pending"
+              title="Manual Marking Required"
               value={String(kpiData?.totalPending ?? "—")}
             />
             <DashboardMetricCard
@@ -740,7 +741,7 @@ const SubmissionsReportPage = () => {
                 onChange={(e) => handleFilterChange("status", e.target.value)}
               >
                 <option value="all">All</option>
-                <option value="pending">Pending</option>
+                <option value="pending">Manual Marking Required</option>
                 <option value="graded">Graded</option>
               </Select>
             </FormControl>
@@ -886,7 +887,7 @@ const SubmissionsReportPage = () => {
                     <Td>{fmtDateTime(r.submittedAt)}</Td>
                     <Td>
                       <Badge colorScheme={statusScheme(r.status)} borderRadius="full" px={2}>
-                        {r.status === "graded" ? "Graded" : "Pending"}
+                        {submissionStatusLabel(r.status)}
                       </Badge>
                     </Td>
                     <Td isNumeric>

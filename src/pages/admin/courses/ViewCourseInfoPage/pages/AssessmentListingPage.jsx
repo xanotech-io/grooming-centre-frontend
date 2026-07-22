@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { Route, useParams } from "react-router-dom";
 import { Flex } from "@chakra-ui/layout";
-import { BreadcrumbItem, useDisclosure } from "@chakra-ui/react";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import {
   Button,
   Heading,
@@ -20,7 +19,7 @@ import {
 import { getDuration } from "../../../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../../hooks";
-import AddAssessmentToBankModal from "../../../examQuestionBank/AddAssessmentToBankModal";
+import { useAddAssessmentToBank } from "../../../examQuestionBank/useAddAssessmentToBank";
 
 const buildTableProps = ({ onAddToBank }) => ({
   filterControls: [
@@ -133,14 +132,15 @@ const buildTableProps = ({ onAddToBank }) => ({
 
 const AssessmentListingPage = () => {
   const { id: courseId } = useParams();
-  const [selectedAssessment, setSelectedAssessment] = useState(null);
-  const { isOpen: isBankOpen, onOpen: onBankOpen, onClose: onBankClose } = useDisclosure();
+  const { addAssessmentToBank } = useAddAssessmentToBank();
 
   const tableProps = buildTableProps({
-    onAddToBank: (assessment) => {
-      setSelectedAssessment(assessment);
-      onBankOpen();
-    },
+    onAddToBank: (assessment) =>
+      addAssessmentToBank({
+        assessmentId: assessment.id,
+        courseId: assessment.courseId,
+        assessmentTitle: assessment.title?.text,
+      }),
   });
 
   const mapAssessmentToRow = (assessment) => ({
@@ -204,14 +204,6 @@ const AssessmentListingPage = () => {
         rows={rows}
         setRows={setRows}
         handleFetch={fetchRowItems}
-      />
-
-      <AddAssessmentToBankModal
-        isOpen={isBankOpen}
-        onClose={onBankClose}
-        assessmentId={selectedAssessment?.id}
-        courseId={selectedAssessment?.courseId}
-        assessmentTitle={selectedAssessment?.title?.text}
       />
     </AdminMainAreaWrapper>
   );

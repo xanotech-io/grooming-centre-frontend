@@ -3,26 +3,22 @@ import { Box } from "@chakra-ui/layout";
 import { Checkbox } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Button,
   DateTimePicker,
   Input,
   Select,
-  WorkflowSubmitModal,
 } from "../../../../../components";
 import {
   useDateTimePicker,
   useGoBack,
-  useIsSuperAdmin,
 } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
-  adminCreateAssessment,
   adminGetMarkingTemplates,
-  auditTrailV2PostLog,
 } from "../../../../../services";
-import { capitalizeFirstLetter, formatDateToISO, setAutoAddToBank } from "../../../../../utils";
+import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
 import useAssessmentStore from "../../../../../store/assessmentStore";
 
 const CreateModuleAssessmentPage = () => {
@@ -30,12 +26,7 @@ const CreateModuleAssessmentPage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
-  const isSuperAdmin = useIsSuperAdmin();
-  const setAssessment = useAssessmentStore((s) => s.setAssessment);
-  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
-  const [workflowContent, setWorkflowContent] = useState(null);
-  const pendingBodyRef = useRef(null);
-  const resultAssessmentRef = useRef(null);
+  const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
@@ -55,44 +46,6 @@ const CreateModuleAssessmentPage = () => {
 
   const startTimeManager = useDateTimePicker();
 
-  const performCreate = async (body) => {
-    try {
-      const { message, assessment } = await adminCreateAssessment(body);
-      resultAssessmentRef.current = assessment;
-      setAssessment(assessment);
-      if (addToBank) setAutoAddToBank("assessment", assessment.id);
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
-      auditTrailV2PostLog({
-        eventType: "create",
-        module: "LMS",
-        status: "success",
-        resourceId: assessment.id,
-        resourceType: "Assessment",
-        remarks: `Created assessment "${body.title}"`,
-      }).catch(() => {});
-      return { id: assessment.id };
-    } catch (error) {
-      auditTrailV2PostLog({
-        eventType: "create",
-        module: "LMS",
-        status: "failure",
-        resourceId: courseId,
-        resourceType: "Assessment",
-        remarks: error?.response?.data?.message || error.message || `Failed to create assessment "${body.title}"`,
-      }).catch(() => {});
-      throw error;
-    }
-  };
-
-  const handleWorkflowFinished = () =>
-    push(
-      `/admin/courses/${courseId}/assessment/${resultAssessmentRef.current?.id}/questions/new?moduleId=${moduleId}`,
-    );
-
   const onSubmit = async (data) => {
     try {
       const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
@@ -105,28 +58,24 @@ const CreateModuleAssessmentPage = () => {
         moduleId,
         duration: Number(data.duration),
         amountOfQuestions: Number(data.amountOfQuestions),
+        totalMarks: Number(data.totalMarks),
         startTime: formatDateToISO(startTime),
         markingTemplateId,
       };
 
-      const workflowContentBase = {
-        contentTitle: data.title,
-        requestType: "CourseAssessment",
-        courseId,
-      };
-
-      if (isSuperAdmin) {
-        // Super admins create right away — the modal below only offers an
-        // optional supervisor review afterward.
-        const created = await performCreate(body);
-        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
-      } else {
-        // Instructors must submit for approval before this gets created —
-        // hold off until the modal below completes.
-        pendingBodyRef.current = body;
-        setWorkflowContent(workflowContentBase);
-      }
-      setWorkflowModalOpen(true);
+      // Nothing is created yet — hold the details in memory and create both
+      // the assessment and the first question together once "Create and
+      // Submit" is clicked on the question step below.
+      setPendingCreate({
+        kind: "ModuleAssessment",
+        body,
+        markingTemplateId,
+        addToBank,
+        title: data.title,
+      });
+      push(
+        `/admin/courses/${courseId}/assessment/new/questions/new?moduleId=${moduleId}&submitForApproval=1`,
+      );
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(
@@ -177,6 +126,19 @@ const CreateModuleAssessmentPage = () => {
             })}
           />
 
+          <Input
+            label="Total Marks"
+            type="number"
+            placeholder="e.g. 100"
+            isRequired
+            error={errors.totalMarks?.message}
+            mb={6}
+            {...register("totalMarks", {
+              required: "Total marks is required",
+              min: { value: 1, message: "Must be at least 1 mark" },
+            })}
+          />
+
           <DateTimePicker
             label="Start Time"
             isRequired
@@ -209,27 +171,10 @@ const CreateModuleAssessmentPage = () => {
               Cancel
             </Button>
             <Button type="submit" isLoading={isSubmitting}>
-              Create Assessment
+              Next
             </Button>
           </Box>
         </Box>
-
-        {workflowContent && (
-          <WorkflowSubmitModal
-            isOpen={workflowModalOpen}
-            onClose={() => {
-              setWorkflowModalOpen(false);
-              if (isSuperAdmin) handleWorkflowFinished();
-            }}
-            isDismissable={isSuperAdmin}
-            contentId={workflowContent.contentId}
-            contentTitle={workflowContent.contentTitle}
-            requestType={workflowContent.requestType}
-            courseId={workflowContent.courseId}
-            onCreate={isSuperAdmin ? undefined : () => performCreate(pendingBodyRef.current)}
-            onSuccess={handleWorkflowFinished}
-          />
-        )}
       </Box>
     </AdminMainAreaWrapper>
   );

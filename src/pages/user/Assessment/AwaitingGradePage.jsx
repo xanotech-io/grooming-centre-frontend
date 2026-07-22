@@ -3,6 +3,7 @@ import { Route, useHistory, useParams } from "react-router-dom";
 import { Box, Flex, Spinner, keyframes } from "@chakra-ui/react";
 import { Heading, Text, Button } from "../../../components";
 import { getStudentOwnResult } from "../../../services";
+import { isSubmissionGraded } from "../../../utils";
 import { FiClock } from "react-icons/fi";
 
 const pulse = keyframes`
@@ -11,8 +12,6 @@ const pulse = keyframes`
 `;
 
 const POLL_INTERVAL = 30000;
-
-const GRADED_STATUSES = ["graded", "completed"];
 
 const AwaitingGradePage = () => {
   const { courseId, assessmentId } = useParams();
@@ -29,7 +28,7 @@ const AwaitingGradePage = () => {
       .then(({ result: data }) => {
         setResult(data);
         if (data?.autoScore != null) setAutoScore(parseFloat(data.autoScore));
-        if (GRADED_STATUSES.includes((data?.status || "").toLowerCase())) {
+        if (isSubmissionGraded(data?.status)) {
           clearInterval(intervalRef.current);
           push(`/courses/take/${courseId}/assessment/${assessmentId}/result`);
         }

@@ -1,44 +1,17 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Route } from "react-router-dom";
 import { Box, Flex, Text } from "@chakra-ui/layout";
-import { Checkbox, Tag, IconButton, Input as ChakraInput } from "@chakra-ui/react";
+import { Checkbox, IconButton, Input as ChakraInput, Spinner } from "@chakra-ui/react";
 import { useHistory } from "react-router-dom";
 import { FaArrowLeft, FaSearch, FaSlidersH, FaChevronLeft, FaChevronRight, FaEllipsisV } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { Button, Breadcrumb, Link } from "../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_TEMPLATES = [
-    { id: "TPL-001", name: "Midterm MCQs", questionsCount: 100, createdBy: "John Doe", status: "Active", lastUpdated: "26/11/2025" },
-    { id: "TPL-001", name: "Midterm MCQs", questionsCount: 80, createdBy: "John Doe", status: "Active", lastUpdated: "26/11/2025" },
-    { id: "TPL-001", name: "Midterm MCQs", questionsCount: 100, createdBy: "John Doe", status: "Active", lastUpdated: "26/11/2025" },
-    { id: "TPL-001", name: "Midterm MCQs", questionsCount: 100, createdBy: "John Doe", status: "Inactive", lastUpdated: "26/11/2025" },
-    { id: "TPL-001", name: "Midterm MCQs", questionsCount: 90, createdBy: "John Doe", status: "Active", lastUpdated: "26/11/2025" },
-    { id: "TPL-001", name: "Midterm MCQs", questionsCount: 50, createdBy: "John Doe", status: "Inactive", lastUpdated: "26/11/2025" },
-];
-
-// ─── Status Badge ─────────────────────────────────────────────────────────────
-const StatusBadge = ({ status }) => {
-    const isActive = status === "Active";
-    return (
-        <Tag
-            size="sm"
-            borderRadius="full"
-            px={3}
-            py={1}
-            bg={isActive ? "#F0FFF4" : "#FFF5F5"}
-            color={isActive ? "#38A169" : "#E53E3E"}
-            fontWeight="500"
-            fontSize="13px"
-        >
-            {status}
-        </Tag>
-    );
-};
+import { useFetch } from "../../../hooks";
+import { adminGetMarkingTemplates } from "../../../services";
 
 // ─── Action Menu ──────────────────────────────────────────────────────────────
-const ActionMenu = ({ rowIndex, openMenu, setOpenMenu }) => {
+const ActionMenu = ({ rowIndex, openMenu, setOpenMenu, onView }) => {
     const ref = useRef(null);
     const isOpen = openMenu === rowIndex;
 
@@ -83,31 +56,12 @@ const ActionMenu = ({ rowIndex, openMenu, setOpenMenu }) => {
                         fontSize="14px"
                         color="#1A202C"
                         _hover={{ bg: "#F7FAFC" }}
-                        onClick={() => setOpenMenu(null)}
+                        onClick={() => {
+                            setOpenMenu(null);
+                            onView();
+                        }}
                     >
                         View
-                    </Box>
-                    <Box
-                        px={4}
-                        py={2}
-                        cursor="pointer"
-                        fontSize="14px"
-                        color="#1A202C"
-                        _hover={{ bg: "#F7FAFC" }}
-                        onClick={() => setOpenMenu(null)}
-                    >
-                        Edit
-                    </Box>
-                    <Box
-                        px={4}
-                        py={2}
-                        cursor="pointer"
-                        fontSize="14px"
-                        color="#E53E3E"
-                        _hover={{ bg: "#FFF5F5" }}
-                        onClick={() => setOpenMenu(null)}
-                    >
-                        Delete
                     </Box>
                 </Box>
             )}
@@ -116,7 +70,7 @@ const ActionMenu = ({ rowIndex, openMenu, setOpenMenu }) => {
 };
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
-const StatCard = ({ label, value, sub, subColor }) => (
+const StatCard = ({ label, value }) => (
     <Box>
         <Text fontSize="14px" color="#4A5568" fontWeight="400" mb={1}>
             {label}
@@ -124,45 +78,67 @@ const StatCard = ({ label, value, sub, subColor }) => (
         <Text fontSize="28px" fontWeight="700" color="#1A202C" lineHeight="1.2">
             {value}
         </Text>
-        {sub && (
-            <Text fontSize="13px" color={subColor || "#38A169"} mt={1} fontWeight="500">
-                {sub}
-            </Text>
-        )}
     </Box>
 );
+
+const questionCountFor = (template) =>
+    Object.values(template.questionQuantity || {}).reduce(
+        (sum, n) => sum + Number(n || 0),
+        0,
+    );
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const TemplateLibraryPage = () => {
     const { push } = useHistory();
+    const { resource, handleFetchResource } = useFetch();
     const [search, setSearch] = useState("");
     const [selectedRows, setSelectedRows] = useState([]);
     const [openMenu, setOpenMenu] = useState(null);
     const [rowsPerPage, setRowsPerPage] = useState(8);
     const [currentPage, setCurrentPage] = useState(1);
 
-    const TOTAL_ITEMS = 100;
+    const fetcher = useCallback(async () => {
+        const { templates } = await adminGetMarkingTemplates({ usageScope: "Standalone Exam" });
+        return templates;
+    }, []);
 
-    const filtered = MOCK_TEMPLATES.filter(
+    useEffect(() => {
+        handleFetchResource({ fetcher });
+    }, [handleFetchResource, fetcher]);
+
+    const templates = resource.data ?? [];
+
+    const filtered = templates.filter(
         (t) =>
-            t.name.toLowerCase().includes(search.toLowerCase()) ||
-            t.id.toLowerCase().includes(search.toLowerCase())
+            (t.markingTemplateName || "").toLowerCase().includes(search.toLowerCase()) ||
+            (t.id || "").toLowerCase().includes(search.toLowerCase())
     );
 
+    const totalItems = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / rowsPerPage));
+    const pageRows = filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+    const avgTotalMarks = totalItems
+        ? Math.round(filtered.reduce((sum, t) => sum + Number(t.totalMarks || 0), 0) / totalItems)
+        : 0;
+    const avgRetryCount = totalItems
+        ? Math.round(filtered.reduce((sum, t) => sum + Number(t.retryCount || 0), 0) / totalItems)
+        : 0;
+
     const allSelected =
-        filtered.length > 0 && filtered.every((_, i) => selectedRows.includes(i));
+        pageRows.length > 0 && pageRows.every((t) => selectedRows.includes(t.id));
 
     const toggleAll = () => {
         if (allSelected) {
-            setSelectedRows([]);
+            setSelectedRows((prev) => prev.filter((id) => !pageRows.some((t) => t.id === id)));
         } else {
-            setSelectedRows(filtered.map((_, i) => i));
+            setSelectedRows((prev) => Array.from(new Set([...prev, ...pageRows.map((t) => t.id)])));
         }
     };
 
-    const toggleRow = (i) => {
+    const toggleRow = (id) => {
         setSelectedRows((prev) =>
-            prev.includes(i) ? prev.filter((r) => r !== i) : [...prev, i]
+            prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
         );
     };
 
@@ -186,7 +162,7 @@ const TemplateLibraryPage = () => {
                 <Text fontSize="26px" fontWeight="700" color="#1A202C">
                     Template Library
                 </Text>
-                <Button onClick={() => { }}>Add New Template</Button>
+                <Button onClick={() => push("/admin/marking-templates/create")}>Add New Template</Button>
             </Flex>
 
             {/* ── Stats Row ─────────────────────────────────── */}
@@ -199,22 +175,18 @@ const TemplateLibraryPage = () => {
             >
                 <Flex gap={16}>
                     <StatCard
-                        label="Template Created (Months)"
-                        value="20"
-                        sub="+5% vs last month"
-                        subColor="#38A169"
+                        label="Total Templates"
+                        value={resource.loading ? "…" : totalItems}
                     />
                     <Box width="1px" bg="#E2E8F0" mx={4} />
                     <StatCard
-                        label="Usage Frequency"
-                        value="80%"
-                        sub="High"
-                        subColor="#38A169"
+                        label="Avg. Total Marks"
+                        value={resource.loading ? "…" : avgTotalMarks}
                     />
                     <Box width="1px" bg="#E2E8F0" mx={4} />
                     <StatCard
-                        label="Update Compliance Rate"
-                        value="85%"
+                        label="Avg. Retry Count"
+                        value={resource.loading ? "…" : avgRetryCount}
                     />
                 </Flex>
             </Box>
@@ -237,7 +209,10 @@ const TemplateLibraryPage = () => {
                             placeholder="Search here..."
                             fontSize="14px"
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => {
+                                setSearch(e.target.value);
+                                setCurrentPage(1);
+                            }}
                             border="1px solid #E2E8F0"
                             borderRadius="8px"
                             height="38px"
@@ -261,7 +236,19 @@ const TemplateLibraryPage = () => {
                     </Flex>
                 </Flex>
 
-                {/* Table Header */}
+                {resource.loading && (
+                    <Flex justifyContent="center" alignItems="center" p="60px">
+                        <Spinner size="lg" color="#6b006b" />
+                    </Flex>
+                )}
+
+                {resource.err && (
+                    <Flex justifyContent="center" alignItems="center" p="60px">
+                        <Text color="red.500">{resource.err}</Text>
+                    </Flex>
+                )}
+
+                {!resource.loading && !resource.err && (
                 <Box overflowX="auto">
                     <Box minW="800px">
                         {/* Column Headers */}
@@ -286,7 +273,6 @@ const TemplateLibraryPage = () => {
                                 { label: "Template Name", flex: "2" },
                                 { label: "Questions Count", flex: "1" },
                                 { label: "Created By", flex: "1.5" },
-                                { label: "Status", flex: "1" },
                                 { label: "Last Updated", flex: "1.5" },
                                 { label: "Action", flex: "0.5", align: "center" },
                             ].map((col) => (
@@ -299,49 +285,62 @@ const TemplateLibraryPage = () => {
                         </Flex>
 
                         {/* Rows */}
-                        {filtered.map((row, i) => (
+                        {pageRows.map((row, i) => (
                             <Flex
-                                key={i}
+                                key={row.id}
                                 px={4}
                                 py={4}
                                 alignItems="center"
-                                borderBottom={i < filtered.length - 1 ? "1px solid #EDF2F7" : "none"}
+                                borderBottom={i < pageRows.length - 1 ? "1px solid #EDF2F7" : "none"}
                                 _hover={{ bg: "#FAFAFA" }}
                                 transition="background 0.15s"
                             >
                                 <Box width="40px">
                                     <Checkbox
-                                        isChecked={selectedRows.includes(i)}
-                                        onChange={() => toggleRow(i)}
+                                        isChecked={selectedRows.includes(row.id)}
+                                        onChange={() => toggleRow(row.id)}
                                         colorScheme="purple"
                                         borderColor="#CBD5E0"
                                     />
                                 </Box>
                                 <Box flex="1">
-                                    <Text fontSize="14px" color="#1A202C">{row.id}</Text>
+                                    <Text fontSize="14px" color="#1A202C" isTruncated>{row.id}</Text>
                                 </Box>
                                 <Box flex="2">
-                                    <Text fontSize="14px" color="#1A202C">{row.name}</Text>
+                                    <Text fontSize="14px" color="#1A202C">{row.markingTemplateName}</Text>
                                 </Box>
                                 <Box flex="1">
-                                    <Text fontSize="14px" color="#1A202C">{row.questionsCount}</Text>
+                                    <Text fontSize="14px" color="#1A202C">{questionCountFor(row)}</Text>
                                 </Box>
                                 <Box flex="1.5">
-                                    <Text fontSize="14px" color="#1A202C">{row.createdBy}</Text>
-                                </Box>
-                                <Box flex="1">
-                                    <StatusBadge status={row.status} />
+                                    <Text fontSize="14px" color="#1A202C">
+                                        {row.creator ? `${row.creator.firstName} ${row.creator.lastName}` : "—"}
+                                    </Text>
                                 </Box>
                                 <Box flex="1.5">
-                                    <Text fontSize="14px" color="#4A5568">{row.lastUpdated}</Text>
+                                    <Text fontSize="14px" color="#4A5568">
+                                        {row.createdAt ? new Date(row.createdAt).toLocaleDateString() : "—"}
+                                    </Text>
                                 </Box>
                                 <Box flex="0.5" display="flex" justifyContent="center">
-                                    <ActionMenu rowIndex={i} openMenu={openMenu} setOpenMenu={setOpenMenu} />
+                                    <ActionMenu
+                                        rowIndex={i}
+                                        openMenu={openMenu}
+                                        setOpenMenu={setOpenMenu}
+                                        onView={() => push(`/admin/marking-templates/${row.id}`)}
+                                    />
                                 </Box>
                             </Flex>
                         ))}
+
+                        {pageRows.length === 0 && (
+                            <Flex justifyContent="center" alignItems="center" p="40px">
+                                <Text color="#718096" fontSize="14px">No templates found.</Text>
+                            </Flex>
+                        )}
                     </Box>
                 </Box>
+                )}
 
                 {/* ── Pagination ─────────────────────────────── */}
                 <Flex
@@ -363,7 +362,10 @@ const TemplateLibraryPage = () => {
                             fontSize="13px"
                             color="#1A202C"
                             value={rowsPerPage}
-                            onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                            onChange={(e) => {
+                                setRowsPerPage(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
                             cursor="pointer"
                             _focus={{ outline: "none", borderColor: "#6b006b" }}
                         >
@@ -373,7 +375,7 @@ const TemplateLibraryPage = () => {
                         </Box>
                     </Flex>
                     <Text fontSize="13px" color="#1A202C" fontWeight="600">
-                        Showing {rowsPerPage} out of {TOTAL_ITEMS} items
+                        Showing {pageRows.length} out of {totalItems} items
                     </Text>
                     <Flex alignItems="center" gap={2}>
                         <IconButton
@@ -404,8 +406,8 @@ const TemplateLibraryPage = () => {
                             size="sm"
                             variant="ghost"
                             aria-label="Next page"
-                            isDisabled={currentPage >= Math.ceil(TOTAL_ITEMS / rowsPerPage)}
-                            onClick={() => setCurrentPage((p) => Math.min(Math.ceil(TOTAL_ITEMS / rowsPerPage), p + 1))}
+                            isDisabled={currentPage >= totalPages}
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                             color="#4A5568"
                         />
                     </Flex>

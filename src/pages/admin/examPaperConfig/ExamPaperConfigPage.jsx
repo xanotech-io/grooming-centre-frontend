@@ -600,18 +600,42 @@ const PublishSuccessPanel = ({ result, onReturn }) => {
 
 // ─── Section Row ─────────────────────────────────────────────────────────────
 
+// A section can lock the question type and marking type every question
+// inside it must use, and can carry a total-marks weightage that gets
+// divided evenly across its questions — QuestionsPage.jsx reads these same
+// three fields (question_type / marking_type / total_marks) off each
+// configured section to enforce them at question-creation time.
+export const QUESTION_TYPE_LOCK_OPTIONS = [
+  { label: "Any type", value: "" },
+  { label: "MCQ", value: "MCQ" },
+  { label: "True / False", value: "TrueFalse" },
+  { label: "Fill in the Blank", value: "FillBlank" },
+  { label: "Matching", value: "Matching" },
+  { label: "Short Answer", value: "ShortAnswer" },
+  { label: "Essay", value: "Essay" },
+];
+
+export const MARKING_TYPE_LOCK_OPTIONS = [
+  { label: "Any marking type", value: "" },
+  { label: "Automatic", value: "automatic" },
+  { label: "Manual", value: "manual" },
+  { label: "Hybrid", value: "hybrid" },
+];
+
 const SectionRow = ({ section, idx, isLocked, onChange, onRemove }) => (
   <Flex
     gap="10px"
-    alignItems="center"
+    alignItems="flex-start"
     p="12px"
     bg="#F7FAFC"
     borderRadius="8px"
     border="1px solid #E2E8F0"
+    flexWrap="wrap"
   >
     <Box
       w="24px"
       h="24px"
+      mt="4px"
       bg="#6b006b"
       borderRadius="50%"
       display="flex"
@@ -667,6 +691,59 @@ const SectionRow = ({ section, idx, isLocked, onChange, onRemove }) => (
           borderRadius="6px"
           bg="white"
           placeholder="Min (opt)"
+        />
+        <NumberInputStepper>
+          <NumberIncrementStepper />
+          <NumberDecrementStepper />
+        </NumberInputStepper>
+      </NumberInput>
+    </FormControl>
+    <FormControl flex="1" minW="130px">
+      <Select
+        size="sm"
+        borderRadius="6px"
+        bg="white"
+        value={section.question_type ?? ""}
+        onChange={(e) => onChange(idx, "question_type", e.target.value)}
+        isDisabled={isLocked}
+      >
+        {QUESTION_TYPE_LOCK_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </Select>
+    </FormControl>
+    <FormControl flex="1" minW="130px">
+      <Select
+        size="sm"
+        borderRadius="6px"
+        bg="white"
+        value={section.marking_type ?? ""}
+        onChange={(e) => onChange(idx, "marking_type", e.target.value)}
+        isDisabled={isLocked}
+      >
+        {MARKING_TYPE_LOCK_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </Select>
+    </FormControl>
+    <FormControl flex="1" minW="90px">
+      <NumberInput
+        size="sm"
+        min={0}
+        value={section.total_marks ?? ""}
+        onChange={(val) =>
+          onChange(idx, "total_marks", val ? Number(val) : null)
+        }
+        isDisabled={isLocked}
+      >
+        <NumberInputField
+          borderRadius="6px"
+          bg="white"
+          placeholder="Weightage"
         />
         <NumberInputStepper>
           <NumberIncrementStepper />
@@ -739,6 +816,9 @@ const EMPTY_SECTION = {
   section_name: "",
   questions_count: 1,
   time_limit: null,
+  question_type: "",
+  marking_type: "",
+  total_marks: null,
 };
 
 const DEFAULT_CONFIG = {
@@ -1105,8 +1185,41 @@ const ExamPaperConfigPage = () => {
               >
                 Time (min)
               </Text>
+              <Text
+                flex="1"
+                fontSize="11px"
+                fontWeight="600"
+                color="gray.400"
+                textTransform="uppercase"
+              >
+                Question Type
+              </Text>
+              <Text
+                flex="1"
+                fontSize="11px"
+                fontWeight="600"
+                color="gray.400"
+                textTransform="uppercase"
+              >
+                Marking Type
+              </Text>
+              <Text
+                flex="1"
+                fontSize="11px"
+                fontWeight="600"
+                color="gray.400"
+                textTransform="uppercase"
+              >
+                Weightage
+              </Text>
               {!isLocked && <Box w="32px" />}
             </Flex>
+            <Text fontSize="12px" color="gray.400" mt="-2px" mb="2px">
+              Question Type and Marking Type, once set, lock every question
+              added to that section. Weightage is a total score for the
+              section — it's divided evenly across its questions, which is
+              why marks can't be set per question.
+            </Text>
             {sections.length === 0 && (
               <Box bg="#F7FAFC" borderRadius="8px" p="20px" textAlign="center">
                 <Text fontSize="13px" color="gray.400">

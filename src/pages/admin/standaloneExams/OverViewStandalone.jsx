@@ -10,6 +10,7 @@ import {
   NumberInput,
   NumberInputField,
   NumberInputStepper,
+  Select as ChakraSelect,
   Switch,
   Text,
 } from "@chakra-ui/react";
@@ -34,30 +35,55 @@ import {
   useQueryParams,
 } from "../../../hooks";
 import {
-  adminCreateStandaloneExamination,
   adminEditStandaloneExamination,
   adminGetMarkingTemplates,
   getExaminationById as getExamPaperConfig,
   updateExaminationById as updateExamPaperConfig,
 } from "../../../services";
-import { capitalizeFirstLetter, formatDateToISO, setAutoAddToBank } from "../../../utils";
+import { capitalizeFirstLetter, formatDateToISO } from "../../../utils";
 import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import useAssessmentStore from "../../../store/assessmentStore";
 import { FaRegSave, FaFileAlt } from "react-icons/fa";
 import { FiTrash2 } from "react-icons/fi";
 
-const EMPTY_SECTION = { section_name: "", questions_count: 1, time_limit: null };
+const EMPTY_SECTION = {
+  section_name: "",
+  questions_count: 1,
+  time_limit: null,
+  question_type: "",
+  marking_type: "",
+  total_marks: null,
+};
+
+// Kept identical to ExamPaperConfigPage.jsx's — QuestionsPage.jsx enforces
+// these three fields against whichever section a question is saved under.
+const QUESTION_TYPE_LOCK_OPTIONS = [
+  { label: "Any type", value: "" },
+  { label: "MCQ", value: "MCQ" },
+  { label: "True / False", value: "TrueFalse" },
+  { label: "Fill in the Blank", value: "FillBlank" },
+  { label: "Matching", value: "Matching" },
+  { label: "Short Answer", value: "ShortAnswer" },
+  { label: "Essay", value: "Essay" },
+];
+
+const MARKING_TYPE_LOCK_OPTIONS = [
+  { label: "Any marking type", value: "" },
+  { label: "Automatic", value: "automatic" },
+  { label: "Manual", value: "manual" },
+  { label: "Hybrid", value: "hybrid" },
+];
 
 const SectionRow = ({ section, idx, onChange, onRemove }) => (
-  <Flex gap={3} alignItems="center" mb={3}>
-    <Box flex={2}>
+  <Flex gap={3} alignItems="center" mb={3} flexWrap="wrap">
+    <Box flex={2} minW="160px">
       <Input
         placeholder="Section name e.g. Section A"
         value={section.section_name}
         onChange={(e) => onChange(idx, "section_name", e.target.value)}
       />
     </Box>
-    <Box flex={1}>
+    <Box flex={1} minW="100px">
       <NumberInput
         min={1}
         value={section.questions_count}
@@ -70,13 +96,50 @@ const SectionRow = ({ section, idx, onChange, onRemove }) => (
         </NumberInputStepper>
       </NumberInput>
     </Box>
-    <Box flex={1}>
+    <Box flex={1} minW="100px">
       <NumberInput
         min={0}
         value={section.time_limit ?? ""}
         onChange={(val) => onChange(idx, "time_limit", val ? Number(val) : null)}
       >
         <NumberInputField placeholder="Time (min)" />
+        <NumberInputStepper>
+          <NumberIncrementStepper />
+          <NumberDecrementStepper />
+        </NumberInputStepper>
+      </NumberInput>
+    </Box>
+    <Box flex={1} minW="130px">
+      <ChakraSelect
+        value={section.question_type ?? ""}
+        onChange={(e) => onChange(idx, "question_type", e.target.value)}
+      >
+        {QUESTION_TYPE_LOCK_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </ChakraSelect>
+    </Box>
+    <Box flex={1} minW="130px">
+      <ChakraSelect
+        value={section.marking_type ?? ""}
+        onChange={(e) => onChange(idx, "marking_type", e.target.value)}
+      >
+        {MARKING_TYPE_LOCK_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </ChakraSelect>
+    </Box>
+    <Box flex={1} minW="100px">
+      <NumberInput
+        min={0}
+        value={section.total_marks ?? ""}
+        onChange={(val) => onChange(idx, "total_marks", val ? Number(val) : null)}
+      >
+        <NumberInputField placeholder="Weightage" />
         <NumberInputStepper>
           <NumberIncrementStepper />
           <NumberDecrementStepper />
@@ -205,7 +268,7 @@ const EditStandalonePage = ({ assessment }) => {
       examinationId,
       body,
     );
-    await updateExamPaperConfig(examinationId, paperConfigBody).catch(() => {});
+    await updateExamPaperConfig(examinationId, paperConfigBody);
 
     toast({
       description: capitalizeFirstLetter(message),
@@ -234,25 +297,29 @@ const EditStandalonePage = ({ assessment }) => {
 
       const paperConfigBody = {
         examType: "standalone_examination",
-        configuredSections: sections.map((s) => ({
-          section_name: s.section_name,
-          questions_count: Number(s.questions_count) || 0,
-          time_limit: s.time_limit ? Number(s.time_limit) : null,
-        })),
+        // Sections are optional — the backend rejects an empty
+        // `configuredSections` array, so leave the key out entirely
+        // when none were added instead of sending `[]`.
+        ...(sections.length > 0 && {
+          configuredSections: sections.map((s) => ({
+            section_name: s.section_name,
+            questions_count: Number(s.questions_count) || 0,
+            time_limit: s.time_limit ? Number(s.time_limit) : null,
+            question_type: s.question_type || "",
+            marking_type: s.marking_type || "",
+            total_marks: s.total_marks ? Number(s.total_marks) : null,
+          })),
+        }),
         randomization,
       };
 
       const pendingBody = { body, paperConfigBody };
 
-      if (isSuperAdmin) {
-        // Super admins' edits apply right away — the modal below only
-        // offers an optional supervisor review afterward.
-        await performEdit(pendingBody);
-      } else {
-        // Instructors must submit for approval before this edit takes
-        // effect — hold off until the modal below completes.
-        pendingBodyRef.current = pendingBody;
-      }
+      // Everyone, including super admin, must submit for approval before
+      // this edit takes effect — hold off until the modal below completes.
+      // Super admin submissions carry a null supervisor instead of skipping
+      // the workflow.
+      pendingBodyRef.current = pendingBody;
 
       setWorkflowContent({ contentId: examinationId, contentTitle: data.title });
       setWorkflowModalOpen(true);
@@ -296,15 +363,6 @@ const EditStandalonePage = ({ assessment }) => {
               placeholder="Enter examination title"
               error={errors.title?.message}
               {...register("title", { required: "Title is required" })}
-            />
-          </GridItem>
-          <GridItem>
-            <Select
-              label="Instructor"
-              id="instructor"
-              placeholder="Select instructor for the exam"
-              options={[]}
-              {...register("instructor")}
             />
           </GridItem>
           <GridItem>
@@ -417,15 +475,12 @@ const EditStandalonePage = ({ assessment }) => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => {
-            setWorkflowModalOpen(false);
-            if (isSuperAdmin) handleWorkflowFinished();
-          }}
-          isDismissable={isSuperAdmin}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType="StandaloneExam"
-          onCreate={isSuperAdmin ? undefined : () => performEdit(pendingBodyRef.current)}
+          onCreate={() => performEdit(pendingBodyRef.current)}
           onSuccess={handleWorkflowFinished}
         />
       )}
@@ -443,18 +498,22 @@ const CreateStandalonePage = () => {
   } = useForm();
 
   const handleCancel = useGoBack();
-  const isSuperAdmin = useIsSuperAdmin();
   const startTimeManager = useDateTimePicker();
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [templateId, setTemplateId] = useState("");
   const [markingMode, setMarkingMode] = useState("automatic");
   const [addToBank, setAddToBank] = useState(false);
-  const setAssessment = useAssessmentStore((s) => s.setAssessment);
-
-  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
-  const [workflowContent, setWorkflowContent] = useState(null);
-  const pendingBodyRef = useRef(null);
-  const resultExaminationRef = useRef(null);
+  const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
+  const fromBankQuestionId = useAssessmentStore((s) => s.fromBankQuestionId);
+  const clearFromBankQuestionId = useAssessmentStore((s) => s.clearFromBankQuestionId);
+  // Captured once on mount: whatever the Question Bank's "use in a new exam"
+  // picker left behind belongs to this visit — consume it immediately so a
+  // later, unrelated create flow can never pick up a stale value.
+  const bankQuestionIdRef = useRef(fromBankQuestionId);
+  useEffect(() => {
+    if (fromBankQuestionId) clearFromBankQuestionId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [sections, setSections] = useState([]);
   const addSection = () => setSections((p) => [...p, { ...EMPTY_SECTION }]);
@@ -473,26 +532,6 @@ const CreateStandalonePage = () => {
       )
       .catch(() => {});
   }, []);
-
-  const performCreate = async ({ body, paperConfigBody }) => {
-    const { message, examination } = await adminCreateStandaloneExamination(body);
-    await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
-    resultExaminationRef.current = examination;
-    if (addToBank) setAutoAddToBank("standalone", examination.id);
-    setAssessment({ ...examination, sections });
-    toast({
-      description: capitalizeFirstLetter(message),
-      position: "top",
-      status: "success",
-    });
-    return { id: examination.id };
-  };
-
-  const handleWorkflowFinished = () => {
-    push(
-      `/admin/standalone-exams/questions/?examination=${resultExaminationRef.current?.id}`,
-    );
-  };
 
   const onSubmit = async (data) => {
     try {
@@ -513,28 +552,34 @@ const CreateStandalonePage = () => {
 
       const paperConfigBody = {
         examType: "standalone_examination",
-        configuredSections: sections.map((s) => ({
-          section_name: s.section_name,
-          questions_count: Number(s.questions_count) || 0,
-          time_limit: s.time_limit ? Number(s.time_limit) : null,
-        })),
+        // Sections are optional — the backend rejects an empty
+        // `configuredSections` array, so leave the key out entirely
+        // when none were added instead of sending `[]`.
+        ...(sections.length > 0 && {
+          configuredSections: sections.map((s) => ({
+            section_name: s.section_name,
+            questions_count: Number(s.questions_count) || 0,
+            time_limit: s.time_limit ? Number(s.time_limit) : null,
+            question_type: s.question_type || "",
+            marking_type: s.marking_type || "",
+            total_marks: s.total_marks ? Number(s.total_marks) : null,
+          })),
+        }),
         randomization,
       };
 
-      const pendingBody = { body, paperConfigBody };
-
-      if (isSuperAdmin) {
-        // Super admins create right away — the modal below only offers an
-        // optional supervisor review afterward.
-        const created = await performCreate(pendingBody);
-        setWorkflowContent({ contentTitle: data.title, contentId: created.id });
-      } else {
-        // Instructors must submit for approval before this gets created —
-        // hold off until the modal below completes.
-        pendingBodyRef.current = pendingBody;
-        setWorkflowContent({ contentTitle: data.title });
-      }
-      setWorkflowModalOpen(true);
+      // Nothing is created yet — hold the details in memory and create both
+      // the exam and the first question together once "Create and Submit"
+      // is clicked on the question step below.
+      setPendingCreate({
+        kind: "StandaloneExam",
+        body,
+        paperConfigBody,
+        addToBank,
+        title: data.title,
+        fromBankQuestionId: bankQuestionIdRef.current,
+      });
+      push("/admin/standalone-exams/questions/?examination=new&submitForApproval=1");
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -698,26 +743,10 @@ const CreateStandalonePage = () => {
             _hover={{ bg: "#520052" }}
           >
             <FaFileAlt />
-            Create &amp; Add Questions
+            Next
           </Button>
         </Flex>
       </Box>
-
-      {workflowContent && (
-        <WorkflowSubmitModal
-          isOpen={workflowModalOpen}
-          onClose={() => {
-            setWorkflowModalOpen(false);
-            if (isSuperAdmin) handleWorkflowFinished();
-          }}
-          isDismissable={isSuperAdmin}
-          contentId={workflowContent.contentId}
-          contentTitle={workflowContent.contentTitle}
-          requestType="StandaloneExam"
-          onCreate={isSuperAdmin ? undefined : () => performCreate(pendingBodyRef.current)}
-          onSuccess={handleWorkflowFinished}
-        />
-      )}
     </Box>
   );
 };

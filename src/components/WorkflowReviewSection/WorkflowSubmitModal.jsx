@@ -6,7 +6,6 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
-  ModalCloseButton,
   Box,
   Flex,
   Text,
@@ -42,7 +41,7 @@ export const WorkflowSubmitModal = ({
   departmentId,
   onSuccess,
   onCreate,
-  isDismissable = true,
+  isSuperAdmin = false,
 }) => {
   const toast = useToast();
   const { state: appState } = useApp();
@@ -64,12 +63,12 @@ export const WorkflowSubmitModal = ({
   }, [courseId, departmentId]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !isSuperAdmin) {
       fetchSupervisors({ fetcher: supervisorFetcher });
       setSelectedSupervisorId('');
       setSupervisorError(false);
     }
-  }, [isOpen, fetchSupervisors, supervisorFetcher]);
+  }, [isOpen, isSuperAdmin, fetchSupervisors, supervisorFetcher]);
 
   const supervisors = Array.isArray(supervisorsResource.data) ? supervisorsResource.data : [];
   const supervisorOptions = supervisors
@@ -80,7 +79,7 @@ export const WorkflowSubmitModal = ({
     }));
 
   const handleSubmit = async () => {
-    if (!selectedSupervisorId) {
+    if (!isSuperAdmin && !selectedSupervisorId) {
       setSupervisorError(true);
       return;
     }
@@ -91,7 +90,10 @@ export const WorkflowSubmitModal = ({
       let finalContentTitle = contentTitle;
 
       // Nothing has been created yet in this flow — creation only happens
-      // once a supervisor is assigned and approval is submitted.
+      // once approval is submitted. Creation and approval are separate
+      // endpoints: the create/edit call itself takes no supervisor field
+      // (the backend rejects it), so `onCreate` runs as a plain create.
+      // The supervisor is only ever sent below, on the workflow submit call.
       if (onCreate) {
         const created = await onCreate();
         finalContentId = created?.id;
@@ -103,7 +105,10 @@ export const WorkflowSubmitModal = ({
         content_id: finalContentId,
         content_title: finalContentTitle,
         submitted_by: appState.user?.id,
-        supervisor_id: selectedSupervisorId,
+        // Super admin submissions carry no supervisor assignment. The
+        // backend rejects the key outright for them (even set to null),
+        // so it's left out entirely rather than sent as an explicit null.
+        ...(!isSuperAdmin && { supervisor_id: selectedSupervisorId }),
         submission_date: new Date().toISOString(),
       };
 
@@ -138,8 +143,8 @@ export const WorkflowSubmitModal = ({
       onClose={onClose}
       size="lg"
       isCentered
-      closeOnOverlayClick={isDismissable}
-      closeOnEsc={isDismissable}
+      closeOnOverlayClick={false}
+      closeOnEsc={false}
     >
       <ModalOverlay />
       <ModalContent>
@@ -159,16 +164,17 @@ export const WorkflowSubmitModal = ({
                 Submit for Approval
               </Text>
               <Text fontSize="13px" fontWeight="400" color="#718096">
-                {onCreate
-                  ? 'This will only be created once you assign a supervisor and submit it for approval.'
-                  : isDismissable
-                    ? 'Content will be unpublished until a supervisor approves it.'
+                {isSuperAdmin
+                  ? onCreate
+                    ? 'This will only be created once you submit it for approval.'
+                    : 'Submit this content for approval.'
+                  : onCreate
+                    ? 'This will only be created once you assign a supervisor and submit it for approval.'
                     : 'This content was saved as a draft. Assign a supervisor to submit it for approval.'}
               </Text>
             </Box>
           </Flex>
         </ModalHeader>
-        {isDismissable && <ModalCloseButton />}
 
         <ModalBody>
           {/* Content summary */}
@@ -192,7 +198,10 @@ export const WorkflowSubmitModal = ({
             </Text>
           </Box>
 
-          {/* Supervisor */}
+          {/* Supervisor — super admin submissions carry no supervisor, the
+              backend gets an explicit null instead, so there's nothing to
+              pick here. */}
+          {!isSuperAdmin && (
           <FormControl mb={5} isRequired isInvalid={supervisorError}>
             <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={2}>
               Assign Supervisor
@@ -231,6 +240,7 @@ export const WorkflowSubmitModal = ({
               </Text>
             )}
           </FormControl>
+          )}
 
           <Divider mb={5} />
 
@@ -245,8 +255,9 @@ export const WorkflowSubmitModal = ({
           >
             <AlertIcon color="#D69E2E" boxSize="16px" />
             <AlertDescription fontSize="13px" color="#744210">
-              Once submitted, this content cannot be published until the
-              assigned supervisor approves it.
+              {isSuperAdmin
+                ? 'Once submitted, this content cannot be published until the approval is granted.'
+                : 'Once submitted, this content cannot be published until the assigned supervisor approves it.'}
             </AlertDescription>
           </Alert>
         </ModalBody>

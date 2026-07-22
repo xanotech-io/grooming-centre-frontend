@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { Route, useParams } from "react-router-dom";
 import { Flex } from "@chakra-ui/layout";
-import { Badge, BreadcrumbItem, useDisclosure } from "@chakra-ui/react";
+import { Badge, BreadcrumbItem } from "@chakra-ui/react";
 import {
   Button,
   Heading,
@@ -19,7 +18,7 @@ import {
 import { getDuration } from "../../../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../../hooks";
-import AddExaminationToBankModal from "../../../examQuestionBank/AddExaminationToBankModal";
+import { useAddExaminationToBank } from "../../../examQuestionBank/useAddExaminationToBank";
 
 const getStatusBadge = (approvalStatus) => {
   const colorSchemes = { Approved: "green", Pending: "orange", Rejected: "red" };
@@ -28,8 +27,7 @@ const getStatusBadge = (approvalStatus) => {
 
 const ModuleExaminationsPage = () => {
   const { courseId, moduleId } = useParams();
-  const [selectedExam, setSelectedExam] = useState(null);
-  const { isOpen: isBankOpen, onOpen: onBankOpen, onClose: onBankClose } = useDisclosure();
+  const { addExaminationToBank } = useAddExaminationToBank();
 
   const tableProps = {
     filterControls: [
@@ -126,10 +124,13 @@ const ModuleExaminationsPage = () => {
         },
         {
           text: "Add to Question Bank",
-          onClick: (examination) => {
-            setSelectedExam(examination);
-            onBankOpen();
-          },
+          onClick: (examination) =>
+            addExaminationToBank({
+              examinationId: examination.id,
+              courseId,
+              moduleId,
+              examinationTitle: examination.title?.text,
+            }),
         },
         {
           isDelete: true,
@@ -212,15 +213,6 @@ const ModuleExaminationsPage = () => {
         rows={rows}
         setRows={setRows}
         handleFetch={fetchRowItems}
-      />
-
-      <AddExaminationToBankModal
-        isOpen={isBankOpen}
-        onClose={onBankClose}
-        examinationId={selectedExam?.id}
-        courseId={courseId}
-        moduleId={moduleId}
-        examinationTitle={selectedExam?.title?.text}
       />
     </AdminMainAreaWrapper>
   );

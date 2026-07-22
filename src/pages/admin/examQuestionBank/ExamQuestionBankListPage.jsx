@@ -37,7 +37,7 @@ import {
   useDisclosure,
   useToast,
 } from "@chakra-ui/react";
-import { FiChevronDown, FiEdit2, FiEye, FiMoreHorizontal, FiPlus, FiRefreshCw, FiTrash2 } from "react-icons/fi";
+import { FiChevronDown, FiCopy, FiEdit2, FiEye, FiMoreHorizontal, FiPlus, FiRefreshCw, FiTrash2 } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { Breadcrumb, Link } from "../../../components";
 import { useQueryParams } from "../../../hooks";
@@ -50,6 +50,7 @@ import {
   listExamQuestionBank,
 } from "../../../services";
 import CreateExamFromBankModal from "./CreateExamFromBankModal";
+import UseBankQuestionModal from "./UseBankQuestionModal";
 
 const MOCK_STATS = {
   totalQuestions: 42,
@@ -229,9 +230,12 @@ function ExamQuestionBankListPage() {
 
   const [selectedIds, setSelectedIds] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
+  const [useQuestionId, setUseQuestionId] = useState(null);
+  const [useQuestionCourseId, setUseQuestionCourseId] = useState("");
 
   const { isOpen: isOrphanOpen, onOpen: onOrphanOpen, onClose: onOrphanClose } = useDisclosure();
   const { isOpen: isCreateExamOpen, onOpen: onCreateExamOpen, onClose: onCreateExamClose } = useDisclosure();
+  const { isOpen: isUseQuestionOpen, onOpen: onUseQuestionOpen, onClose: onUseQuestionClose } = useDisclosure();
 
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
@@ -516,7 +520,15 @@ function ExamQuestionBankListPage() {
                       <Td>
                         <Checkbox isChecked={selectedIds.includes(q.id)} onChange={() => toggleSelect(q.id)} colorScheme="purple" />
                       </Td>
-                      <Td maxW="320px">
+                      <Td
+                        maxW="320px"
+                        cursor="pointer"
+                        onClick={() => {
+                          setUseQuestionId(q.id);
+                          setUseQuestionCourseId(q.courseId || "");
+                          onUseQuestionOpen();
+                        }}
+                      >
                         <Text fontSize="sm" noOfLines={2}>
                           {q.question}
                         </Text>
@@ -550,6 +562,24 @@ function ExamQuestionBankListPage() {
                             <MenuItem icon={<FiEdit2 />} onClick={() => history.push(`/admin/exam-question-bank/${q.id}/edit`)}>
                               Edit
                             </MenuItem>
+                            <MenuItem
+                              icon={<FiPlus />}
+                              onClick={() => {
+                                setUseQuestionId(q.id);
+                                setUseQuestionCourseId(q.courseId || "");
+                                onUseQuestionOpen();
+                              }}
+                            >
+                              Use in New Exam
+                            </MenuItem>
+                            <MenuItem
+                              icon={<FiCopy />}
+                              onClick={() =>
+                                history.push("/admin/exam-question-bank/new", { duplicateFromId: q.id })
+                              }
+                            >
+                              Duplicate
+                            </MenuItem>
                             <MenuItem icon={<FiTrash2 />} color="red.500" onClick={() => handleDelete(q)} isDisabled={deletingId === q.id}>
                               Delete
                             </MenuItem>
@@ -572,6 +602,12 @@ function ExamQuestionBankListPage() {
       </Box>
 
       <OrphanedMediaModal isOpen={isOrphanOpen} onClose={onOrphanClose} onCleaned={fetchStats} />
+      <UseBankQuestionModal
+        isOpen={isUseQuestionOpen}
+        onClose={onUseQuestionClose}
+        questionId={useQuestionId}
+        initialCourseId={useQuestionCourseId}
+      />
       <CreateExamFromBankModal
         isOpen={isCreateExamOpen}
         onClose={onCreateExamClose}

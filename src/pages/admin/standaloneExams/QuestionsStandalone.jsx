@@ -12,8 +12,13 @@ import {
   TabPanel,
   TabPanels,
   Tabs,
+  Tag,
+  TagCloseButton,
+  TagLabel,
   Input as ChakraInput,
   useToast,
+  Wrap,
+  WrapItem,
 } from "@chakra-ui/react";
 import { Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/menu";
 import {
@@ -27,31 +32,43 @@ import {
   Spinner,
   Text,
   Upload,
+  WorkflowSubmitModal,
 } from "../../../components";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaArrowRight, FaTrash } from "react-icons/fa";
+import { FaArrowRight, FaPlus, FaTrash } from "react-icons/fa";
 import { FiMoreHorizontal } from "react-icons/fi";
 import { Route, useHistory } from "react-router-dom";
 import { PageLoaderLayout } from "../../../layouts";
 import {
   useFetch,
+  useGoBack,
+  useIsSuperAdmin,
   useQueryParams,
   useRichText,
   useUpload,
 } from "../../../hooks";
 import {
+  adminCreateStandaloneExamination,
   adminCreateStandaloneExaminationQuestion,
   adminDeleteStandaloneExaminationQuestion,
+  adminEditStandaloneExamination,
   adminEditStandaloneExaminationQuestion,
   adminGetMarkingTemplateById,
   adminGetStandaloneExamTemplateId,
   createExamQuestionBankItem,
+  getExamQuestionBankItem,
   getExaminationById as getExamPaperConfig,
   listExamQuestionBank,
+  updateExaminationById as updateExamPaperConfig,
 } from "../../../services";
 import { buildBatchUploadLink } from "../examQuestionImport/questionRowUtils";
-import { capitalizeFirstLetter, capitalizeWords, isAutoAddToBank } from "../../../utils";
+import {
+  capitalizeFirstLetter,
+  capitalizeWords,
+  isAutoAddToBank,
+  setAutoAddToBank,
+} from "../../../utils";
 import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import useAssessmentStore from "../../../store/assessmentStore";
 
@@ -84,7 +101,17 @@ const QuestionsStandalone = () => {
   const isQuestionListingPage = useQueryParams().get("question-listing");
   const isExamination = useQueryParams().get("examination");
   const questionId = useQueryParams().get("question");
+  const isEditMode = useQueryParams().get("edit") === "true";
+  const submitForApproval = useQueryParams().get("submitForApproval") === "1";
+  const editSubmit = useQueryParams().get("editSubmit") === "1";
   const isExistingQuestion = questionId && questionId !== "new";
+  // "Next" on the details form hands off here without creating anything —
+  // this page renders from `pendingCreate` instead of fetching a real record.
+  const isPendingCreation = submitForApproval && !isExistingQuestion && !isEditMode;
+  // "Next" on the *edit* details form hands off here the same way, except
+  // the exam already exists — this page renders it normally, but the
+  // actual update (from `pendingEdit`) is deferred until a question is saved.
+  const isPendingEditSubmit = editSubmit && !isExistingQuestion && !isEditMode;
 
   const batchUploadLink = buildBatchUploadLink({
     examinationId: isExamination,
@@ -94,10 +121,37 @@ const QuestionsStandalone = () => {
   const assessmentManager = useAssessmentPreview(null, isExamination, true);
 
   const storeSections = useAssessmentStore((s) => s.sections);
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const handleGoBack = useGoBack();
   const [templateSections, setTemplateSections] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
 
   useEffect(() => {
+    if (isPendingCreation) {
+      const configuredSections = pendingCreate?.paperConfigBody?.configuredSections;
+      if (Array.isArray(configuredSections) && configuredSections.length > 0) {
+        setTemplateSections(configuredSections.map((s) => s.section_name));
+        return;
+      }
+      if (!pendingCreate?.body?.templateId) {
+        setTemplateSections([]);
+        return;
+      }
+      setSectionsLoading(true);
+      adminGetMarkingTemplateById(pendingCreate.body.templateId)
+        .then(({ template }) =>
+          setTemplateSections(
+            Array.isArray(template?.sections)
+              ? template.sections.map((s) => s.name)
+              : [],
+          ),
+        )
+        .catch(() => setTemplateSections([]))
+        .finally(() => setSectionsLoading(false));
+      return;
+    }
+
     if (!isExamination) return;
 
     if (storeSections.length > 0) {
@@ -137,7 +191,43 @@ const QuestionsStandalone = () => {
       })
       .catch(() => fetchViaTemplate());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExamination, storeSections]);
+  }, [isExamination, storeSections, isPendingCreation, pendingCreate]);
+
+  // Nothing was ever saved to the backend, so if the in-memory details-form
+  // data is gone (e.g. the page was refreshed) there's nothing to recover.
+  if (isPendingCreation && !pendingCreate) {
+    return (
+      <Box padding={10} textAlign="center">
+        <Text bold mb={2}>
+          The details for this exam were lost.
+        </Text>
+        <Text color="gray.500" mb={4}>
+          Nothing was created yet, so there&apos;s nothing to recover — please go back and fill in the details again.
+        </Text>
+        <Button onClick={handleGoBack} type="button">
+          Go Back
+        </Button>
+      </Box>
+    );
+  }
+
+  // Same recovery guard, but for a pending edit — the edit itself hasn't
+  // been saved either, so a lost `pendingEdit` means going back to redo it.
+  if (isPendingEditSubmit && !pendingEdit) {
+    return (
+      <Box padding={10} textAlign="center">
+        <Text bold mb={2}>
+          The changes to this exam were lost.
+        </Text>
+        <Text color="gray.500" mb={4}>
+          Nothing was saved yet, so there&apos;s nothing to recover — please go back and make your changes again.
+        </Text>
+        <Button onClick={handleGoBack} type="button">
+          Go Back
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <>
@@ -312,8 +402,107 @@ const CreateQuestionPage = ({
   const isExamination = useQueryParams().get("examination");
   const questionId = useQueryParams().get("question");
   const isEditMode = useQueryParams().get("edit") === "true";
+  const submitForApproval = useQueryParams().get("submitForApproval") === "1";
+  const editSubmit = useQueryParams().get("editSubmit") === "1";
+  const isSuperAdmin = useIsSuperAdmin();
 
   const isExistingQuestion = questionId && questionId !== "new";
+  // Nothing was created when "Next" was clicked on the details form — this
+  // is the first question, and saving it is also what creates the exam
+  // (and, for instructors, what the approval modal gates).
+  const isPendingCreation = submitForApproval && !isExistingQuestion && !isEditMode;
+  // Same deferral, but the exam already exists — saving this question is
+  // what finally applies the held-back edit (and, for instructors, what
+  // the approval modal gates).
+  const isPendingEditSubmit = editSubmit && !isExistingQuestion && !isEditMode;
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
+  const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const clearPendingEdit = useAssessmentStore((s) => s.clearPendingEdit);
+  const setAssessment = useAssessmentStore((s) => s.setAssessment);
+  const fromBankQuestionId = pendingCreate?.fromBankQuestionId;
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
+  const [createdSuccess, setCreatedSuccess] = useState(null);
+  const pendingCreateBothRef = useRef(null);
+  const createdParentRef = useRef(null);
+
+  // How many questions this exam was configured for — read from the
+  // not-yet-created details form while pending, or the real record once
+  // it exists (the fetched record calls this field `questionCount`).
+  const amountOfQuestions =
+    Number(
+      pendingCreate?.body?.amountOfQuestions ??
+        assessmentManager.assessment?.questionCount ??
+        assessmentManager.assessment?.amountOfQuestions,
+    ) || null;
+
+  const buildRealQuestionRoute = (realParentId, { listing }) => {
+    const finalExamination = realParentId ?? isExamination;
+    return listing
+      ? getQuestionListingLink(finalExamination)
+      : `/admin/standalone-exams/questions/?examination=${finalExamination}`;
+  };
+
+  const goToQuestionListing = (realParentId) => {
+    // Only clear here, on the way out — clearing as soon as creation
+    // succeeds would wipe `pendingCreate`/`pendingEdit` while the success
+    // modal for a super admin is still showing, tripping the "details were
+    // lost" guard above on content that was, in fact, just saved successfully.
+    clearPendingCreate();
+    clearPendingEdit();
+    push(buildRealQuestionRoute(realParentId, { listing: true }));
+  };
+
+  const goToAddAnotherQuestion = (realParentId) => {
+    clearPendingCreate();
+    clearPendingEdit();
+    push(buildRealQuestionRoute(realParentId, { listing: false }));
+  };
+
+  // After a question is saved: if this exam was set up for more than one
+  // question, offer to add another right away instead of always dropping
+  // straight to the question list.
+  const finishSaving = (realParentId) => {
+    if (amountOfQuestions > 1) {
+      setCreatedSuccess({ realParentId });
+    } else {
+      goToQuestionListing(realParentId);
+    }
+  };
+
+  // Creates the exam that "Next" deferred, using the details form values
+  // held in `pendingCreate`. Called from inside the approval modal's
+  // `onCreate` — this is the first thing that ever gets saved. Creation is
+  // a separate endpoint from approval submission, so no supervisor field
+  // is sent here; the supervisor is only attached on the later workflow
+  // submit call.
+  const performCreateParent = async () => {
+    const { body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
+    const { examination } = await adminCreateStandaloneExamination(body);
+    await updateExamPaperConfig(examination.id, paperConfigBody);
+    if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
+    setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+    return { id: examination.id };
+  };
+
+  // Applies the edit that "Next" deferred, using the details form values
+  // held in `pendingEdit`. Called from inside the approval modal's
+  // `onCreate` — this is the first thing that actually changes. Editing is
+  // a separate endpoint from approval submission, so no supervisor field
+  // is sent here; the supervisor is only attached on the later workflow
+  // submit call.
+  const performEditParent = async () => {
+    const { contentId, body, paperConfigBody } = pendingEdit;
+    await adminEditStandaloneExamination(contentId, body);
+    if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody);
+    return { id: contentId };
+  };
+
+  const withRealParentId = (body, realParentId) => ({
+    ...body,
+    standAloneExaminationId: realParentId,
+  });
 
   const { question, isLoading, error } = useQuestionDetails(assessmentManager);
 
@@ -322,6 +511,8 @@ const CreateQuestionPage = ({
 
   const [answer, setAnswer] = useState("");
   const [matchingPairs, setMatchingPairs] = useState([{ left: "", right: "" }]);
+  const [acceptVariants, setAcceptVariants] = useState([]);
+  const [variantInput, setVariantInput] = useState("");
   const [markingType, setMarkingType] = useState("automatic");
   const [selectedSectionId, setSelectedSectionId] = useState("");
 
@@ -330,7 +521,7 @@ const CreateQuestionPage = ({
     reset,
     handleSubmit,
     setValue,
-    formState: { isSubmitting },
+    formState: { isSubmitting, errors },
   } = useForm();
   const questionRichTextManager = useRichText();
   const questionImageManager = useUpload();
@@ -376,13 +567,31 @@ const CreateQuestionPage = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useBank]);
 
+  // The option/answer fields only exist in the DOM once the tab has actually
+  // switched (e.g. FillBlank's field isn't rendered while MCQ's tab is still
+  // active), so setting them can't happen in the same synchronous call as
+  // `setTabIndex` — it has to wait for the re-render that follows. Stash the
+  // bank question here and let the `[bankApplyKey]` effect below fill in the
+  // type-specific fields once that render has actually happened.
+  const pendingBankApplyRef = useRef(null);
+
   const applyBankQuestion = (bankQuestion) => {
     const mappedType = BANK_TYPE_TO_FORM_TYPE[bankQuestion.questionType];
     if (!mappedType) return;
 
-    setTabIndex(QUESTION_TYPES.indexOf(mappedType));
+    pendingBankApplyRef.current = bankQuestion;
     questionRichTextManager.handleInitData(bankQuestion.question);
     setBankApplyKey((k) => k + 1);
+    setUseBank(false);
+    setTabIndex(QUESTION_TYPES.indexOf(mappedType));
+  };
+
+  useEffect(() => {
+    const bankQuestion = pendingBankApplyRef.current;
+    if (!bankQuestion) return;
+    pendingBankApplyRef.current = null;
+    const mappedType = BANK_TYPE_TO_FORM_TYPE[bankQuestion.questionType];
+    if (!mappedType) return;
 
     if (mappedType === "MCQ" || mappedType === "TrueFalse") {
       const opts =
@@ -401,23 +610,57 @@ const CreateQuestionPage = ({
       setValue("correctAnswer", bankQuestion.correctAnswer || "");
     }
 
-    setUseBank(false);
     toast({
       description: "Question loaded from the bank — review and edit before saving",
       position: "top",
       status: "info",
     });
-  };
+    // `bankApplyKey` (not the tab index) is the trigger: it changes on every
+    // apply even when the picked question's type matches the current tab.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankApplyKey]);
+
+  // Arrived here straight from the Question Bank via "Next" on the details
+  // form — prefill this first question from the bank item the admin picked,
+  // same mapping as manually applying a bank question above.
+  const appliedFromBankRef = useRef(false);
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[QuestionsStandalone] bank prefill check", { isPendingCreation, fromBankQuestionId, alreadyApplied: appliedFromBankRef.current });
+    if (!isPendingCreation || !fromBankQuestionId || appliedFromBankRef.current) return;
+    appliedFromBankRef.current = true;
+    getExamQuestionBankItem(fromBankQuestionId)
+      .then((res) => {
+        // eslint-disable-next-line no-console
+        console.log("[QuestionsStandalone] fetched bank question", res);
+        applyBankQuestion(res?.data ?? res);
+      })
+      .catch((err) => {
+        console.error("[QuestionsStandalone] failed to load bank question for prefill", fromBankQuestionId, err?.response?.data ?? err);
+        toast({ description: "Couldn't load the picked question from the bank", position: "top", status: "error" });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPendingCreation, fromBankQuestionId]);
 
   // Hydrate form when editing an existing question
   useEffect(() => {
     if (!question) return;
     if (question.markingType) setMarkingType(question.markingType);
     if (question.section) setSelectedSectionId(question.section);
-    // Detect question type from options count
-    if (question.options?.length === 2)
+
+    // Detect question type: prefer the explicit field, fall back to shape-sniffing
+    // for questions saved before questionType was sent.
+    if (question.questionType && QUESTION_TYPES.includes(question.questionType)) {
+      setTabIndex(QUESTION_TYPES.indexOf(question.questionType));
+    } else if (question.pairs?.length) {
+      setTabIndex(QUESTION_TYPES.indexOf("Matching"));
+    } else if (question.correctAnswer && !question.options?.length) {
+      setTabIndex(QUESTION_TYPES.indexOf("FillBlank"));
+    } else if (question.options?.length === 2) {
       setTabIndex(1); // TrueFalse
-    else setTabIndex(0); // MCQ default
+    } else {
+      setTabIndex(0); // MCQ default
+    }
 
     [1, 2, 3, 4].forEach((num) => {
       const opt = question.options?.find((o) => o.optionIndex === num);
@@ -426,6 +669,14 @@ const CreateQuestionPage = ({
 
     const correct = question.options?.find((o) => o.isAnswer);
     if (correct) setAnswer(`${correct.optionIndex}`);
+
+    if (question.correctAnswer) setValue("correctAnswer", question.correctAnswer);
+    if (Array.isArray(question.acceptVariants) && question.acceptVariants.length > 0) {
+      setAcceptVariants(question.acceptVariants);
+    }
+    if (Array.isArray(question.pairs) && question.pairs.length > 0) {
+      setMatchingPairs(question.pairs);
+    }
 
     questionRichTextManager.handleInitData(question.question);
     // MUIRichTextEditor only reads defaultValue on mount, so force a
@@ -452,6 +703,16 @@ const CreateQuestionPage = ({
     setMatchingPairs((p) =>
       p.map((pair, i) => (i === idx ? { ...pair, [side]: value } : pair)),
     );
+
+  const handleAddVariant = () => {
+    const variant = variantInput.trim();
+    if (variant && !acceptVariants.includes(variant)) {
+      setAcceptVariants((prev) => [...prev, variant]);
+    }
+    setVariantInput("");
+  };
+  const handleRemoveVariant = (variant) =>
+    setAcceptVariants((prev) => prev.filter((v) => v !== variant));
 
   const onSubmit = async (data) => {
     try {
@@ -492,70 +753,137 @@ const CreateQuestionPage = ({
           throw new Error("All matching pairs must have both values filled");
       }
 
+      const maybeAddToBank = async (forceAdd) => {
+        if (isEditMode || !(addToBank || autoAddToBank || forceAdd)) return;
+        const bankType = FORM_TYPE_TO_BANK_TYPE[questionType];
+        if (!bankType) {
+          toast({
+            description: "This question type isn't supported by the Question Bank yet",
+            position: "top",
+            status: "warning",
+          });
+          return;
+        }
+        let bankPayload;
+        try {
+          bankPayload = {
+            question: questionPlainText,
+            questionType: bankType,
+            marks: 1,
+            difficultyLevel: "Medium",
+            status: "draft",
+          };
+          if (isObjectiveType) {
+            const bankOptions = options.map((o) => ({
+              text: o.option ?? o.name ?? "",
+              isCorrect: !!o.isAnswer,
+            }));
+            bankPayload.options = bankOptions.filter((o) => o.text);
+            bankPayload.correctAnswer =
+              bankOptions.find((o) => o.isCorrect)?.text ?? "";
+          } else if (questionType === "FillBlank") {
+            bankPayload.correctAnswer = data.correctAnswer || "";
+          }
+          await createExamQuestionBankItem(bankPayload);
+        } catch (bankErr) {
+          console.error("[QuestionsStandalone] failed to add question to bank", bankPayload, bankErr?.response?.data ?? bankErr);
+          toast({
+            description:
+              bankErr?.response?.data?.message ||
+              "Question saved, but failed to add it to the Question Bank",
+            position: "top",
+            status: "warning",
+          });
+        }
+      };
+
+      // ── Type-specific fields (FillBlank/Matching need explicit questionType
+      // since they carry neither `options` nor an inferable shape) ──
+      const typeSpecificFields = isObjectiveType
+        ? { options }
+        : questionType === "FillBlank"
+          ? {
+              questionType: "FillBlank",
+              correctAnswer: data.correctAnswer,
+              ...(acceptVariants.length > 0 && { acceptVariants }),
+            }
+          : questionType === "Matching"
+            ? { questionType: "Matching", pairs: JSON.stringify(matchingPairs) }
+            : {};
+
       // ── Build payload ──
-      let body;
-      if (isEditMode) {
-        body = {
-          questionId,
-          question: questionPlainText,
-          ...(sectionTitle && { section: sectionTitle }),
-          markingType,
-          ...(isObjectiveType && { options }),
-        };
-        await adminEditStandaloneExaminationQuestion(body);
-      } else {
-        body = {
+      const saveQuestion = async (realParentId) => {
+        if (isEditMode) {
+          const body = {
+            questionId,
+            question: questionPlainText,
+            ...(sectionTitle && { section: sectionTitle }),
+            markingType,
+            ...typeSpecificFields,
+          };
+          return adminEditStandaloneExaminationQuestion(body);
+        }
+        const baseBody = {
           standAloneExaminationId: isExamination,
           question: questionPlainText,
           ...(sectionTitle && { section: sectionTitle }),
           markingType,
-          ...(isObjectiveType && { options }),
+          ...typeSpecificFields,
         };
-        await adminCreateStandaloneExaminationQuestion(body);
+        const body = isPendingCreation ? withRealParentId(baseBody, realParentId) : baseBody;
+        return adminCreateStandaloneExaminationQuestion(body);
+      };
 
-        if (addToBank || autoAddToBank) {
-          const bankType = FORM_TYPE_TO_BANK_TYPE[questionType];
-          if (!bankType) {
-            toast({
-              description: "This question type isn't supported by the Question Bank yet",
-              position: "top",
-              status: "warning",
-            });
-          } else {
-            let bankPayload;
-            try {
-              bankPayload = {
-                question: questionPlainText,
-                questionType: bankType,
-                marks: 1,
-                difficultyLevel: "Medium",
-                status: "draft",
-              };
-              if (isObjectiveType) {
-                const bankOptions = options.map((o) => ({
-                  text: o.option ?? o.name ?? "",
-                  isCorrect: !!o.isAnswer,
-                }));
-                bankPayload.options = bankOptions.filter((o) => o.text);
-                bankPayload.correctAnswer =
-                  bankOptions.find((o) => o.isCorrect)?.text ?? "";
-              } else if (questionType === "FillBlank") {
-                bankPayload.correctAnswer = data.correctAnswer || "";
-              }
-              await createExamQuestionBankItem(bankPayload);
-            } catch (bankErr) {
-              console.error("[QuestionsStandalone] failed to add question to bank", bankPayload, bankErr?.response?.data ?? bankErr);
-              toast({
-                description:
-                  bankErr?.response?.data?.message ||
-                  "Question saved, but failed to add it to the Question Bank",
-                position: "top",
-                status: "warning",
-              });
-            }
-          }
-        }
+      if (isPendingCreation) {
+        // Nothing exists yet. "createBoth" is the single unit of work that
+        // actually saves anything — hand it to the approval modal so the
+        // assigned supervisor (or an explicit null, for super admin) is
+        // what triggers it.
+        const createBoth = async () => {
+          const parent = await performCreateParent();
+          createdParentRef.current = parent;
+          await saveQuestion(parent.id);
+          // The exam-level "auto add every question" flag was just set on
+          // the real ID above — the render-scoped `autoAddToBank` above is
+          // still stale for this same call, so check the source directly.
+          await maybeAddToBank(pendingCreate.addToBank);
+          return { id: parent.id };
+        };
+
+        pendingCreateBothRef.current = createBoth;
+        setWorkflowContent({
+          contentTitle: pendingCreate.title,
+          requestType: "StandaloneExam",
+        });
+        setWorkflowModalOpen(true);
+        return;
       }
+
+      if (isPendingEditSubmit) {
+        // The exam already exists — "editBoth" is the single unit of work
+        // that actually changes anything, held back until the approval
+        // modal's assigned supervisor (or an explicit null, for super
+        // admin) triggers it.
+        const editBoth = async () => {
+          const parent = await performEditParent();
+          createdParentRef.current = parent;
+          await saveQuestion();
+          return { id: parent.id };
+        };
+
+        pendingCreateBothRef.current = editBoth;
+        setWorkflowContent({
+          contentId: pendingEdit.contentId,
+          contentTitle: pendingEdit.title,
+          requestType: pendingEdit.requestType,
+          courseId: pendingEdit.courseId,
+        });
+        setWorkflowModalOpen(true);
+        return;
+      }
+
+      await saveQuestion();
+      await maybeAddToBank();
 
       toast({
         description: "Question saved successfully",
@@ -568,7 +896,7 @@ const CreateQuestionPage = ({
       if (isEditMode) {
         push(getEditQuestionLink(isExamination, questionId));
       } else {
-        push(getQuestionListingLink(isExamination));
+        finishSaving();
       }
     } catch (err) {
       toast({
@@ -578,6 +906,33 @@ const CreateQuestionPage = ({
       });
     }
   };
+
+  if (createdSuccess) {
+    return (
+      <Box padding={10} textAlign="center" width="70%">
+        <Text bold fontSize="lg" mb={2}>
+          Question added successfully!
+        </Text>
+        <Text color="gray.500" mb={6}>
+          This exam is set for {amountOfQuestions} questions — add the rest
+          now, or come back to it later.
+        </Text>
+        <Flex gap={4} justifyContent="center">
+          <Button
+            onClick={() => goToAddAnotherQuestion(createdSuccess.realParentId)}
+          >
+            Add more questions
+          </Button>
+          <Button
+            secondary
+            onClick={() => goToQuestionListing(createdSuccess.realParentId)}
+          >
+            Done for now
+          </Button>
+        </Flex>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -974,10 +1329,52 @@ const CreateQuestionPage = ({
                   label="Correct Answer"
                   isRequired
                   placeholder="e.g. Paris"
+                  error={errors.correctAnswer?.message}
                   {...register("correctAnswer", {
-                    required: "Correct answer is required",
+                    required:
+                      questionType === "FillBlank"
+                        ? "Correct answer is required"
+                        : false,
                   })}
                 />
+
+                <Box mt={4}>
+                  <Text fontSize="13px" fontWeight="500" color="#1A202C" mb={2}>
+                    Accepted Answer Variants (optional)
+                  </Text>
+                  <Flex gap={2} mb={3}>
+                    <Box flex={1}>
+                      <Input
+                        placeholder="e.g. paris (alternate spelling/case)"
+                        value={variantInput}
+                        onChange={(e) => setVariantInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddVariant();
+                          }
+                        }}
+                      />
+                    </Box>
+                    <Button ghost onClick={handleAddVariant} type="button">
+                      <Flex alignItems="center" gap="6px">
+                        <FaPlus size="11px" /> Add
+                      </Flex>
+                    </Button>
+                  </Flex>
+                  {acceptVariants.length > 0 && (
+                    <Wrap spacing="8px">
+                      {acceptVariants.map((variant) => (
+                        <WrapItem key={variant}>
+                          <Tag size="md" borderRadius="full" variant="solid" bg="#6b006b" color="white">
+                            <TagLabel>{variant}</TagLabel>
+                            <TagCloseButton onClick={() => handleRemoveVariant(variant)} />
+                          </Tag>
+                        </WrapItem>
+                      ))}
+                    </Wrap>
+                  )}
+                </Box>
               </TabPanel>
             </TabPanels>
           </Tabs>
@@ -1033,13 +1430,41 @@ const CreateQuestionPage = ({
           leftIcon={isExistingQuestion && !isEditMode ? <FaTrash /> : null}
         >
           {isExistingQuestion && !isEditMode
-            ? "Delete"
+            ? "Delete Question"
             : isEditMode
-              ? "Update"
-              : "Add"}{" "}
-          Question
+              ? "Update Question"
+              : isPendingCreation
+                ? "Create and Submit"
+                : isPendingEditSubmit
+                  ? "Update and Submit"
+                  : "Add Question"}
         </Button>
+        {isEditMode && (
+          <Button ghost link={`/admin/standalone-exams/questions/?examination=${isExamination}`}>
+            Add Question
+          </Button>
+        )}
       </Flex>
+
+      {(isPendingCreation || isPendingEditSubmit) && workflowContent && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
+          contentId={workflowContent.contentId}
+          contentTitle={workflowContent.contentTitle}
+          requestType={workflowContent.requestType}
+          onCreate={() => pendingCreateBothRef.current()}
+          onSuccess={() => {
+            if (isPendingEditSubmit) {
+              clearPendingEdit();
+              push(pendingEdit.nextRoute);
+            } else {
+              finishSaving(createdParentRef.current?.id);
+            }
+          }}
+        />
+      )}
     </Box>
   );
 };
@@ -1088,7 +1513,7 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
         <Button
           link={`/admin/standalone-exams/questions/?examination=${assessment?.id}`}
         >
-          Add New Question
+          Add more questions
         </Button>
       </Box>
     </Box>
@@ -1222,7 +1647,7 @@ const buildOptions = (data) => {
       const optionIndex = +key.replace("option-", "");
       const isAnswer = +data.answer === optionIndex;
       if (optionText)
-        options.push({ option: optionText, optionIndex, isAnswer });
+        options.push({ name: optionText, optionIndex, isAnswer });
     }
   }
   return options;
