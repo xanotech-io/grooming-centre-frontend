@@ -310,15 +310,11 @@ const EditStandalonePage = ({ assessment }) => {
 
       const pendingBody = { body, paperConfigBody };
 
-      if (isSuperAdmin) {
-        // Super admins' edits apply right away — the modal below only
-        // offers an optional supervisor review afterward.
-        await performEdit(pendingBody);
-      } else {
-        // Instructors must submit for approval before this edit takes
-        // effect — hold off until the modal below completes.
-        pendingBodyRef.current = pendingBody;
-      }
+      // Everyone, including super admin, must submit for approval before
+      // this edit takes effect — hold off until the modal below completes.
+      // Super admin submissions carry a null supervisor instead of skipping
+      // the workflow.
+      pendingBodyRef.current = pendingBody;
 
       setWorkflowContent({ contentId: examinationId, contentTitle: data.title });
       setWorkflowModalOpen(true);
@@ -362,15 +358,6 @@ const EditStandalonePage = ({ assessment }) => {
               placeholder="Enter examination title"
               error={errors.title?.message}
               {...register("title", { required: "Title is required" })}
-            />
-          </GridItem>
-          <GridItem>
-            <Select
-              label="Instructor"
-              id="instructor"
-              placeholder="Select instructor for the exam"
-              options={[]}
-              {...register("instructor")}
             />
           </GridItem>
           <GridItem>
@@ -483,22 +470,16 @@ const EditStandalonePage = ({ assessment }) => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => {
-            setWorkflowModalOpen(false);
-            if (isSuperAdmin) handleWorkflowFinished();
-          }}
-          isDismissable={isSuperAdmin}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType="StandaloneExam"
-          onCreate={
-            isSuperAdmin
-              ? undefined
-              : (supervisorId) =>
-                  performEdit({
-                    ...pendingBodyRef.current,
-                    body: { ...pendingBodyRef.current.body, supervisor_id: supervisorId },
-                  })
+          onCreate={(supervisorId) =>
+            performEdit({
+              ...pendingBodyRef.current,
+              body: { ...pendingBodyRef.current.body, supervisor_id: supervisorId },
+            })
           }
           onSuccess={handleWorkflowFinished}
         />
@@ -523,6 +504,16 @@ const CreateStandalonePage = () => {
   const [markingMode, setMarkingMode] = useState("automatic");
   const [addToBank, setAddToBank] = useState(false);
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
+  const fromBankQuestionId = useAssessmentStore((s) => s.fromBankQuestionId);
+  const clearFromBankQuestionId = useAssessmentStore((s) => s.clearFromBankQuestionId);
+  // Captured once on mount: whatever the Question Bank's "use in a new exam"
+  // picker left behind belongs to this visit — consume it immediately so a
+  // later, unrelated create flow can never pick up a stale value.
+  const bankQuestionIdRef = useRef(fromBankQuestionId);
+  useEffect(() => {
+    if (fromBankQuestionId) clearFromBankQuestionId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [sections, setSections] = useState([]);
   const addSection = () => setSections((p) => [...p, { ...EMPTY_SECTION }]);
@@ -581,6 +572,7 @@ const CreateStandalonePage = () => {
         paperConfigBody,
         addToBank,
         title: data.title,
+        fromBankQuestionId: bankQuestionIdRef.current,
       });
       push("/admin/standalone-exams/questions/?examination=new&submitForApproval=1");
     } catch (error) {

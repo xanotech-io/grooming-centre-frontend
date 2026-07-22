@@ -1,6 +1,6 @@
 import { Box, Flex, GridItem } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useParams, useHistory } from "react-router-dom";
 import {
@@ -45,6 +45,16 @@ const CreateAssessmentPage = ({ users }) => {
   const { push } = useHistory();
   const toast = useToast();
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
+  const fromBankQuestionId = useAssessmentStore((s) => s.fromBankQuestionId);
+  const clearFromBankQuestionId = useAssessmentStore((s) => s.clearFromBankQuestionId);
+  // Captured once on mount: whatever the Question Bank's "use in a new exam"
+  // picker left behind belongs to this visit — consume it immediately so a
+  // later, unrelated create flow can never pick up a stale value.
+  const bankQuestionIdRef = useRef(fromBankQuestionId);
+  useEffect(() => {
+    if (fromBankQuestionId) clearFromBankQuestionId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [selectedIDs, setSelectedIDs] = useState([]);
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
@@ -133,6 +143,7 @@ const CreateAssessmentPage = ({ users }) => {
         body,
         markingTemplateId,
         title: data.title,
+        fromBankQuestionId: bankQuestionIdRef.current,
       });
       const nextRoute = isExamination
         ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=new&submitForApproval=1`
@@ -320,6 +331,18 @@ const CreateAssessmentPage = ({ users }) => {
                 error={errors.amountOfQuestions?.message}
                 {...register("amountOfQuestions", {
                   required: "Please enter number of questions",
+                })}
+              />
+            </GridItem>
+            <GridItem>
+              <Input
+                label="Total Marks"
+                type="number"
+                id="totalMarks"
+                placeholder="e.g. 100"
+                error={errors.totalMarks?.message}
+                {...register("totalMarks", {
+                  required: "Please enter total marks",
                 })}
               />
             </GridItem>

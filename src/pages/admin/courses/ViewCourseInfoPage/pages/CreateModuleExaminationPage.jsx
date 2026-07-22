@@ -24,20 +24,16 @@ import {
   Input,
   Select,
   Text,
-  WorkflowSubmitModal,
 } from "../../../../../components";
 import {
   useDateTimePicker,
   useGoBack,
-  useIsSuperAdmin,
 } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
-  adminEditExamination,
   adminGetExaminationById,
   adminGetMarkingTemplates,
   getExaminationById as getExamPaperConfig,
-  updateExaminationById as updateExamPaperConfig,
 } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
 import useAssessmentStore from "../../../../../store/assessmentStore";
@@ -210,8 +206,18 @@ const CreateModuleExaminationPage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
-  const isSuperAdmin = useIsSuperAdmin();
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
+  const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
+  const fromBankQuestionId = useAssessmentStore((s) => s.fromBankQuestionId);
+  const clearFromBankQuestionId = useAssessmentStore((s) => s.clearFromBankQuestionId);
+  // Captured once on mount: whatever the Question Bank's "use in a new exam"
+  // picker left behind belongs to this visit — consume it immediately so a
+  // later, unrelated create flow can never pick up a stale value.
+  const bankQuestionIdRef = useRef(fromBankQuestionId);
+  useEffect(() => {
+    if (fromBankQuestionId) clearFromBankQuestionId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
@@ -241,10 +247,6 @@ const CreateModuleExaminationPage = () => {
     font_size: 16,
     font_family: "default",
   });
-  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
-  const [workflowContent, setWorkflowContent] = useState(null);
-  const pendingBodyRef = useRef(null);
-
   useEffect(() => {
     adminGetMarkingTemplates()
       .then(({ templates }) => setMarkingTemplates(templates))
@@ -272,6 +274,7 @@ const CreateModuleExaminationPage = () => {
         setValue("title", exam.title);
         setValue("duration", exam.duration);
         setValue("amountOfQuestions", exam.amountOfQuestions);
+        setValue("totalMarks", exam.totalMarks);
         if (exam.startTime) startTimeManager.handleChange(new Date(exam.startTime));
         if (exam.markingTemplateId) setMarkingTemplateId(exam.markingTemplateId);
 
@@ -295,23 +298,6 @@ const CreateModuleExaminationPage = () => {
       .finally(() => setLoadingExam(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, examinationId]);
-  const performEdit = async ({ body, paperConfigBody }) => {
-    const { message } = await adminEditExamination(examinationId, body);
-    await updateExamPaperConfig(examinationId, paperConfigBody).catch(() => {});
-    toast({
-      description: capitalizeFirstLetter(message || "Examination updated successfully."),
-      position: "top",
-      status: "success",
-    });
-    return { id: examinationId };
-  };
-
-  const handleWorkflowFinished = () => {
-    push(
-      `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`,
-    );
-  };
-
   const onSubmit = async (data) => {
     try {
       const startTime =
@@ -326,6 +312,7 @@ const CreateModuleExaminationPage = () => {
         title: data.title,
         duration: Number(data.duration),
         amountOfQuestions: Number(data.amountOfQuestions),
+        totalMarks: Number(data.totalMarks),
         startTime: formatDateToISO(startTime),
         courseId,
         moduleId,
@@ -351,22 +338,24 @@ const CreateModuleExaminationPage = () => {
         uiSettings: { ...uiSettings, font_size: Number(uiSettings.font_size) },
       };
 
-      const pendingBody = { body, paperConfigBody };
-
       if (isEditMode) {
-        const workflowContentBase = {
-          contentTitle: data.title,
+        // Nothing is saved yet — hold the edit in memory and only actually
+        // apply it (together with the workflow submit modal) once a
+        // question has been saved on the other side of "Next", mirroring
+        // the shell-plus-question deferral the create flow above uses.
+        setPendingEdit({
+          kind: "ModuleExam",
+          contentId: examinationId,
+          body,
+          paperConfigBody,
+          title: data.title,
           requestType: "CourseExam",
           courseId,
-        };
-
-        if (isSuperAdmin) {
-          await performEdit(pendingBody);
-        } else {
-          pendingBodyRef.current = pendingBody;
-        }
-        setWorkflowContent({ ...workflowContentBase, contentId: examinationId });
-        setWorkflowModalOpen(true);
+          nextRoute: `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`,
+        });
+        push(
+          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examinationId}&editSubmit=1`,
+        );
       } else {
         // Nothing is created yet — hold the details in memory and create
         // both the exam and the first question together once "Create and
@@ -378,6 +367,7 @@ const CreateModuleExaminationPage = () => {
           markingTemplateId,
           addToBank,
           title: data.title,
+          fromBankQuestionId: bankQuestionIdRef.current,
         });
         push(
           `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=new&submitForApproval=1`,
@@ -441,6 +431,19 @@ const CreateModuleExaminationPage = () => {
                 {...register("amountOfQuestions", {
                   required: "Number of questions is required",
                   min: { value: 1, message: "Must have at least 1 question" },
+                })}
+              />
+            </Box>
+            <Box flex={1}>
+              <Input
+                label="Total Marks"
+                type="number"
+                placeholder="e.g. 100"
+                isRequired
+                error={errors.totalMarks?.message}
+                {...register("totalMarks", {
+                  required: "Total marks is required",
+                  min: { value: 1, message: "Must be at least 1 mark" },
                 })}
               />
             </Box>
@@ -540,31 +543,6 @@ const CreateModuleExaminationPage = () => {
               }
             />
           </Box>
-
-          {workflowContent && (
-            <WorkflowSubmitModal
-              isOpen={workflowModalOpen}
-              onClose={() => {
-                setWorkflowModalOpen(false);
-                if (isSuperAdmin) handleWorkflowFinished();
-              }}
-              isDismissable={isSuperAdmin}
-              contentId={workflowContent.contentId}
-              contentTitle={workflowContent.contentTitle}
-              requestType={workflowContent.requestType}
-              courseId={workflowContent.courseId}
-              onCreate={
-                isSuperAdmin
-                  ? undefined
-                  : (supervisorId) =>
-                      performEdit({
-                        ...pendingBodyRef.current,
-                        body: { ...pendingBodyRef.current.body, supervisor_id: supervisorId },
-                      })
-              }
-              onSuccess={handleWorkflowFinished}
-            />
-          )}
         </SectionCard>
 
         {/* ── UI Settings ── */}
@@ -643,7 +621,7 @@ const CreateModuleExaminationPage = () => {
             Cancel
           </Button>
           <Button type="submit" isLoading={isSubmitting || loadingExam} isDisabled={isPublished}>
-            {isEditMode ? "Save Changes" : "Next"}
+            Next
           </Button>
         </Flex>
       </Box>

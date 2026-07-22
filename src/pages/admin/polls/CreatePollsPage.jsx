@@ -114,17 +114,12 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
         departmentId: data.departmentId,
       };
 
-      if (isSuperAdmin) {
-        // Super admins create right away — the modal below only offers an
-        // optional supervisor review afterward.
-        const created = await performCreate(payload);
-        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
-      } else {
-        // Instructors must submit for approval before this gets created —
-        // hold off until the modal below completes.
-        pendingPayloadRef.current = payload;
-        setWorkflowContent(workflowContentBase);
-      }
+      // Everyone, including super admin, must submit for approval before
+      // this gets created — hold off until the modal below completes. Super
+      // admin submissions carry a null supervisor instead of skipping the
+      // workflow.
+      pendingPayloadRef.current = payload;
+      setWorkflowContent(workflowContentBase);
       setWorkflowModalOpen(true);
     } catch (err) {
       toast({
@@ -237,20 +232,14 @@ const CreatePollsPage = ({ metadata: propMetadata }) => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => {
-            setWorkflowModalOpen(false);
-            if (isSuperAdmin) push("/admin/polls/");
-          }}
-          isDismissable={isSuperAdmin}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           departmentId={workflowContent.departmentId}
-          onCreate={
-            isSuperAdmin
-              ? undefined
-              : (supervisorId) =>
-                  performCreate({ ...pendingPayloadRef.current, supervisor_id: supervisorId })
+          onCreate={(supervisorId) =>
+            performCreate({ ...pendingPayloadRef.current, supervisor_id: supervisorId })
           }
           onSuccess={() => push("/admin/polls/")}
         />

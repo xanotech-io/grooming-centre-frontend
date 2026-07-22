@@ -114,15 +114,11 @@ const EditModuleProjectPage = () => {
         status: data.status || "draft",
       };
 
-      if (isSuperAdmin) {
-        // Super admins' edits apply right away — the modal below only
-        // offers an optional supervisor review afterward.
-        await performEdit(body);
-      } else {
-        // Instructors must submit for approval before this edit takes
-        // effect — hold off until the modal below completes.
-        pendingBodyRef.current = body;
-      }
+      // Everyone, including super admin, must submit for approval before
+      // this edit takes effect — hold off until the modal below completes.
+      // Super admin submissions carry a null supervisor instead of skipping
+      // the workflow.
+      pendingBodyRef.current = body;
 
       setWorkflowContent({
         contentId: projectId,
@@ -225,20 +221,14 @@ const EditModuleProjectPage = () => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => {
-            setWorkflowModalOpen(false);
-            if (isSuperAdmin) push(workflowContent.nextRoute);
-          }}
-          isDismissable={isSuperAdmin}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          onCreate={
-            isSuperAdmin
-              ? undefined
-              : (supervisorId) =>
-                  performEdit({ ...pendingBodyRef.current, supervisor_id: supervisorId })
+          onCreate={(supervisorId) =>
+            performEdit({ ...pendingBodyRef.current, supervisor_id: supervisorId })
           }
           onSuccess={() => push(workflowContent.nextRoute)}
         />

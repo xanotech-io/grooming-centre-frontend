@@ -185,21 +185,14 @@ const CreateEventPage = () => {
         departmentId: data.departmentId,
       };
 
+      // Everyone, including super admin, must submit for approval before
+      // this takes effect — hold off until the modal below completes. Super
+      // admin submissions carry a null supervisor instead of skipping the
+      // workflow.
       if (isEditMode) {
-        if (isSuperAdmin) {
-          await performEdit(body);
-        } else {
-          pendingBodyRef.current = body;
-        }
+        pendingBodyRef.current = body;
         setWorkflowContent({ ...workflowContentBase, contentId: eventId });
-      } else if (isSuperAdmin) {
-        // Super admins create right away — the modal below only offers an
-        // optional supervisor review afterward.
-        const created = await performCreate(body);
-        setWorkflowContent({ ...workflowContentBase, contentId: created.id });
       } else {
-        // Instructors must submit for approval before this gets created —
-        // hold off until the modal below completes.
         pendingBodyRef.current = body;
         setWorkflowContent(workflowContentBase);
       }
@@ -359,25 +352,18 @@ const CreateEventPage = () => {
     {workflowContent && (
       <WorkflowSubmitModal
         isOpen={workflowModalOpen}
-        onClose={() => {
-          setWorkflowModalOpen(false);
-          if (isSuperAdmin) push(`/admin/events`);
-        }}
-        isDismissable={isSuperAdmin}
+        onClose={() => setWorkflowModalOpen(false)}
+        isSuperAdmin={isSuperAdmin}
         contentId={workflowContent.contentId}
         contentTitle={workflowContent.contentTitle}
         requestType={workflowContent.requestType}
         departmentId={workflowContent.departmentId}
-        onCreate={
-          isSuperAdmin
-            ? undefined
-            : (supervisorId) => {
-                pendingBodyRef.current.set("supervisor_id", supervisorId);
-                return isEditMode
-                  ? performEdit(pendingBodyRef.current)
-                  : performCreate(pendingBodyRef.current);
-              }
-        }
+        onCreate={(supervisorId) => {
+          pendingBodyRef.current.set("supervisor_id", supervisorId);
+          return isEditMode
+            ? performEdit(pendingBodyRef.current)
+            : performCreate(pendingBodyRef.current);
+        }}
         onSuccess={() => push(`/admin/events`)}
       />
     )}

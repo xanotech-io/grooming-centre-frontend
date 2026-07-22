@@ -132,6 +132,11 @@ const buildTableProps = ({ onAddToBank }) => ({
   options: {
     action: [
       {
+        text: "View",
+        link: (examination) =>
+          `/admin/standalone-exams/view/${examination.id}`,
+      },
+      {
         text: "Edit",
         link: (examination) =>
           `/admin/standalone-exams/overview/?examination=${examination.id}`,

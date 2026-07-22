@@ -141,6 +141,10 @@ const CreateModulePage = () => {
         courseId,
       };
 
+      // Everyone, including super admin, must submit for approval before
+      // this takes effect — hold off until the modal below completes. Super
+      // admin submissions carry a null supervisor instead of skipping the
+      // workflow.
       if (isEditMode) {
         const body = {
           title: data.title,
@@ -149,11 +153,7 @@ const CreateModulePage = () => {
           status: data.status,
         };
 
-        if (isSuperAdmin) {
-          await performEdit(body);
-        } else {
-          pendingBodyRef.current = body;
-        }
+        pendingBodyRef.current = body;
         setWorkflowContent({ ...workflowContentBase, contentId: moduleId });
       } else {
         const body = {
@@ -163,17 +163,8 @@ const CreateModulePage = () => {
           status: "inactive",
         };
 
-        if (isSuperAdmin) {
-          // Super admins create right away — the modal below only offers
-          // an optional supervisor review afterward.
-          const created = await performCreate(body);
-          setWorkflowContent({ ...workflowContentBase, contentId: created.id });
-        } else {
-          // Instructors must submit for approval before this gets created
-          // — hold off until the modal below completes.
-          pendingBodyRef.current = body;
-          setWorkflowContent(workflowContentBase);
-        }
+        pendingBodyRef.current = body;
+        setWorkflowContent(workflowContentBase);
       }
       setWorkflowModalOpen(true);
     } catch (error) {
@@ -281,22 +272,16 @@ const CreateModulePage = () => {
       {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => {
-            setWorkflowModalOpen(false);
-            if (isSuperAdmin) push(`/admin/courses/details/${courseId}/modules`);
-          }}
-          isDismissable={isSuperAdmin}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
-          onCreate={
-            isSuperAdmin
-              ? undefined
-              : (supervisorId) =>
-                  isEditMode
-                    ? performEdit({ ...pendingBodyRef.current, supervisor_id: supervisorId })
-                    : performCreate({ ...pendingBodyRef.current, supervisor_id: supervisorId })
+          onCreate={(supervisorId) =>
+            isEditMode
+              ? performEdit({ ...pendingBodyRef.current, supervisor_id: supervisorId })
+              : performCreate({ ...pendingBodyRef.current, supervisor_id: supervisorId })
           }
           onSuccess={() => push(`/admin/courses/details/${courseId}/modules`)}
         />

@@ -597,18 +597,14 @@ const ExamQuestionBankFormPage = () => {
         return;
       }
 
-      // Creation always goes through the approval modal: super admins create
-      // right away and get an optional supervisor review afterward, everyone
-      // else must assign a supervisor before the question is created at all.
+      // Creation always goes through the approval modal — everyone,
+      // including super admin, must assign a supervisor (or, for super
+      // admin, submit with an explicit null) before the question is
+      // created at all.
       const contentTitle = payload.question.length > 80 ? `${payload.question.slice(0, 80)}...` : payload.question;
-      if (isSuperAdmin) {
-        const created = await performCreate(payload);
-        toast({ title: "Question added to bank", status: "success", duration: 3000, isClosable: true });
-        setWorkflowContent({ contentId: created.id, contentTitle, requestType: "ExamQuestionBankItem" });
-      } else {
-        pendingPayloadRef.current = payload;
-        setWorkflowContent({ contentTitle, requestType: "ExamQuestionBankItem" });
-      }
+      const requestType = moduleId ? "Module" : "CourseAssessment";
+      pendingPayloadRef.current = payload;
+      setWorkflowContent({ contentTitle, requestType });
       setWorkflowModalOpen(true);
     } catch (err) {
       console.error("[ExamQuestionBankFormPage] failed to save question", payload, err?.response?.data ?? err);
@@ -932,22 +928,17 @@ const ExamQuestionBankFormPage = () => {
       {!isEdit && workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
-          onClose={() => {
-            setWorkflowModalOpen(false);
-            if (isSuperAdmin) goToCreatedQuestion();
-          }}
-          isDismissable={isSuperAdmin}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
           contentId={workflowContent.contentId}
           contentTitle={workflowContent.contentTitle}
           requestType={workflowContent.requestType}
           onCreate={
-            isSuperAdmin
-              ? undefined
-              : // The exam-question-bank create endpoint rejects unknown fields —
-                // it has no supervisor_id column, unlike assessment/poll/project.
-                // The supervisor link is recorded separately by the workflow
-                // submission call this modal makes right after onCreate resolves.
-                () => performCreate(pendingPayloadRef.current)
+            // The exam-question-bank create endpoint rejects unknown fields —
+            // it has no supervisor_id column, unlike assessment/poll/project.
+            // The supervisor link is recorded separately by the workflow
+            // submission call this modal makes right after onCreate resolves.
+            () => performCreate(pendingPayloadRef.current)
           }
           onSuccess={goToCreatedQuestion}
         />
