@@ -11,6 +11,7 @@ import {
 import useAssessmentPreview from "../../../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import { utils, writeFile } from "xlsx";
 import { FaArrowLeft } from "react-icons/fa";
+import useAssessmentStore from "../../../../../store/assessmentStore";
 
 const StandAloneHeader = () => {
   const { id } = useParams();
@@ -31,6 +32,9 @@ const StandAloneHeader = () => {
   const [isPublished, setisPublished] = useState(assessment?.isPublished);
   const { push } = useHistory();
   const location = useLocation();
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const openBankPicker = useAssessmentStore((s) => s.openBankPicker);
 
   useEffect(() => {
     setisPublished(assessment?.isPublished);
@@ -143,7 +147,11 @@ const StandAloneHeader = () => {
         <Flex gap="10px">
           <Button
             secondary
-            onClick={() => push("/admin/exam-question-bank")}
+            onClick={
+              isActive("questions") && (pendingCreate || pendingEdit)
+                ? openBankPicker
+                : () => push("/admin/exam-question-bank")
+            }
           >
             Question Bank
           </Button>

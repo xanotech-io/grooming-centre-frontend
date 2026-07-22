@@ -22,10 +22,10 @@ import { Button } from "../../../components";
 import { adminGetCourseListing, adminListModules } from "../../../services";
 import useAssessmentStore from "../../../store/assessmentStore";
 
-const UseBankQuestionModal = ({ isOpen, onClose, questionId, initialCourseId = "" }) => {
+const UseBankQuestionModal = ({ isOpen, onClose, questionIds = [], initialCourseId = "", onContinue }) => {
   const toast = useToast();
   const history = useHistory();
-  const setFromBankQuestionId = useAssessmentStore((s) => s.setFromBankQuestionId);
+  const setFromBankQuestionIds = useAssessmentStore((s) => s.setFromBankQuestionIds);
 
   const [targetType, setTargetType] = useState("assessment");
   const [courses, setCourses] = useState([]);
@@ -48,8 +48,8 @@ const UseBankQuestionModal = ({ isOpen, onClose, questionId, initialCourseId = "
       .catch(() => setCourses([]));
   }, [isOpen]);
 
-  // Course Exam always lives under a module — the richer create-exam page
-  // (sections/navigation/UI settings) requires one in its route.
+  // Course Exam always lives under a module — its create/edit page requires
+  // one in its route.
   useEffect(() => {
     if (!courseId || targetType !== "examination") {
       setModules([]);
@@ -73,7 +73,8 @@ const UseBankQuestionModal = ({ isOpen, onClose, questionId, initialCourseId = "
       return;
     }
 
-    setFromBankQuestionId(questionId);
+    setFromBankQuestionIds(questionIds);
+    onContinue?.();
 
     if (targetType === "standalone") {
       history.push("/admin/standalone-exams/overview");
@@ -85,12 +86,14 @@ const UseBankQuestionModal = ({ isOpen, onClose, questionId, initialCourseId = "
     onClose();
   };
 
+  const count = questionIds.length;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <ModalOverlay />
       <ModalContent>
         <ModalHeader fontSize="16px" fontWeight="600">
-          Use This Question In A New Exam
+          Use {count > 1 ? `These ${count} Questions` : "This Question"} In A New Exam
         </ModalHeader>
         <ModalCloseButton />
         <ModalBody>
@@ -162,8 +165,8 @@ const UseBankQuestionModal = ({ isOpen, onClose, questionId, initialCourseId = "
 
             <Box bg="#EBF4FF" borderRadius="6px" p="10px">
               <Text fontSize="12px" color="#2B6CB0">
-                You'll fill in the exam's details next, then this question will already be loaded into the first
-                question form — review and edit it there before creating.
+                You'll fill in the exam's details next, then {count > 1 ? "these questions will" : "this question will"}{" "}
+                already be loaded into the question step — review and edit before submitting for approval.
               </Text>
             </Box>
           </Flex>

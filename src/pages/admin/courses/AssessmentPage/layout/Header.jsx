@@ -5,6 +5,7 @@ import { useParams } from "react-router";
 import { Breadcrumb, Button, Link, Text } from "../../../../../components";
 import { useQueryParams, useGoBack } from "../../../../../hooks";
 import colors from "../../../../../theme/colors";
+import useAssessmentStore from "../../../../../store/assessmentStore";
 
 const buildQuery = (examinationId, moduleId) => {
   const params = new URLSearchParams();
@@ -50,6 +51,9 @@ const links = [
 const Header = () => {
   const { id: courseId, assessmentId } = useParams();
   const handleCancel = useGoBack();
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const openBankPicker = useAssessmentStore((s) => s.openBankPicker);
 
   const queryParams = useQueryParams();
   const examinationId = queryParams.get("examination");
@@ -178,13 +182,15 @@ const Header = () => {
           <Flex justifyContent="end" gap={2}>
             <Button
               secondary
-              link={
-                isStandaloneExamination
-                  ? "/admin/exam-question-bank"
-                  : `/admin/exam-question-bank?courseId=${courseId}${
-                      moduleId ? `&moduleId=${moduleId}` : ""
-                    }`
-              }
+              {...(isActiveLink("questions") && (pendingCreate || pendingEdit)
+                ? { onClick: openBankPicker }
+                : {
+                    link: isStandaloneExamination
+                      ? "/admin/exam-question-bank"
+                      : `/admin/exam-question-bank?courseId=${courseId}${
+                          moduleId ? `&moduleId=${moduleId}` : ""
+                        }`,
+                  })}
             >
               Question Bank
             </Button>

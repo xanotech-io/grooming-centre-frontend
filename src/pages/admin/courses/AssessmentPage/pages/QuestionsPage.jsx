@@ -67,6 +67,7 @@ import {
   updateExaminationById as updateExamPaperConfig,
 } from "../../../../../services";
 import { buildBatchUploadLink } from "../../../examQuestionImport/questionRowUtils";
+import SelectBankQuestionsModal from "../../../examQuestionBank/SelectBankQuestionsModal";
 import {
   appendFormData,
   capitalizeFirstLetter,
@@ -664,7 +665,9 @@ const CreateQuestionPage = ({
   const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
   const clearPendingEdit = useAssessmentStore((s) => s.clearPendingEdit);
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
-  const fromBankQuestionId = pendingCreate?.fromBankQuestionId;
+  const fromBankQuestionIds = pendingCreate?.fromBankQuestionIds;
+  const isBankPickerOpen = useAssessmentStore((s) => s.isBankPickerOpen);
+  const closeBankPicker = useAssessmentStore((s) => s.closeBankPicker);
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [createdSuccess, setCreatedSuccess] = useState(null);
 
@@ -942,27 +945,136 @@ const CreateQuestionPage = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bankApplyKey]);
 
+  // ── Queue Question Bank items directly into pendingCreate/pendingEdit —
+  // used both by the plural fromBankQuestionIds hand-off below and by the
+  // "Question Bank" multi-select modal opened mid-creation. Mirrors the
+  // create-mode `data` shape onSubmit builds further down, sourced from a
+  // bank question's fields instead of the live form.
+  const buildQueuedItemFromBankQuestion = (bankQuestion) => {
+    const mappedType = BANK_TYPE_TO_FORM_TYPE[bankQuestion.questionType] || "Essay";
+
+    if (allowedQuestionTypes && !allowedQuestionTypes.includes(mappedType)) {
+      toast({
+        description: `Skipped "${bankQuestion.question}" — section "${selectedSectionId}" only accepts ${allowedQuestionTypes.join(" / ")} questions.`,
+        position: "top",
+        status: "warning",
+      });
+      return null;
+    }
+
+    const isObjective = mappedType === "MCQ" || mappedType === "TrueFalse";
+    const optionKey = isStandaloneExamination ? "option" : "name";
+    const options = isObjective
+      ? mappedType === "TrueFalse"
+        ? ["True", "False"].map((label, idx) => ({
+            [optionKey]: label,
+            isAnswer: bankQuestion.correctAnswer === label,
+            optionIndex: idx + 1,
+          }))
+        : (bankQuestion.options || []).map((o, idx) => ({
+            [optionKey]: o.text,
+            isAnswer: !!o.isCorrect,
+            optionIndex: idx + 1,
+          }))
+      : [];
+
+    const effectiveMarks = sectionMarks != null ? sectionMarks : Number(bankQuestion.marks) || 1;
+    const sectionTitle = selectedSectionId || undefined;
+    const bankDifficultyLevel = (bankQuestion.difficultyLevel || "Medium").toLowerCase();
+
+    const typeSpecificFields = isObjective
+      ? { options: JSON.stringify(options) }
+      : mappedType === "FillBlank"
+        ? { correctAnswer: bankQuestion.correctAnswer || "", questionType: "FillBlank" }
+        : mappedType === "ShortAnswer"
+          ? { modelAnswer: bankQuestion.correctAnswer || "", questionType: "ShortAnswer" }
+          : { rubricDescription: bankQuestion.explanation || "", questionType: "Essay" };
+
+    let data;
+    if (isStandaloneExamination) {
+      data = {
+        standAloneExaminationId: isExamination,
+        question: bankQuestion.question,
+        ...(sectionTitle && { section: sectionTitle }),
+        markingType: "automatic",
+        ...(isObjective && { options }),
+      };
+    } else if (isExamination) {
+      data = {
+        examinationId: isExamination,
+        question: bankQuestion.question,
+        marks: effectiveMarks,
+        markingType: "automatic",
+        ...(sectionTitle && { section: sectionTitle }),
+        difficultyLevel: bankDifficultyLevel,
+        questionType: mappedType,
+        ...typeSpecificFields,
+      };
+    } else {
+      data = {
+        assessmentId,
+        question: bankQuestion.question,
+        markingType: "automatic",
+        questionType: mappedType,
+        ...(sectionTitle && { section: sectionTitle }),
+        ...(isObjective ? { options: JSON.stringify(options) } : typeSpecificFields),
+      };
+    }
+
+    return {
+      data,
+      addToBank: false,
+      bank: {
+        questionPlainText: bankQuestion.question,
+        questionType: mappedType,
+        marks: effectiveMarks,
+        difficultyLevel: bankDifficultyLevel,
+        options,
+        bankSourceFields: {
+          correctAnswer: bankQuestion.correctAnswer,
+          modelAnswer: bankQuestion.correctAnswer,
+          rubricDescription: bankQuestion.explanation,
+        },
+      },
+    };
+  };
+
+  const queueBankQuestions = (bankQuestions) => {
+    const items = bankQuestions.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    if (!items.length) return;
+
+    if (isPendingCreation) {
+      setPendingCreate({ ...pendingCreate, questions: [...(pendingCreate.questions || []), ...items] });
+    } else if (isPendingEditSubmit) {
+      setPendingEdit({ ...pendingEdit, questions: [...(pendingEdit.questions || []), ...items] });
+    }
+
+    toast({
+      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+      position: "top",
+      status: "success",
+    });
+  };
+
   // Arrived here straight from the Question Bank via "Next" on the details
-  // form — prefill this first question from the bank item the admin picked,
-  // same mapping as manually applying a bank question above.
+  // form — prefill this first question from the first bank item the admin
+  // picked (same mapping as manually applying a bank question above), and
+  // queue the rest so they show up in "Queued Questions" right away.
   const appliedFromBankRef = useRef(false);
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[QuestionsPage] bank prefill check", { isPendingCreation, fromBankQuestionId, alreadyApplied: appliedFromBankRef.current });
-    if (!isPendingCreation || !fromBankQuestionId || appliedFromBankRef.current) return;
+    if (!isPendingCreation || !fromBankQuestionIds?.length || appliedFromBankRef.current) return;
     appliedFromBankRef.current = true;
-    getExamQuestionBankItem(fromBankQuestionId)
-      .then((res) => {
-        // eslint-disable-next-line no-console
-        console.log("[QuestionsPage] fetched bank question", res);
-        applyBankQuestion(res?.data ?? res);
+    Promise.all(fromBankQuestionIds.map((id) => getExamQuestionBankItem(id).then((res) => res?.data ?? res)))
+      .then((bankQuestions) => {
+        applyBankQuestion(bankQuestions[0]);
+        if (bankQuestions.length > 1) queueBankQuestions(bankQuestions.slice(1));
       })
       .catch((err) => {
-        console.error("[QuestionsPage] failed to load bank question for prefill", fromBankQuestionId, err?.response?.data ?? err);
-        toast({ description: "Couldn't load the picked question from the bank", position: "top", status: "error" });
+        console.error("[QuestionsPage] failed to load bank questions for prefill", fromBankQuestionIds, err?.response?.data ?? err);
+        toast({ description: "Couldn't load the picked questions from the bank", position: "top", status: "error" });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPendingCreation, fromBankQuestionId]);
+  }, [isPendingCreation, fromBankQuestionIds]);
 
   useEffect(() => {
     if (question) {
@@ -2250,6 +2362,15 @@ const CreateQuestionPage = ({
           courseId={workflowContent.courseId}
           onCreate={() => pendingCreateBothRef.current()}
           onSuccess={() => finishSaving(createdParentRef.current?.id)}
+        />
+      )}
+
+      {(isPendingCreation || isPendingEditSubmit) && (
+        <SelectBankQuestionsModal
+          isOpen={isBankPickerOpen}
+          onClose={closeBankPicker}
+          onAdd={queueBankQuestions}
+          initialCourseId={courseId !== "not-set" ? courseId : ""}
         />
       )}
     </Box>

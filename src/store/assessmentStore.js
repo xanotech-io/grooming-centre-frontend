@@ -13,8 +13,13 @@ const useAssessmentStore = create((set) => ({
   pendingEdit: null,
   // Set right before navigating to a "create assessment/exam/standalone exam"
   // details page from the Question Bank, so the first question form on the
-  // other side of "Next" can prefill itself from this bank question.
-  fromBankQuestionId: null,
+  // other side of "Next" can prefill itself from these bank questions (the
+  // first one) and queue the rest.
+  fromBankQuestionIds: [],
+  // Toggled by the "Question Bank" header button while an exam/assessment is
+  // still pending creation/edit, so QuestionsPage can offer a multi-select
+  // bank picker in place instead of navigating away and losing the queue.
+  isBankPickerOpen: false,
 
   setAssessment: (assessment) =>
     set({
@@ -30,8 +35,11 @@ const useAssessmentStore = create((set) => ({
   setPendingEdit: (pendingEdit) => set({ pendingEdit }),
   clearPendingEdit: () => set({ pendingEdit: null }),
 
-  setFromBankQuestionId: (fromBankQuestionId) => set({ fromBankQuestionId }),
-  clearFromBankQuestionId: () => set({ fromBankQuestionId: null }),
+  setFromBankQuestionIds: (fromBankQuestionIds) => set({ fromBankQuestionIds }),
+  clearFromBankQuestionIds: () => set({ fromBankQuestionIds: [] }),
+
+  openBankPicker: () => set({ isBankPickerOpen: true }),
+  closeBankPicker: () => set({ isBankPickerOpen: false }),
 }));
 
 export default useAssessmentStore;
