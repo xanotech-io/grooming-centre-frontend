@@ -193,7 +193,61 @@ const QuestionsPage = () => {
   const storeSections = useAssessmentStore((s) => s.sections);
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
   const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const setAssessment = useAssessmentStore((s) => s.setAssessment);
   const handleGoBack = useGoBack();
+  const { push } = useHistory();
+  const toast = useToast();
+  const [creatingForUpload, setCreatingForUpload] = useState(false);
+
+  // The batch-upload endpoint requires a real assessment/examination UUID —
+  // it never accepts the "new" placeholder. While pending creation, clicking
+  // "Upload & Batch Import Questions" creates the parent record first (same
+  // create call `performCreateParent` uses below) and only then navigates,
+  // so the batch-upload page always receives a real id.
+  const handleBatchUploadClick = async () => {
+    if (!pendingCreate) return;
+    setCreatingForUpload(true);
+    try {
+      const { kind, body: finalBody, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
+      let realParentId;
+
+      if (kind === "ModuleExam" || kind === "Exam") {
+        const { examination } = await adminCreateExamination(finalBody);
+        if (kind === "ModuleExam") {
+          await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
+        }
+        if (parentAddToBank) setAutoAddToBank("examination", examination.id);
+        setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+        realParentId = examination.id;
+      } else if (kind === "StandaloneExam") {
+        const { examination } = await adminCreateStandaloneExamination(finalBody);
+        setAssessment(examination);
+        realParentId = examination.id;
+      } else {
+        const { assessment } = await adminCreateAssessment(finalBody);
+        setAssessment(assessment);
+        if (parentAddToBank) setAutoAddToBank("assessment", assessment.id);
+        realParentId = assessment.id;
+      }
+
+      push(
+        buildBatchUploadLink({
+          courseId,
+          assessmentId: isExamination ? undefined : realParentId,
+          examinationId: isExamination ? realParentId : undefined,
+          standalone: isStandaloneExamination,
+        }),
+      );
+    } catch (err) {
+      toast({
+        description: "Couldn't create the assessment before uploading — please try again",
+        position: "top",
+        status: "error",
+      });
+    } finally {
+      setCreatingForUpload(false);
+    }
+  };
 
   const [templateSections, setTemplateSections] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
@@ -375,9 +429,15 @@ const QuestionsPage = () => {
         </Heading>
 
         {!isQuestionListingPage && !isExistingQuestion && (
-          <Button link={batchUploadLink}>
-            Upload &amp; Batch Import Questions
-          </Button>
+          isPendingCreation ? (
+            <Button onClick={handleBatchUploadClick} disabled={creatingForUpload}>
+              {creatingForUpload ? "Creating..." : "Upload & Batch Import Questions"}
+            </Button>
+          ) : (
+            <Button link={batchUploadLink}>
+              Upload &amp; Batch Import Questions
+            </Button>
+          )
         )}
       </Flex>
 
@@ -423,12 +483,18 @@ const QuestionsPage = () => {
               <Heading fontSize="heading.h5">List Of Questions</Heading>
 
               <Link
-                href={getQuestionListingLink(
+                href={`${getQuestionListingLink(
                   courseId,
                   assessmentId,
                   isExamination,
                   moduleId,
-                )}
+                )}${
+                  isPendingCreation
+                    ? "&submitForApproval=1"
+                    : isPendingEditSubmit
+                      ? "&editSubmit=1"
+                      : ""
+                }`}
               >
                 <Text bold color="primary.base">
                   See All
@@ -454,6 +520,20 @@ const QuestionsPage = () => {
                   />
                 ),
               )}
+              {/* Not created yet — queued via "Add more questions" while the
+                  parent exam/assessment is still pending (see pendingCreate/
+                  pendingEdit `.questions`). No real id/route exists for these
+                  until the batch is saved, so they're shown but not clickable. */}
+              {(isPendingCreation ? pendingCreate?.questions : isPendingEditSubmit ? pendingEdit?.questions : null)?.map(
+                (_, index) => (
+                  <ButtonNavItem
+                    key={`queued-${index}`}
+                    number={(assessmentManager.assessment?.questions?.length || 0) + index + 1}
+                    answered
+                    disabled
+                  />
+                ),
+              )}
             </Grid>
           </Box>
         </Box>
@@ -462,7 +542,7 @@ const QuestionsPage = () => {
   );
 };
 
-const ButtonNavItem = ({ number, answered, isCurrent, link }) => {
+const ButtonNavItem = ({ number, answered, isCurrent, link, disabled }) => {
   const styleProps = answered
     ? {
         backgroundColor: "primary.base",
@@ -473,27 +553,30 @@ const ButtonNavItem = ({ number, answered, isCurrent, link }) => {
         borderColor: "primary.base",
       };
 
-  return (
-    <Link href={link}>
-      <Flex
-        flexDirection={{ base: "column", md: "column", lg: "row" }}
-        justifyContent={{ base: "flex-start", md: "flex-start", lg: "center" }}
-        boxSize="40px"
-        rounded="4px"
-        alignItems="center"
-        as="button"
-        cursor="pointer"
-        transition=".1s"
-        border={isCurrent ? "2px" : "1px"}
-        transform={isCurrent && "scale(1.05)"}
-        {...styleProps}
-      >
-        <Text bold as="level1">
-          {number}
-        </Text>
-      </Flex>
-    </Link>
+  const content = (
+    <Flex
+      flexDirection={{ base: "column", md: "column", lg: "row" }}
+      justifyContent={{ base: "flex-start", md: "flex-start", lg: "center" }}
+      boxSize="40px"
+      rounded="4px"
+      alignItems="center"
+      as={disabled ? undefined : "button"}
+      cursor={disabled ? "default" : "pointer"}
+      transition=".1s"
+      border={isCurrent ? "2px" : "1px"}
+      transform={isCurrent && "scale(1.05)"}
+      {...styleProps}
+    >
+      <Text bold as="level1">
+        {number}
+      </Text>
+    </Flex>
   );
+
+  // Queued-but-not-yet-created questions have no real id/route to link to.
+  if (disabled) return content;
+
+  return <Link href={link}>{content}</Link>;
 };
 
 const useQuestionDetails = (assessmentManager) => {
@@ -982,6 +1065,12 @@ const CreateQuestionPage = ({
   // of opening the approval modal — only the latter button should ever
   // trigger a supervisor-approval submission.
   const addAnotherRef = useRef(false);
+  // Set by the "Create and Submit" button on the plain add-question page
+  // (a new question on an already-real assessment/exam) — saves the
+  // question as normal, then opens the same approval modal used elsewhere,
+  // targeting the already-real assessment/exam as the content being
+  // submitted.
+  const submitForApprovalRef = useRef(false);
 
   // Creates the exam/assessment that "Next" deferred, using the details
   // form values held in `pendingCreate`. Called from inside the approval
@@ -1505,6 +1594,34 @@ const CreateQuestionPage = ({
         return;
       }
 
+      if (submitForApprovalRef.current) {
+        submitForApprovalRef.current = false;
+
+        const requestType = isStandaloneExamination
+          ? "StandaloneExam"
+          : isExamination
+            ? "CourseExam"
+            : "CourseAssessment";
+        const modalCourseId = courseId !== "not-set" ? courseId : undefined;
+
+        pendingCreateBothRef.current = async () => {
+          await saveQuestion();
+          await maybeAddToBank();
+          reset();
+          assessmentManager.handleFetch(true);
+          return { id: assessmentId, title: assessmentManager.assessment?.topic };
+        };
+        createdParentRef.current = { id: assessmentId };
+        setWorkflowContent({
+          contentId: assessmentId,
+          contentTitle: assessmentManager.assessment?.topic,
+          requestType,
+          courseId: modalCourseId,
+        });
+        setWorkflowModalOpen(true);
+        return;
+      }
+
       const response = await saveQuestion();
       const message = response?.message || "Question saved successfully";
       await maybeAddToBank();
@@ -1896,7 +2013,7 @@ const CreateQuestionPage = ({
                   id={`option-${i + 1}`}
                   label={label}
                   value={label}
-                  disabled
+                  readOnly
                   {...register(`option-${i + 1}`)}
                 />
               </Flex>
@@ -2065,6 +2182,7 @@ const CreateQuestionPage = ({
           type="submit"
           onClick={() => {
             addAnotherRef.current = false;
+            submitForApprovalRef.current = false;
           }}
           disabled={isLoading || isSubmitting || error}
           isLoading={isLoading || isSubmitting}
@@ -2079,6 +2197,20 @@ const CreateQuestionPage = ({
                   ? "Update and Submit"
                   : "Add Question"}
         </Button>
+        {!isExistingQuestion && !isEditMode && !isPendingCreation && !isPendingEditSubmit && (
+          <Button
+            type="submit"
+            ghost
+            onClick={() => {
+              addAnotherRef.current = false;
+              submitForApprovalRef.current = true;
+            }}
+            disabled={isLoading || isSubmitting || error}
+            isLoading={isLoading || isSubmitting}
+          >
+            Create and Submit
+          </Button>
+        )}
         {(isPendingCreation || isPendingEditSubmit) && (
           <Button
             type="submit"
@@ -2102,12 +2234,12 @@ const CreateQuestionPage = ({
               isExamination,
             )}
           >
-            Add Question
+            Create and Submit
           </Button>
         )}
       </Flex>
 
-      {(isPendingCreation || isPendingEditSubmit) && workflowContent && (
+      {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
           onClose={() => setWorkflowModalOpen(false)}
@@ -2257,6 +2389,19 @@ const QuestionListingPage = ({
       : false;
   const toast = useToast();
 
+  // Same pending-creation/pending-edit-submit deferral as QuestionsPage/
+  // CreateQuestionPage — while the parent exam/assessment doesn't exist yet
+  // (or its edit is held back), questions queued via "Add more questions"
+  // only live in the store, not in a fetched `assessment.questions`.
+  const submitForApproval = useQueryParams().get("submitForApproval") === "1";
+  const editSubmit = useQueryParams().get("editSubmit") === "1";
+  const isPendingCreation = submitForApproval;
+  const isPendingEditSubmit = !submitForApproval && editSubmit;
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const queuedQuestions =
+    (isPendingCreation ? pendingCreate?.questions : isPendingEditSubmit ? pendingEdit?.questions : null) || [];
+
   const questions = Array.isArray(assessment?.questions)
     ? assessment.questions
     : [];
@@ -2287,7 +2432,7 @@ const QuestionListingPage = ({
   const [savingSections, setSavingSections] = useState(false);
   const [reassigningId, setReassigningId] = useState(null);
 
-  const questionsIsEmpty = !isLoading && !error && !questions.length;
+  const questionsIsEmpty = !isLoading && !error && !questions.length && !queuedQuestions.length;
 
   const buildAddLink = (sectionName) => {
     const base = `/admin/courses/${courseId}/assessment/${assessmentId}/questions/new`;
@@ -2603,6 +2748,42 @@ const QuestionListingPage = ({
           <Box paddingTop={4}>
             <Button link={buildAddLink(null)}>Add more questions</Button>
           </Box>
+        </Box>
+      )}
+
+      {/* ── Queued questions — added via "Add more questions" but not yet
+          created. No real id/section/route exists for these until the whole
+          batch is saved on submit, so they're read-only here. ── */}
+      {queuedQuestions.length > 0 && (
+        <Box marginBottom={8}>
+          <Flex
+            alignItems="center"
+            mb={4}
+            pb={2}
+            borderBottom="1px"
+            borderColor="gray.300"
+          >
+            <Heading fontSize="heading.h5" color="gray.500">
+              Queued Questions (not yet created)
+            </Heading>
+          </Flex>
+
+          {queuedQuestions.map((q, index) => (
+            <Box
+              key={`queued-${index}`}
+              marginBottom={4}
+              padding={4}
+              backgroundColor="gray.50"
+              borderRadius="md"
+            >
+              <Text bold mb={1}>
+                {questions.length + index + 1}. {capitalizeWords(q.bank?.questionType || "")}
+              </Text>
+              <Text color="gray.600">
+                {q.bank?.questionPlainText || "(no preview available)"}
+              </Text>
+            </Box>
+          ))}
         </Box>
       )}
 
