@@ -247,7 +247,7 @@ const QuestionsStandalone = () => {
               : "Update Standalone Question"}
         </Heading>
 
-        {!isQuestionListingPage && !isExistingQuestion && (
+        {!isQuestionListingPage && !isExistingQuestion && !isPendingCreation && (
           <Button link={batchUploadLink}>
             Upload &amp; Batch Import Questions
           </Button>
@@ -426,6 +426,7 @@ const CreateQuestionPage = ({
   const [createdSuccess, setCreatedSuccess] = useState(null);
   const pendingCreateBothRef = useRef(null);
   const createdParentRef = useRef(null);
+  const addAnotherRef = useRef(false);
 
   // How many questions this exam was configured for — read from the
   // not-yet-created details form while pending, or the real record once
@@ -1425,6 +1426,9 @@ const CreateQuestionPage = ({
         )}
         <Button
           type="submit"
+          onClick={() => {
+            addAnotherRef.current = false;
+          }}
           disabled={isLoading || isSubmitting || error}
           isLoading={isLoading || isSubmitting}
           leftIcon={isExistingQuestion && !isEditMode ? <FaTrash /> : null}
@@ -1439,6 +1443,19 @@ const CreateQuestionPage = ({
                   ? "Update and Submit"
                   : "Add Question"}
         </Button>
+        {(isPendingCreation || isPendingEditSubmit) && (
+          <Button
+            type="submit"
+            ghost
+            onClick={() => {
+              addAnotherRef.current = true;
+            }}
+            disabled={isLoading || isSubmitting || error}
+            isLoading={isLoading || isSubmitting}
+          >
+            Add more questions
+          </Button>
+        )}
         {isEditMode && (
           <Button ghost link={`/admin/standalone-exams/questions/?examination=${isExamination}`}>
             Add Question
@@ -1456,11 +1473,15 @@ const CreateQuestionPage = ({
           requestType={workflowContent.requestType}
           onCreate={() => pendingCreateBothRef.current()}
           onSuccess={() => {
-            if (isPendingEditSubmit) {
+            const realParentId = createdParentRef.current?.id;
+            if (addAnotherRef.current) {
+              addAnotherRef.current = false;
+              goToAddAnotherQuestion(realParentId);
+            } else if (isPendingEditSubmit) {
               clearPendingEdit();
               push(pendingEdit.nextRoute);
             } else {
-              finishSaving(createdParentRef.current?.id);
+              finishSaving(realParentId);
             }
           }}
         />

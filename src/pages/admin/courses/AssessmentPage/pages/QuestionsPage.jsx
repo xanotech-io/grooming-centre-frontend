@@ -374,7 +374,7 @@ const QuestionsPage = () => {
           {" Question"}
         </Heading>
 
-        {!isQuestionListingPage && !isExistingQuestion && (
+        {!isQuestionListingPage && !isExistingQuestion && !isPendingCreation && (
           <Button link={batchUploadLink}>
             Upload &amp; Batch Import Questions
           </Button>
@@ -1973,7 +1973,7 @@ const CreateQuestionPage = ({
                   ? "Update and Submit"
                   : "Add Question"}
         </Button>
-        {isPendingEditSubmit && (
+        {(isPendingCreation || isPendingEditSubmit) && (
           <Button
             type="submit"
             ghost
