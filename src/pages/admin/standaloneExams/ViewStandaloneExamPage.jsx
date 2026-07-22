@@ -7,7 +7,7 @@ import {
   adminGetStandaloneExamById,
   getSAExamGradingSummary,
 } from "../../../services";
-import { getDuration } from "../../../utils";
+import { getDuration, isSubmissionGraded, submissionStatusLabel } from "../../../utils";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { FiEdit } from "react-icons/fi";
@@ -151,12 +151,10 @@ const SubmissionStatCard = ({ label, value }) => (
   </Box>
 );
 
-const submissionStatusColor = (s) => {
-  const v = (s || "").toLowerCase();
-  if (v === "graded") return { bg: "#E6F4EA", color: "#38A169" };
-  if (v === "pending") return { bg: "#FFF3CD", color: "#B7791F" };
-  return { bg: "#F7FAFC", color: "#718096" };
-};
+const submissionStatusColor = (s) =>
+  isSubmissionGraded(s)
+    ? { bg: "#E6F4EA", color: "#38A169" }
+    : { bg: "#FFF3CD", color: "#B7791F" };
 
 const submissionPassFailColor = (v) => {
   if (v === "Pass") return { bg: "#E6F4EA", color: "#38A169" };
@@ -217,7 +215,7 @@ const SubmissionsTab = ({ examId }) => {
       {overview && (
         <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4, 1fr)" }} gap={4} pt={5} mb={6}>
           <SubmissionStatCard label="Total Submissions" value={overview.totalSubmissions ?? 0} />
-          <SubmissionStatCard label="Pending" value={overview.totalPending ?? 0} />
+          <SubmissionStatCard label="Manual Marking Required" value={overview.totalPending ?? 0} />
           <SubmissionStatCard label="Graded" value={overview.totalGraded ?? 0} />
           <SubmissionStatCard
             label="Avg Grading Time"
@@ -247,7 +245,7 @@ const SubmissionsTab = ({ examId }) => {
               w="130px"
             >
               <option value="">All</option>
-              <option value="pending">Pending</option>
+              <option value="pending">Manual Marking Required</option>
               <option value="graded">Graded</option>
             </Select>
           </Box>
@@ -339,8 +337,8 @@ const SubmissionsTab = ({ examId }) => {
                       {row.submissionDate ? dayjs(row.submissionDate).format("DD/MM/YY h:mm a") : "—"}
                     </Box>
                     <Box as="td" py="14px" px={4}>
-                      <Badge bg={sc.bg} color={sc.color} px={2} py="2px" borderRadius="8px" fontSize="11px" fontWeight="600" textTransform="capitalize">
-                        {row.status || "—"}
+                      <Badge bg={sc.bg} color={sc.color} px={2} py="2px" borderRadius="8px" fontSize="11px" fontWeight="600">
+                        {row.status ? submissionStatusLabel(row.status) : "—"}
                       </Badge>
                     </Box>
                     <Box as="td" py="14px" px={4} fontSize="13px" color="gray.600">{row.score ?? "—"}</Box>

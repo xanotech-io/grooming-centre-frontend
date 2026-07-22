@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
@@ -25,7 +25,7 @@ import {
 import { FaArrowLeft, FaPlus } from "react-icons/fa";
 import { Breadcrumb, Button, Heading, Input, Link, Select } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { adminCreateMarkingTemplate } from "../../../services";
+import { adminCreateMarkingTemplate, listMarkingSchemes, getMarkingScheme } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
 
 const ALL_QUESTION_TYPES = ["MCQ", "TrueFalse", "FillBlank", "Matching", "ShortAnswer", "Essay"];
@@ -54,7 +54,37 @@ const SECTION_TYPE_OPTIONS = [
   { label: "Mixed", value: "mixed" },
 ];
 
-const defaultSection = () => ({ name: "", type: "objective", questionCount: 1, marksPerQuestion: 1 });
+const MARKING_TYPE_LOCK_OPTIONS = [
+  { label: "Automatic", value: "automatic" },
+  { label: "Manual", value: "manual" },
+  { label: "Hybrid", value: "hybrid" },
+];
+
+const defaultSection = () => ({
+  name: "",
+  type: "objective",
+  questionCount: 1,
+  marksPerQuestion: 1,
+  markingSchemeId: "",
+  questionTypeLock: "",
+  markingTypeLock: "",
+});
+
+const OBJECTIVE_RULE_TYPES = ["mcq", "true_false", "fill_in_the_blank"];
+
+// A section's per-question weightage is sourced from its linked Marking Scheme's
+// question-type rule (essay sections use the rule's total_marks) rather than typed
+// in manually, once a scheme is selected.
+const getSchemeWeightage = (scheme, sectionType) => {
+  if (!scheme) return null;
+  const rules = Array.isArray(scheme.questionTypeRules) ? scheme.questionTypeRules : [];
+  if (sectionType === "essay") {
+    const rule = rules.find((r) => r.type === "essay");
+    return rule?.total_marks ?? null;
+  }
+  const rule = rules.find((r) => OBJECTIVE_RULE_TYPES.includes(r.type));
+  return rule?.marks_per_question ?? null;
+};
 
 const defaultTypeConfig = () => ({
   quantity: 5,
@@ -76,11 +106,41 @@ export const CreateExamTemplatePage = () => {
   const [retryPolicy, setRetryPolicy] = useState("highest");
   const [sections, setSections] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [markingSchemes, setMarkingSchemes] = useState([]);
+  const [schemeDetailsById, setSchemeDetailsById] = useState({});
+
+  useEffect(() => {
+    listMarkingSchemes({})
+      .then((res) => setMarkingSchemes(res?.data || res?.schemes || []))
+      .catch(() => setMarkingSchemes([]));
+  }, []);
 
   const addSection = () => setSections((p) => [...p, defaultSection()]);
   const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
   const updateSection = (i, field, value) =>
     setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
+
+  const handleSectionSchemeChange = async (i, schemeId) => {
+    updateSection(i, "markingSchemeId", schemeId);
+    if (!schemeId) return;
+
+    let scheme = schemeDetailsById[schemeId];
+    if (!scheme) {
+      try {
+        const res = await getMarkingScheme(schemeId);
+        scheme = res?.data || res?.scheme || res;
+        setSchemeDetailsById((prev) => ({ ...prev, [schemeId]: scheme }));
+      } catch {
+        return;
+      }
+    }
+
+    const sectionType = sections[i]?.type;
+    const weightage = getSchemeWeightage(scheme, sectionType);
+    if (weightage != null) {
+      updateSection(i, "marksPerQuestion", weightage);
+    }
+  };
 
   const handleTypeToggle = (types) => {
     setSelectedTypes(types);
@@ -162,6 +222,9 @@ export const CreateExamTemplatePage = () => {
           type: s.type,
           questionCount: Number(s.questionCount),
           marksPerQuestion: Number(s.marksPerQuestion),
+          ...(s.markingSchemeId && { markingSchemeId: s.markingSchemeId }),
+          ...(s.questionTypeLock && { questionType: s.questionTypeLock }),
+          ...(s.markingTypeLock && { markingType: s.markingTypeLock }),
         })),
       }),
     };
@@ -350,65 +413,111 @@ export const CreateExamTemplatePage = () => {
               </Box>
             ) : (
               <>
-                <Grid templateColumns="2fr 1fr 1fr 1fr auto" gap="10px" mb="8px">
-                  {["NAME", "TYPE", "QUESTIONS", "MARKS/Q", ""].map((h) => (
+                <Grid templateColumns="1.6fr 1fr 1.4fr 1fr 1fr auto" gap="10px" mb="8px">
+                  {["NAME", "TYPE", "MARKING SCHEME", "QUESTIONS", "MARKS/Q", ""].map((h) => (
                     <Text key={h} fontSize="11px" fontWeight="600" color="#718096">{h}</Text>
                   ))}
                 </Grid>
                 {sections.map((s, i) => (
-                  <Grid key={i} templateColumns="2fr 1fr 1fr 1fr auto" gap="10px" mb="10px" alignItems="center">
-                    <input
-                      value={s.name}
-                      onChange={(e) => updateSection(i, "name", e.target.value)}
-                      placeholder="e.g. Section A"
-                      style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 10px", fontSize: 13, width: "100%" }}
-                    />
-                    <select
-                      value={s.type}
-                      onChange={(e) => updateSection(i, "type", e.target.value)}
-                      style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 6px", fontSize: 13, width: "100%" }}
-                    >
-                      {SECTION_TYPE_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                    <NumberInput
-                      min={1}
-                      value={s.questionCount}
-                      onChange={(v) => updateSection(i, "questionCount", v)}
-                    >
-                      <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
-                      <NumberInputStepper>
-                        <NumberIncrementStepper />
-                        <NumberDecrementStepper />
-                      </NumberInputStepper>
-                    </NumberInput>
-                    <NumberInput
-                      min={0}
-                      value={s.marksPerQuestion}
-                      onChange={(v) => updateSection(i, "marksPerQuestion", v)}
-                    >
-                      <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
-                      <NumberInputStepper>
-                        <NumberIncrementStepper />
-                        <NumberDecrementStepper />
-                      </NumberInputStepper>
-                    </NumberInput>
-                    <Box
-                      as="button"
-                      type="button"
-                      onClick={() => removeSection(i)}
-                      color="red.400"
-                      fontWeight="600"
-                      fontSize="18px"
-                      lineHeight="1"
-                      px={1}
-                      _hover={{ color: "red.600" }}
-                    >
-                      ×
-                    </Box>
-                  </Grid>
+                  <Box key={i} border="1px solid #EDF2F7" borderRadius="8px" p="10px" mb="10px">
+                    <Grid templateColumns="1.6fr 1fr 1.4fr 1fr 1fr auto" gap="10px" alignItems="center" mb="8px">
+                      <input
+                        value={s.name}
+                        onChange={(e) => updateSection(i, "name", e.target.value)}
+                        placeholder="e.g. Section A"
+                        style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 10px", fontSize: 13, width: "100%" }}
+                      />
+                      <select
+                        value={s.type}
+                        onChange={(e) => updateSection(i, "type", e.target.value)}
+                        style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 6px", fontSize: 13, width: "100%" }}
+                      >
+                        {SECTION_TYPE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={s.markingSchemeId}
+                        onChange={(e) => handleSectionSchemeChange(i, e.target.value)}
+                        style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 6px", fontSize: 13, width: "100%" }}
+                      >
+                        <option value="">No scheme</option>
+                        {markingSchemes.map((scheme) => (
+                          <option key={scheme._id || scheme.id} value={scheme._id || scheme.id}>
+                            {scheme.name}
+                          </option>
+                        ))}
+                      </select>
+                      <NumberInput
+                        min={1}
+                        value={s.questionCount}
+                        onChange={(v) => updateSection(i, "questionCount", v)}
+                      >
+                        <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                      <NumberInput
+                        min={0}
+                        value={s.marksPerQuestion}
+                        onChange={(v) => updateSection(i, "marksPerQuestion", v)}
+                      >
+                        <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                      <Box
+                        as="button"
+                        type="button"
+                        onClick={() => removeSection(i)}
+                        color="red.400"
+                        fontWeight="600"
+                        fontSize="18px"
+                        lineHeight="1"
+                        px={1}
+                        _hover={{ color: "red.600" }}
+                      >
+                        ×
+                      </Box>
+                    </Grid>
+
+                    <Grid templateColumns="1fr 1fr" gap="10px" alignItems="center">
+                      <Box>
+                        <Text fontSize="10px" color="#A0AEC0" mb="2px">Lock Question Type (optional)</Text>
+                        <select
+                          value={s.questionTypeLock}
+                          onChange={(e) => updateSection(i, "questionTypeLock", e.target.value)}
+                          style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "6px", fontSize: 12, width: "100%" }}
+                        >
+                          <option value="">No lock</option>
+                          {ALL_QUESTION_TYPES.map((t) => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                      </Box>
+                      <Box>
+                        <Text fontSize="10px" color="#A0AEC0" mb="2px">Lock Marking Type (optional)</Text>
+                        <select
+                          value={s.markingTypeLock}
+                          onChange={(e) => updateSection(i, "markingTypeLock", e.target.value)}
+                          style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "6px", fontSize: 12, width: "100%" }}
+                        >
+                          <option value="">No lock</option>
+                          {MARKING_TYPE_LOCK_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </Box>
+                    </Grid>
+                  </Box>
                 ))}
+                <Text fontSize="11px" color="#A0AEC0" mt="2px">
+                  Selecting a marking scheme fills Marks/Q from that scheme's overall score for the section's question type — override if needed.
+                </Text>
               </>
             )}
           </Box>
