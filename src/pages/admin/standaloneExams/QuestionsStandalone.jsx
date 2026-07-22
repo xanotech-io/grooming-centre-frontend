@@ -63,6 +63,7 @@ import {
   updateExaminationById as updateExamPaperConfig,
 } from "../../../services";
 import { buildBatchUploadLink } from "../examQuestionImport/questionRowUtils";
+import SelectBankQuestionsModal from "../examQuestionBank/SelectBankQuestionsModal";
 import {
   capitalizeFirstLetter,
   capitalizeWords,
@@ -453,10 +454,14 @@ const CreateQuestionPage = ({
   // the approval modal gates).
   const isPendingEditSubmit = editSubmit && !isExistingQuestion && !isEditMode;
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
   const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
   const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
   const clearPendingEdit = useAssessmentStore((s) => s.clearPendingEdit);
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
+  const isBankPickerOpen = useAssessmentStore((s) => s.isBankPickerOpen);
+  const closeBankPicker = useAssessmentStore((s) => s.closeBankPicker);
   const fromBankQuestionIds = pendingCreate?.fromBankQuestionIds;
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
@@ -661,6 +666,68 @@ const CreateQuestionPage = ({
   // Arrived here straight from the Question Bank via "Next" on the details
   // form — prefill this first question from the bank item the admin picked,
   // same mapping as manually applying a bank question above.
+  // ── Queue Question Bank items directly into pendingCreate/pendingEdit —
+  // used both by the plural fromBankQuestionIds hand-off below and by the
+  // "Question Bank" multi-select modal opened mid-creation.
+  const buildQueuedItemFromBankQuestion = (bankQuestion) => {
+    const mappedType = BANK_TYPE_TO_FORM_TYPE[bankQuestion.questionType];
+    if (!mappedType) {
+      toast({
+        description: `Skipped "${bankQuestion.question}" — this question type isn't supported here.`,
+        position: "top",
+        status: "warning",
+      });
+      return null;
+    }
+
+    const isObjective = mappedType === "MCQ" || mappedType === "TrueFalse";
+    const options = isObjective
+      ? mappedType === "TrueFalse"
+        ? ["True", "False"].map((label, idx) => ({
+            option: label,
+            isAnswer: bankQuestion.correctAnswer === label,
+            optionIndex: idx + 1,
+          }))
+        : (bankQuestion.options || []).map((o, idx) => ({
+            option: o.text,
+            isAnswer: !!o.isCorrect,
+            optionIndex: idx + 1,
+          }))
+      : [];
+
+    const sectionTitle = selectedSectionId || undefined;
+    const typeSpecificFields = isObjective
+      ? { options }
+      : { questionType: "FillBlank", correctAnswer: bankQuestion.correctAnswer || "" };
+
+    const data = {
+      standAloneExaminationId: isExamination,
+      question: bankQuestion.question,
+      ...(sectionTitle && { section: sectionTitle }),
+      markingType: "automatic",
+      ...typeSpecificFields,
+    };
+
+    return { data };
+  };
+
+  const queueBankQuestions = (bankQuestions) => {
+    const items = bankQuestions.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    if (!items.length) return;
+
+    if (isPendingCreation) {
+      setPendingCreate({ ...pendingCreate, questions: [...(pendingCreate.questions || []), ...items] });
+    } else if (isPendingEditSubmit) {
+      setPendingEdit({ ...pendingEdit, questions: [...(pendingEdit.questions || []), ...items] });
+    }
+
+    toast({
+      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+      position: "top",
+      status: "success",
+    });
+  };
+
   const appliedFromBankRef = useRef(false);
   useEffect(() => {
     if (!isPendingCreation || !fromBankQuestionIds?.length || appliedFromBankRef.current) return;
@@ -668,18 +735,7 @@ const CreateQuestionPage = ({
     Promise.all(fromBankQuestionIds.map((id) => getExamQuestionBankItem(id).then((res) => res?.data ?? res)))
       .then((bankQuestions) => {
         applyBankQuestion(bankQuestions[0]);
-        // Standalone exams don't yet queue multiple not-yet-created questions
-        // (unlike course exams/assessments) — only the first picked question
-        // can be preloaded here; the rest have to be added individually once
-        // this exam exists.
-        if (bankQuestions.length > 1) {
-          toast({
-            description: `Only the first question was preloaded. Add the other ${bankQuestions.length - 1} from the bank individually after this exam is created.`,
-            position: "top",
-            status: "info",
-            duration: 6000,
-          });
-        }
+        if (bankQuestions.length > 1) queueBankQuestions(bankQuestions.slice(1));
       })
       .catch((err) => {
         console.error("[QuestionsStandalone] failed to load bank questions for prefill", fromBankQuestionIds, err?.response?.data ?? err);
@@ -858,7 +914,10 @@ const CreateQuestionPage = ({
             : {};
 
       // ── Build payload ──
-      const saveQuestion = async (realParentId) => {
+      // `overrideData` lets a question queued earlier (e.g. from the
+      // multi-select Question Bank picker) be saved here instead of this
+      // render's own form data.
+      const saveQuestion = async (realParentId, overrideData) => {
         if (isEditMode) {
           const body = {
             questionId,
@@ -869,13 +928,14 @@ const CreateQuestionPage = ({
           };
           return adminEditStandaloneExaminationQuestion(body);
         }
-        const baseBody = {
-          standAloneExaminationId: isExamination,
-          question: questionPlainText,
-          ...(sectionTitle && { section: sectionTitle }),
-          markingType,
-          ...typeSpecificFields,
-        };
+        const baseBody =
+          overrideData || {
+            standAloneExaminationId: isExamination,
+            question: questionPlainText,
+            ...(sectionTitle && { section: sectionTitle }),
+            markingType,
+            ...typeSpecificFields,
+          };
         const body = isPendingCreation ? withRealParentId(baseBody, realParentId) : baseBody;
         return adminCreateStandaloneExaminationQuestion(body);
       };
@@ -888,6 +948,11 @@ const CreateQuestionPage = ({
         const createBoth = async () => {
           const parent = await performCreateParent();
           createdParentRef.current = parent;
+          // Questions queued via the Question Bank picker while this exam
+          // was still pending — created alongside the one on this form.
+          for (const queued of pendingCreate.questions || []) {
+            await saveQuestion(parent.id, queued.data);
+          }
           await saveQuestion(parent.id);
           // The exam-level "auto add every question" flag was just set on
           // the real ID above — the render-scoped `autoAddToBank` above is
@@ -913,6 +978,9 @@ const CreateQuestionPage = ({
         const editBoth = async () => {
           const parent = await performEditParent();
           createdParentRef.current = parent;
+          for (const queued of pendingEdit.questions || []) {
+            await saveQuestion(parent.id, queued.data);
+          }
           await saveQuestion();
           return { id: parent.id };
         };
@@ -1529,6 +1597,14 @@ const CreateQuestionPage = ({
               finishSaving(realParentId);
             }
           }}
+        />
+      )}
+
+      {(isPendingCreation || isPendingEditSubmit) && (
+        <SelectBankQuestionsModal
+          isOpen={isBankPickerOpen}
+          onClose={closeBankPicker}
+          onAdd={queueBankQuestions}
         />
       )}
     </Box>
