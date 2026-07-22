@@ -457,7 +457,7 @@ const CreateQuestionPage = ({
   const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
   const clearPendingEdit = useAssessmentStore((s) => s.clearPendingEdit);
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
-  const fromBankQuestionId = pendingCreate?.fromBankQuestionId;
+  const fromBankQuestionIds = pendingCreate?.fromBankQuestionIds;
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
   const [createdSuccess, setCreatedSuccess] = useState(null);
@@ -663,22 +663,30 @@ const CreateQuestionPage = ({
   // same mapping as manually applying a bank question above.
   const appliedFromBankRef = useRef(false);
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[QuestionsStandalone] bank prefill check", { isPendingCreation, fromBankQuestionId, alreadyApplied: appliedFromBankRef.current });
-    if (!isPendingCreation || !fromBankQuestionId || appliedFromBankRef.current) return;
+    if (!isPendingCreation || !fromBankQuestionIds?.length || appliedFromBankRef.current) return;
     appliedFromBankRef.current = true;
-    getExamQuestionBankItem(fromBankQuestionId)
-      .then((res) => {
-        // eslint-disable-next-line no-console
-        console.log("[QuestionsStandalone] fetched bank question", res);
-        applyBankQuestion(res?.data ?? res);
+    Promise.all(fromBankQuestionIds.map((id) => getExamQuestionBankItem(id).then((res) => res?.data ?? res)))
+      .then((bankQuestions) => {
+        applyBankQuestion(bankQuestions[0]);
+        // Standalone exams don't yet queue multiple not-yet-created questions
+        // (unlike course exams/assessments) — only the first picked question
+        // can be preloaded here; the rest have to be added individually once
+        // this exam exists.
+        if (bankQuestions.length > 1) {
+          toast({
+            description: `Only the first question was preloaded. Add the other ${bankQuestions.length - 1} from the bank individually after this exam is created.`,
+            position: "top",
+            status: "info",
+            duration: 6000,
+          });
+        }
       })
       .catch((err) => {
-        console.error("[QuestionsStandalone] failed to load bank question for prefill", fromBankQuestionId, err?.response?.data ?? err);
-        toast({ description: "Couldn't load the picked question from the bank", position: "top", status: "error" });
+        console.error("[QuestionsStandalone] failed to load bank questions for prefill", fromBankQuestionIds, err?.response?.data ?? err);
+        toast({ description: "Couldn't load the picked question(s) from the bank", position: "top", status: "error" });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPendingCreation, fromBankQuestionId]);
+  }, [isPendingCreation, fromBankQuestionIds]);
 
   // Hydrate form when editing an existing question
   useEffect(() => {

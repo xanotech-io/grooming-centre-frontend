@@ -49,7 +49,6 @@ import {
   getOrphanedExamQuestionBankMedia,
   listExamQuestionBank,
 } from "../../../services";
-import CreateExamFromBankModal from "./CreateExamFromBankModal";
 import UseBankQuestionModal from "./UseBankQuestionModal";
 
 const MOCK_STATS = {
@@ -605,17 +604,14 @@ function ExamQuestionBankListPage() {
       <UseBankQuestionModal
         isOpen={isUseQuestionOpen}
         onClose={onUseQuestionClose}
-        questionId={useQuestionId}
+        questionIds={useQuestionId ? [useQuestionId] : []}
         initialCourseId={useQuestionCourseId}
       />
-      <CreateExamFromBankModal
+      <UseBankQuestionModal
         isOpen={isCreateExamOpen}
         onClose={onCreateExamClose}
-        selectedIds={selectedIds}
-        onDone={() => {
-          clearSelection();
-          fetchQuestions();
-        }}
+        questionIds={selectedIds}
+        onContinue={clearSelection}
       />
     </AdminMainAreaWrapper>
   );

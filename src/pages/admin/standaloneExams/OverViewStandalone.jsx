@@ -504,14 +504,14 @@ const CreateStandalonePage = () => {
   const [markingMode, setMarkingMode] = useState("automatic");
   const [addToBank, setAddToBank] = useState(false);
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
-  const fromBankQuestionId = useAssessmentStore((s) => s.fromBankQuestionId);
-  const clearFromBankQuestionId = useAssessmentStore((s) => s.clearFromBankQuestionId);
+  const fromBankQuestionIds = useAssessmentStore((s) => s.fromBankQuestionIds);
+  const clearFromBankQuestionIds = useAssessmentStore((s) => s.clearFromBankQuestionIds);
   // Captured once on mount: whatever the Question Bank's "use in a new exam"
   // picker left behind belongs to this visit — consume it immediately so a
   // later, unrelated create flow can never pick up a stale value.
-  const bankQuestionIdRef = useRef(fromBankQuestionId);
+  const bankQuestionIdsRef = useRef(fromBankQuestionIds);
   useEffect(() => {
-    if (fromBankQuestionId) clearFromBankQuestionId();
+    if (fromBankQuestionIds?.length) clearFromBankQuestionIds();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -577,7 +577,7 @@ const CreateStandalonePage = () => {
         paperConfigBody,
         addToBank,
         title: data.title,
-        fromBankQuestionId: bankQuestionIdRef.current,
+        fromBankQuestionIds: bankQuestionIdsRef.current,
       });
       push("/admin/standalone-exams/questions/?examination=new&submitForApproval=1");
     } catch (error) {
