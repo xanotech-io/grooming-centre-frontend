@@ -214,6 +214,11 @@ const EditStandalonePage = ({ assessment }) => {
   }, [assessment?.startTime]);
 
   useEffect(() => {
+    if (assessment?.endTime)
+      endTimeManager.handleChange(assessment?.endTime);
+  }, [assessment?.endTime]);
+
+  useEffect(() => {
     if (assessment?.duration) setValue("duration", assessment?.duration);
   }, [assessment?.duration, setValue]);
 
@@ -232,6 +237,7 @@ const EditStandalonePage = ({ assessment }) => {
   const isSuperAdmin = useIsSuperAdmin();
   const handleCancel = useGoBack();
   const startTimeManager = useDateTimePicker();
+  const endTimeManager = useDateTimePicker();
   const { handleDelete } = useCache();
   const [isConfigPublished, setIsConfigPublished] = useState(false);
   const isPublished = assessment?.isPublished === true || isConfigPublished;
@@ -288,11 +294,13 @@ const EditStandalonePage = ({ assessment }) => {
     try {
       const startTime =
         startTimeManager.handleGetValueAndValidate("Start Time");
+      const endTime = endTimeManager.handleGetValueAndValidate("End Time");
       const body = {
         ...data,
         amountOfQuestions: Number(data.amountOfQuestions),
         duration: Number(data.duration),
         startTime: formatDateToISO(startTime),
+        endTime: formatDateToISO(endTime),
       };
 
       const paperConfigBody = {
@@ -388,6 +396,15 @@ const EditStandalonePage = ({ assessment }) => {
             />
           </GridItem>
           <GridItem>
+            <DateTimePicker
+              id="endTime"
+              isRequired
+              label="End Date and Time"
+              value={endTimeManager.value}
+              onChange={endTimeManager.handleChange}
+            />
+          </GridItem>
+          <GridItem>
             <Input
               label="Duration"
               type="number"
@@ -452,7 +469,7 @@ const EditStandalonePage = ({ assessment }) => {
             _hover={{ bg: "gray.50" }}
           >
             <FaRegSave />
-            Save as draft
+            Cancel
           </Button>
           <Button
             isLoading={isSubmitting}
@@ -499,6 +516,7 @@ const CreateStandalonePage = () => {
 
   const handleCancel = useGoBack();
   const startTimeManager = useDateTimePicker();
+  const endTimeManager = useDateTimePicker();
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [templateId, setTemplateId] = useState("");
   const [markingMode, setMarkingMode] = useState("automatic");
@@ -536,6 +554,7 @@ const CreateStandalonePage = () => {
   const onSubmit = async (data) => {
     try {
       const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
+      const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
       if (!templateId)
         throw new Error("A marking template must be selected before creating an examination.");
@@ -548,6 +567,7 @@ const CreateStandalonePage = () => {
         templateId,
         markingMode,
         startTime: formatDateToISO(startTime),
+        endTime: formatDateToISO(endTime),
       };
 
       const paperConfigBody = {
@@ -640,6 +660,15 @@ const CreateStandalonePage = () => {
             />
           </GridItem>
           <GridItem>
+            <DateTimePicker
+              id="endTime"
+              isRequired
+              label="End Date and Time"
+              value={endTimeManager.value}
+              onChange={endTimeManager.handleChange}
+            />
+          </GridItem>
+          <GridItem>
             <Input
               label="Duration (minutes)"
               type="number"
@@ -729,7 +758,7 @@ const CreateStandalonePage = () => {
             _hover={{ bg: "gray.50" }}
           >
             <FaRegSave />
-            Save as draft
+            Cancel
           </Button>
           <Button
             isLoading={isSubmitting}

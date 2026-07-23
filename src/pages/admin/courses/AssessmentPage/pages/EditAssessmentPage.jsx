@@ -57,6 +57,7 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
   const handleCancel = useGoBack();
 
   const startTimeManager = useDateTimePicker();
+  const endTimeManager = useDateTimePicker();
 
   // Init `Title` value
   useEffect(() => {
@@ -73,6 +74,14 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentOrExam?.startTime]);
+
+  // Init `EndTime` value
+  useEffect(() => {
+    if (assessmentOrExam?.endTime) {
+      endTimeManager.handleChange(assessmentOrExam.endTime);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assessmentOrExam?.endTime]);
 
   // Init `Duration` value
   useEffect(() => {
@@ -100,11 +109,13 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
     try {
       const startTime =
         startTimeManager.handleGetValueAndValidate('Start Time');
+      const endTime = endTimeManager.handleGetValueAndValidate('End Time');
 
       data = {
         ...data,
         courseId,
         startTime: formatDateToISO(startTime),
+        endTime: formatDateToISO(endTime),
       };
 
       isStandaloneExamination && Reflect.deleteProperty(data, 'courseId');
@@ -133,7 +144,7 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
             }`
           : isExamination
           ? `/admin/courses/details/${courseId}/exam`
-          : `/admin/courses/details/${courseId}/assessment`,
+          : `/admin/courses/details/${courseId}/modules`,
         description: isExamination
           ? `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`
           : `Assessment: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
@@ -341,6 +352,15 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
                 label="Start date & time"
                 value={startTimeManager.value}
                 onChange={startTimeManager.handleChange}
+              />
+            </GridItem>
+            <GridItem>
+              <DateTimePicker
+                id="endTime"
+                isRequired
+                label="End date & time"
+                value={endTimeManager.value}
+                onChange={endTimeManager.handleChange}
               />
             </GridItem>
             <GridItem>

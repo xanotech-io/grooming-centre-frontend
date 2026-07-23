@@ -12,7 +12,6 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
-  Select,
   Spinner,
   Table,
   Tbody,
@@ -39,7 +38,6 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd, initialCourseId = ""
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("active");
   const [selectedIds, setSelectedIds] = useState([]);
   const [adding, setAdding] = useState(false);
 
@@ -48,7 +46,6 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd, initialCourseId = ""
     try {
       const params = { limit: 50 };
       if (search) params.search = search;
-      if (status) params.status = status;
       if (initialCourseId) params.courseId = initialCourseId;
       const res = await listExamQuestionBank(params);
       const payload = res?.data ?? res;
@@ -59,13 +56,12 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd, initialCourseId = ""
     } finally {
       setLoading(false);
     }
-  }, [search, status, initialCourseId]);
+  }, [search, initialCourseId]);
 
   useEffect(() => {
     if (!isOpen) return;
     setSelectedIds([]);
     setSearch("");
-    setStatus("active");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -120,12 +116,6 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd, initialCourseId = ""
               onChange={(e) => setSearch(e.target.value)}
               maxW="240px"
             />
-            <Select size="sm" value={status} onChange={(e) => setStatus(e.target.value)} maxW="150px">
-              <option value="">All Statuses</option>
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </Select>
           </Flex>
 
           {loading ? (

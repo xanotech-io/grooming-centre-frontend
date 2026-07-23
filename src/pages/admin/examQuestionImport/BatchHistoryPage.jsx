@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Route, useHistory, useParams } from "react-router-dom";
+import { Route, useHistory } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogBody,
@@ -25,14 +25,16 @@ import {
 } from "@chakra-ui/react";
 import { Breadcrumb, Button, Heading, Link } from "../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
-import { deleteBatchImport, listBatchImports } from "../../../services";
+import { deleteExamQuestionBatchUpload, listExamQuestionBatchUploads } from "../../../services";
 import { useApp } from "../../../contexts/App/useApp";
-import { FiArrowLeft, FiChevronLeft, FiChevronRight, FiEye, FiFileText, FiTrash2 } from "react-icons/fi";
+import { buildBatchUploadLink, buildReviewLink } from "./questionRowUtils";
+import { FiArrowLeft, FiChevronLeft, FiChevronRight, FiEdit3, FiFileText, FiTrash2 } from "react-icons/fi";
 import dayjs from "dayjs";
 
 const STATUS_STYLE = {
   pending:        { bg: "#F7FAFC", color: "#718096", label: "Pending" },
   processing:     { bg: "#EBF4FF", color: "#3182CE", label: "Processing" },
+  pending_review: { bg: "#FFF5EA", color: "#DD6B20", label: "Pending Review" },
   success:        { bg: "#E6F4EA", color: "#38A169", label: "Success" },
   partial_success:{ bg: "#FFF5EA", color: "#DD6B20", label: "Partial Success" },
   failed:         { bg: "#FFF5F5", color: "#E53E3E", label: "Failed" },
@@ -49,8 +51,17 @@ const StatusChip = ({ status }) => {
 
 const LIMIT = 20;
 
+// Uploads staged (but not yet confirmed) via the batch-upload flow don't carry
+// a `standalone` flag from the backend — this mirrors questionRowUtils.js's
+// context shape by inferring it from which id fields are present.
+const contextFromUpload = (u) => ({
+  courseId: u.courseId || undefined,
+  assessmentId: u.assessmentId || undefined,
+  examinationId: u.examinationId || undefined,
+  standalone: Boolean(u.examinationId) && !u.courseId && !u.assessmentId,
+});
+
 const BatchHistoryPage = () => {
-  const { examinationId } = useParams();
   const history = useHistory();
   const toast = useToast();
   const { state, getOneMetadata } = useApp();
@@ -74,9 +85,8 @@ const BatchHistoryPage = () => {
     setError(null);
     try {
       const params = { page, limit: LIMIT };
-      if (examinationId) params.examinationId = examinationId;
       if (statusFilter) params.uploadStatus = statusFilter;
-      const res = await listBatchImports(params);
+      const res = await listExamQuestionBatchUploads(params);
       const list = res?.data?.uploads ?? res?.uploads ?? res?.data ?? [];
       const pagination = res?.data?.pagination ?? res?.pagination ?? {};
       setUploads(Array.isArray(list) ? list : []);
@@ -87,7 +97,7 @@ const BatchHistoryPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [examinationId, page, statusFilter]);
+  }, [page, statusFilter]);
 
   useEffect(() => { fetchUploads(); }, [fetchUploads]);
 
@@ -95,7 +105,7 @@ const BatchHistoryPage = () => {
     if (!toDelete) return;
     setDeleting(true);
     try {
-      await deleteBatchImport(toDelete);
+      await deleteExamQuestionBatchUpload(toDelete);
       toast({ title: "Upload record deleted", status: "success", duration: 3000, isClosable: true });
       setToDelete(null);
       fetchUploads();
@@ -111,13 +121,10 @@ const BatchHistoryPage = () => {
     }
   };
 
-  const getResultPath = (upload) => {
-    const examId = upload.examinationId ?? examinationId;
+  const getReportPath = (upload) => {
     const uid = upload.id ?? upload.uploadId ?? upload._id;
-    return `/admin/batch-import/${examId}/result/${uid}`;
+    return `/admin/exam-question-batch-import/${uid}/report`;
   };
-
-  const getReportPath = (upload) => `${getResultPath(upload)}/report`;
 
   return (
     <Box marginX="22px" marginY="20px">
@@ -135,11 +142,9 @@ const BatchHistoryPage = () => {
           <Box w="1px" h="20px" bg="#E2E8F0" />
           <Heading fontSize="22px" fontWeight="600">Batch Upload History</Heading>
         </Flex>
-        {examinationId && (
-          <Button onClick={() => history.push(`/admin/batch-import/${examinationId}`)}>
-            + New Import
-          </Button>
-        )}
+        <Button onClick={() => history.push(buildBatchUploadLink({}))}>
+          + New Import
+        </Button>
       </Flex>
 
       {/* Filters */}
@@ -154,6 +159,7 @@ const BatchHistoryPage = () => {
         >
           <option value="pending">Pending</option>
           <option value="processing">Processing</option>
+          <option value="pending_review">Pending Review</option>
           <option value="success">Success</option>
           <option value="partial_success">Partial Success</option>
           <option value="failed">Failed</option>
@@ -175,11 +181,9 @@ const BatchHistoryPage = () => {
           {uploads.length === 0 ? (
             <Flex direction="column" alignItems="center" py="60px" gap="12px">
               <Text fontSize="14px" color="gray.400">No batch uploads found.</Text>
-              {examinationId && (
-                <Button onClick={() => history.push(`/admin/batch-import/${examinationId}`)}>
-                  Start First Import
-                </Button>
-              )}
+              <Button onClick={() => history.push(buildBatchUploadLink({}))}>
+                Start First Import
+              </Button>
             </Flex>
           ) : (
             <TableContainer>
@@ -194,6 +198,7 @@ const BatchHistoryPage = () => {
                 <Tbody>
                   {uploads.map((u) => {
                     const uid = u.id ?? u.uploadId ?? u._id;
+                    const needsReview = u.uploadStatus === "pending_review";
                     return (
                       <Tr key={uid} _hover={{ bg: "#FAFAFA" }}>
                         <Td py="12px" maxW="180px">
@@ -218,12 +223,14 @@ const BatchHistoryPage = () => {
                         </Td>
                         <Td py="12px">
                           <Flex gap="4px">
-                            <IconButton
-                              aria-label="View details"
-                              icon={<FiEye size={13} />}
-                              size="xs" variant="ghost" colorScheme="purple"
-                              onClick={() => history.push(getResultPath(u))}
-                            />
+                            {needsReview && (
+                              <IconButton
+                                aria-label="Continue review"
+                                icon={<FiEdit3 size={13} />}
+                                size="xs" variant="ghost" colorScheme="orange"
+                                onClick={() => history.push(buildReviewLink(uid, contextFromUpload(u)))}
+                              />
+                            )}
                             <IconButton
                               aria-label="View report"
                               icon={<FiFileText size={13} />}

@@ -58,3 +58,13 @@ export const getExamQuestionBatchKpis = async () => {
   const { data } = await http.get(`${BASE}/kpis`);
   return data;
 };
+
+export const listExamQuestionBatchUploads = async (params) => {
+  const { data } = await http.get(BASE, { params });
+  return data;
+};
+
+export const deleteExamQuestionBatchUpload = async (uploadId) => {
+  const { data } = await http.delete(`${BASE}/${uploadId}`);
+  return data;
+};

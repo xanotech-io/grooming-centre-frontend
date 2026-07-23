@@ -62,7 +62,6 @@ import {
   DataOperationsPageRoute,
   CreateModulePageRoute,
   ModuleAssessmentsPageRoute,
-  CreateModuleAssessmentPageRoute,
   ModuleExaminationsPageRoute,
   CreateModuleExaminationPageRoute,
   ViewModuleExaminationPageRoute,
@@ -95,9 +94,7 @@ import {
   MultimediaStatsPageRoute,
   ExamPaperConfigPageRoute,
   ExamConfigKPIPageRoute,
-  BatchImportPageRoute,
   BatchHistoryPageRoute,
-  ImportResultPageRoute,
   ImportReportPageRoute,
   BatchUploadPageRoute,
   ReviewImportPageRoute,
@@ -217,10 +214,6 @@ const MainArea = () => {
           exact
           path="/admin/courses/:courseId/module/:moduleId/assessments"
         />
-        <CreateModuleAssessmentPageRoute
-          exact
-          path="/admin/courses/:courseId/module/:moduleId/assessments/edit/:assessmentId"
-        />
         <ModuleExaminationsPageRoute
           exact
           path="/admin/courses/:courseId/module/:moduleId/examinations"
@@ -319,15 +312,6 @@ const MainArea = () => {
           exact
           path="/admin/examination/:examId/:studentId"
         />
-        {/* <ParticipantsListingPageRoute exact path ="/"/> */}
-        {/* <QuestionsStandaloneRoute
-          exact
-          path="/admin/standalone-exams/questions/:id"
-        /> */}
-        {/* <StandaloneExaminationAllParticipantsPageRoute
-          exact
-          path="/admin/standalone-exams/:examinationId/:examinationName"
-        /> */}
         <ViewStandaloneExamPageRoute
           exact
           path="/admin/standalone-exams/view/:examId"
@@ -501,17 +485,8 @@ const MainArea = () => {
         />
         <ImportReportPageRoute
           exact
-          path="/admin/batch-import/:examinationId/result/:uploadId/report"
+          path="/admin/exam-question-batch-import/:uploadId/report"
         />
-        <ImportResultPageRoute
-          exact
-          path="/admin/batch-import/:examinationId/result/:uploadId"
-        />
-        <BatchHistoryPageRoute
-          exact
-          path="/admin/batch-import/:examinationId/history"
-        />
-        <BatchImportPageRoute exact path="/admin/batch-import/:examinationId" />
         <BatchHistoryPageRoute exact path="/admin/question-imports" />
         <ReviewImportPageRoute
           exact

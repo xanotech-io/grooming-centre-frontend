@@ -51,8 +51,6 @@ const links = [
 const Header = () => {
   const { id: courseId, assessmentId } = useParams();
   const handleCancel = useGoBack();
-  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
-  const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
   const openBankPicker = useAssessmentStore((s) => s.openBankPicker);
 
   const queryParams = useQueryParams();
@@ -63,12 +61,23 @@ const Header = () => {
     courseId === "not-set" && assessmentId === "not-set" && examinationId
       ? true
       : false;
+  // The standalone course-level assessment listing was retired — module-scoped
+  // assessments are the only surviving flow, so anything without a moduleId
+  // (which shouldn't happen via any live entry point anymore) falls back to
+  // the Modules hub instead of a dead link.
   const backToAssessmentsLink = moduleId
     ? `/admin/courses/${courseId}/module/${moduleId}/assessments`
-    : `/admin/courses/details/${courseId}/assessment`;
+    : `/admin/courses/details/${courseId}/modules`;
 
   const isActiveLink = (LinkMatcher) =>
     window.location.pathname.includes(LinkMatcher);
+
+  // The last breadcrumb crumb should name whichever tab (Overview / Questions
+  // / Grading) is actually active, not be hardcoded to one of them.
+  const activeLink = links.find((link) =>
+    isActiveLink(link.matcher(courseId, assessmentId)),
+  );
+  const currentPageLabel = activeLink?.text || "Overview";
 
   const breadcrumbItems = isStandaloneExamination
     ? {
@@ -79,7 +88,7 @@ const Header = () => {
         ),
         item3: (
           <BreadcrumbItem isCurrentPage>
-            <Link href="#">Questions</Link>
+            <Link href="#">{currentPageLabel}</Link>
           </BreadcrumbItem>
         ),
       }
@@ -110,7 +119,7 @@ const Header = () => {
           ),
           item5: (
             <BreadcrumbItem isCurrentPage>
-              <Link href="#">Questions</Link>
+              <Link href="#">{currentPageLabel}</Link>
             </BreadcrumbItem>
           ),
         }
@@ -133,7 +142,7 @@ const Header = () => {
           ),
           item4: (
             <BreadcrumbItem isCurrentPage>
-              <Link href="#">Questions</Link>
+              <Link href="#">{currentPageLabel}</Link>
             </BreadcrumbItem>
           ),
         };
@@ -182,7 +191,7 @@ const Header = () => {
           <Flex justifyContent="end" gap={2}>
             <Button
               secondary
-              {...(isActiveLink("questions") && (pendingCreate || pendingEdit)
+              {...(isActiveLink("questions")
                 ? { onClick: openBankPicker }
                 : {
                     link: isStandaloneExamination

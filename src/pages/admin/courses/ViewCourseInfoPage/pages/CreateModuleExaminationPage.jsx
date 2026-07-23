@@ -261,6 +261,7 @@ const CreateModuleExaminationPage = () => {
   } = useForm();
 
   const startTimeManager = useDateTimePicker();
+  const endTimeManager = useDateTimePicker();
 
   // Load existing exam data when in edit mode
   useEffect(() => {
@@ -276,6 +277,7 @@ const CreateModuleExaminationPage = () => {
         setValue("amountOfQuestions", exam.amountOfQuestions);
         setValue("totalMarks", exam.totalMarks);
         if (exam.startTime) startTimeManager.handleChange(new Date(exam.startTime));
+        if (exam.endTime) endTimeManager.handleChange(new Date(exam.endTime));
         if (exam.markingTemplateId) setMarkingTemplateId(exam.markingTemplateId);
 
         const cfg = paperConfigRes?.data;
@@ -302,6 +304,7 @@ const CreateModuleExaminationPage = () => {
     try {
       const startTime =
         startTimeManager.handleGetValueAndValidate("Start Time");
+      const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
       if (!markingTemplateId)
         throw new Error(
@@ -314,6 +317,7 @@ const CreateModuleExaminationPage = () => {
         amountOfQuestions: Number(data.amountOfQuestions),
         totalMarks: Number(data.totalMarks),
         startTime: formatDateToISO(startTime),
+        endTime: formatDateToISO(endTime),
         courseId,
         moduleId,
         markingTemplateId,
@@ -454,6 +458,14 @@ const CreateModuleExaminationPage = () => {
             isRequired
             value={startTimeManager.value}
             onChange={startTimeManager.handleChange}
+            mb={6}
+          />
+
+          <DateTimePicker
+            label="End Time"
+            isRequired
+            value={endTimeManager.value}
+            onChange={endTimeManager.handleChange}
             mb={6}
           />
 
