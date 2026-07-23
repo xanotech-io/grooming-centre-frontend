@@ -191,7 +191,7 @@ const OverViewStandalone = () => {
   ) : isEditmode ? (
     <EditStandalonePage assessment={assessment} />
   ) : (
-    <CreateStandalonePage />
+    <CreateStandalonePage isContinuingPending={examinationId === "new"} />
   );
 };
 
@@ -523,7 +523,7 @@ const EditStandalonePage = ({ assessment }) => {
   );
 };
 
-const CreateStandalonePage = () => {
+const CreateStandalonePage = ({ isContinuingPending }) => {
   const { push } = useHistory();
   const toast = useToast();
   const {
@@ -542,6 +542,7 @@ const CreateStandalonePage = () => {
   const [addToBank, setAddToBank] = useState(false);
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
+  const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
   const fromBankQuestionIds = useAssessmentStore((s) => s.fromBankQuestionIds);
   const clearFromBankQuestionIds = useAssessmentStore((s) => s.clearFromBankQuestionIds);
   // Captured once on mount: whatever the Question Bank's "use in a new exam"
@@ -573,8 +574,15 @@ const CreateStandalonePage = () => {
 
   // Restore whatever was already filled in before the user moved on to the
   // Questions step and came back — otherwise navigating away and back to
-  // this same "pending create" shell wipes the form on remount.
+  // this same "pending create" shell wipes the form on remount. A genuinely
+  // fresh visit (no `?examination=new` in the URL — e.g. "Create New Exam"
+  // from the list page) instead means any leftover pendingCreate belongs to
+  // an abandoned attempt, so it's cleared instead of restored.
   useEffect(() => {
+    if (!isContinuingPending) {
+      if (pendingCreate) clearPendingCreate();
+      return;
+    }
     if (pendingCreate?.kind !== "StandaloneExam") return;
 
     const { body, paperConfigBody, addToBank: pendingAddToBank } = pendingCreate;

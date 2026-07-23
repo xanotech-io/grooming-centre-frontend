@@ -1566,7 +1566,7 @@ const CreateQuestionPage = ({
         if (isStandaloneExamination) {
           // JSON body — PATCH /v1/stand-alone-examination-question/edit
           data = {
-            questionId,
+            standAloneExaminationQuestionId: questionId,
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
             markingType,
@@ -2638,7 +2638,7 @@ const buildQuestionEditPayload = (
 
   if (isStandaloneExamination) {
     return {
-      questionId: question.id,
+      standAloneExaminationQuestionId: question.id,
       question: question.question,
       ...(section !== undefined && { section }),
       markingType: question.markingType || "automatic",

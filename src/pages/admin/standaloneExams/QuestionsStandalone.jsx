@@ -992,7 +992,7 @@ const CreateQuestionPage = ({
       const saveQuestion = async (realParentId, overrideData) => {
         if (isEditMode) {
           const body = {
-            questionId,
+            standAloneExaminationQuestionId: questionId,
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
             markingType,
