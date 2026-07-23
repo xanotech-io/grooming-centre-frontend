@@ -18,6 +18,7 @@ const StandAloneHeader = () => {
 
   const examinationId = useQueryParams().get('examination');
   const isQuestionListingPage = useQueryParams().get('question-listing');
+  const hasRealExam = Boolean(examinationId) && examinationId !== "new";
 
   const { isLoading, error, assessment } = useAssessmentPreview(
     null,
@@ -140,7 +141,7 @@ const StandAloneHeader = () => {
             </Flex>
           </Button>
           <Heading as="h1" fontSize="28px" fontWeight="600" color="#1A202C">
-            {examinationId ? "Edit Exam" : "New Exams"}
+            {hasRealExam ? "Edit Exam" : "New Exams"}
           </Heading>
         </Flex>
 

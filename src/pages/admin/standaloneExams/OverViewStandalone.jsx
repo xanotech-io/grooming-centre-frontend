@@ -174,7 +174,7 @@ const OverViewStandalone = () => {
     examinationId ? examinationId : "isStandaloneExamination && isNotEdit",
     true,
   );
-  const isEditmode = !examinationId === false;
+  const isEditmode = Boolean(examinationId) && examinationId !== "new";
 
   return examinationId && (isLoading || error) ? (
     <Flex
@@ -232,6 +232,10 @@ const EditStandalonePage = ({ assessment }) => {
       setValue("isPublished", assessment?.isPublished);
   }, [assessment?.isPublished, setValue]);
 
+  useEffect(() => {
+    if (assessment?.templateId) setTemplateId(assessment?.templateId);
+  }, [assessment?.templateId]);
+
   const { push } = useHistory();
   const toast = useToast();
   const isSuperAdmin = useIsSuperAdmin();
@@ -241,6 +245,14 @@ const EditStandalonePage = ({ assessment }) => {
   const { handleDelete } = useCache();
   const [isConfigPublished, setIsConfigPublished] = useState(false);
   const isPublished = assessment?.isPublished === true || isConfigPublished;
+  const [markingTemplates, setMarkingTemplates] = useState([]);
+  const [templateId, setTemplateId] = useState("");
+
+  useEffect(() => {
+    adminGetMarkingTemplates()
+      .then(({ templates }) => setMarkingTemplates(templates))
+      .catch(() => {});
+  }, []);
 
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
@@ -295,12 +307,16 @@ const EditStandalonePage = ({ assessment }) => {
       const startTime =
         startTimeManager.handleGetValueAndValidate("Start Time");
       const endTime = endTimeManager.handleGetValueAndValidate("End Time");
+      if (!templateId)
+        throw new Error("A marking template must be selected before saving.");
+
       const body = {
         ...data,
         amountOfQuestions: Number(data.amountOfQuestions),
         duration: Number(data.duration),
         startTime: formatDateToISO(startTime),
         endTime: formatDateToISO(endTime),
+        templateId,
       };
 
       const paperConfigBody = {
@@ -415,12 +431,14 @@ const EditStandalonePage = ({ assessment }) => {
             />
           </GridItem>
 
-          <GridItem colSpan={2}>
-            <Input
-              label="Instructions"
-              id="instructions"
-              placeholder="Enter exam instructions for the students"
-              {...register("instructions")}
+          <GridItem>
+            <Select
+              label="Marking Template"
+              placeholder="Select a marking template"
+              isRequired
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
             />
           </GridItem>
         </Grid>
@@ -511,6 +529,7 @@ const CreateStandalonePage = () => {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm();
 
@@ -521,6 +540,7 @@ const CreateStandalonePage = () => {
   const [templateId, setTemplateId] = useState("");
   const [markingMode, setMarkingMode] = useState("automatic");
   const [addToBank, setAddToBank] = useState(false);
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
   const fromBankQuestionIds = useAssessmentStore((s) => s.fromBankQuestionIds);
   const clearFromBankQuestionIds = useAssessmentStore((s) => s.clearFromBankQuestionIds);
@@ -549,6 +569,27 @@ const CreateStandalonePage = () => {
         setMarkingTemplates(templates)
       )
       .catch(() => {});
+  }, []);
+
+  // Restore whatever was already filled in before the user moved on to the
+  // Questions step and came back — otherwise navigating away and back to
+  // this same "pending create" shell wipes the form on remount.
+  useEffect(() => {
+    if (pendingCreate?.kind !== "StandaloneExam") return;
+
+    const { body, paperConfigBody, addToBank: pendingAddToBank } = pendingCreate;
+    if (body?.title) setValue("title", body.title);
+    if (body?.amountOfQuestions != null) setValue("amountOfQuestions", body.amountOfQuestions);
+    if (body?.totalMarks != null) setValue("totalMarks", body.totalMarks);
+    if (body?.duration != null) setValue("duration", body.duration);
+    if (body?.templateId) setTemplateId(body.templateId);
+    if (body?.markingMode) setMarkingMode(body.markingMode);
+    if (body?.startTime) startTimeManager.handleChange(body.startTime);
+    if (body?.endTime) endTimeManager.handleChange(body.endTime);
+    if (paperConfigBody?.configuredSections?.length) setSections(paperConfigBody.configuredSections);
+    if (paperConfigBody?.randomization) setRandomization(paperConfigBody.randomization);
+    if (pendingAddToBank) setAddToBank(pendingAddToBank);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onSubmit = async (data) => {

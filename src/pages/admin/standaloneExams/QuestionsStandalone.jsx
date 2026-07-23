@@ -1601,6 +1601,15 @@ const CreateQuestionPage = ({
             Edit Question
           </Button>
         )}
+        {isExistingQuestion && !isEditMode && (
+          <Button
+            ghost
+            onClick={() => push(getQuestionListingLink(isExamination))}
+            type="button"
+          >
+            Next
+          </Button>
+        )}
         {isEditMode && (
           <Button
             ghost

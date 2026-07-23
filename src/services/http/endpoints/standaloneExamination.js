@@ -112,6 +112,7 @@ export const getStandaloneExaminationDetails = async (id, forAdmin) => {
     startTime: data.startTime,
     endTime: getEndTime(data.startTime, data.duration),
     isPublished: data.isPublished,
+    templateId: data.templateId ?? data.markingTemplateId ?? null,
     // minimumPercentageScoreToEarnABadge:
     //   data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
     questions: questionArray.map((q, index) => ({
@@ -138,7 +139,12 @@ export const getStandaloneExaminationDetails = async (id, forAdmin) => {
         id: opt.id,
         isAnswer: opt.isAnswer,
         name: opt.answer,
-        optionIndex: +opt.optionIndex || optIndex,
+        // Backend sends 0-based optionIndex; the form (option-1..option-4,
+        // radio values "1".."4") is 1-based everywhere else in this codebase.
+        optionIndex:
+          (opt.optionIndex === null || opt.optionIndex === undefined
+            ? optIndex
+            : +opt.optionIndex) + 1,
       })),
     })),
   };

@@ -21,6 +21,7 @@ import CreateParticipants from '../participants/CreateParticipants';
 
 export const CreateStandaloneExamPage = () => {
   const isExamination = useQueryParams().get('examination');
+  const hasRealExam = Boolean(isExamination) && isExamination !== 'new';
 
   const { isLoading, error, assessment } = useAssessmentPreview(
     null,
@@ -33,7 +34,7 @@ export const CreateStandaloneExamPage = () => {
       <Flex justify="space-between" align="center" mb={6}>
         <Breadcrumb
           item2={<BreadcrumbItem><Link href="/admin/standalone-exams">Standalone Exams</Link></BreadcrumbItem>}
-          item3={<BreadcrumbItem isCurrentPage><Link href="#">{isExamination ? "Edit Exam" : "Create Exam"}</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem isCurrentPage><Link href="#">{hasRealExam ? "Edit Exam" : "Create Exam"}</Link></BreadcrumbItem>}
         />
       </Flex>
       {/* commented out previous header and box components */}
