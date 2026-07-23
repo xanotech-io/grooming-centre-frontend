@@ -17,13 +17,15 @@ import {
 } from "@chakra-ui/react";
 import { Breadcrumb, Button, Heading, Link } from "../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
-import { getBatchImportReport } from "../../../services";
-import { FiArrowLeft, FiDownload, FiUpload } from "react-icons/fi";
+import { getExamQuestionBatchReport } from "../../../services";
+import { buildBatchUploadLink } from "./questionRowUtils";
+import { FiArrowLeft, FiUpload } from "react-icons/fi";
 import dayjs from "dayjs";
 
 const STATUS_STYLE = {
   pending:        { bg: "#F7FAFC", color: "#718096", label: "Pending" },
   processing:     { bg: "#EBF4FF", color: "#3182CE", label: "Processing" },
+  pending_review: { bg: "#FFF5EA", color: "#DD6B20", label: "Pending Review" },
   success:        { bg: "#E6F4EA", color: "#38A169", label: "Success" },
   partial_success:{ bg: "#FFF5EA", color: "#DD6B20", label: "Partial Success" },
   failed:         { bg: "#FFF5F5", color: "#E53E3E", label: "Failed" },
@@ -46,41 +48,17 @@ const SummaryRow = ({ label, value }) => (
 );
 
 const ImportReportPage = () => {
-  const { examinationId, uploadId } = useParams();
+  const { uploadId } = useParams();
   const history = useHistory();
 
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getBatchImportReport(uploadId)
+    getExamQuestionBatchReport(uploadId)
       .then((res) => setReport(res?.data ?? res))
       .finally(() => setLoading(false));
   }, [uploadId]);
-
-  const handleExportCSV = () => {
-    if (!report) return;
-    const allErrors = report.importErrors ?? [];
-    const errors = allErrors.filter((e) => e.errorType === "error");
-    const warnings = allErrors.filter((e) => e.errorType === "warning");
-
-    const rows = [
-      ["Row", "Type", "Field", "Message", "Suggestion"],
-      ...errors.map((e) => [e.rowNumber, "Error", e.field ?? "", e.message ?? "", e.suggestion ?? ""]),
-      ...warnings.map((e) => [e.rowNumber, "Warning", e.field ?? "", e.message ?? "", e.suggestion ?? ""]),
-    ];
-    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const base = (report.fileName ?? "report").replace(/\.[^/.]+$/, "");
-    a.download = `${base}_report.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
 
   if (loading) {
     return <Flex justifyContent="center" alignItems="center" minH="400px"><Spinner size="xl" color="#6b006b" /></Flex>;
@@ -90,20 +68,30 @@ const ImportReportPage = () => {
     return (
       <Box marginX="22px" marginY="20px">
         <Text color="red.500">Failed to load report.</Text>
-        <Button secondary mt="12px" onClick={() => history.goBack()}>Go Back</Button>
+        <Button secondary mt="12px" onClick={() => history.push("/admin/question-imports")}>Back to History</Button>
       </Box>
     );
   }
 
-  const allErrors = report.importErrors ?? [];
-  const errors = allErrors.filter((e) => e.errorType === "error");
+  const allErrors = report.importErrors ?? report.errors?.concat(report.warnings ?? []) ?? [];
+  const errors = allErrors.filter((e) => (e.errorType ?? "error") === "error");
   const warnings = allErrors.filter((e) => e.errorType === "warning");
+
+  // Report data carries the same id fields as an upload-history row — infer
+  // context the same way BatchHistoryPage.jsx does, since the backend has no
+  // dedicated `standalone` flag.
+  const uploadContext = {
+    courseId: report.courseId || undefined,
+    assessmentId: report.assessmentId || undefined,
+    examinationId: report.examinationId || undefined,
+    standalone: Boolean(report.examinationId) && !report.courseId && !report.assessmentId,
+  };
 
   return (
     <Box marginX="22px" marginY="20px" maxW="1000px">
       <Flex justify="space-between" align="center" mb={6}>
         <Breadcrumb
-          item2={<BreadcrumbItem><Link href="/admin/examination">Examination Analysis</Link></BreadcrumbItem>}
+          item2={<BreadcrumbItem><Link href="/admin/question-imports">Question Imports</Link></BreadcrumbItem>}
           item3={<BreadcrumbItem isCurrentPage><Link href="#">Import Report</Link></BreadcrumbItem>}
         />
       </Flex>
@@ -112,18 +100,15 @@ const ImportReportPage = () => {
         <Flex alignItems="center" gap="12px">
           <Flex
             as="button" alignItems="center" gap="6px" color="#6b006b"
-            onClick={() => history.push(`/admin/batch-import/${examinationId}/result/${uploadId}`)}
+            onClick={() => history.push("/admin/question-imports")}
             _hover={{ opacity: 0.8 }}
           >
             <FiArrowLeft size={14} />
-            <Text fontSize="13px" fontWeight="600">Result</Text>
+            <Text fontSize="13px" fontWeight="600">History</Text>
           </Flex>
           <Box w="1px" h="20px" bg="#E2E8F0" />
           <Heading fontSize="20px" fontWeight="600">Import Report</Heading>
         </Flex>
-        <Button leftIcon={<FiDownload />} onClick={handleExportCSV}>
-          Export Report CSV
-        </Button>
       </Flex>
 
       {/* Report Header Card */}
@@ -263,13 +248,13 @@ const ImportReportPage = () => {
       <Flex gap="10px" flexWrap="wrap">
         <Button
           secondary leftIcon={<FiUpload />}
-          onClick={() => history.push(`/admin/batch-import/${examinationId}`)}
+          onClick={() => history.push(buildBatchUploadLink(uploadContext))}
         >
           Upload Corrected File
         </Button>
         <Button
           secondary leftIcon={<FiArrowLeft size={13} />}
-          onClick={() => history.push(`/admin/batch-import/${examinationId}/history`)}
+          onClick={() => history.push("/admin/question-imports")}
         >
           Back to History
         </Button>

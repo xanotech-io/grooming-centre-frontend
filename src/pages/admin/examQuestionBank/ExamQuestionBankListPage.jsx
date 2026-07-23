@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Badge,
@@ -40,7 +40,6 @@ import {
 import { FiChevronDown, FiCopy, FiEdit2, FiEye, FiMoreHorizontal, FiPlus, FiRefreshCw, FiTrash2 } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { Breadcrumb, Link } from "../../../components";
-import { useQueryParams } from "../../../hooks";
 import {
   bulkUpdateExamQuestionBankStatus,
   cleanupOrphanedExamQuestionBankMedia,
@@ -210,7 +209,6 @@ function OrphanedMediaModal({ isOpen, onClose, onCleaned }) {
 function ExamQuestionBankListPage() {
   const toast = useToast();
   const history = useHistory();
-  const queryParams = useQueryParams();
 
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -224,8 +222,6 @@ function ExamQuestionBankListPage() {
   const [difficultyLevel, setDifficultyLevel] = useState("");
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
-  const [courseId] = useState(queryParams.get("courseId") || "");
-  const [moduleId] = useState(queryParams.get("moduleId") || "");
 
   const [selectedIds, setSelectedIds] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
@@ -258,8 +254,6 @@ function ExamQuestionBankListPage() {
       if (difficultyLevel) params.difficultyLevel = difficultyLevel;
       if (status) params.status = status;
       if (category) params.category = category;
-      if (courseId) params.courseId = courseId;
-      if (moduleId) params.moduleId = moduleId;
 
       const res = await listExamQuestionBank(params);
       const payload = res?.data ?? res;
@@ -274,7 +268,7 @@ function ExamQuestionBankListPage() {
     } finally {
       setQuestionsLoading(false);
     }
-  }, [page, search, questionType, difficultyLevel, status, category, courseId, moduleId]);
+  }, [page, search, questionType, difficultyLevel, status, category]);
 
   useEffect(() => {
     fetchStats();
@@ -337,15 +331,6 @@ function ExamQuestionBankListPage() {
     }
   };
 
-  const filterBadge = useMemo(() => {
-    if (!courseId) return null;
-    return (
-      <Tag size="md" colorScheme="purple" variant="subtle" borderRadius="full">
-        <TagLabel>Filtered by current course{moduleId ? " / module" : ""}</TagLabel>
-      </Tag>
-    );
-  }, [courseId, moduleId]);
-
   return (
     <AdminMainAreaWrapper>
       <Flex justify="space-between" align="center" mb={6}>
@@ -368,7 +353,6 @@ function ExamQuestionBankListPage() {
             </Text>
           </Box>
           <HStack>
-            {filterBadge}
             <Tooltip label="Refresh">
               <IconButton
                 size="sm"

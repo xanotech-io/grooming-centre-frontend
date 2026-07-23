@@ -29,18 +29,21 @@ import {
 } from "../../../../../utils";
 import { MultiSelect } from "react-multi-select-component";
 import { useApp } from "../../../../../contexts";
-import { Tag, TagCloseButton, TagLabel } from "@chakra-ui/react";
+import { Checkbox, Tag, TagCloseButton, TagLabel } from "@chakra-ui/react";
 
 const CreateAssessmentPage = ({ users }) => {
   const { id: courseId, assessmentId } = useParams();
 
   const isExamination = useQueryParams().get("examination");
+  const moduleId = useQueryParams().get("moduleId");
   const isStandaloneExamination =
     courseId === "not-set" && assessmentId === "not-set" && isExamination
       ? true
       : false;
+  const isModuleAssessment = !isExamination && !isStandaloneExamination && !!moduleId;
 
   const [standaloneExamType, setStandaloneExamType] = useState("departments");
+  const [addToBank, setAddToBank] = useState(false);
 
   const { push } = useHistory();
   const toast = useToast();
@@ -115,8 +118,12 @@ const CreateAssessmentPage = ({ users }) => {
         ...data,
         courseId,
         markingTemplateId,
+        duration: Number(data.duration),
+        amountOfQuestions: Number(data.amountOfQuestions),
+        totalMarks: Number(data.totalMarks),
         startTime: formatDateToISO(startTime),
         endTime: formatDateToISO(endTime),
+        ...(isModuleAssessment ? { moduleId } : {}),
       };
 
       isStandaloneExamination && Reflect.deleteProperty(data, "courseId");
@@ -145,12 +152,14 @@ const CreateAssessmentPage = ({ users }) => {
             : "Assessment",
         body,
         markingTemplateId,
+        addToBank: isModuleAssessment ? addToBank : undefined,
         title: data.title,
         fromBankQuestionIds: bankQuestionIdsRef.current,
       });
+      const moduleQuery = isModuleAssessment ? `&moduleId=${moduleId}` : "";
       const nextRoute = isExamination
         ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=new&submitForApproval=1`
-        : `/admin/courses/${courseId}/assessment/new/questions/new?submitForApproval=1`;
+        : `/admin/courses/${courseId}/assessment/new/questions/new?submitForApproval=1${moduleQuery}`;
       push(nextRoute);
     } catch (error) {
       toast({
@@ -398,6 +407,17 @@ const CreateAssessmentPage = ({ users }) => {
               </GridItem>
             )}
           </Box>
+
+          {isModuleAssessment && (
+            <Checkbox
+              isChecked={addToBank}
+              onChange={(e) => setAddToBank(e.target.checked)}
+              colorScheme="purple"
+              mt={2}
+            >
+              Add to Question Bank — automatically save every question created for this assessment to the bank
+            </Checkbox>
+          )}
         </Box>
         <Flex paddingY={10} marginX={6} justifyContent="space-between">
           <Button secondary onClick={handleCancel}>

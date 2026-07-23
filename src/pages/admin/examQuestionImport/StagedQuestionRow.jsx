@@ -124,9 +124,9 @@ const StagedQuestionRow = ({ row, index, onSave, onRemove, saving, removing }) =
               onChange={(e) => setEditState((prev) => ({ ...prev, difficultyLevel: e.target.value }))}
               placeholder="Not set"
             >
-              <option value="EASY">Easy</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HARD">Hard</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
             </ChakraSelect>
           </Box>
           <Box minW="220px" flex={1}>

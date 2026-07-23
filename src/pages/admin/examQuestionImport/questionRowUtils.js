@@ -40,9 +40,11 @@ const TYPE_TO_API = {
 
 export const denormalizeQuestionType = (type) => TYPE_TO_API[type] ?? String(type).toLowerCase();
 
-// The difficulty enum is uppercase on the API side (EASY/MEDIUM/HARD); GET
-// responses have been seen in mixed case, so normalize on the way in too.
-export const normalizeDifficulty = (level) => (level ? String(level).toUpperCase() : "");
+// The difficulty enum is capitalized-first-letter on the API side
+// (Easy/Medium/Hard); GET responses have been seen in mixed case, so
+// normalize on the way in too.
+export const normalizeDifficulty = (level) =>
+  level ? level.charAt(0).toUpperCase() + level.slice(1).toLowerCase() : "";
 
 const LETTER_TO_INDEX = { A: 1, B: 2, C: 3, D: 4 };
 const INDEX_TO_LETTER = { 1: "A", 2: "B", 3: "C", 4: "D" };
