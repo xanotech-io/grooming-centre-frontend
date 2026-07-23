@@ -992,7 +992,7 @@ const CreateQuestionPage = ({
       const saveQuestion = async (realParentId, overrideData) => {
         if (isEditMode) {
           const body = {
-            questionId,
+            standAloneExaminationQuestionId: questionId,
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
             markingType,
@@ -1599,6 +1599,15 @@ const CreateQuestionPage = ({
             type="button"
           >
             Edit Question
+          </Button>
+        )}
+        {isExistingQuestion && !isEditMode && (
+          <Button
+            ghost
+            onClick={() => push(getQuestionListingLink(isExamination))}
+            type="button"
+          >
+            Next
           </Button>
         )}
         {isEditMode && (

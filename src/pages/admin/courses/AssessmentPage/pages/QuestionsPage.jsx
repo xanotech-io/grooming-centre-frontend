@@ -72,7 +72,10 @@ import {
   appendFormData,
   capitalizeFirstLetter,
   capitalizeWords,
+  clearNeedsApprovalSubmission,
   isAutoAddToBank,
+  markNeedsApprovalSubmission,
+  needsApprovalSubmission,
   setAutoAddToBank,
 } from "../../../../../utils";
 import useAssessmentPreview from "../../../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
@@ -348,6 +351,14 @@ const QuestionsPage = () => {
         if (parentAddToBank) setAutoAddToBank("assessment", assessment.id);
         realParentId = assessment.id;
       }
+
+      // This was created without going through the approval modal — flag it
+      // so the question listing page (`QuestionListingPage` below) can offer
+      // a one-time "Submit for Approval" action once the import is done.
+      markNeedsApprovalSubmission(
+        isStandaloneExamination ? "standalone" : isExamination ? "examination" : "assessment",
+        realParentId,
+      );
 
       push(
         buildBatchUploadLink({
@@ -1555,7 +1566,7 @@ const CreateQuestionPage = ({
         if (isStandaloneExamination) {
           // JSON body — PATCH /v1/stand-alone-examination-question/edit
           data = {
-            questionId,
+            standAloneExaminationQuestionId: questionId,
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
             markingType,
@@ -2627,7 +2638,7 @@ const buildQuestionEditPayload = (
 
   if (isStandaloneExamination) {
     return {
-      questionId: question.id,
+      standAloneExaminationQuestionId: question.id,
       question: question.question,
       ...(section !== undefined && { section }),
       markingType: question.markingType || "automatic",
@@ -2720,6 +2731,20 @@ const QuestionListingPage = ({
       ? true
       : false;
   const toast = useToast();
+  const isSuperAdmin = useIsSuperAdmin();
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [hasSubmittedForApproval, setHasSubmittedForApproval] = useState(false);
+  // Only content created via the batch-upload shortcut (which bypasses the
+  // approval modal to get a real id for the upload endpoint) ever needs
+  // this — normal "Create and Submit" already submits for approval in one
+  // step, and so does the "Create and Submit" button on the plain
+  // "Add Question" form for already-real content.
+  const needsSubmit =
+    hasSubmittedForApproval ||
+    needsApprovalSubmission(
+      isStandaloneExamination ? "standalone" : isExamination ? "examination" : "assessment",
+      assessment?.id,
+    );
 
   // Same pending-creation/pending-edit-submit deferral as QuestionsPage/
   // CreateQuestionPage — while the parent exam/assessment doesn't exist yet
@@ -3231,6 +3256,43 @@ const QuestionListingPage = ({
         onAdd={isPendingCreation || isPendingEditSubmit ? queueBankQuestionsFromListing : saveBankQuestionsForReal}
         initialCourseId={courseId !== "not-set" ? courseId : ""}
       />
+
+      {/* Only shown for content created via the batch-upload shortcut, which
+          bypasses the approval modal to get a real id for the upload
+          endpoint before any questions exist — see `markNeedsApprovalSubmission`
+          in `handleBatchUploadClick` above. */}
+      {needsSubmit && !questionsIsEmpty && (
+        <Box paddingTop={5} borderTop="1px" borderColor="gray.200" marginTop={4}>
+          <Button
+            ghost
+            disabled={hasSubmittedForApproval}
+            onClick={() => setWorkflowModalOpen(true)}
+          >
+            {hasSubmittedForApproval ? "Submitted for Approval" : "Submit for Approval"}
+          </Button>
+        </Box>
+      )}
+
+      {needsSubmit && !questionsIsEmpty && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
+          contentId={assessment.id}
+          contentTitle={assessment.topic}
+          requestType={
+            isStandaloneExamination ? "StandaloneExam" : isExamination ? "CourseExam" : "CourseAssessment"
+          }
+          courseId={courseId !== "not-set" ? courseId : undefined}
+          onSuccess={() => {
+            clearNeedsApprovalSubmission(
+              isStandaloneExamination ? "standalone" : isExamination ? "examination" : "assessment",
+              assessment.id,
+            );
+            setHasSubmittedForApproval(true);
+          }}
+        />
+      )}
     </Box>
   );
 };
