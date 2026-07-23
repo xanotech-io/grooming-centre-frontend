@@ -66,7 +66,10 @@ import SelectBankQuestionsModal from "../examQuestionBank/SelectBankQuestionsMod
 import {
   capitalizeFirstLetter,
   capitalizeWords,
+  clearNeedsApprovalSubmission,
   isAutoAddToBank,
+  markNeedsApprovalSubmission,
+  needsApprovalSubmission,
   setAutoAddToBank,
 } from "../../../utils";
 import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
@@ -127,10 +130,12 @@ const QuestionsStandalone = () => {
   const [sectionsLoading, setSectionsLoading] = useState(false);
 
   // The batch-upload endpoint requires a real examination UUID — it never
-  // accepts the "new" placeholder. While pending creation, clicking
-  // "Upload & Batch Import Questions" creates the exam first (same create
-  // call `performCreateParent` uses below) and only then navigates, so the
-  // batch-upload page always receives a real id.
+  // accepts the "new" placeholder. While pending creation, clicking "Upload
+  // & Batch Import Questions" creates the exam shell right away (same create
+  // call `performCreateParent` uses below) with no approval popup — approval
+  // for this exam happens later, via the "Submit for Approval" button on the
+  // question listing page (`QuestionListingPage` below) once the import is
+  // done and the questions are real.
   const handleBatchUploadClick = async () => {
     if (!pendingCreate) return;
     setCreatingForUpload(true);
@@ -140,6 +145,10 @@ const QuestionsStandalone = () => {
       await updateExamPaperConfig(examination.id, paperConfigBody);
       if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+      // This exam was created without going through the approval modal —
+      // flag it so the question listing page offers a one-time "Submit for
+      // Approval" action once the import is done.
+      markNeedsApprovalSubmission("standalone", examination.id);
 
       push(buildBatchUploadLink({ examinationId: examination.id, standalone: true }));
     } catch (err) {
@@ -1004,6 +1013,31 @@ const CreateQuestionPage = ({
       };
 
       if (isPendingCreation) {
+        // "Add more questions" only queues this one locally — nothing is
+        // created/saved until "Create and Submit" opens the approval modal
+        // below and it's actually submitted.
+        if (addAnotherRef.current) {
+          addAnotherRef.current = false;
+          const queuedData = {
+            standAloneExaminationId: isExamination,
+            question: questionPlainText,
+            ...(sectionTitle && { section: sectionTitle }),
+            markingType,
+            ...typeSpecificFields,
+          };
+          setPendingCreate({
+            ...pendingCreate,
+            questions: [...(pendingCreate.questions || []), { data: queuedData }],
+          });
+          toast({
+            description: "Question queued — it'll be created once you submit for approval",
+            position: "top",
+            status: "success",
+          });
+          push(`/admin/standalone-exams/questions/?examination=${isExamination}&submitForApproval=1`);
+          return;
+        }
+
         // Nothing exists yet. "createBoth" is the single unit of work that
         // actually saves anything — hand it to the approval modal so the
         // assigned supervisor (or an explicit null, for super admin) is
@@ -1659,10 +1693,18 @@ const CreateQuestionPage = ({
 };
 
 const QuestionListingPage = ({ assessment, isLoading, error }) => {
+  const isSuperAdmin = useIsSuperAdmin();
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [hasSubmittedForApproval, setHasSubmittedForApproval] = useState(false);
   const questions = Array.isArray(assessment?.questions)
     ? assessment.questions
     : [];
   const questionsIsEmpty = !isLoading && !error && !questions.length;
+  // Only exams created via the batch-upload shortcut (which bypasses the
+  // approval modal to get a real id for the upload endpoint) ever need this
+  // — normal "Create and Submit" already submits for approval in one step.
+  const needsSubmit =
+    hasSubmittedForApproval || needsApprovalSubmission("standalone", assessment?.id);
 
   return (
     <Box padding={6} width="70%">
@@ -1698,13 +1740,37 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
         />
       ))}
 
-      <Box paddingTop={10}>
+      <Box paddingTop={10} display="flex" gap={3}>
         <Button
           link={`/admin/standalone-exams/questions/?examination=${assessment?.id}`}
         >
           Add more questions
         </Button>
+        {needsSubmit && !questionsIsEmpty && (
+          <Button
+            ghost
+            disabled={hasSubmittedForApproval}
+            onClick={() => setWorkflowModalOpen(true)}
+          >
+            {hasSubmittedForApproval ? "Submitted for Approval" : "Submit for Approval"}
+          </Button>
+        )}
       </Box>
+
+      {needsSubmit && !questionsIsEmpty && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
+          contentId={assessment.id}
+          contentTitle={assessment.topic}
+          requestType="StandaloneExam"
+          onSuccess={() => {
+            clearNeedsApprovalSubmission("standalone", assessment.id);
+            setHasSubmittedForApproval(true);
+          }}
+        />
+      )}
     </Box>
   );
 };
