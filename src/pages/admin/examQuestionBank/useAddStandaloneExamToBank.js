@@ -19,7 +19,7 @@ const buildBankPayload = (q) => {
   if (!bankType) return null;
 
   const opts = (q.options || []).map((o) => ({
-    text: o.name ?? o.text ?? "",
+    text: o.name ?? o.text ?? o.option ?? "",
     isCorrect: !!o.isAnswer,
   }));
 

@@ -882,7 +882,18 @@ const CreateQuestionPage = ({
   // than one question, offer to add another right away instead of always
   // dropping straight to the question list.
   const finishSaving = (realParentId) => {
-    if (amountOfQuestions > 1) {
+    // How many questions exist after this save — used to stop offering
+    // "Add more questions" once the exam/assessment has as many as was
+    // asked for.
+    const questionsBeforeThisSave = isPendingCreation
+      ? pendingCreate?.questions?.length || 0
+      : isPendingEditSubmit
+        ? pendingEdit?.questions?.length || 0
+        : assessmentManager.assessment?.questions?.length || 0;
+    const totalAfterSave = questionsBeforeThisSave + 1;
+    const reachedLimit = amountOfQuestions && totalAfterSave >= amountOfQuestions;
+
+    if (amountOfQuestions > 1 && !reachedLimit) {
       // Everything has actually been created/saved for real by this point —
       // clear the pending state and move off the pending URL right away,
       // same as `goToQuestionListing`/`goToAddAnotherQuestion` do below.
@@ -899,6 +910,13 @@ const CreateQuestionPage = ({
       push(buildRealQuestionRoute(realParentId, { listing: false }));
       setCreatedSuccess({ realParentId });
     } else {
+      if (reachedLimit) {
+        toast({
+          description: `You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — you can't add another question.`,
+          position: "top",
+          status: "info",
+        });
+      }
       goToQuestionListing(realParentId);
     }
   };
@@ -1029,7 +1047,6 @@ const CreateQuestionPage = ({
     try {
       const params = { limit: 10 };
       if (bankSearch) params.search = bankSearch;
-      if (courseId && courseId !== "not-set") params.courseId = courseId;
       const res = await listExamQuestionBank(params);
       const payload = res?.data ?? res;
       const items = Array.isArray(payload?.questions)
@@ -1043,7 +1060,7 @@ const CreateQuestionPage = ({
     } finally {
       setBankLoading(false);
     }
-  }, [bankSearch, courseId]);
+  }, [bankSearch]);
 
   useEffect(() => {
     if (useBank) searchBank();
@@ -2564,7 +2581,19 @@ const CreateQuestionPage = ({
           <Button
             type="submit"
             ghost
-            onClick={() => {
+            onClick={(e) => {
+              const queuedCount =
+                (isPendingCreation ? pendingCreate?.questions : pendingEdit?.questions)
+                  ?.length || 0;
+              if (amountOfQuestions && queuedCount + 1 >= amountOfQuestions) {
+                e.preventDefault();
+                toast({
+                  description: `You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — you can't add another question.`,
+                  position: "top",
+                  status: "warning",
+                });
+                return;
+              }
               addAnotherRef.current = true;
             }}
             disabled={isLoading || isSubmitting || error}
