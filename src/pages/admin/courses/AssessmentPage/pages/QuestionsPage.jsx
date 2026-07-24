@@ -496,7 +496,21 @@ const QuestionsPage = () => {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessmentId, isExamination, isStandaloneExamination, storeSections, isPendingCreation, pendingCreate, assessmentManager.assessment?.sections]);
+  }, [
+    assessmentId,
+    isExamination,
+    isStandaloneExamination,
+    storeSections,
+    isPendingCreation,
+    // Deliberately narrowed from the whole `pendingCreate` object: every
+    // question queue/save/remove replaces it with a new object reference
+    // (`{ ...pendingCreate, questions: ... }`), which re-triggered this
+    // effect — and its marking-template GET — on every single local edit.
+    // Only these two derived values actually change what this effect does.
+    pendingCreate?.paperConfigBody?.configuredSections,
+    pendingCreate?.markingTemplateId,
+    assessmentManager.assessment?.sections,
+  ]);
 
   // Nothing was ever saved to the backend, so if the in-memory details-form
   // data is gone (e.g. the page was refreshed) there's nothing to recover.
@@ -870,12 +884,40 @@ const CreateQuestionPage = ({
     push(buildRealQuestionRoute(realParentId, { listing: false }));
   };
 
+  // Queued questions only live in the store — nothing to delete on the
+  // backend, just splice this slot out of pendingCreate/pendingEdit and
+  // head back to a blank pending form.
+  const handleRemoveQueuedQuestion = () => {
+    if (!window.confirm("Remove this queued question? It hasn't been created yet.")) return;
+    const updatedQuestions = (queuedSource.questions || []).filter((_, i) => i !== queuedIndex);
+    if (isPendingCreation) {
+      setPendingCreate({ ...pendingCreate, questions: updatedQuestions });
+    } else {
+      setPendingEdit({ ...pendingEdit, questions: updatedQuestions });
+    }
+    toast({ description: "Queued question removed", position: "top", status: "success" });
+    goToQueueAnotherQuestion();
+  };
+
   // Used by "Add more questions" while the parent exam/assessment doesn't
   // exist yet (or its edit is still held back) — nothing has been saved, so
   // this queues the current question locally (see the onSubmit branch below)
   // and reopens a blank form without disturbing `pendingCreate`/`pendingEdit`.
   const goToQueueAnotherQuestion = () => {
     push(buildRealQuestionRoute(undefined, { listing: false, keepPending: true }));
+  };
+
+  // Once the queue is full, land on the listing view instead of another
+  // blank form — mirrors the "See All" link's href, which keeps
+  // pendingCreate/pendingEdit alive (unlike goToQuestionListing, which
+  // clears them) since nothing has actually been created/saved yet.
+  const goToQueuedListing = () => {
+    const pendingSuffix = isPendingCreation
+      ? "&submitForApproval=1"
+      : isPendingEditSubmit
+        ? "&editSubmit=1"
+        : "";
+    push(`${getQuestionListingLink(courseId, assessmentId, isExamination, moduleId)}${pendingSuffix}`);
   };
 
   // After a question is saved: if this exam/assessment was set up for more
@@ -1483,6 +1525,165 @@ const CreateQuestionPage = ({
         return;
       }
 
+      // Standalone uses plain JSON; assessment/examination use multipart FormData.
+      // `overrideData` lets a queued question (built on an earlier render) be
+      // saved here instead of this render's own `data`. Defined up here
+      // (rather than after the field validations below) because the
+      // "Create and Submit with nothing new to add" branch right after this
+      // needs it before any of that validation runs.
+      const saveQuestion = async (realParentId, overrideData) => {
+        const questionData = overrideData || data;
+        const finalData = isPendingCreation ? withRealParentId(questionData, realParentId) : questionData;
+        const finalBody = isStandaloneExamination ? finalData : appendFormData(finalData);
+        return isEditMode
+          ? isStandaloneExamination
+            ? await adminEditStandaloneExaminationQuestion(finalBody)
+            : isExamination
+              ? await adminEditExaminationQuestion(finalBody)
+              : await adminEditAssessmentQuestion(finalBody)
+          : isStandaloneExamination
+            ? await adminCreateStandaloneExaminationQuestion(finalBody)
+            : isExamination
+              ? await adminCreateExaminationQuestion(finalBody)
+              : await adminCreateAssessmentQuestion(finalBody);
+      };
+
+      // Shared by the current question (via `maybeAddToBank` further down)
+      // and by any questions queued earlier through "Add more questions" —
+      // each queued item carries its own snapshot of these same fields.
+      // Also defined up here (like `saveQuestion` above) since the early-exit
+      // branch right below needs it before the field validations run.
+      const addQuestionToBank = async ({
+        questionPlainText: bankQuestionText,
+        questionType: bankQuestionType,
+        marks: bankMarks,
+        difficultyLevel: bankDifficultyLevel,
+        options: bankOptionsSource,
+        bankSourceFields: bankSource,
+      }) => {
+        const bankType = FORM_TYPE_TO_BANK_TYPE[bankQuestionType];
+        if (!bankType) {
+          toast({
+            description: "This question type isn't supported by the Question Bank yet",
+            position: "top",
+            status: "warning",
+          });
+          return;
+        }
+        const isBankObjectiveType =
+          bankQuestionType === "MCQ" || bankQuestionType === "TrueFalse";
+        let bankPayload;
+        try {
+          bankPayload = {
+            question: bankQuestionText,
+            questionType: bankType,
+            marks: Number(bankMarks) || 1,
+            difficultyLevel: capitalizeFirstLetter(bankDifficultyLevel || "medium"),
+            status: "draft",
+          };
+          if (isBankObjectiveType) {
+            const bankOptions = bankOptionsSource.map((o) => ({
+              text: o.name ?? o.option ?? "",
+              isCorrect: !!o.isAnswer,
+            }));
+            bankPayload.options = bankOptions.filter((o) => o.text);
+            bankPayload.correctAnswer =
+              bankOptions.find((o) => o.isCorrect)?.text ?? "";
+          } else if (bankQuestionType === "FillBlank") {
+            bankPayload.correctAnswer = bankSource.correctAnswer || "";
+          } else if (bankQuestionType === "ShortAnswer") {
+            bankPayload.correctAnswer = bankSource.modelAnswer || "";
+          } else if (bankQuestionType === "Essay" && bankSource.rubricDescription) {
+            bankPayload.explanation = bankSource.rubricDescription;
+          }
+          if (courseId && courseId !== "not-set") bankPayload.courseId = courseId;
+
+          await createExamQuestionBankItem(bankPayload);
+        } catch (bankErr) {
+          console.error("[QuestionsPage] failed to add question to bank", bankPayload, bankErr?.response?.data ?? bankErr);
+          toast({
+            description:
+              bankErr?.response?.data?.message ||
+              "Question saved, but failed to add it to the Question Bank",
+            position: "top",
+            status: "warning",
+          });
+        }
+      };
+
+      // "Create and Submit"/"Update and Submit" clicked with the current
+      // form left genuinely blank (typically right after "Save Changes" on
+      // a queued item, which returns to a fresh blank form) while at least
+      // one question is already queued. There's nothing new here to
+      // validate or add — skip straight to submitting exactly what's
+      // already queued instead of forcing the field validations below
+      // (which would otherwise demand a phantom extra question, or previously,
+      // before the queue was cleared on save, silently resubmitted whatever
+      // question was last on the form as a duplicate).
+      const hasQueuedAlready = (queuedSource?.questions?.length || 0) > 0;
+      const currentFormIsBlank = !questionRichTextManager.getPlainText().trim();
+      if (
+        (isPendingCreation || isPendingEditSubmit) &&
+        !isEditingQueued &&
+        !addAnotherRef.current &&
+        hasQueuedAlready &&
+        currentFormIsBlank
+      ) {
+        if (isPendingCreation) {
+          const createBoth = async () => {
+            const parent = await performCreateParent();
+            createdParentRef.current = parent;
+            for (const queued of pendingCreate.questions || []) {
+              await saveQuestion(parent.id, queued.data);
+              if (queued.addToBank || pendingCreate.addToBank) {
+                await addQuestionToBank(queued.bank);
+              }
+            }
+            // No `maybeAddToBank()` here — that call is for the *current*
+            // form's question, and this branch only runs when the current
+            // form is intentionally blank (nothing new to add to the bank).
+            return { id: parent.id };
+          };
+
+          const requestType =
+            pendingCreate.kind === "StandaloneExam"
+              ? "StandaloneExam"
+              : pendingCreate.kind === "ModuleExam" || pendingCreate.kind === "Exam"
+                ? "CourseExam"
+                : "CourseAssessment";
+          const modalCourseId = courseId !== "not-set" ? courseId : undefined;
+
+          pendingCreateBothRef.current = createBoth;
+          setWorkflowContent({
+            contentTitle: pendingCreate.title,
+            requestType,
+            courseId: modalCourseId,
+          });
+        } else {
+          const editBoth = async () => {
+            const parent = await performEditParent();
+            createdParentRef.current = parent;
+            for (const queued of pendingEdit.questions || []) {
+              await saveQuestion(undefined, queued.data);
+              if (queued.addToBank) {
+                await addQuestionToBank(queued.bank);
+              }
+            }
+            return { id: parent.id };
+          };
+
+          pendingCreateBothRef.current = editBoth;
+          setWorkflowContent({
+            contentId: pendingEdit.contentId,
+            contentTitle: pendingEdit.title,
+            requestType: pendingEdit.requestType,
+            courseId: pendingEdit.courseId,
+          });
+        }
+        setWorkflowModalOpen(true);
+        return;
+      }
+
       // Defense in depth — the UI already disables/blocks disallowed
       // choices, but a section can be locked or filled after this form was
       // opened, so re-validate the section's constraints right before save.
@@ -1705,66 +1906,6 @@ const CreateQuestionPage = ({
         }
       }
 
-      // Shared by the current question (via `maybeAddToBank` below) and by
-      // any questions queued earlier through "Add more questions" — each
-      // queued item carries its own snapshot of these same fields.
-      const addQuestionToBank = async ({
-        questionPlainText: bankQuestionText,
-        questionType: bankQuestionType,
-        marks: bankMarks,
-        difficultyLevel: bankDifficultyLevel,
-        options: bankOptionsSource,
-        bankSourceFields: bankSource,
-      }) => {
-        const bankType = FORM_TYPE_TO_BANK_TYPE[bankQuestionType];
-        if (!bankType) {
-          toast({
-            description: "This question type isn't supported by the Question Bank yet",
-            position: "top",
-            status: "warning",
-          });
-          return;
-        }
-        const isBankObjectiveType =
-          bankQuestionType === "MCQ" || bankQuestionType === "TrueFalse";
-        let bankPayload;
-        try {
-          bankPayload = {
-            question: bankQuestionText,
-            questionType: bankType,
-            marks: Number(bankMarks) || 1,
-            difficultyLevel: capitalizeFirstLetter(bankDifficultyLevel || "medium"),
-            status: "draft",
-          };
-          if (isBankObjectiveType) {
-            const bankOptions = bankOptionsSource.map((o) => ({
-              text: o.name ?? o.option ?? "",
-              isCorrect: !!o.isAnswer,
-            }));
-            bankPayload.options = bankOptions.filter((o) => o.text);
-            bankPayload.correctAnswer =
-              bankOptions.find((o) => o.isCorrect)?.text ?? "";
-          } else if (bankQuestionType === "FillBlank") {
-            bankPayload.correctAnswer = bankSource.correctAnswer || "";
-          } else if (bankQuestionType === "ShortAnswer") {
-            bankPayload.correctAnswer = bankSource.modelAnswer || "";
-          } else if (bankQuestionType === "Essay" && bankSource.rubricDescription) {
-            bankPayload.explanation = bankSource.rubricDescription;
-          }
-          if (courseId && courseId !== "not-set") bankPayload.courseId = courseId;
-
-          await createExamQuestionBankItem(bankPayload);
-        } catch (bankErr) {
-          console.error("[QuestionsPage] failed to add question to bank", bankPayload, bankErr?.response?.data ?? bankErr);
-          toast({
-            description:
-              bankErr?.response?.data?.message ||
-              "Question saved, but failed to add it to the Question Bank",
-            position: "top",
-            status: "warning",
-          });
-        }
-      };
 
       const maybeAddToBank = async (forceAdd) => {
         if (isEditMode || !(addToBank || autoAddToBank || forceAdd)) return;
@@ -1776,26 +1917,6 @@ const CreateQuestionPage = ({
           options,
           bankSourceFields,
         });
-      };
-
-      // Standalone uses plain JSON; assessment/examination use multipart FormData.
-      // `overrideData` lets a queued question (built on an earlier render) be
-      // saved here instead of this render's own `data`.
-      const saveQuestion = async (realParentId, overrideData) => {
-        const questionData = overrideData || data;
-        const finalData = isPendingCreation ? withRealParentId(questionData, realParentId) : questionData;
-        const finalBody = isStandaloneExamination ? finalData : appendFormData(finalData);
-        return isEditMode
-          ? isStandaloneExamination
-            ? await adminEditStandaloneExaminationQuestion(finalBody)
-            : isExamination
-              ? await adminEditExaminationQuestion(finalBody)
-              : await adminEditAssessmentQuestion(finalBody)
-          : isStandaloneExamination
-            ? await adminCreateStandaloneExaminationQuestion(finalBody)
-            : isExamination
-              ? await adminCreateExaminationQuestion(finalBody)
-              : await adminCreateAssessmentQuestion(finalBody);
       };
 
       // ── Editing a queued (not-yet-created) question in place ────────────
@@ -1824,6 +1945,17 @@ const CreateQuestionPage = ({
           position: "top",
           status: "success",
         });
+        // Reset the form to a genuinely blank state before returning —
+        // `reset()` alone doesn't touch the rich-text editor (its content
+        // lives in `questionRichTextManager`'s own state, not react-hook-form),
+        // so without this the question text stayed on screen after "Save
+        // Changes". Submitting from there without typing anything new
+        // resubmitted the identical, already-queued content as an extra
+        // question on "Create and Submit" — the backend rejected it as a
+        // duplicate ("assessment question already exists").
+        reset();
+        questionRichTextManager.handleInitData(null);
+        setBankApplyKey((k) => k + 1);
         goToQueueAnotherQuestion();
         return;
       }
@@ -1835,25 +1967,40 @@ const CreateQuestionPage = ({
         // every other queued question, when "Create and Submit" finally runs.
         if (addAnotherRef.current) {
           addAnotherRef.current = false;
-          setPendingCreate({
-            ...pendingCreate,
-            questions: [
-              ...(pendingCreate.questions || []),
-              {
-                data,
-                addToBank,
-                bank: { questionPlainText, questionType, marks, difficultyLevel, options, bankSourceFields },
-                formSnapshot: queuedFormSnapshot,
-              },
-            ],
-          });
-          toast({
-            description: "Question added. It'll be created once you submit this for approval.",
-            position: "top",
-            status: "success",
-          });
+          const updatedQuestions = [
+            ...(pendingCreate.questions || []),
+            {
+              data,
+              addToBank,
+              bank: { questionPlainText, questionType, marks, difficultyLevel, options, bankSourceFields },
+              formSnapshot: queuedFormSnapshot,
+            },
+          ];
+          setPendingCreate({ ...pendingCreate, questions: updatedQuestions });
           reset();
-          goToQueueAnotherQuestion();
+          // `reset()` doesn't touch the rich-text editor's own state — clear
+          // it too so the next blank form doesn't still show this question's
+          // text (which risked getting resubmitted as a duplicate).
+          questionRichTextManager.handleInitData(null);
+          setBankApplyKey((k) => k + 1);
+          // This question is safely queued either way — only decide here
+          // whether there's room left to offer another blank form, so
+          // hitting the limit never costs the question just filled out.
+          if (amountOfQuestions && updatedQuestions.length >= amountOfQuestions) {
+            toast({
+              description: `Question added. You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — submit this for approval to finish.`,
+              position: "top",
+              status: "info",
+            });
+            goToQueuedListing();
+          } else {
+            toast({
+              description: "Question added. It'll be created once you submit this for approval.",
+              position: "top",
+              status: "success",
+            });
+            goToQueueAnotherQuestion();
+          }
           return;
         }
 
@@ -1901,25 +2048,37 @@ const CreateQuestionPage = ({
         // shell that already exists: queue instead of saving right away.
         if (addAnotherRef.current) {
           addAnotherRef.current = false;
-          setPendingEdit({
-            ...pendingEdit,
-            questions: [
-              ...(pendingEdit.questions || []),
-              {
-                data,
-                addToBank,
-                bank: { questionPlainText, questionType, marks, difficultyLevel, options, bankSourceFields },
-                formSnapshot: queuedFormSnapshot,
-              },
-            ],
-          });
-          toast({
-            description: "Question added. It'll be created once you submit this for approval.",
-            position: "top",
-            status: "success",
-          });
+          const updatedQuestions = [
+            ...(pendingEdit.questions || []),
+            {
+              data,
+              addToBank,
+              bank: { questionPlainText, questionType, marks, difficultyLevel, options, bankSourceFields },
+              formSnapshot: queuedFormSnapshot,
+            },
+          ];
+          setPendingEdit({ ...pendingEdit, questions: updatedQuestions });
           reset();
-          goToQueueAnotherQuestion();
+          // `reset()` doesn't touch the rich-text editor's own state — clear
+          // it too so the next blank form doesn't still show this question's
+          // text (which risked getting resubmitted as a duplicate).
+          questionRichTextManager.handleInitData(null);
+          setBankApplyKey((k) => k + 1);
+          if (amountOfQuestions && updatedQuestions.length >= amountOfQuestions) {
+            toast({
+              description: `Question added. You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — submit this for approval to finish.`,
+              position: "top",
+              status: "info",
+            });
+            goToQueuedListing();
+          } else {
+            toast({
+              description: "Question added. It'll be created once you submit this for approval.",
+              position: "top",
+              status: "success",
+            });
+            goToQueueAnotherQuestion();
+          }
           return;
         }
 
@@ -2542,6 +2701,11 @@ const CreateQuestionPage = ({
             Cancel
           </Button>
         )}
+        {isEditingQueued && (
+          <Button ghost onClick={handleRemoveQueuedQuestion} type="button">
+            Remove Question
+          </Button>
+        )}
         <Button
           type="submit"
           onClick={() => {
@@ -2577,31 +2741,28 @@ const CreateQuestionPage = ({
             Create and Submit
           </Button>
         )}
-        {(isPendingCreation || isPendingEditSubmit) && !isEditingQueued && (
-          <Button
-            type="submit"
-            ghost
-            onClick={(e) => {
-              const queuedCount =
-                (isPendingCreation ? pendingCreate?.questions : pendingEdit?.questions)
-                  ?.length || 0;
-              if (amountOfQuestions && queuedCount + 1 >= amountOfQuestions) {
-                e.preventDefault();
-                toast({
-                  description: `You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — you can't add another question.`,
-                  position: "top",
-                  status: "warning",
-                });
-                return;
-              }
-              addAnotherRef.current = true;
-            }}
-            disabled={isLoading || isSubmitting || error}
-            isLoading={isLoading || isSubmitting}
-          >
-            Add more questions
-          </Button>
-        )}
+        {(isPendingCreation || isPendingEditSubmit) &&
+          !isEditingQueued &&
+          !(
+            amountOfQuestions &&
+            ((isPendingCreation ? pendingCreate?.questions : pendingEdit?.questions)?.length || 0) >=
+              amountOfQuestions
+          ) && (
+            <Button
+              type="submit"
+              ghost
+              onClick={() => {
+                // The limit is enforced after this question is safely
+                // queued (in onSubmit) — never before, so reaching it never
+                // costs the question just filled out on this form.
+                addAnotherRef.current = true;
+              }}
+              disabled={isLoading || isSubmitting || error}
+              isLoading={isLoading || isSubmitting}
+            >
+              Add more questions
+            </Button>
+          )}
         {isEditMode && (
           <Button
             ghost
@@ -2851,6 +3012,19 @@ const QuestionListingPage = ({
         status: "error",
       });
     }
+  };
+
+  // Queued questions only live in the store — nothing to delete on the
+  // backend, just splice the slot out of pendingCreate/pendingEdit.
+  const handleRemoveQueuedQuestion = (index) => {
+    if (!window.confirm("Remove this queued question? It hasn't been created yet.")) return;
+    const updatedQuestions = queuedQuestions.filter((_, i) => i !== index);
+    if (isPendingCreation) {
+      setPendingCreate({ ...pendingCreate, questions: updatedQuestions });
+    } else {
+      setPendingEdit({ ...pendingEdit, questions: updatedQuestions });
+    }
+    toast({ description: "Queued question removed", position: "top", status: "success" });
   };
 
   const questions = Array.isArray(assessment?.questions)
@@ -3221,33 +3395,42 @@ const QuestionListingPage = ({
           </Flex>
 
           {queuedQuestions.map((q, index) => (
-            <Link
-              key={`queued-${index}`}
-              href={getEditQueuedQuestionLink(
-                courseId,
-                assessmentId,
-                isExamination,
-                moduleId,
-                index,
-                isPendingCreation ? "submitForApproval" : "editSubmit",
-              )}
-            >
-              <Box
-                marginBottom={4}
-                padding={4}
-                backgroundColor="gray.50"
-                borderRadius="md"
-                cursor="pointer"
-                _hover={{ backgroundColor: "gray.100" }}
+            <Flex key={`queued-${index}`} alignItems="center" gap={2} marginBottom={4}>
+              <Link
+                style={{ flex: 1 }}
+                href={getEditQueuedQuestionLink(
+                  courseId,
+                  assessmentId,
+                  isExamination,
+                  moduleId,
+                  index,
+                  isPendingCreation ? "submitForApproval" : "editSubmit",
+                )}
               >
-                <Text bold mb={1}>
-                  {questions.length + index + 1}. {capitalizeWords(q.bank?.questionType || "")}
-                </Text>
-                <Text color="gray.600">
-                  {q.bank?.questionPlainText || "(no preview available)"}
-                </Text>
-              </Box>
-            </Link>
+                <Box
+                  padding={4}
+                  backgroundColor="gray.50"
+                  borderRadius="md"
+                  cursor="pointer"
+                  _hover={{ backgroundColor: "gray.100" }}
+                >
+                  <Text bold mb={1}>
+                    {questions.length + index + 1}. {capitalizeWords(q.bank?.questionType || "")}
+                  </Text>
+                  <Text color="gray.600">
+                    {q.bank?.questionPlainText || "(no preview available)"}
+                  </Text>
+                </Box>
+              </Link>
+              <Button
+                ghost
+                type="button"
+                onClick={() => handleRemoveQueuedQuestion(index)}
+                aria-label="Remove question"
+              >
+                Remove
+              </Button>
+            </Flex>
           ))}
         </Box>
       )}

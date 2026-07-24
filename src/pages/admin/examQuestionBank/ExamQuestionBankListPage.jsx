@@ -491,7 +491,6 @@ function ExamQuestionBankListPage() {
                     <Th>Question</Th>
                     <Th>Type</Th>
                     <Th>Difficulty</Th>
-                    <Th>Marks</Th>
                     <Th>Status</Th>
                     <Th>Tags</Th>
                     <Th>Actions</Th>
@@ -522,7 +521,6 @@ function ExamQuestionBankListPage() {
                         </Badge>
                       </Td>
                       <Td>{q.difficultyLevel}</Td>
-                      <Td>{q.marks}</Td>
                       <Td>
                         <Badge colorScheme={STATUS_COLOR[q.status] || "gray"}>{q.status}</Badge>
                       </Td>
