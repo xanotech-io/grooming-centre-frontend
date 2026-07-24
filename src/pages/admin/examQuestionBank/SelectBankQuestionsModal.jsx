@@ -180,7 +180,6 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd }) => {
                     <Th>Question</Th>
                     <Th>Type</Th>
                     <Th>Difficulty</Th>
-                    <Th>Marks</Th>
                     <Th>Course</Th>
                     <Th>Module</Th>
                   </Tr>
@@ -202,7 +201,6 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd }) => {
                         </Badge>
                       </Td>
                       <Td>{q.difficultyLevel}</Td>
-                      <Td>{q.marks}</Td>
                       <Td>
                         <Text fontSize="xs" color="gray.500" noOfLines={1} maxW="140px">
                           {(q.courseId && (courseNames[q.courseId] || q.courseId)) || "—"}
