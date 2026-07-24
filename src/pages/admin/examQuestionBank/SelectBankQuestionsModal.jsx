@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Badge,
   Box,
@@ -23,7 +23,12 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import { Button } from "../../../components";
-import { getExamQuestionBankItem, listExamQuestionBank } from "../../../services";
+import {
+  adminGetCourseListing,
+  adminListModules,
+  getExamQuestionBankItem,
+  listExamQuestionBank,
+} from "../../../services";
 
 const TYPE_LABEL = {
   mcq: "MCQ",
@@ -33,7 +38,7 @@ const TYPE_LABEL = {
   short_answer: "Short Answer",
 };
 
-const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd, initialCourseId = "" }) => {
+const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd }) => {
   const toast = useToast();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -41,12 +46,19 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd, initialCourseId = ""
   const [selectedIds, setSelectedIds] = useState([]);
   const [adding, setAdding] = useState(false);
 
+  // Origin labels — the picker deliberately shows every question in the
+  // bank regardless of the course/module currently being edited, so these
+  // columns are how the admin tells which exam/course a question came from
+  // instead of the picker silently filtering it out of view.
+  const [courseNames, setCourseNames] = useState({});
+  const [moduleNames, setModuleNames] = useState({});
+  const loadedModuleCourseIds = useRef(new Set());
+
   const fetchQuestions = useCallback(async () => {
     setLoading(true);
     try {
       const params = { limit: 50 };
       if (search) params.search = search;
-      if (initialCourseId) params.courseId = initialCourseId;
       const res = await listExamQuestionBank(params);
       const payload = res?.data ?? res;
       const items = Array.isArray(payload?.questions) ? payload.questions : Array.isArray(payload) ? payload : [];
@@ -56,7 +68,7 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd, initialCourseId = ""
     } finally {
       setLoading(false);
     }
-  }, [search, initialCourseId]);
+  }, [search]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -68,6 +80,41 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd, initialCourseId = ""
   useEffect(() => {
     if (isOpen) fetchQuestions();
   }, [isOpen, fetchQuestions]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    adminGetCourseListing({ limit: 200 })
+      .then((res) => {
+        const map = {};
+        (res?.courses || []).forEach((c) => {
+          map[c.id] = c.title;
+        });
+        setCourseNames(map);
+      })
+      .catch(() => {});
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !questions.length) return;
+    const courseIds = Array.from(
+      new Set(questions.map((q) => q.courseId).filter((id) => id && !loadedModuleCourseIds.current.has(id))),
+    );
+    if (!courseIds.length) return;
+    courseIds.forEach((id) => loadedModuleCourseIds.current.add(id));
+    Promise.all(
+      courseIds.map((id) =>
+        adminListModules(id)
+          .then((res) => res?.modules || [])
+          .catch(() => []),
+      ),
+    ).then((results) => {
+      const map = {};
+      results.flat().forEach((m) => {
+        map[m.id] = m.title;
+      });
+      setModuleNames((prev) => ({ ...prev, ...map }));
+    });
+  }, [isOpen, questions]);
 
   const allSelected = questions.length > 0 && questions.every((q) => selectedIds.includes(q.id));
 
@@ -123,7 +170,7 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd, initialCourseId = ""
               <Spinner />
             </Flex>
           ) : (
-            <Box maxH="360px" overflowY="auto" border="1px solid" borderColor="gray.100" borderRadius="md">
+            <Box maxH="360px" overflowY="auto" overflowX="auto" border="1px solid" borderColor="gray.100" borderRadius="md">
               <Table size="sm" variant="simple">
                 <Thead bg="gray.50" position="sticky" top={0}>
                   <Tr>
@@ -134,6 +181,8 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd, initialCourseId = ""
                     <Th>Type</Th>
                     <Th>Difficulty</Th>
                     <Th>Marks</Th>
+                    <Th>Course</Th>
+                    <Th>Module</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -154,6 +203,16 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd, initialCourseId = ""
                       </Td>
                       <Td>{q.difficultyLevel}</Td>
                       <Td>{q.marks}</Td>
+                      <Td>
+                        <Text fontSize="xs" color="gray.500" noOfLines={1} maxW="140px">
+                          {(q.courseId && (courseNames[q.courseId] || q.courseId)) || "—"}
+                        </Text>
+                      </Td>
+                      <Td>
+                        <Text fontSize="xs" color="gray.500" noOfLines={1} maxW="140px">
+                          {(q.moduleId && (moduleNames[q.moduleId] || q.moduleId)) || "—"}
+                        </Text>
+                      </Td>
                     </Tr>
                   ))}
                 </Tbody>

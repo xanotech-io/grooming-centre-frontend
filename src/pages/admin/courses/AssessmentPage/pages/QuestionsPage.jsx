@@ -883,6 +883,20 @@ const CreateQuestionPage = ({
   // dropping straight to the question list.
   const finishSaving = (realParentId) => {
     if (amountOfQuestions > 1) {
+      // Everything has actually been created/saved for real by this point —
+      // clear the pending state and move off the pending URL right away,
+      // same as `goToQuestionListing`/`goToAddAnotherQuestion` do below.
+      // Leaving `pendingCreate`/`pendingEdit` set (and staying on the old
+      // `submitForApproval=1`/`editSubmit=1` URL) while this screen shows
+      // let a stale queued-question tile — still rendered in the sidebar
+      // because nothing had cleared it yet — or the browser back button
+      // land the user back on what looked like an untouched pending form.
+      // Clicking "Create and Submit"/"Update and Submit" from there called
+      // performCreateParent/performEditParent a second time with the same
+      // body, which the backend rejected as a duplicate ("already exists").
+      clearPendingCreate();
+      clearPendingEdit();
+      push(buildRealQuestionRoute(realParentId, { listing: false }));
       setCreatedSuccess({ realParentId });
     } else {
       goToQuestionListing(realParentId);
@@ -2592,7 +2606,6 @@ const CreateQuestionPage = ({
         isOpen={isBankPickerOpen}
         onClose={closeBankPicker}
         onAdd={isPendingCreation || isPendingEditSubmit ? queueBankQuestions : saveBankQuestionsForReal}
-        initialCourseId={courseId !== "not-set" ? courseId : ""}
       />
     </Box>
   );
@@ -3254,7 +3267,6 @@ const QuestionListingPage = ({
         isOpen={isBankPickerOpen}
         onClose={closeBankPicker}
         onAdd={isPendingCreation || isPendingEditSubmit ? queueBankQuestionsFromListing : saveBankQuestionsForReal}
-        initialCourseId={courseId !== "not-set" ? courseId : ""}
       />
 
       {/* Only shown for content created via the batch-upload shortcut, which
