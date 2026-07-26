@@ -101,6 +101,42 @@ const TYPE_LABEL = {
   Essay: "Essay",
 };
 
+// Shared by the pending-creation queue (buildQueuedItemFromBankQuestion) and
+// the already-real listing page (saveBankQuestionsForReal) — same mapping,
+// just fed straight to the create-question endpoint in the "real" case
+// instead of being stashed in pendingCreate/pendingEdit.questions.
+const buildBankQuestionData = (bankQuestion, examinationId, sectionTitle) => {
+  const mappedType = BANK_TYPE_TO_FORM_TYPE[bankQuestion.questionType];
+  if (!mappedType) return null;
+
+  const isObjective = mappedType === "MCQ" || mappedType === "TrueFalse";
+  const options = isObjective
+    ? mappedType === "TrueFalse"
+      ? ["True", "False"].map((label, idx) => ({
+          option: label,
+          isAnswer: bankQuestion.correctAnswer === label,
+          optionIndex: idx + 1,
+        }))
+      : (bankQuestion.options || []).map((o, idx) => ({
+          option: o.text,
+          isAnswer: !!o.isCorrect,
+          optionIndex: idx + 1,
+        }))
+    : [];
+
+  const typeSpecificFields = isObjective
+    ? { options }
+    : { questionType: "FillBlank", correctAnswer: bankQuestion.correctAnswer || "" };
+
+  return {
+    standAloneExaminationId: examinationId,
+    question: bankQuestion.question,
+    ...(sectionTitle && { section: sectionTitle }),
+    markingType: "automatic",
+    ...typeSpecificFields,
+  };
+};
+
 const QuestionsStandalone = () => {
   const isQuestionListingPage = useQueryParams().get("question-listing");
   const isExamination = useQueryParams().get("examination");
@@ -874,8 +910,9 @@ const CreateQuestionPage = ({
   // used both by the plural fromBankQuestionIds hand-off below and by the
   // "Question Bank" multi-select modal opened mid-creation.
   const buildQueuedItemFromBankQuestion = (bankQuestion) => {
-    const mappedType = BANK_TYPE_TO_FORM_TYPE[bankQuestion.questionType];
-    if (!mappedType) {
+    const sectionTitle = selectedSectionId || undefined;
+    const data = buildBankQuestionData(bankQuestion, isExamination, sectionTitle);
+    if (!data) {
       toast({
         description: `Skipped "${bankQuestion.question}" — this question type isn't supported here.`,
         position: "top",
@@ -883,45 +920,43 @@ const CreateQuestionPage = ({
       });
       return null;
     }
-
-    const isObjective = mappedType === "MCQ" || mappedType === "TrueFalse";
-    const options = isObjective
-      ? mappedType === "TrueFalse"
-        ? ["True", "False"].map((label, idx) => ({
-            option: label,
-            isAnswer: bankQuestion.correctAnswer === label,
-            optionIndex: idx + 1,
-          }))
-        : (bankQuestion.options || []).map((o, idx) => ({
-            option: o.text,
-            isAnswer: !!o.isCorrect,
-            optionIndex: idx + 1,
-          }))
-      : [];
-
-    const sectionTitle = selectedSectionId || undefined;
-    const typeSpecificFields = isObjective
-      ? { options }
-      : { questionType: "FillBlank", correctAnswer: bankQuestion.correctAnswer || "" };
-
-    const data = {
-      standAloneExaminationId: isExamination,
-      question: bankQuestion.question,
-      ...(sectionTitle && { section: sectionTitle }),
-      markingType: "automatic",
-      ...typeSpecificFields,
-    };
-
     return { data };
   };
 
-  const queueBankQuestions = (bankQuestions) => {
+  const queueBankQuestions = async (bankQuestions) => {
+    // Already-real exam (not pending creation/edit) — nothing to queue,
+    // create each picked question for real right away.
+    if (!isPendingCreation && !isPendingEditSubmit) {
+      const items = bankQuestions
+        .map((bq) => buildBankQuestionData(bq, isExamination, selectedSectionId || undefined))
+        .filter(Boolean);
+      if (!items.length) return;
+      try {
+        for (const data of items) {
+          await adminCreateStandaloneExaminationQuestion(data);
+        }
+        toast({
+          description: `${items.length} question${items.length === 1 ? "" : "s"} added.`,
+          position: "top",
+          status: "success",
+        });
+        assessmentManager.handleFetch(true);
+      } catch (err) {
+        toast({
+          description: "Couldn't add one or more questions — please try again",
+          position: "top",
+          status: "error",
+        });
+      }
+      return;
+    }
+
     const items = bankQuestions.map(buildQueuedItemFromBankQuestion).filter(Boolean);
     if (!items.length) return;
 
     if (isPendingCreation) {
       setPendingCreate({ ...pendingCreate, questions: [...(pendingCreate.questions || []), ...items] });
-    } else if (isPendingEditSubmit) {
+    } else {
       setPendingEdit({ ...pendingEdit, questions: [...(pendingEdit.questions || []), ...items] });
     }
 
@@ -2027,25 +2062,59 @@ const CreateQuestionPage = ({
         />
       )}
 
-      {(isPendingCreation || isPendingEditSubmit) && (
-        <SelectBankQuestionsModal
-          isOpen={isBankPickerOpen}
-          onClose={closeBankPicker}
-          onAdd={queueBankQuestions}
-        />
-      )}
+      <SelectBankQuestionsModal
+        isOpen={isBankPickerOpen}
+        onClose={closeBankPicker}
+        onAdd={queueBankQuestions}
+      />
     </Box>
   );
 };
 
-const QuestionListingPage = ({ assessment, isLoading, error }) => {
+const QuestionListingPage = ({ assessment, isLoading, error, handleFetch }) => {
   const isSuperAdmin = useIsSuperAdmin();
+  const toast = useToast();
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [hasSubmittedForApproval, setHasSubmittedForApproval] = useState(false);
+  const isBankPickerOpen = useAssessmentStore((s) => s.isBankPickerOpen);
+  const closeBankPicker = useAssessmentStore((s) => s.closeBankPicker);
   const questions = Array.isArray(assessment?.questions)
     ? assessment.questions
     : [];
   const questionsIsEmpty = !isLoading && !error && !questions.length;
+
+  // The exam already exists here — unlike the pending-creation queue, each
+  // picked bank question is created for real right away via the normal
+  // create-question endpoint, then the list is refetched.
+  const saveBankQuestionsForReal = async (bankQuestions) => {
+    const items = bankQuestions
+      .map((bq) => buildBankQuestionData(bq, assessment?.id))
+      .filter(Boolean);
+    if (items.length < bankQuestions.length) {
+      toast({
+        description: "Some questions were skipped — that type isn't supported here.",
+        position: "top",
+        status: "warning",
+      });
+    }
+    try {
+      for (const data of items) {
+        await adminCreateStandaloneExaminationQuestion(data);
+      }
+      toast({
+        description: `${items.length} question${items.length === 1 ? "" : "s"} added.`,
+        position: "top",
+        status: "success",
+      });
+      handleFetch(true);
+    } catch (err) {
+      toast({
+        description: "Couldn't add one or more questions — please try again",
+        position: "top",
+        status: "error",
+      });
+    }
+  };
   // Only exams created via the batch-upload shortcut (which bypasses the
   // approval modal to get a real id for the upload endpoint) ever need this
   // — normal "Create and Submit" already submits for approval in one step.
@@ -2117,6 +2186,12 @@ const QuestionListingPage = ({ assessment, isLoading, error }) => {
           }}
         />
       )}
+
+      <SelectBankQuestionsModal
+        isOpen={isBankPickerOpen}
+        onClose={closeBankPicker}
+        onAdd={saveBankQuestionsForReal}
+      />
     </Box>
   );
 };

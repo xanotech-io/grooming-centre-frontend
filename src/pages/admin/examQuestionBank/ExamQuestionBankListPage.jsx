@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Badge,
@@ -15,18 +15,10 @@ import {
   MenuButton,
   MenuItem,
   MenuList,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalHeader,
-  ModalOverlay,
   Select,
   SimpleGrid,
   Spinner,
   Table,
-  Tag,
-  TagLabel,
   Tbody,
   Td,
   Text,
@@ -41,22 +33,23 @@ import { FiChevronDown, FiCopy, FiEdit2, FiEye, FiMoreHorizontal, FiPlus, FiRefr
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { Breadcrumb, Link } from "../../../components";
 import {
+  adminGetCourseListing,
+  adminListModules,
   bulkUpdateExamQuestionBankStatus,
-  cleanupOrphanedExamQuestionBankMedia,
   deleteExamQuestionBankItem,
   getExamQuestionBankStats,
-  getOrphanedExamQuestionBankMedia,
   listExamQuestionBank,
 } from "../../../services";
 import UseBankQuestionModal from "./UseBankQuestionModal";
 
 const MOCK_STATS = {
   totalQuestions: 42,
-  draftQuestions: 12,
-  activeQuestions: 27,
   inactiveQuestions: 3,
   multimediaQuestions: 9,
   multimediaAdoptionRate: 21,
+  usageFrequency: 4.6,
+  correctResponseRate: 68.2,
+  difficultyDistribution: { easy: 15, medium: 20, hard: 7 },
 };
 
 const MOCK_QUESTIONS = [
@@ -96,13 +89,13 @@ const TYPE_LABEL = {
 
 const STATUS_COLOR = { draft: "gray", active: "green", inactive: "red" };
 
-function StatCard({ label, value, color }) {
+function StatCard({ label, value }) {
   return (
     <Box bg="white" borderRadius="lg" p={4} boxShadow="sm" border="1px solid" borderColor="gray.100">
-      <Text fontSize="xs" color="gray.500" mb={1} textTransform="uppercase" letterSpacing="wide">
+      <Text fontSize="xs" color="black" mb={1} textTransform="uppercase" letterSpacing="wide">
         {label}
       </Text>
-      <Text fontSize="2xl" fontWeight="bold" color={color || "gray.800"}>
+      <Text fontSize="2xl" fontWeight="bold" color="black">
         {value ?? "—"}
       </Text>
     </Box>
@@ -126,86 +119,6 @@ function PaginationBar({ page, totalPages, onPage }) {
   );
 }
 
-function OrphanedMediaModal({ isOpen, onClose, onCleaned }) {
-  const toast = useToast();
-  const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState([]);
-  const [cleaning, setCleaning] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getOrphanedExamQuestionBankMedia();
-      const payload = res?.data ?? res;
-      setItems(Array.isArray(payload) ? payload : payload?.media || []);
-    } catch {
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) load();
-  }, [isOpen, load]);
-
-  const handleCleanup = async () => {
-    setCleaning(true);
-    try {
-      await cleanupOrphanedExamQuestionBankMedia();
-      toast({ title: "Orphaned media deleted", status: "success", duration: 3000, isClosable: true });
-      setItems([]);
-      onCleaned?.();
-    } catch {
-      toast({ title: "Cleanup failed", status: "error", duration: 3000, isClosable: true });
-    } finally {
-      setCleaning(false);
-    }
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader fontSize="16px" fontWeight="600">
-          Orphaned Media
-        </ModalHeader>
-        <ModalCloseButton />
-        <ModalBody pb={6}>
-          <Text fontSize="13px" color="gray.500" mb={4}>
-            Media attached to questions that have since been deactivated. Safe to delete to reclaim storage.
-          </Text>
-          {loading ? (
-            <Flex justify="center" py={8}>
-              <Spinner />
-            </Flex>
-          ) : items.length === 0 ? (
-            <Text fontSize="13px" color="gray.400" textAlign="center" py={6}>
-              No orphaned media found.
-            </Text>
-          ) : (
-            <>
-              <Box maxH="260px" overflowY="auto" mb={4}>
-                {items.map((m) => (
-                  <Flex key={m.id} justify="space-between" py={2} borderBottom="1px solid" borderColor="gray.100">
-                    <Text fontSize="12px" color="gray.600" isTruncated maxW="360px">
-                      {m.url}
-                    </Text>
-                    <Badge colorScheme="orange">{m.mediaType}</Badge>
-                  </Flex>
-                ))}
-              </Box>
-              <Button colorScheme="red" isLoading={cleaning} onClick={handleCleanup}>
-                Delete All Orphaned Media
-              </Button>
-            </>
-          )}
-        </ModalBody>
-      </ModalContent>
-    </Modal>
-  );
-}
-
 function ExamQuestionBankListPage() {
   const toast = useToast();
   const history = useHistory();
@@ -221,14 +134,16 @@ function ExamQuestionBankListPage() {
   const [questionType, setQuestionType] = useState("");
   const [difficultyLevel, setDifficultyLevel] = useState("");
   const [status, setStatus] = useState("");
-  const [category, setCategory] = useState("");
 
   const [selectedIds, setSelectedIds] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
   const [useQuestionId, setUseQuestionId] = useState(null);
   const [useQuestionCourseId, setUseQuestionCourseId] = useState("");
 
-  const { isOpen: isOrphanOpen, onOpen: onOrphanOpen, onClose: onOrphanClose } = useDisclosure();
+  const [courseNames, setCourseNames] = useState({});
+  const [moduleNames, setModuleNames] = useState({});
+  const loadedModuleCourseIds = useRef(new Set());
+
   const { isOpen: isCreateExamOpen, onOpen: onCreateExamOpen, onClose: onCreateExamClose } = useDisclosure();
   const { isOpen: isUseQuestionOpen, onOpen: onUseQuestionOpen, onClose: onUseQuestionClose } = useDisclosure();
 
@@ -253,7 +168,6 @@ function ExamQuestionBankListPage() {
       if (questionType) params.questionType = questionType;
       if (difficultyLevel) params.difficultyLevel = difficultyLevel;
       if (status) params.status = status;
-      if (category) params.category = category;
 
       const res = await listExamQuestionBank(params);
       const payload = res?.data ?? res;
@@ -268,7 +182,7 @@ function ExamQuestionBankListPage() {
     } finally {
       setQuestionsLoading(false);
     }
-  }, [page, search, questionType, difficultyLevel, status, category]);
+  }, [page, search, questionType, difficultyLevel, status]);
 
   useEffect(() => {
     fetchStats();
@@ -277,6 +191,40 @@ function ExamQuestionBankListPage() {
   useEffect(() => {
     fetchQuestions();
   }, [fetchQuestions]);
+
+  useEffect(() => {
+    adminGetCourseListing({ limit: 200 })
+      .then((res) => {
+        const map = {};
+        (res?.courses || []).forEach((c) => {
+          map[c.id] = c.title;
+        });
+        setCourseNames(map);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!questions.length) return;
+    const courseIds = Array.from(
+      new Set(questions.map((q) => q.courseId).filter((id) => id && !loadedModuleCourseIds.current.has(id))),
+    );
+    if (!courseIds.length) return;
+    courseIds.forEach((id) => loadedModuleCourseIds.current.add(id));
+    Promise.all(
+      courseIds.map((id) =>
+        adminListModules(id)
+          .then((res) => res?.modules || [])
+          .catch(() => []),
+      ),
+    ).then((results) => {
+      const map = {};
+      results.flat().forEach((m) => {
+        map[m.id] = m.title;
+      });
+      setModuleNames((prev) => ({ ...prev, ...map }));
+    });
+  }, [questions]);
 
   const allSelectedOnPage = questions.length > 0 && questions.every((q) => selectedIds.includes(q.id));
 
@@ -364,92 +312,89 @@ function ExamQuestionBankListPage() {
                 }}
               />
             </Tooltip>
-            <Button size="sm" variant="outline" colorScheme="gray" onClick={onOrphanOpen}>
-              Orphaned Media
-            </Button>
             <Button size="sm" colorScheme="purple" leftIcon={<FiPlus />} onClick={() => history.push("/admin/exam-question-bank/new")}>
               Add Question
             </Button>
           </HStack>
         </Flex>
 
-        <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4} mb={6}>
+        <SimpleGrid columns={{ base: 2, md: 4, lg: 7 }} spacing={4} mb={6}>
           <StatCard label="Total Questions" value={statsLoading ? "..." : stats?.totalQuestions} />
-          <StatCard label="Active" value={statsLoading ? "..." : stats?.activeQuestions} color="green.600" />
-          <StatCard label="Draft" value={statsLoading ? "..." : stats?.draftQuestions} color="gray.500" />
           <StatCard
             label="Multimedia Adoption"
             value={statsLoading ? "..." : `${stats?.multimediaAdoptionRate ?? 0}%`}
-            color="blue.600"
           />
+          <StatCard
+            label="Question Usage Frequency"
+            value={statsLoading ? "..." : stats?.usageFrequency ?? "—"}
+          />
+          <StatCard
+            label="Correct Response Rate"
+            value={statsLoading ? "..." : `${stats?.correctResponseRate ?? 0}%`}
+          />
+          <StatCard label="Easy" value={statsLoading ? "..." : stats?.difficultyDistribution?.easy ?? "—"} />
+          <StatCard label="Medium" value={statsLoading ? "..." : stats?.difficultyDistribution?.medium ?? "—"} />
+          <StatCard label="Hard" value={statsLoading ? "..." : stats?.difficultyDistribution?.hard ?? "—"} />
         </SimpleGrid>
 
-        <Flex gap={3} mb={4} flexWrap="wrap">
-          <Input
-            size="sm"
-            placeholder="Search questions..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            maxW="240px"
-          />
-          <Select
-            size="sm"
-            value={questionType}
-            onChange={(e) => {
-              setQuestionType(e.target.value);
-              setPage(1);
-            }}
-            maxW="180px"
-          >
-            <option value="">All Types</option>
-            {Object.entries(TYPE_LABEL).map(([val, label]) => (
-              <option key={val} value={val}>
-                {label}
-              </option>
-            ))}
-          </Select>
-          <Select
-            size="sm"
-            value={difficultyLevel}
-            onChange={(e) => {
-              setDifficultyLevel(e.target.value);
-              setPage(1);
-            }}
-            maxW="150px"
-          >
-            <option value="">All Difficulties</option>
-            <option value="Easy">Easy</option>
-            <option value="Medium">Medium</option>
-            <option value="Hard">Hard</option>
-          </Select>
-          <Select
-            size="sm"
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setPage(1);
-            }}
-            maxW="150px"
-          >
-            <option value="">All Statuses</option>
-            <option value="draft">Draft</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </Select>
-          <Input
-            size="sm"
-            placeholder="Category"
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value);
-              setPage(1);
-            }}
-            maxW="160px"
-          />
-        </Flex>
+        <Box bg="white" borderRadius="lg" p={4} boxShadow="sm" border="1px solid" borderColor="gray.100" mb={4}>
+          <Flex gap={3} flexWrap="wrap">
+            <Input
+              size="sm"
+              placeholder="Search questions..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              maxW="240px"
+            />
+            <Select
+              size="sm"
+              value={questionType}
+              onChange={(e) => {
+                setQuestionType(e.target.value);
+                setPage(1);
+              }}
+              maxW="180px"
+            >
+              <option value="">All Types</option>
+              {Object.entries(TYPE_LABEL).map(([val, label]) => (
+                <option key={val} value={val}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+            <Select
+              size="sm"
+              value={difficultyLevel}
+              onChange={(e) => {
+                setDifficultyLevel(e.target.value);
+                setPage(1);
+              }}
+              maxW="150px"
+            >
+              <option value="">All Difficulties</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </Select>
+            <Select
+              size="sm"
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(1);
+              }}
+              maxW="150px"
+            >
+              <option value="">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </Select>
+          </Flex>
+        </Box>
 
         {selectedIds.length > 0 && (
           <Flex align="center" gap={3} mb={4} p={3} bg="purple.50" borderRadius="md" flexWrap="wrap">
@@ -492,7 +437,8 @@ function ExamQuestionBankListPage() {
                     <Th>Type</Th>
                     <Th>Difficulty</Th>
                     <Th>Status</Th>
-                    <Th>Tags</Th>
+                    <Th>Course</Th>
+                    <Th>Module</Th>
                     <Th>Actions</Th>
                   </Tr>
                 </Thead>
@@ -525,13 +471,14 @@ function ExamQuestionBankListPage() {
                         <Badge colorScheme={STATUS_COLOR[q.status] || "gray"}>{q.status}</Badge>
                       </Td>
                       <Td>
-                        <HStack spacing={1} flexWrap="wrap">
-                          {(q.tags || []).map((t) => (
-                            <Tag key={t} size="sm" colorScheme="teal" variant="subtle">
-                              <TagLabel>{t}</TagLabel>
-                            </Tag>
-                          ))}
-                        </HStack>
+                        <Text fontSize="xs" color="gray.500" noOfLines={1} maxW="140px">
+                          {(q.courseId && (courseNames[q.courseId] || q.courseId)) || "—"}
+                        </Text>
+                      </Td>
+                      <Td>
+                        <Text fontSize="xs" color="gray.500" noOfLines={1} maxW="140px">
+                          {(q.moduleId && (moduleNames[q.moduleId] || q.moduleId)) || "—"}
+                        </Text>
                       </Td>
                       <Td>
                         <Menu placement="bottom-end">
@@ -582,7 +529,6 @@ function ExamQuestionBankListPage() {
         )}
       </Box>
 
-      <OrphanedMediaModal isOpen={isOrphanOpen} onClose={onOrphanClose} onCleaned={fetchStats} />
       <UseBankQuestionModal
         isOpen={isUseQuestionOpen}
         onClose={onUseQuestionClose}

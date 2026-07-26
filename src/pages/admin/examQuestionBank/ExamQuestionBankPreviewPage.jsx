@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
-import { Badge, Box, BreadcrumbItem, Flex, Radio, RadioGroup, Spinner, Text, Textarea } from "@chakra-ui/react";
-import { Breadcrumb, Button, Link } from "../../../components";
-import { previewExamQuestionBankItem } from "../../../services";
-import { FiArrowLeft, FiChevronDown, FiChevronUp } from "react-icons/fi";
+import { Badge, Box, BreadcrumbItem, Flex, Spinner, Text } from "@chakra-ui/react";
+import { Breadcrumb, Button, Link, RichTextToView } from "../../../components";
+import { getExamQuestionBankItem, getExamQuestionBankMedia } from "../../../services";
+import { FiCheck, FiChevronDown, FiChevronUp } from "react-icons/fi";
 
 const DIFF_COLOR = {
   Easy: { bg: "#E6F4EA", color: "#38A169" },
@@ -57,54 +57,66 @@ const MediaDisplay = ({ media }) => {
   );
 };
 
+const CorrectOptionRow = ({ label, isCorrect }) => (
+  <Flex
+    alignItems="center"
+    gap="10px"
+    p="12px"
+    bg={isCorrect ? "#E6F4EA" : "#F7FAFC"}
+    border="1px solid"
+    borderColor={isCorrect ? "#38A169" : "#E2E8F0"}
+    borderRadius="8px"
+  >
+    <Flex
+      alignItems="center"
+      justifyContent="center"
+      w="20px"
+      h="20px"
+      borderRadius="50%"
+      bg={isCorrect ? "#38A169" : "transparent"}
+      border={isCorrect ? "none" : "1px solid #CBD5E0"}
+      flexShrink={0}
+    >
+      {isCorrect && <FiCheck color="white" size={13} />}
+    </Flex>
+    <Text fontSize="14px" fontWeight={isCorrect ? "600" : "500"} color={isCorrect ? "#276749" : "#1A202C"}>
+      {label}
+    </Text>
+  </Flex>
+);
+
 const AnswerArea = ({ question }) => {
   const type = question.questionType;
 
   if (type === "mcq" && question.options?.length) {
     return (
-      <RadioGroup>
-        <Flex direction="column" gap="10px">
-          {question.options.map((opt, idx) => (
-            <Flex key={opt.id ?? idx} alignItems="center" gap="10px" p="12px" bg="#F7FAFC" border="1px solid #E2E8F0" borderRadius="8px">
-              <Radio value={String(opt.id ?? idx)} colorScheme="purple" />
-              <Text fontSize="14px" fontWeight="500" color="#1A202C">
-                {opt.text}
-              </Text>
-            </Flex>
-          ))}
-        </Flex>
-      </RadioGroup>
+      <Flex direction="column" gap="10px">
+        {question.options.map((opt, idx) => (
+          <CorrectOptionRow key={opt.id ?? idx} label={opt.text} isCorrect={!!opt.isCorrect} />
+        ))}
+      </Flex>
     );
   }
 
   if (type === "true_false") {
     return (
-      <RadioGroup>
-        <Flex gap="12px">
-          {["True", "False"].map((label) => (
-            <Flex key={label} alignItems="center" gap="8px" p="12px 20px" bg="#F7FAFC" border="1px solid #E2E8F0" borderRadius="8px">
-              <Radio value={label} colorScheme="purple" />
-              <Text fontSize="14px" fontWeight="600">
-                {label}
-              </Text>
-            </Flex>
-          ))}
-        </Flex>
-      </RadioGroup>
+      <Flex gap="12px">
+        {["True", "False"].map((label) => (
+          <Box flex="1" key={label}>
+            <CorrectOptionRow label={label} isCorrect={question.correctAnswer === label} />
+          </Box>
+        ))}
+      </Flex>
     );
   }
 
-  if (type === "essay") {
-    return <Textarea isReadOnly rows={5} placeholder="Write your answer here..." borderRadius="8px" bg="#F7FAFC" fontSize="14px" />;
-  }
-
-  if (type === "short_answer") {
-    return <Textarea isReadOnly rows={3} placeholder="Write your answer here..." borderRadius="8px" bg="#F7FAFC" fontSize="14px" />;
-  }
-
-  if (type === "fill_blank") {
+  if (type === "essay" || type === "short_answer" || type === "fill_blank") {
     return (
-      <Box as="input" type="text" placeholder="Your answer..." p="10px 14px" border="1px solid #E2E8F0" borderRadius="8px" fontSize="14px" bg="#F7FAFC" w="100%" readOnly />
+      <Box p="12px 14px" bg="#E6F4EA" border="1px solid #38A169" borderRadius="8px">
+        <Text fontSize="14px" color="#276749" whiteSpace="pre-wrap">
+          {question.correctAnswer || "No model answer provided."}
+        </Text>
+      </Box>
     );
   }
 
@@ -119,8 +131,12 @@ const ExamQuestionBankPreviewPage = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    previewExamQuestionBankItem(questionId)
-      .then((res) => setQuestion(res?.data ?? res))
+    Promise.all([getExamQuestionBankItem(questionId), getExamQuestionBankMedia(questionId)])
+      .then(([qRes, mRes]) => {
+        const q = qRes?.data ?? qRes;
+        const media = mRes?.data?.media ?? mRes?.media ?? mRes?.data ?? [];
+        setQuestion({ ...q, media });
+      })
       .catch(() => setError("Failed to load question preview."))
       .finally(() => setLoading(false));
   }, [questionId]);
@@ -164,19 +180,11 @@ const ExamQuestionBankPreviewPage = () => {
           }
         />
       </Flex>
-      <Flex alignItems="center" gap="12px" mb="24px">
-        <Flex as="button" alignItems="center" gap="6px" color="#6b006b" onClick={() => history.push(`/admin/exam-question-bank/${questionId}/edit`)} _hover={{ opacity: 0.8 }}>
-          <FiArrowLeft size={14} />
-          <Text fontSize="13px" fontWeight="600">
-            Back to Editor
-          </Text>
-        </Flex>
-      </Flex>
 
       <Box bg="white" border="1px solid #E2E8F0" borderRadius="12px" p="28px">
         <Flex alignItems="center" gap="10px" mb="20px" flexWrap="wrap">
           <Badge bg="#F0E6FF" color="#6b006b" px="10px" py="4px" borderRadius="8px" textTransform="none" fontSize="12px" fontWeight="600">
-            Student Preview
+            Preview
           </Badge>
           <Badge bg={diffStyle.bg} color={diffStyle.color} px="10px" py="4px" borderRadius="8px" textTransform="none" fontSize="12px">
             {question.difficultyLevel}
@@ -192,26 +200,29 @@ const ExamQuestionBankPreviewPage = () => {
         </Flex>
 
         <Box mb="20px">
-          <Text fontSize="15px" lineHeight="1.7" color="#1A202C" whiteSpace="pre-wrap">
-            {question.question}
-          </Text>
+          <RichTextToView text={question.question} fontSize="15px" lineHeight="1.7" color="#1A202C" />
         </Box>
 
         <MediaDisplay media={question.media} />
 
         <Box pt="20px" borderTop="1px solid #E2E8F0">
           <Text fontSize="12px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider" mb="12px">
-            Your Answer
+            Correct Answer
           </Text>
           <AnswerArea question={question} />
         </Box>
-      </Box>
 
-      <Flex justifyContent="flex-end" mt="16px">
-        <Button secondary onClick={() => history.push(`/admin/exam-question-bank/${questionId}/edit`)}>
-          Back to Editor
-        </Button>
-      </Flex>
+        {question.explanation && (
+          <Box mt="20px" pt="20px" borderTop="1px solid #E2E8F0">
+            <Text fontSize="12px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider" mb="12px">
+              Explanation
+            </Text>
+            <Text fontSize="14px" lineHeight="1.7" color="#4A5568" whiteSpace="pre-wrap">
+              {question.explanation}
+            </Text>
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 };
