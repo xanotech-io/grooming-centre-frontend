@@ -1,11 +1,15 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
-const useAssessmentStore = create((set) => ({
+const useAssessmentStore = create(
+  persist(
+    (set) => ({
   assessment: null,
   sections: [],
-  // Holds an exam/assessment's details-form values in memory between the
-  // "Next" click and "Create and Submit" — nothing is sent to the backend
-  // until then, so this is deliberately not persisted anywhere.
+  // Holds an exam/assessment's details-form values (including queued
+  // questions) between the "Next" click and "Create and Submit". Persisted
+  // to localStorage so a refresh or closed tab doesn't lose queued work
+  // before the exam/assessment is actually created.
   pendingCreate: null,
   // Same deferral as `pendingCreate`, but for editing a shell that already
   // exists — the actual update call is held here until "Next" on the details
@@ -40,6 +44,15 @@ const useAssessmentStore = create((set) => ({
 
   openBankPicker: () => set({ isBankPickerOpen: true }),
   closeBankPicker: () => set({ isBankPickerOpen: false }),
-}));
+    }),
+    {
+      name: "assessment-pending-storage",
+      partialize: (state) => ({
+        pendingCreate: state.pendingCreate,
+        pendingEdit: state.pendingEdit,
+      }),
+    },
+  ),
+);
 
 export default useAssessmentStore;

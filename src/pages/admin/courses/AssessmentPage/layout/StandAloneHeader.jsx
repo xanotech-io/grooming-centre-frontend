@@ -33,8 +33,6 @@ const StandAloneHeader = () => {
   const [isPublished, setisPublished] = useState(assessment?.isPublished);
   const { push } = useHistory();
   const location = useLocation();
-  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
-  const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
   const openBankPicker = useAssessmentStore((s) => s.openBankPicker);
 
   useEffect(() => {
@@ -99,12 +97,22 @@ const StandAloneHeader = () => {
     }
   }, [myId]);
 
+  // Preserve the pending-creation/edit flags across tab switches — dropping
+  // them here made the Questions tab forget it was mid-creation after a
+  // detour to Overview, wiping queued questions and breaking the Question
+  // Bank button (both gated on submitForApproval/editSubmit staying set).
+  const submitForApproval = useQueryParams().get("submitForApproval");
+  const editSubmit = useQueryParams().get("editSubmit");
+  const pendingParams = examinationId === "new"
+    ? `${submitForApproval ? "&submitForApproval=1" : ""}${editSubmit ? "&editSubmit=1" : ""}`
+    : "";
+
   const examIdCheck =
     !examinationId && !questionId
       ? "/admin/standalone-exams/questions"
       : examinationId && !questionId
-        ? `/admin/standalone-exams/questions/?examination=${examinationId}`
-        : `/admin/standalone-exams/questions/?examination=${examinationId}&question=${questionId}`;
+        ? `/admin/standalone-exams/questions/?examination=${examinationId}${pendingParams}`
+        : `/admin/standalone-exams/questions/?examination=${examinationId}&question=${questionId}${pendingParams}`;
 
   const isActive = (pathPart) => location.pathname.includes(pathPart);
 
@@ -148,11 +156,23 @@ const StandAloneHeader = () => {
         <Flex gap="10px">
           <Button
             secondary
-            onClick={
-              isActive("questions") && (pendingCreate || pendingEdit)
-                ? openBankPicker
-                : () => push("/admin/exam-question-bank")
-            }
+            onClick={() => {
+              // No exam/shell to attach questions to yet at all (haven't even
+              // submitted the Overview step once) — nothing to open a picker
+              // for, fall back to browsing the bank standalone.
+              if (!examinationId) {
+                push("/admin/exam-question-bank");
+                return;
+              }
+              // Otherwise (pending creation/edit OR an already-real exam)
+              // always use the in-page picker, never the separate page. It
+              // only mounts on the Questions tab — jump there first
+              // (preserving the pending flags) if we're not already on it.
+              // Zustand's isBankPickerOpen stays true across the navigation,
+              // so it shows as soon as the tab mounts.
+              if (!isActive("questions")) push(examIdCheck);
+              openBankPicker();
+            }}
           >
             Question Bank
           </Button>
@@ -218,18 +238,6 @@ const StandAloneHeader = () => {
             style={isActive('questions') ? activeStyle : inactiveStyle}
           >
             Questions
-          </NavLink>
-        )}
-
-        {!examinationId ? (
-          <Text style={inactiveStyle} cursor="not-allowed" color="#A0AEC0">Participants</Text>
-        ) : (
-          <NavLink
-            to={`/admin/standalone-exams/participants/${examinationId ? `?examination=${examinationId}` : ""
-              }`}
-            style={isActive('participants') ? activeStyle : inactiveStyle}
-          >
-            Participants
           </NavLink>
         )}
       </Flex>
