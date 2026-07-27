@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
@@ -13,28 +13,12 @@ import {
   NumberInputStepper,
   NumberIncrementStepper,
   NumberDecrementStepper,
-  Checkbox,
-  CheckboxGroup,
-  Stack,
-  Tag,
-  TagLabel,
-  TagCloseButton,
-  Wrap,
-  WrapItem,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaPlus } from "react-icons/fa";
 import { Breadcrumb, Button, Heading, Input, Link, Select } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { adminCreateMarkingTemplate, listMarkingSchemes, getMarkingScheme } from "../../../services";
+import { adminCreateMarkingTemplate } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
-
-const ALL_QUESTION_TYPES = ["MCQ", "TrueFalse", "FillBlank", "Matching", "ShortAnswer", "Essay"];
-
-const DIFFICULTY_OPTIONS = [
-  { label: "Easy", value: "Easy" },
-  { label: "Medium", value: "Medium" },
-  { label: "Hard", value: "Hard" },
-];
 
 const RETRY_POLICY_OPTIONS = [
   { label: "Highest Score", value: "highest" },
@@ -48,139 +32,21 @@ const USAGE_SCOPE_OPTIONS = [
   { label: "Standalone Exam", value: "Standalone Exam" },
 ];
 
-const SECTION_TYPE_OPTIONS = [
-  { label: "Objective", value: "objective" },
-  { label: "Essay", value: "essay" },
-  { label: "Mixed", value: "mixed" },
-];
-
-const MARKING_TYPE_LOCK_OPTIONS = [
-  { label: "Automatic", value: "automatic" },
-  { label: "Manual", value: "manual" },
-  { label: "Hybrid", value: "hybrid" },
-];
-
-const defaultSection = () => ({
-  name: "",
-  type: "objective",
-  questionCount: 1,
-  marksPerQuestion: 1,
-  markingSchemeId: "",
-  questionTypeLock: "",
-  markingTypeLock: "",
-});
-
-const OBJECTIVE_RULE_TYPES = ["mcq", "true_false", "fill_in_the_blank"];
-
-// A section's per-question weightage is sourced from its linked Marking Scheme's
-// question-type rule (essay sections use the rule's total_marks) rather than typed
-// in manually, once a scheme is selected.
-const getSchemeWeightage = (scheme, sectionType) => {
-  if (!scheme) return null;
-  const rules = Array.isArray(scheme.questionTypeRules) ? scheme.questionTypeRules : [];
-  if (sectionType === "essay") {
-    const rule = rules.find((r) => r.type === "essay");
-    return rule?.total_marks ?? null;
-  }
-  const rule = rules.find((r) => OBJECTIVE_RULE_TYPES.includes(r.type));
-  return rule?.marks_per_question ?? null;
-};
-
-const defaultTypeConfig = () => ({
-  quantity: 5,
-  marks: 5,
-  difficulty: "Medium",
-});
-
 export const CreateExamTemplatePage = () => {
   const history = useHistory();
   const toast = useToast();
 
   const [markingTemplateName, setMarkingTemplateName] = useState("");
   const [usageScope, setUsageScope] = useState("");
-  const [selectedTypes, setSelectedTypes] = useState(["MCQ"]);
-  const [typeConfigs, setTypeConfigs] = useState({ MCQ: defaultTypeConfig() });
-  const [knowledgePoints, setKnowledgePoints] = useState([]);
-  const [kpInput, setKpInput] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [retryPolicy, setRetryPolicy] = useState("highest");
   const [sections, setSections] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [markingSchemes, setMarkingSchemes] = useState([]);
-  const [schemeDetailsById, setSchemeDetailsById] = useState({});
 
-  useEffect(() => {
-    listMarkingSchemes({})
-      .then((res) => setMarkingSchemes(res?.data || res?.schemes || []))
-      .catch(() => setMarkingSchemes([]));
-  }, []);
-
-  const addSection = () => setSections((p) => [...p, defaultSection()]);
+  const addSection = () => setSections((p) => [...p, { name: "" }]);
   const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
   const updateSection = (i, field, value) =>
     setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
-
-  const handleSectionSchemeChange = async (i, schemeId) => {
-    updateSection(i, "markingSchemeId", schemeId);
-    if (!schemeId) return;
-
-    let scheme = schemeDetailsById[schemeId];
-    if (!scheme) {
-      try {
-        const res = await getMarkingScheme(schemeId);
-        scheme = res?.data || res?.scheme || res;
-        setSchemeDetailsById((prev) => ({ ...prev, [schemeId]: scheme }));
-      } catch {
-        return;
-      }
-    }
-
-    const sectionType = sections[i]?.type;
-    const weightage = getSchemeWeightage(scheme, sectionType);
-    if (weightage != null) {
-      updateSection(i, "marksPerQuestion", weightage);
-    }
-  };
-
-  const handleTypeToggle = (types) => {
-    setSelectedTypes(types);
-    setTypeConfigs((prev) => {
-      const next = {};
-      types.forEach((t) => {
-        next[t] = prev[t] || defaultTypeConfig();
-      });
-      return next;
-    });
-  };
-
-  const handleTypeConfigChange = (type, field, value) => {
-    setTypeConfigs((prev) => ({
-      ...prev,
-      [type]: { ...prev[type], [field]: value },
-    }));
-  };
-
-  const handleAddKnowledgePoint = () => {
-    const point = kpInput.trim();
-    if (point && !knowledgePoints.includes(point)) {
-      setKnowledgePoints((prev) => [...prev, point]);
-    }
-    setKpInput("");
-  };
-
-  const handleRemoveKnowledgePoint = (point) => {
-    setKnowledgePoints((prev) => prev.filter((p) => p !== point));
-  };
-
-  const totalMarks = selectedTypes.reduce(
-    (sum, t) => sum + Number(typeConfigs[t]?.marks || 0),
-    0,
-  );
-
-  const totalQuestions = selectedTypes.reduce(
-    (sum, t) => sum + Number(typeConfigs[t]?.quantity || 0),
-    0,
-  );
 
   const handleSubmit = async () => {
     if (!markingTemplateName.trim()) {
@@ -191,42 +57,20 @@ export const CreateExamTemplatePage = () => {
       toast({ description: "Usage scope is required.", position: "top", status: "warning" });
       return;
     }
-    if (selectedTypes.length === 0) {
-      toast({ description: "Select at least one question type.", position: "top", status: "warning" });
+    if (sections.length === 0) {
+      toast({ description: "Add at least one section.", position: "top", status: "warning" });
       return;
     }
-
-    const questionQuantity = {};
-    const markDistribution = {};
-    const difficultyLevel = {};
-    selectedTypes.forEach((t) => {
-      questionQuantity[t] = Number(typeConfigs[t]?.quantity || 0);
-      markDistribution[t] = Number(typeConfigs[t]?.marks || 0);
-      difficultyLevel[t] = typeConfigs[t]?.difficulty || "Medium";
-    });
 
     const body = {
       markingTemplateName,
       usageScope,
-      questionTypes: selectedTypes,
-      questionQuantity,
-      markDistribution,
-      difficultyLevel,
-      knowledgePoints,
-      totalMarks,
       retryCount: Number(retryCount),
       retryPolicy,
-      ...(sections.length > 0 && {
-        sections: sections.map((s) => ({
-          name: s.name,
-          type: s.type,
-          questionCount: Number(s.questionCount),
-          marksPerQuestion: Number(s.marksPerQuestion),
-          ...(s.markingSchemeId && { markingSchemeId: s.markingSchemeId }),
-          ...(s.questionTypeLock && { questionType: s.questionTypeLock }),
-          ...(s.markingTypeLock && { markingType: s.markingTypeLock }),
-        })),
-      }),
+      sections: sections.map((s, i) => ({
+        name: s.name,
+        sequence: i + 1,
+      })),
     };
 
     setIsSubmitting(true);
@@ -273,7 +117,7 @@ export const CreateExamTemplatePage = () => {
       </Flex>
 
       <Heading as="h1" size="lg" color="#1A202C" mb="32px">
-        Create Marking Template
+        Create Exam Template
       </Heading>
 
       <Grid templateColumns={{ base: "1fr", lg: "2fr 1fr" }} gap="32px" alignItems="start">
@@ -307,97 +151,6 @@ export const CreateExamTemplatePage = () => {
             </Grid>
           </Box>
 
-          {/* Question Configuration */}
-          <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
-            <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="20px">
-              Question Configuration
-            </Text>
-
-            <Text fontSize="13px" fontWeight="500" color="#1A202C" mb="12px">
-              Select Question Types
-            </Text>
-            <CheckboxGroup value={selectedTypes} onChange={handleTypeToggle}>
-              <Stack direction="row" wrap="wrap" spacing="16px" mb="24px">
-                {ALL_QUESTION_TYPES.map((type) => (
-                  <Checkbox
-                    key={type}
-                    value={type}
-                    colorScheme="purple"
-                    borderColor="#CBD5E0"
-                  >
-                    <Text fontSize="14px">{type}</Text>
-                  </Checkbox>
-                ))}
-              </Stack>
-            </CheckboxGroup>
-
-            {selectedTypes.length > 0 && (
-              <>
-                <Divider mb="20px" />
-                <Grid
-                  templateColumns="1.5fr 1fr 1fr 1fr"
-                  gap="12px"
-                  mb="10px"
-                >
-                  <Text fontSize="12px" fontWeight="600" color="#718096">TYPE</Text>
-                  <Text fontSize="12px" fontWeight="600" color="#718096">QUANTITY</Text>
-                  <Text fontSize="12px" fontWeight="600" color="#718096">MARKS (TOTAL)</Text>
-                  <Text fontSize="12px" fontWeight="600" color="#718096">DIFFICULTY</Text>
-                </Grid>
-                {selectedTypes.map((type) => (
-                  <Grid
-                    key={type}
-                    templateColumns="1.5fr 1fr 1fr 1fr"
-                    gap="12px"
-                    mb="12px"
-                    alignItems="center"
-                  >
-                    <Text
-                      fontSize="13px"
-                      fontWeight="600"
-                      color="#6b006b"
-                      bg="#FAF5FF"
-                      px="10px"
-                      py="6px"
-                      borderRadius="6px"
-                      display="inline-block"
-                    >
-                      {type}
-                    </Text>
-                    <NumberInput
-                      min={1}
-                      value={typeConfigs[type]?.quantity}
-                      onChange={(v) => handleTypeConfigChange(type, "quantity", Number(v))}
-                    >
-                      <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
-                      <NumberInputStepper>
-                        <NumberIncrementStepper />
-                        <NumberDecrementStepper />
-                      </NumberInputStepper>
-                    </NumberInput>
-                    <NumberInput
-                      min={0}
-                      value={typeConfigs[type]?.marks}
-                      onChange={(v) => handleTypeConfigChange(type, "marks", Number(v))}
-                    >
-                      <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
-                      <NumberInputStepper>
-                        <NumberIncrementStepper />
-                        <NumberDecrementStepper />
-                      </NumberInputStepper>
-                    </NumberInput>
-                    <Select
-                      id={`difficulty-${type}`}
-                      options={DIFFICULTY_OPTIONS}
-                      value={typeConfigs[type]?.difficulty}
-                      onChange={(e) => handleTypeConfigChange(type, "difficulty", e.target.value)}
-                    />
-                  </Grid>
-                ))}
-              </>
-            )}
-          </Box>
-
           {/* Paper Sections */}
           <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
             <Flex justifyContent="space-between" alignItems="center" mb="16px">
@@ -406,155 +159,48 @@ export const CreateExamTemplatePage = () => {
                 <Flex alignItems="center" gap="6px"><FaPlus size="11px" /> Add Section</Flex>
               </Button>
             </Flex>
+            <Text fontSize="12px" color="#A0AEC0" mb="16px">
+              The number of sections added here is the number of sections available to pick from when this template is used to create an exam. Question counts, marks, marking scheme, and type/marking locks for each section are configured then.
+            </Text>
 
             {sections.length === 0 ? (
               <Box bg="#F7F9FC" borderRadius="8px" p="20px" textAlign="center">
-                <Text fontSize="13px" color="#A0AEC0">No sections added — the paper will be unsectioned.</Text>
+                <Text fontSize="13px" color="#A0AEC0">No sections added yet.</Text>
               </Box>
             ) : (
               <>
-                <Grid templateColumns="1.6fr 1fr 1.4fr 1fr 1fr auto" gap="10px" mb="8px">
-                  {["NAME", "TYPE", "MARKING SCHEME", "QUESTIONS", "MARKS/Q", ""].map((h) => (
+                <Grid templateColumns="2fr 1fr auto" gap="10px" mb="8px">
+                  {["NAME", "SEQUENCE", ""].map((h) => (
                     <Text key={h} fontSize="11px" fontWeight="600" color="#718096">{h}</Text>
                   ))}
                 </Grid>
                 {sections.map((s, i) => (
-                  <Box key={i} border="1px solid #EDF2F7" borderRadius="8px" p="10px" mb="10px">
-                    <Grid templateColumns="1.6fr 1fr 1.4fr 1fr 1fr auto" gap="10px" alignItems="center" mb="8px">
-                      <input
-                        value={s.name}
-                        onChange={(e) => updateSection(i, "name", e.target.value)}
-                        placeholder="e.g. Section A"
-                        style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 10px", fontSize: 13, width: "100%" }}
-                      />
-                      <select
-                        value={s.type}
-                        onChange={(e) => updateSection(i, "type", e.target.value)}
-                        style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 6px", fontSize: 13, width: "100%" }}
-                      >
-                        {SECTION_TYPE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                      <select
-                        value={s.markingSchemeId}
-                        onChange={(e) => handleSectionSchemeChange(i, e.target.value)}
-                        style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 6px", fontSize: 13, width: "100%" }}
-                      >
-                        <option value="">No scheme</option>
-                        {markingSchemes.map((scheme) => (
-                          <option key={scheme._id || scheme.id} value={scheme._id || scheme.id}>
-                            {scheme.name}
-                          </option>
-                        ))}
-                      </select>
-                      <NumberInput
-                        min={1}
-                        value={s.questionCount}
-                        onChange={(v) => updateSection(i, "questionCount", v)}
-                      >
-                        <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
-                        <NumberInputStepper>
-                          <NumberIncrementStepper />
-                          <NumberDecrementStepper />
-                        </NumberInputStepper>
-                      </NumberInput>
-                      <NumberInput
-                        min={0}
-                        value={s.marksPerQuestion}
-                        onChange={(v) => updateSection(i, "marksPerQuestion", v)}
-                      >
-                        <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
-                        <NumberInputStepper>
-                          <NumberIncrementStepper />
-                          <NumberDecrementStepper />
-                        </NumberInputStepper>
-                      </NumberInput>
-                      <Box
-                        as="button"
-                        type="button"
-                        onClick={() => removeSection(i)}
-                        color="red.400"
-                        fontWeight="600"
-                        fontSize="18px"
-                        lineHeight="1"
-                        px={1}
-                        _hover={{ color: "red.600" }}
-                      >
-                        ×
-                      </Box>
-                    </Grid>
-
-                    <Grid templateColumns="1fr 1fr" gap="10px" alignItems="center">
-                      <Box>
-                        <Text fontSize="10px" color="#A0AEC0" mb="2px">Lock Question Type (optional)</Text>
-                        <select
-                          value={s.questionTypeLock}
-                          onChange={(e) => updateSection(i, "questionTypeLock", e.target.value)}
-                          style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "6px", fontSize: 12, width: "100%" }}
-                        >
-                          <option value="">No lock</option>
-                          {ALL_QUESTION_TYPES.map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                          ))}
-                        </select>
-                      </Box>
-                      <Box>
-                        <Text fontSize="10px" color="#A0AEC0" mb="2px">Lock Marking Type (optional)</Text>
-                        <select
-                          value={s.markingTypeLock}
-                          onChange={(e) => updateSection(i, "markingTypeLock", e.target.value)}
-                          style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "6px", fontSize: 12, width: "100%" }}
-                        >
-                          <option value="">No lock</option>
-                          {MARKING_TYPE_LOCK_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </select>
-                      </Box>
-                    </Grid>
-                  </Box>
+                  <Grid key={i} templateColumns="2fr 1fr auto" gap="10px" alignItems="center" mb="10px">
+                    <input
+                      value={s.name}
+                      onChange={(e) => updateSection(i, "name", e.target.value)}
+                      placeholder="e.g. Section A"
+                      style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 10px", fontSize: 13, width: "100%" }}
+                    />
+                    <Box bg="#F4F5F7" borderRadius="8px" px="12px" py="8px" textAlign="center">
+                      <Text fontSize="13px" fontWeight="600" color="#1A202C">{i + 1}</Text>
+                    </Box>
+                    <Box
+                      as="button"
+                      type="button"
+                      onClick={() => removeSection(i)}
+                      color="red.400"
+                      fontWeight="600"
+                      fontSize="18px"
+                      lineHeight="1"
+                      px={1}
+                      _hover={{ color: "red.600" }}
+                    >
+                      ×
+                    </Box>
+                  </Grid>
                 ))}
-                <Text fontSize="11px" color="#A0AEC0" mt="2px">
-                  Selecting a marking scheme fills Marks/Q from that scheme's overall score for the section's question type — override if needed.
-                </Text>
               </>
-            )}
-          </Box>
-
-          {/* Knowledge Points */}
-          <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
-            <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="16px">
-              Knowledge Points
-            </Text>
-            <Flex gap="10px" mb="14px">
-              <Input
-                id="kpInput"
-                placeholder="e.g. Algebra"
-                value={kpInput}
-                onChange={(e) => setKpInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddKnowledgePoint()}
-              />
-              <Button
-                onClick={handleAddKnowledgePoint}
-                style={{ backgroundColor: "#6b006b", color: "white", whiteSpace: "nowrap" }}
-              >
-                <Flex alignItems="center" gap="6px">
-                  <FaPlus size="11px" /> Add
-                </Flex>
-              </Button>
-            </Flex>
-            {knowledgePoints.length > 0 && (
-              <Wrap spacing="8px">
-                {knowledgePoints.map((point) => (
-                  <WrapItem key={point}>
-                    <Tag size="md" borderRadius="full" variant="solid" bg="#6b006b" color="white">
-                      <TagLabel>{point}</TagLabel>
-                      <TagCloseButton onClick={() => handleRemoveKnowledgePoint(point)} />
-                    </Tag>
-                  </WrapItem>
-                ))}
-              </Wrap>
             )}
           </Box>
         </Box>
@@ -607,16 +253,8 @@ export const CreateExamTemplatePage = () => {
             </Text>
             <Divider mb="16px" />
             <Flex justifyContent="space-between" mb="10px">
-              <Text fontSize="13px" color="#718096">Question Types</Text>
-              <Text fontSize="13px" fontWeight="600" color="#1A202C">{selectedTypes.length}</Text>
-            </Flex>
-            <Flex justifyContent="space-between" mb="10px">
-              <Text fontSize="13px" color="#718096">Total Questions</Text>
-              <Text fontSize="13px" fontWeight="600" color="#1A202C">{totalQuestions}</Text>
-            </Flex>
-            <Flex justifyContent="space-between" mb="10px">
-              <Text fontSize="13px" color="#718096">Total Marks</Text>
-              <Text fontSize="13px" fontWeight="700" color="#6b006b">{totalMarks}</Text>
+              <Text fontSize="13px" color="#718096">Sections</Text>
+              <Text fontSize="13px" fontWeight="600" color="#1A202C">{sections.length}</Text>
             </Flex>
             <Flex justifyContent="space-between">
               <Text fontSize="13px" color="#718096">Retry Count</Text>
@@ -631,7 +269,7 @@ export const CreateExamTemplatePage = () => {
             isLoading={isSubmitting}
             onClick={handleSubmit}
           >
-            Create Marking Template
+            Create Exam Template
           </Button>
         </Box>
       </Grid>
