@@ -147,7 +147,11 @@ export const buildQuestionListingLink = (context) => {
   if (context.standalone) {
     return `/admin/standalone-exams/questions/?examination=${context.examinationId}&question-listing=true`;
   }
-  const base = `/admin/courses/${context.courseId}/assessment/${context.assessmentId}/questions/list?question-listing=true`;
+  // Course exams have no assessmentId of their own — the `assessment/` route
+  // segment carries courseId in that case (matches getQuestionListingLink in
+  // QuestionsPage.jsx).
+  const assessmentSegment = context.examinationId ? context.courseId : context.assessmentId;
+  const base = `/admin/courses/${context.courseId}/assessment/${assessmentSegment}/questions/list?question-listing=true`;
   return context.examinationId ? `${base}&examination=${context.examinationId}` : base;
 };
 

@@ -155,7 +155,7 @@ const ExamListingPage = () => {
         </Heading>
 
         <Button
-          link={`/admin/courses/${courseId}/assessment/new/overview?examination=true`}
+          link={`/admin/courses/${courseId}/assessment/new/overview?examination=new`}
         >
           Add Examination
         </Button>

@@ -11,6 +11,7 @@ export const downloadExamQuestionBatchTemplate = async () => {
 
 export const uploadExamQuestionBatch = async ({
   file,
+  courseId,
   examinationId,
   assessmentId,
   mediaZip,
@@ -18,6 +19,7 @@ export const uploadExamQuestionBatch = async ({
 }) => {
   const formData = new FormData();
   formData.append("file", file);
+  if (courseId) formData.append("courseId", courseId);
   if (examinationId) formData.append("examinationId", examinationId);
   if (assessmentId) formData.append("assessmentId", assessmentId);
   if (mediaZip) formData.append("mediaZip", mediaZip);

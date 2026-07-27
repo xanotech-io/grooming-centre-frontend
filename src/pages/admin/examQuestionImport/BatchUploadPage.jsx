@@ -198,6 +198,7 @@ const BatchUploadPage = () => {
     try {
       const res = await uploadExamQuestionBatch({
         file,
+        courseId: context.courseId,
         examinationId: context.examinationId,
         assessmentId: context.assessmentId,
         mediaZip,

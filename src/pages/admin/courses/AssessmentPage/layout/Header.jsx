@@ -124,6 +124,13 @@ const Header = () => {
           ),
         }
       : {
+          // No moduleId means this exam/assessment predates the module-scoped
+          // flow (or was reached via a since-retired entry point) — same
+          // "dead link" case `backToAssessmentsLink` above already handles,
+          // so this crumb falls back to the Modules hub too instead of
+          // linking to the no-longer-navigable course-level exam/assessment
+          // listing (`/admin/courses/details/:id/exam`/`/assessment` —
+          // deliberately commented out of ViewCourseInfoPage's own tabs).
           item2: (
             <BreadcrumbItem>
               <Link href="/admin/courses">Courses</Link>
@@ -131,12 +138,8 @@ const Header = () => {
           ),
           item3: (
             <BreadcrumbItem>
-              <Link
-                href={`/admin/courses/details/${courseId}/${
-                  isExamination ? "exam" : "assessment"
-                }`}
-              >
-                {isExamination ? "Examination" : "Assessments"}
+              <Link href={`/admin/courses/details/${courseId}/modules`}>
+                Modules
               </Link>
             </BreadcrumbItem>
           ),
