@@ -2935,6 +2935,10 @@ const QuestionListingPage = ({
       : false;
   const toast = useToast();
   const isSuperAdmin = useIsSuperAdmin();
+  const { push } = useHistory();
+  const setAssessment = useAssessmentStore((s) => s.setAssessment);
+  const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
+  const clearPendingEdit = useAssessmentStore((s) => s.clearPendingEdit);
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [hasSubmittedForApproval, setHasSubmittedForApproval] = useState(false);
   // Only content created via the batch-upload shortcut (which bypasses the
@@ -3025,6 +3029,125 @@ const QuestionListingPage = ({
       setPendingEdit({ ...pendingEdit, questions: updatedQuestions });
     }
     toast({ description: "Queued question removed", position: "top", status: "success" });
+  };
+
+  // ── Creates (or applies the held-back edit to) the exam/assessment and
+  // saves every queued question, all gated behind the approval modal's
+  // supervisor pick — same split as CreateQuestionPage's "Create and
+  // Submit"/"Update and Submit", but reachable straight from this listing
+  // view instead of requiring a detour through a (possibly blank) question
+  // form. Mirrors QuestionsStandalone.jsx's own listing-view version of this
+  // same button.
+  const [pendingWorkflowModalOpen, setPendingWorkflowModalOpen] = useState(false);
+  const [pendingWorkflowContent, setPendingWorkflowContent] = useState(null);
+  const createdParentRef = useRef(null);
+  const savedQueueItemsRef = useRef(new WeakSet());
+
+  const performCreateParent = async () => {
+    const { kind, body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
+
+    if (kind === "ModuleExam" || kind === "Exam") {
+      const { examination } = await adminCreateExamination(body);
+      if (kind === "ModuleExam") {
+        await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
+      }
+      if (parentAddToBank) setAutoAddToBank("examination", examination.id);
+      setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+      return { id: examination.id };
+    }
+
+    if (kind === "StandaloneExam") {
+      const { examination } = await adminCreateStandaloneExamination(body);
+      setAssessment(examination);
+      return { id: examination.id };
+    }
+
+    const { assessment: created } = await adminCreateAssessment(body);
+    setAssessment(created);
+    if (parentAddToBank) setAutoAddToBank("assessment", created.id);
+    return { id: created.id };
+  };
+
+  const performEditParent = async () => {
+    const { kind, contentId, body, paperConfigBody } = pendingEdit;
+
+    if (kind === "StandaloneExam") {
+      await adminEditStandaloneExamination(contentId, body);
+      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      return { id: contentId };
+    }
+
+    if (kind === "ModuleExam" || kind === "Exam") {
+      await adminEditExamination(contentId, body);
+      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      return { id: contentId };
+    }
+
+    await adminEditAssessment(contentId, body);
+    return { id: contentId };
+  };
+
+  const handlePendingWorkflowCreate = async () => {
+    const parent =
+      createdParentRef.current ||
+      (isPendingCreation ? await performCreateParent() : await performEditParent());
+    createdParentRef.current = parent;
+    for (const queued of queuedQuestions) {
+      if (savedQueueItemsRef.current.has(queued)) continue;
+      await createBankQuestionForReal(
+        isPendingCreation
+          ? {
+              ...queued.data,
+              ...(isStandaloneExamination
+                ? { standAloneExaminationId: parent.id }
+                : isExamination
+                  ? { examinationId: parent.id }
+                  : { assessmentId: parent.id }),
+            }
+          : queued.data,
+        { isStandaloneExamination, isExamination },
+      );
+      savedQueueItemsRef.current.add(queued);
+    }
+    return { id: parent.id };
+  };
+
+  const handleOpenCreateAndSubmit = () => {
+    if (isPendingCreation) {
+      const requestType =
+        pendingCreate.kind === "StandaloneExam"
+          ? "StandaloneExam"
+          : pendingCreate.kind === "ModuleExam" || pendingCreate.kind === "Exam"
+            ? "CourseExam"
+            : "CourseAssessment";
+      setPendingWorkflowContent({
+        contentTitle: pendingCreate.title,
+        requestType,
+        courseId: courseId !== "not-set" ? courseId : undefined,
+      });
+    } else {
+      setPendingWorkflowContent({
+        contentId: pendingEdit.contentId,
+        contentTitle: pendingEdit.title,
+        requestType: pendingEdit.requestType,
+        courseId: pendingEdit.courseId,
+      });
+    }
+    setPendingWorkflowModalOpen(true);
+  };
+
+  const handlePendingWorkflowSuccess = () => {
+    const realParentId = createdParentRef.current?.id;
+    const editNextRoute = pendingEdit?.nextRoute;
+    clearPendingCreate();
+    clearPendingEdit();
+    const finalAssessmentId = isExamination ? courseId : (realParentId ?? assessmentId);
+    const finalExamination = isExamination ? realParentId : undefined;
+    push(
+      isPendingEditSubmit && editNextRoute
+        ? editNextRoute
+        : getQuestionListingLink(courseId, finalAssessmentId, finalExamination, moduleId),
+    );
   };
 
   const questions = Array.isArray(assessment?.questions)
@@ -3432,7 +3555,27 @@ const QuestionListingPage = ({
               </Button>
             </Flex>
           ))}
+
+          {(isPendingCreation || isPendingEditSubmit) && (
+            <Button ghost onClick={handleOpenCreateAndSubmit}>
+              {isPendingCreation ? "Create and Submit" : "Update and Submit"}
+            </Button>
+          )}
         </Box>
+      )}
+
+      {(isPendingCreation || isPendingEditSubmit) && pendingWorkflowContent && (
+        <WorkflowSubmitModal
+          isOpen={pendingWorkflowModalOpen}
+          onClose={() => setPendingWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
+          contentId={pendingWorkflowContent.contentId}
+          contentTitle={pendingWorkflowContent.contentTitle}
+          requestType={pendingWorkflowContent.requestType}
+          courseId={pendingWorkflowContent.courseId}
+          onCreate={handlePendingWorkflowCreate}
+          onSuccess={handlePendingWorkflowSuccess}
+        />
       )}
 
       {/* ── Add Section ── */}

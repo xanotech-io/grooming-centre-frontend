@@ -268,7 +268,7 @@ const CreateModuleExaminationPage = () => {
     if (!isEditMode) return;
     setLoadingExam(true);
     Promise.all([
-      adminGetExaminationById(examinationId),
+      adminGetExaminationById(courseId),
       getExamPaperConfig(examinationId, "examination").catch(() => null),
     ])
       .then(([{ examination: exam }, paperConfigRes]) => {
@@ -358,7 +358,7 @@ const CreateModuleExaminationPage = () => {
           nextRoute: `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`,
         });
         push(
-          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examinationId}&editSubmit=1`,
+          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examinationId}&editSubmit=1&moduleId=${moduleId}`,
         );
       } else {
         // Nothing is created yet — hold the details in memory and create
@@ -374,7 +374,7 @@ const CreateModuleExaminationPage = () => {
           fromBankQuestionIds: bankQuestionIdsRef.current,
         });
         push(
-          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=new&submitForApproval=1`,
+          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=new&submitForApproval=1&moduleId=${moduleId}`,
         );
       }
     } catch (error) {
