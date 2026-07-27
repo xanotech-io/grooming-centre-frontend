@@ -360,7 +360,7 @@ const QuestionsStandalone = () => {
         alignItems={{ base: "flex-start", md: "column", lg: "row" }}
       >
         {isQuestionListingPage ? (
-          <QuestionListingPage {...assessmentManager} />
+          <QuestionListingPage {...assessmentManager} templateSections={templateSections} />
         ) : (
           <CreateQuestionPage
             {...assessmentManager}
@@ -2094,7 +2094,7 @@ const CreateQuestionPage = ({
   );
 };
 
-const QuestionListingPage = ({ assessment, isLoading, error, handleFetch }) => {
+const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templateSections = [] }) => {
   const isSuperAdmin = useIsSuperAdmin();
   const toast = useToast();
   const { push } = useHistory();
@@ -2120,6 +2120,13 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch }) => {
   const questions = Array.isArray(assessment?.questions)
     ? assessment.questions
     : [];
+
+  // Preserve each question's original position (matches the numbering used
+  // by the sidebar's flat "List Of Questions" nav) even once they're
+  // re-grouped by section below.
+  const numberedQuestions = questions.map((q, index) => ({ ...q, __index: index }));
+  const sectionNames = templateSections.filter(Boolean);
+  const unassignedQuestions = numberedQuestions.filter((q) => !q.section);
 
   // Queued via "Add more questions"/the Question Bank picker while the exam
   // is still pending creation or its edit hasn't been submitted — nothing
@@ -2302,16 +2309,84 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch }) => {
         </PageLoaderLayout>
       )}
 
-      {questions.map((q, index) => (
-        <QuestionCard
-          key={q.id}
-          id={q.id}
-          questionNumber={getQuestionNumber(index)}
-          question={q.question}
-          image={q.file}
-          marginBottom={4}
-        />
-      ))}
+      {sectionNames.length === 0
+        ? numberedQuestions.map((q) => (
+            <QuestionCard
+              key={q.id}
+              id={q.id}
+              questionNumber={getQuestionNumber(q.__index)}
+              question={q.question}
+              image={q.file}
+              section={q.section}
+              marginBottom={4}
+            />
+          ))
+        : (
+          <>
+            {sectionNames.map((name, si) => {
+              const sectionQs = numberedQuestions.filter((q) => q.section === name);
+              return (
+                <Box
+                  key={name}
+                  marginBottom={8}
+                  border="1px"
+                  borderColor="gray.200"
+                  borderRadius="md"
+                  overflow="hidden"
+                >
+                  <Flex alignItems="center" gap={3} px={5} py={3} backgroundColor="primary.base">
+                    <Heading fontSize="heading.h5" color="white" flex={1}>
+                      Section {si + 1}: {name}
+                      <Text as="span" fontSize="xs" fontWeight="normal" color="whiteAlpha.800" ml={2}>
+                        ({sectionQs.length} question{sectionQs.length === 1 ? "" : "s"})
+                      </Text>
+                    </Heading>
+                  </Flex>
+                  <Box px={5} pt={4} pb={sectionQs.length ? 0 : 4}>
+                    {sectionQs.length === 0 ? (
+                      <Box padding={4} backgroundColor="gray.50" textAlign="center" borderRadius="md" mb={4}>
+                        <Text color="gray.400">No questions in this section yet.</Text>
+                      </Box>
+                    ) : (
+                      sectionQs.map((q) => (
+                        <QuestionCard
+                          key={q.id}
+                          id={q.id}
+                          questionNumber={getQuestionNumber(q.__index)}
+                          question={q.question}
+                          image={q.file}
+                          section={q.section}
+                          marginBottom={4}
+                        />
+                      ))
+                    )}
+                  </Box>
+                </Box>
+              );
+            })}
+
+            {unassignedQuestions.length > 0 && (
+              <Box marginBottom={8}>
+                <Flex alignItems="center" mb={4} pb={2} borderBottom="1px" borderColor="gray.300">
+                  <Heading fontSize="heading.h5" color="gray.500">
+                    Unassigned Questions
+                  </Heading>
+                </Flex>
+                {unassignedQuestions.map((q) => (
+                  <QuestionCard
+                    key={q.id}
+                    id={q.id}
+                    questionNumber={getQuestionNumber(q.__index)}
+                    question={q.question}
+                    image={q.file}
+                    section={q.section}
+                    marginBottom={4}
+                  />
+                ))}
+              </Box>
+            )}
+          </>
+        )}
 
       {queuedQuestions.map((q, index) => (
         <QueuedQuestionCard
@@ -2389,7 +2464,7 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch }) => {
   );
 };
 
-const QuestionCard = ({ questionNumber, question, image, id, ...rest }) => {
+const QuestionCard = ({ questionNumber, question, image, id, section, ...rest }) => {
   const isExamination = useQueryParams().get("examination");
   const editLink = getEditQuestionLink(isExamination, id);
   const { resource: deleteRequest, handleFetchResource } = useFetch();
@@ -2452,6 +2527,11 @@ const QuestionCard = ({ questionNumber, question, image, id, ...rest }) => {
           <Heading fontSize="text.level2">
             <Link href={editLink}>{questionNumber}</Link>
           </Heading>
+          {section && (
+            <Text fontSize="xs" color="gray.500" mt={1}>
+              Section: {section}
+            </Text>
+          )}
           <RichTextToView paddingTop={2} text={question} />
           {image && (
             <Image

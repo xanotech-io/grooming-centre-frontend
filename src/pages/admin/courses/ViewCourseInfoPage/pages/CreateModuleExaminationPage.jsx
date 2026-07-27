@@ -6,11 +6,6 @@ import {
   AlertIcon,
   Checkbox,
   IconButton,
-  NumberDecrementStepper,
-  NumberIncrementStepper,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
 } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
@@ -71,8 +66,6 @@ const SectionCard = ({ title, children }) => (
 
 const EMPTY_SECTION = {
   section_name: "",
-  questions_count: 1,
-  time_limit: null,
   question_type: "",
   marking_type: "",
   total_marks: null,
@@ -81,7 +74,7 @@ const EMPTY_SECTION = {
 // Kept identical to ExamPaperConfigPage.jsx's — QuestionsPage.jsx enforces
 // these three fields against whichever section a question is saved under.
 const QUESTION_TYPE_LOCK_OPTIONS = [
-  { label: "Any type", value: "" },
+  { label: "All", value: "" },
   { label: "MCQ", value: "MCQ" },
   { label: "True / False", value: "TrueFalse" },
   { label: "Fill in the Blank", value: "FillBlank" },
@@ -98,76 +91,62 @@ const MARKING_TYPE_LOCK_OPTIONS = [
 ];
 
 const SectionRow = ({ section, idx, onChange, onRemove }) => (
-  <Flex gap={3} alignItems="center" mb={3} flexWrap="wrap">
+  <Flex gap={3} alignItems="flex-start" mb={4} flexWrap="wrap">
+    <Box flex="0 0 90px" minW="90px">
+      <Input
+        id={`section-${idx}-sequence`}
+        label="Sequence"
+        type="number"
+        value={idx + 1}
+        isReadOnly
+        isDisabled
+      />
+    </Box>
     <Box flex={2} minW="160px">
       <Input
+        id={`section-${idx}-name`}
+        label="Name"
         placeholder="Section name e.g. Section A"
         value={section.section_name}
         onChange={(e) => onChange(idx, "section_name", e.target.value)}
       />
     </Box>
-    <Box flex={1} minW="100px">
-      <NumberInput
-        min={1}
-        value={section.questions_count}
-        onChange={(val) => onChange(idx, "questions_count", Number(val))}
-      >
-        <NumberInputField placeholder="Questions" />
-        <NumberInputStepper>
-          <NumberIncrementStepper />
-          <NumberDecrementStepper />
-        </NumberInputStepper>
-      </NumberInput>
-    </Box>
-    <Box flex={1} minW="100px">
-      <NumberInput
-        min={0}
-        value={section.time_limit ?? ""}
-        onChange={(val) => onChange(idx, "time_limit", val ? Number(val) : null)}
-      >
-        <NumberInputField placeholder="Time (min)" />
-        <NumberInputStepper>
-          <NumberIncrementStepper />
-          <NumberDecrementStepper />
-        </NumberInputStepper>
-      </NumberInput>
-    </Box>
-    <Box flex={1} minW="130px">
-      <ChakraSelect
+    <Box flex={1} minW="150px">
+      <Select
+        id={`section-${idx}-question-type`}
+        label="Question Type"
+        noEmptyOption
         value={section.question_type ?? ""}
         onChange={(e) => onChange(idx, "question_type", e.target.value)}
-      >
-        {QUESTION_TYPE_LOCK_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </ChakraSelect>
+        options={QUESTION_TYPE_LOCK_OPTIONS}
+      />
     </Box>
-    <Box flex={1} minW="130px">
-      <ChakraSelect
+    <Box flex={1} minW="150px">
+      <Select
+        id={`section-${idx}-marking-type`}
+        label="Marking Type"
+        noEmptyOption
         value={section.marking_type ?? ""}
         onChange={(e) => onChange(idx, "marking_type", e.target.value)}
-      >
-        {MARKING_TYPE_LOCK_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </ChakraSelect>
+        options={MARKING_TYPE_LOCK_OPTIONS}
+      />
     </Box>
-    <Box flex={1} minW="100px">
-      <NumberInput
+    <Box flex={1} minW="120px">
+      <Input
+        id={`section-${idx}-weightage`}
+        label="Weightage"
+        type="number"
         min={0}
+        placeholder="e.g. 20"
         value={section.total_marks ?? ""}
-        onChange={(val) => onChange(idx, "total_marks", val ? Number(val) : null)}
-      >
-        <NumberInputField placeholder="Weightage" />
-        <NumberInputStepper>
-          <NumberIncrementStepper />
-          <NumberDecrementStepper />
-        </NumberInputStepper>
-      </NumberInput>
+        onChange={(e) =>
+          onChange(
+            idx,
+            "total_marks",
+            e.target.value ? Number(e.target.value) : null,
+          )
+        }
+      />
     </Box>
     <IconButton
       aria-label="Remove section"
@@ -176,6 +155,8 @@ const SectionRow = ({ section, idx, onChange, onRemove }) => (
       variant="ghost"
       colorScheme="red"
       onClick={() => onRemove(idx)}
+      alignSelf="center"
+      mt={6}
     />
   </Flex>
 );
