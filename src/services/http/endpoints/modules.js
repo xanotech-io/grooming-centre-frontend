@@ -58,7 +58,7 @@ export const adminGetModule = async (courseId, moduleId) => {
 /**
  * Create a module in a course
  * @param {string} courseId
- * @param {{ title: string, description: string, sequenceOrder: number, status: string }} body
+ * @param {{ title: string, description: string, sequenceOrder: number, status: string, supervisor_id?: string }} body
  * @returns {Promise<{ message: string, module: { id: string } }>}
  */
 export const adminCreateModule = async (courseId, body) => {
@@ -74,7 +74,7 @@ export const adminCreateModule = async (courseId, body) => {
 /**
  * Update a module
  * @param {string} moduleId
- * @param {{ title?: string, description?: string, sequenceOrder?: number, status?: string }} body
+ * @param {{ title?: string, description?: string, sequenceOrder?: number, status?: string, supervisor_id?: string }} body
  * @returns {Promise<{ message: string, module: object }>}
  */
 export const adminUpdateModule = async (moduleId, body) => {
