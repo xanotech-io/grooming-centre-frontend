@@ -847,6 +847,17 @@ const CreateQuestionPage = ({
         assessmentManager.assessment?.amountOfQuestions,
     ) || null;
 
+  // Real questions already saved plus whatever's already queued — what
+  // actually counts against `amountOfQuestions` right now. Used to cap how
+  // many Question Bank picks can be added in one go (see
+  // `queueBankQuestions`/`saveBankQuestionsForReal` below), the same limit
+  // "Add more questions" already respects for manual entry.
+  const questionsSoFar =
+    (assessmentManager.assessment?.questions?.length || 0) +
+    ((isPendingCreation ? pendingCreate?.questions?.length : isPendingEditSubmit ? pendingEdit?.questions?.length : 0) || 0);
+  const remainingQuestionSlots = amountOfQuestions ? Math.max(0, amountOfQuestions - questionsSoFar) : null;
+  const overLimitDescription = `You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — you can't add any more.`;
+
   const buildRealQuestionRoute = (realParentId, { listing, keepPending } = {}) => {
     const finalAssessmentId = isExamination ? courseId : (realParentId ?? assessmentId);
     const finalExamination = isExamination ? (realParentId ?? isExamination) : undefined;
@@ -1248,7 +1259,14 @@ const CreateQuestionPage = ({
   };
 
   const queueBankQuestions = (bankQuestions) => {
-    const items = bankQuestions.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    if (remainingQuestionSlots === 0) {
+      toast({ description: overLimitDescription, position: "top", status: "error" });
+      return;
+    }
+    const overLimit = remainingQuestionSlots !== null && bankQuestions.length > remainingQuestionSlots;
+    const items = (overLimit ? bankQuestions.slice(0, remainingQuestionSlots) : bankQuestions)
+      .map(buildQueuedItemFromBankQuestion)
+      .filter(Boolean);
     if (!items.length) return;
 
     if (isPendingCreation) {
@@ -1258,9 +1276,11 @@ const CreateQuestionPage = ({
     }
 
     toast({
-      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+      description: overLimit
+        ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
+        : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
       position: "top",
-      status: "success",
+      status: overLimit ? "warning" : "success",
     });
   };
 
@@ -1268,7 +1288,13 @@ const CreateQuestionPage = ({
   // a bank pick is saved for real, right away, so it shows up in "List Of
   // Questions" like any other question and is immediately clickable to edit.
   const saveBankQuestionsForReal = async (bankQuestions) => {
-    const items = bankQuestions.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    if (remainingQuestionSlots === 0) {
+      toast({ description: overLimitDescription, position: "top", status: "error" });
+      return;
+    }
+    const overLimit = remainingQuestionSlots !== null && bankQuestions.length > remainingQuestionSlots;
+    const cappedBankQuestions = overLimit ? bankQuestions.slice(0, remainingQuestionSlots) : bankQuestions;
+    const items = cappedBankQuestions.map(buildQueuedItemFromBankQuestion).filter(Boolean);
     if (!items.length) return;
     try {
       for (const item of items) {
@@ -1276,9 +1302,11 @@ const CreateQuestionPage = ({
       }
       assessmentManager.handleFetch(true);
       toast({
-        description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.`,
+        description: overLimit
+          ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
+          : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.`,
         position: "top",
-        status: "success",
+        status: overLimit ? "warning" : "success",
       });
     } catch (err) {
       toast({
@@ -2707,8 +2735,23 @@ const CreateQuestionPage = ({
           </Button>
         )}
         <Button
-          type="submit"
+          type={isPendingCreation && !isEditingQueued ? "button" : "submit"}
           onClick={() => {
+            // "Create and Submit" here used to hand off to the
+            // WorkflowSubmitModal/createBoth approval flow, but that flow is
+            // broken — so this just navigates to the question list (same
+            // link "See All" uses) instead of trying to create anything.
+            if (isPendingCreation && !isEditingQueued) {
+              push(
+                `${getQuestionListingLink(
+                  courseId,
+                  assessmentId,
+                  isExamination,
+                  moduleId,
+                )}&submitForApproval=1`,
+              );
+              return;
+            }
             addAnotherRef.current = false;
             submitForApprovalRef.current = false;
           }}
@@ -2970,6 +3013,18 @@ const QuestionListingPage = ({
   const queuedQuestions =
     (isPendingCreation ? pendingCreate?.questions : isPendingEditSubmit ? pendingEdit?.questions : null) || [];
 
+  // How many questions this exam/assessment was configured for, and how many
+  // already count against that (real ones already saved plus anything
+  // already queued) — same cap CreateQuestionPage's "Add more questions"
+  // enforces, applied here too so importing from the Question Bank can't
+  // blow past it.
+  const amountOfQuestions =
+    Number(pendingCreate?.body?.amountOfQuestions ?? pendingEdit?.body?.amountOfQuestions ?? assessment?.amountOfQuestions) ||
+    null;
+  const questionsSoFar = (assessment?.questions?.length || 0) + queuedQuestions.length;
+  const remainingQuestionSlots = amountOfQuestions ? Math.max(0, amountOfQuestions - questionsSoFar) : null;
+  const overLimitDescription = `You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — you can't add any more.`;
+
   // No form is open here, so a bank pick made from this page never has a
   // "current section" to inherit or a section-type lock to respect.
   const bankQueueCtx = { isStandaloneExamination, isExamination, assessmentId };
@@ -2980,7 +3035,14 @@ const QuestionListingPage = ({
   // once it's real, a pick is created immediately and refetched so it shows
   // up here right away, clickable to edit like any other question.
   const queueBankQuestionsFromListing = (bankQuestions) => {
-    const items = bankQuestions.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
+    if (remainingQuestionSlots === 0) {
+      toast({ description: overLimitDescription, position: "top", status: "error" });
+      return;
+    }
+    const overLimit = remainingQuestionSlots !== null && bankQuestions.length > remainingQuestionSlots;
+    const items = (overLimit ? bankQuestions.slice(0, remainingQuestionSlots) : bankQuestions)
+      .map((bq) => buildBankQueueItem(bq, bankQueueCtx))
+      .filter(Boolean);
     if (!items.length) return;
 
     if (isPendingCreation) {
@@ -2990,14 +3052,22 @@ const QuestionListingPage = ({
     }
 
     toast({
-      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+      description: overLimit
+        ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
+        : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
       position: "top",
-      status: "success",
+      status: overLimit ? "warning" : "success",
     });
   };
 
   const saveBankQuestionsForReal = async (bankQuestions) => {
-    const items = bankQuestions.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
+    if (remainingQuestionSlots === 0) {
+      toast({ description: overLimitDescription, position: "top", status: "error" });
+      return;
+    }
+    const overLimit = remainingQuestionSlots !== null && bankQuestions.length > remainingQuestionSlots;
+    const cappedBankQuestions = overLimit ? bankQuestions.slice(0, remainingQuestionSlots) : bankQuestions;
+    const items = cappedBankQuestions.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
     if (!items.length) return;
     try {
       for (const item of items) {
@@ -3005,9 +3075,11 @@ const QuestionListingPage = ({
       }
       handleFetch(true);
       toast({
-        description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.`,
+        description: overLimit
+          ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
+          : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.`,
         position: "top",
-        status: "success",
+        status: overLimit ? "warning" : "success",
       });
     } catch (err) {
       toast({
@@ -3494,7 +3566,11 @@ const QuestionListingPage = ({
           ))}
 
           <Box paddingTop={4}>
-            <Button link={buildAddLink(null)}>Add more questions</Button>
+            {remainingQuestionSlots === 0 ? (
+              <Text color="gray.500">{overLimitDescription}</Text>
+            ) : (
+              <Button link={buildAddLink(null)}>Add more questions</Button>
+            )}
           </Box>
         </Box>
       )}

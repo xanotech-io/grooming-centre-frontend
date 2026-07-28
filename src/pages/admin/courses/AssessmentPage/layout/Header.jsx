@@ -20,10 +20,17 @@ const links = [
     matcher: (courseId, assessmentId) =>
       `/admin/courses/${courseId}/assessment/${assessmentId}/overview`,
     href: (courseId, assessmentId, examinationId, moduleId) =>
-      `/admin/courses/${courseId}/assessment/${assessmentId}/overview${buildQuery(
-        examinationId,
-        moduleId
-      )}`,
+      // Module-scoped exams have no editable "overview" inside this shell —
+      // the AssessmentPage/OverviewPage route only renders a read-only
+      // ExaminationOverview summary for them (or, for a still-unsaved "new"
+      // exam, tries to load a nonexistent assessment). Send Overview back to
+      // the actual exam create/edit form instead of into that dead end.
+      examinationId && moduleId
+        ? `/admin/courses/${courseId}/module/${moduleId}/examinations/edit/${examinationId}`
+        : `/admin/courses/${courseId}/assessment/${assessmentId}/overview${buildQuery(
+            examinationId,
+            moduleId
+          )}`,
     text: "Overview",
   },
   {
