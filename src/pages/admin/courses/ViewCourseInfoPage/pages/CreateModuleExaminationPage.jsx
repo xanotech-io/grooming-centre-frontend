@@ -190,6 +190,8 @@ const CreateModuleExaminationPage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const handleCancel = useGoBack();
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
   const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
   const fromBankQuestionIds = useAssessmentStore((s) => s.fromBankQuestionIds);
@@ -340,6 +342,13 @@ const CreateModuleExaminationPage = () => {
           requestType: "CourseExam",
           courseId,
           nextRoute: `/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`,
+          // Returning to this form (e.g. via the Overview tab) and
+          // re-submitting must not drop questions already queued for this
+          // same exam on the Questions step.
+          questions:
+            pendingEdit?.contentId === examinationId
+              ? pendingEdit?.questions
+              : undefined,
         });
         push(
           `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examinationId}&editSubmit=1&moduleId=${moduleId}`,
@@ -356,6 +365,10 @@ const CreateModuleExaminationPage = () => {
           addToBank,
           title: data.title,
           fromBankQuestionIds: bankQuestionIdsRef.current,
+          // Returning to this form (e.g. via the Overview tab) and
+          // re-submitting must not drop questions already queued on the
+          // Questions step.
+          questions: pendingCreate?.questions,
         });
         push(
           `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=new&submitForApproval=1&moduleId=${moduleId}`,
