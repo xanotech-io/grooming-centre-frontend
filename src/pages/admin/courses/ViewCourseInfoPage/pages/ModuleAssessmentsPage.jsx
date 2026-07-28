@@ -217,7 +217,7 @@ const ModuleAssessmentsPage = () => {
             Question Bank
           </Button>
           <Button
-            link={`/admin/courses/${courseId}/module/${moduleId}/assessments/edit/new`}
+            link={`/admin/courses/${courseId}/assessment/new/overview?moduleId=${moduleId}`}
           >
             Add Assessment
           </Button>

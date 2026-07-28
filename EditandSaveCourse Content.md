@@ -594,13 +594,13 @@ PATCH /api/v1/stand-alone-examination/edit/3fa85f64-5717-4562-b3fc-2c963f66afb2
 
 **Request Body**
 
-| Field         | Type   | Required | Description                                                 |
-| ------------- | ------ | -------- | ----------------------------------------------------------- |
-| `questionId`  | UUID   | **Yes**  | The question to update                                      |
-| `question`    | string | No       | Updated question text                                       |
-| `section`     | string | No       | Section name — must match a section on the stand-alone exam |
-| `markingType` | string | No       | `automatic`, `manual`, or `hybrid`                          |
-| `options`     | array  | No       | Answer options (for MCQ)                                    |
+| Field                            | Type   | Required | Description                                                 |
+| -------------------------------- | ------ | -------- | ----------------------------------------------------------- |
+| `standAloneExaminationQuestionId` | UUID   | **Yes**  | The question to update (NOT `questionId` — confirmed against the live backend, which rejects `questionId` with "Please provide a valid stand alone examination question Id") |
+| `question`                       | string | No       | Updated question text                                       |
+| `section`                        | string | No       | Section name — must match a section on the stand-alone exam |
+| `markingType`                    | string | No       | `automatic`, `manual`, or `hybrid`                           |
+| `options`                        | array  | No       | Answer options (for MCQ)                                    |
 
 **Sample Request**
 
@@ -608,7 +608,7 @@ PATCH /api/v1/stand-alone-examination/edit/3fa85f64-5717-4562-b3fc-2c963f66afb2
 PATCH /api/v1/stand-alone-examination-question/edit
 
 {
-  "questionId": "3fa85f64-5717-4562-b3fc-2c963f66afb3",
+  "standAloneExaminationQuestionId": "3fa85f64-5717-4562-b3fc-2c963f66afb3",
   "question": "What does GDPR stand for?",
   "markingType": "automatic",
   "options": [

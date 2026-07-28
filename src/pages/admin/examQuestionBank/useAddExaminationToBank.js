@@ -50,10 +50,12 @@ export const useAddExaminationToBank = () => {
   const [isAdding, setIsAdding] = useState(false);
 
   const addExaminationToBank = async ({ examinationId, courseId, moduleId, examinationTitle }) => {
-    if (!examinationId || isAdding) return;
+    if (!courseId || isAdding) return;
     setIsAdding(true);
     try {
-      const { examination } = await requestExaminationDetails(examinationId, true);
+      // requestExaminationDetails takes a courseId (see its JSDoc), not the exam's own id —
+      // matches usage everywhere else this endpoint is called (useExam, useCourseExamPreview, useAssessmentPreview).
+      const { examination } = await requestExaminationDetails(courseId, true);
       const raw = Array.isArray(examination?.questions) ? examination.questions : [];
 
       if (!raw.length) {

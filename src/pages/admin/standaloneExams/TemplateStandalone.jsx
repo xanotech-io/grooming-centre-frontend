@@ -190,7 +190,7 @@ const TemplateStandalone = () => {
                             _hover={{ bg: "gray.50" }}
                         >
                             <FaRegSave />
-                            Save as draft
+                            Cancel
                         </Button>
                         <Button
                             onClick={() => push(`/admin/standalone-exams/questions/?examination=${examinationId}`)}

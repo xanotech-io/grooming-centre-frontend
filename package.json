@@ -101,7 +101,7 @@
     "workerDirectory": "publish"
   },
   "devDependencies": {
-    "cross-env": "^10.1.0",
+    "cross-env": "^7.0.3",
     "husky": "^9.1.7",
     "lint-staged": "15",
     "react-error-overlay": "^6.0.9",

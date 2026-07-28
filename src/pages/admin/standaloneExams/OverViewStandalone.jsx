@@ -5,12 +5,6 @@ import {
   AlertIcon,
   Checkbox,
   IconButton,
-  NumberDecrementStepper,
-  NumberIncrementStepper,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-  Select as ChakraSelect,
   Switch,
   Text,
 } from "@chakra-ui/react";
@@ -48,8 +42,6 @@ import { FiTrash2 } from "react-icons/fi";
 
 const EMPTY_SECTION = {
   section_name: "",
-  questions_count: 1,
-  time_limit: null,
   question_type: "",
   marking_type: "",
   total_marks: null,
@@ -58,7 +50,7 @@ const EMPTY_SECTION = {
 // Kept identical to ExamPaperConfigPage.jsx's — QuestionsPage.jsx enforces
 // these three fields against whichever section a question is saved under.
 const QUESTION_TYPE_LOCK_OPTIONS = [
-  { label: "Any type", value: "" },
+  { label: "All", value: "" },
   { label: "MCQ", value: "MCQ" },
   { label: "True / False", value: "TrueFalse" },
   { label: "Fill in the Blank", value: "FillBlank" },
@@ -75,76 +67,62 @@ const MARKING_TYPE_LOCK_OPTIONS = [
 ];
 
 const SectionRow = ({ section, idx, onChange, onRemove }) => (
-  <Flex gap={3} alignItems="center" mb={3} flexWrap="wrap">
+  <Flex gap={3} alignItems="flex-start" mb={4} flexWrap="wrap">
+    <Box flex="0 0 90px" minW="90px">
+      <Input
+        id={`section-${idx}-sequence`}
+        label="Sequence"
+        type="number"
+        value={idx + 1}
+        isReadOnly
+        isDisabled
+      />
+    </Box>
     <Box flex={2} minW="160px">
       <Input
+        id={`section-${idx}-name`}
+        label="Name"
         placeholder="Section name e.g. Section A"
         value={section.section_name}
         onChange={(e) => onChange(idx, "section_name", e.target.value)}
       />
     </Box>
-    <Box flex={1} minW="100px">
-      <NumberInput
-        min={1}
-        value={section.questions_count}
-        onChange={(val) => onChange(idx, "questions_count", Number(val))}
-      >
-        <NumberInputField placeholder="Questions" />
-        <NumberInputStepper>
-          <NumberIncrementStepper />
-          <NumberDecrementStepper />
-        </NumberInputStepper>
-      </NumberInput>
-    </Box>
-    <Box flex={1} minW="100px">
-      <NumberInput
-        min={0}
-        value={section.time_limit ?? ""}
-        onChange={(val) => onChange(idx, "time_limit", val ? Number(val) : null)}
-      >
-        <NumberInputField placeholder="Time (min)" />
-        <NumberInputStepper>
-          <NumberIncrementStepper />
-          <NumberDecrementStepper />
-        </NumberInputStepper>
-      </NumberInput>
-    </Box>
-    <Box flex={1} minW="130px">
-      <ChakraSelect
+    <Box flex={1} minW="150px">
+      <Select
+        id={`section-${idx}-question-type`}
+        label="Question Type"
+        noEmptyOption
         value={section.question_type ?? ""}
         onChange={(e) => onChange(idx, "question_type", e.target.value)}
-      >
-        {QUESTION_TYPE_LOCK_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </ChakraSelect>
+        options={QUESTION_TYPE_LOCK_OPTIONS}
+      />
     </Box>
-    <Box flex={1} minW="130px">
-      <ChakraSelect
+    <Box flex={1} minW="150px">
+      <Select
+        id={`section-${idx}-marking-type`}
+        label="Marking Type"
+        noEmptyOption
         value={section.marking_type ?? ""}
         onChange={(e) => onChange(idx, "marking_type", e.target.value)}
-      >
-        {MARKING_TYPE_LOCK_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </ChakraSelect>
+        options={MARKING_TYPE_LOCK_OPTIONS}
+      />
     </Box>
-    <Box flex={1} minW="100px">
-      <NumberInput
+    <Box flex={1} minW="120px">
+      <Input
+        id={`section-${idx}-weightage`}
+        label="Weightage"
+        type="number"
         min={0}
+        placeholder="e.g. 20"
         value={section.total_marks ?? ""}
-        onChange={(val) => onChange(idx, "total_marks", val ? Number(val) : null)}
-      >
-        <NumberInputField placeholder="Weightage" />
-        <NumberInputStepper>
-          <NumberIncrementStepper />
-          <NumberDecrementStepper />
-        </NumberInputStepper>
-      </NumberInput>
+        onChange={(e) =>
+          onChange(
+            idx,
+            "total_marks",
+            e.target.value ? Number(e.target.value) : null,
+          )
+        }
+      />
     </Box>
     <IconButton
       aria-label="Remove section"
@@ -153,6 +131,8 @@ const SectionRow = ({ section, idx, onChange, onRemove }) => (
       variant="ghost"
       colorScheme="red"
       onClick={() => onRemove(idx)}
+      alignSelf="center"
+      mt={6}
     />
   </Flex>
 );
@@ -174,7 +154,7 @@ const OverViewStandalone = () => {
     examinationId ? examinationId : "isStandaloneExamination && isNotEdit",
     true,
   );
-  const isEditmode = !examinationId === false;
+  const isEditmode = Boolean(examinationId) && examinationId !== "new";
 
   return examinationId && (isLoading || error) ? (
     <Flex
@@ -191,7 +171,7 @@ const OverViewStandalone = () => {
   ) : isEditmode ? (
     <EditStandalonePage assessment={assessment} />
   ) : (
-    <CreateStandalonePage />
+    <CreateStandalonePage isContinuingPending={examinationId === "new"} />
   );
 };
 
@@ -214,6 +194,11 @@ const EditStandalonePage = ({ assessment }) => {
   }, [assessment?.startTime]);
 
   useEffect(() => {
+    if (assessment?.endTime)
+      endTimeManager.handleChange(assessment?.endTime);
+  }, [assessment?.endTime]);
+
+  useEffect(() => {
     if (assessment?.duration) setValue("duration", assessment?.duration);
   }, [assessment?.duration, setValue]);
 
@@ -227,14 +212,27 @@ const EditStandalonePage = ({ assessment }) => {
       setValue("isPublished", assessment?.isPublished);
   }, [assessment?.isPublished, setValue]);
 
+  useEffect(() => {
+    if (assessment?.templateId) setTemplateId(assessment?.templateId);
+  }, [assessment?.templateId]);
+
   const { push } = useHistory();
   const toast = useToast();
   const isSuperAdmin = useIsSuperAdmin();
   const handleCancel = useGoBack();
   const startTimeManager = useDateTimePicker();
+  const endTimeManager = useDateTimePicker();
   const { handleDelete } = useCache();
   const [isConfigPublished, setIsConfigPublished] = useState(false);
   const isPublished = assessment?.isPublished === true || isConfigPublished;
+  const [markingTemplates, setMarkingTemplates] = useState([]);
+  const [templateId, setTemplateId] = useState("");
+
+  useEffect(() => {
+    adminGetMarkingTemplates()
+      .then(({ templates }) => setMarkingTemplates(templates))
+      .catch(() => {});
+  }, []);
 
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowContent, setWorkflowContent] = useState(null);
@@ -288,11 +286,17 @@ const EditStandalonePage = ({ assessment }) => {
     try {
       const startTime =
         startTimeManager.handleGetValueAndValidate("Start Time");
+      const endTime = endTimeManager.handleGetValueAndValidate("End Time");
+      if (!templateId)
+        throw new Error("A marking template must be selected before saving.");
+
       const body = {
         ...data,
         amountOfQuestions: Number(data.amountOfQuestions),
         duration: Number(data.duration),
         startTime: formatDateToISO(startTime),
+        endTime: formatDateToISO(endTime),
+        templateId,
       };
 
       const paperConfigBody = {
@@ -388,6 +392,15 @@ const EditStandalonePage = ({ assessment }) => {
             />
           </GridItem>
           <GridItem>
+            <DateTimePicker
+              id="endTime"
+              isRequired
+              label="End Date and Time"
+              value={endTimeManager.value}
+              onChange={endTimeManager.handleChange}
+            />
+          </GridItem>
+          <GridItem>
             <Input
               label="Duration"
               type="number"
@@ -398,12 +411,14 @@ const EditStandalonePage = ({ assessment }) => {
             />
           </GridItem>
 
-          <GridItem colSpan={2}>
-            <Input
-              label="Instructions"
-              id="instructions"
-              placeholder="Enter exam instructions for the students"
-              {...register("instructions")}
+          <GridItem>
+            <Select
+              label="Marking Template"
+              placeholder="Select a marking template"
+              isRequired
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
             />
           </GridItem>
         </Grid>
@@ -452,7 +467,7 @@ const EditStandalonePage = ({ assessment }) => {
             _hover={{ bg: "gray.50" }}
           >
             <FaRegSave />
-            Save as draft
+            Cancel
           </Button>
           <Button
             isLoading={isSubmitting}
@@ -488,30 +503,34 @@ const EditStandalonePage = ({ assessment }) => {
   );
 };
 
-const CreateStandalonePage = () => {
+const CreateStandalonePage = ({ isContinuingPending }) => {
   const { push } = useHistory();
   const toast = useToast();
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm();
 
   const handleCancel = useGoBack();
   const startTimeManager = useDateTimePicker();
+  const endTimeManager = useDateTimePicker();
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [templateId, setTemplateId] = useState("");
   const [markingMode, setMarkingMode] = useState("automatic");
   const [addToBank, setAddToBank] = useState(false);
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
-  const fromBankQuestionId = useAssessmentStore((s) => s.fromBankQuestionId);
-  const clearFromBankQuestionId = useAssessmentStore((s) => s.clearFromBankQuestionId);
+  const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
+  const fromBankQuestionIds = useAssessmentStore((s) => s.fromBankQuestionIds);
+  const clearFromBankQuestionIds = useAssessmentStore((s) => s.clearFromBankQuestionIds);
   // Captured once on mount: whatever the Question Bank's "use in a new exam"
   // picker left behind belongs to this visit — consume it immediately so a
   // later, unrelated create flow can never pick up a stale value.
-  const bankQuestionIdRef = useRef(fromBankQuestionId);
+  const bankQuestionIdsRef = useRef(fromBankQuestionIds);
   useEffect(() => {
-    if (fromBankQuestionId) clearFromBankQuestionId();
+    if (fromBankQuestionIds?.length) clearFromBankQuestionIds();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -533,9 +552,38 @@ const CreateStandalonePage = () => {
       .catch(() => {});
   }, []);
 
+  // Restore whatever was already filled in before the user moved on to the
+  // Questions step and came back — otherwise navigating away and back to
+  // this same "pending create" shell wipes the form on remount. A genuinely
+  // fresh visit (no `?examination=new` in the URL — e.g. "Create New Exam"
+  // from the list page) instead means any leftover pendingCreate belongs to
+  // an abandoned attempt, so it's cleared instead of restored.
+  useEffect(() => {
+    if (!isContinuingPending) {
+      if (pendingCreate) clearPendingCreate();
+      return;
+    }
+    if (pendingCreate?.kind !== "StandaloneExam") return;
+
+    const { body, paperConfigBody, addToBank: pendingAddToBank } = pendingCreate;
+    if (body?.title) setValue("title", body.title);
+    if (body?.amountOfQuestions != null) setValue("amountOfQuestions", body.amountOfQuestions);
+    if (body?.totalMarks != null) setValue("totalMarks", body.totalMarks);
+    if (body?.duration != null) setValue("duration", body.duration);
+    if (body?.templateId) setTemplateId(body.templateId);
+    if (body?.markingMode) setMarkingMode(body.markingMode);
+    if (body?.startTime) startTimeManager.handleChange(body.startTime);
+    if (body?.endTime) endTimeManager.handleChange(body.endTime);
+    if (paperConfigBody?.configuredSections?.length) setSections(paperConfigBody.configuredSections);
+    if (paperConfigBody?.randomization) setRandomization(paperConfigBody.randomization);
+    if (pendingAddToBank) setAddToBank(pendingAddToBank);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onSubmit = async (data) => {
     try {
       const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
+      const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
       if (!templateId)
         throw new Error("A marking template must be selected before creating an examination.");
@@ -548,6 +596,7 @@ const CreateStandalonePage = () => {
         templateId,
         markingMode,
         startTime: formatDateToISO(startTime),
+        endTime: formatDateToISO(endTime),
       };
 
       const paperConfigBody = {
@@ -577,7 +626,7 @@ const CreateStandalonePage = () => {
         paperConfigBody,
         addToBank,
         title: data.title,
-        fromBankQuestionId: bankQuestionIdRef.current,
+        fromBankQuestionIds: bankQuestionIdsRef.current,
       });
       push("/admin/standalone-exams/questions/?examination=new&submitForApproval=1");
     } catch (error) {
@@ -637,6 +686,15 @@ const CreateStandalonePage = () => {
               label="Start Date and Time"
               value={startTimeManager.value}
               onChange={startTimeManager.handleChange}
+            />
+          </GridItem>
+          <GridItem>
+            <DateTimePicker
+              id="endTime"
+              isRequired
+              label="End Date and Time"
+              value={endTimeManager.value}
+              onChange={endTimeManager.handleChange}
             />
           </GridItem>
           <GridItem>
@@ -729,7 +787,7 @@ const CreateStandalonePage = () => {
             _hover={{ bg: "gray.50" }}
           >
             <FaRegSave />
-            Save as draft
+            Cancel
           </Button>
           <Button
             isLoading={isSubmitting}

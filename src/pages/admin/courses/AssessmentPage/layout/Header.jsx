@@ -5,6 +5,7 @@ import { useParams } from "react-router";
 import { Breadcrumb, Button, Link, Text } from "../../../../../components";
 import { useQueryParams, useGoBack } from "../../../../../hooks";
 import colors from "../../../../../theme/colors";
+import useAssessmentStore from "../../../../../store/assessmentStore";
 
 const buildQuery = (examinationId, moduleId) => {
   const params = new URLSearchParams();
@@ -50,6 +51,7 @@ const links = [
 const Header = () => {
   const { id: courseId, assessmentId } = useParams();
   const handleCancel = useGoBack();
+  const openBankPicker = useAssessmentStore((s) => s.openBankPicker);
 
   const queryParams = useQueryParams();
   const examinationId = queryParams.get("examination");
@@ -59,16 +61,23 @@ const Header = () => {
     courseId === "not-set" && assessmentId === "not-set" && examinationId
       ? true
       : false;
-  // Nothing exists yet (still in the "Next" → add question hand-off) —
-  // Overview and Grading have nothing to show, so only Questions applies.
-  const isPendingCreation = assessmentId === "new" || examinationId === "new";
-
+  // The standalone course-level assessment listing was retired — module-scoped
+  // assessments are the only surviving flow, so anything without a moduleId
+  // (which shouldn't happen via any live entry point anymore) falls back to
+  // the Modules hub instead of a dead link.
   const backToAssessmentsLink = moduleId
     ? `/admin/courses/${courseId}/module/${moduleId}/assessments`
-    : `/admin/courses/details/${courseId}/assessment`;
+    : `/admin/courses/details/${courseId}/modules`;
 
   const isActiveLink = (LinkMatcher) =>
     window.location.pathname.includes(LinkMatcher);
+
+  // The last breadcrumb crumb should name whichever tab (Overview / Questions
+  // / Grading) is actually active, not be hardcoded to one of them.
+  const activeLink = links.find((link) =>
+    isActiveLink(link.matcher(courseId, assessmentId)),
+  );
+  const currentPageLabel = activeLink?.text || "Overview";
 
   const breadcrumbItems = isStandaloneExamination
     ? {
@@ -79,7 +88,7 @@ const Header = () => {
         ),
         item3: (
           <BreadcrumbItem isCurrentPage>
-            <Link href="#">Questions</Link>
+            <Link href="#">{currentPageLabel}</Link>
           </BreadcrumbItem>
         ),
       }
@@ -110,11 +119,18 @@ const Header = () => {
           ),
           item5: (
             <BreadcrumbItem isCurrentPage>
-              <Link href="#">Questions</Link>
+              <Link href="#">{currentPageLabel}</Link>
             </BreadcrumbItem>
           ),
         }
       : {
+          // No moduleId means this exam/assessment predates the module-scoped
+          // flow (or was reached via a since-retired entry point) — same
+          // "dead link" case `backToAssessmentsLink` above already handles,
+          // so this crumb falls back to the Modules hub too instead of
+          // linking to the no-longer-navigable course-level exam/assessment
+          // listing (`/admin/courses/details/:id/exam`/`/assessment` —
+          // deliberately commented out of ViewCourseInfoPage's own tabs).
           item2: (
             <BreadcrumbItem>
               <Link href="/admin/courses">Courses</Link>
@@ -122,18 +138,14 @@ const Header = () => {
           ),
           item3: (
             <BreadcrumbItem>
-              <Link
-                href={`/admin/courses/details/${courseId}/${
-                  isExamination ? "exam" : "assessment"
-                }`}
-              >
-                {isExamination ? "Examination" : "Assessments"}
+              <Link href={`/admin/courses/details/${courseId}/modules`}>
+                Modules
               </Link>
             </BreadcrumbItem>
           ),
           item4: (
             <BreadcrumbItem isCurrentPage>
-              <Link href="#">Questions</Link>
+              <Link href="#">{currentPageLabel}</Link>
             </BreadcrumbItem>
           ),
         };
@@ -162,9 +174,7 @@ const Header = () => {
         >
           {/** Empty box */}
           <Flex as="ul" listStyleType="none">
-            {links
-              .filter((link) => !isPendingCreation || link.text === "Questions")
-              .map((link) => (
+            {links.map((link) => (
               <li key={link.text}>
                 <Link
                   href={link.href(courseId, assessmentId, examinationId, moduleId)}
@@ -184,13 +194,15 @@ const Header = () => {
           <Flex justifyContent="end" gap={2}>
             <Button
               secondary
-              link={
-                isStandaloneExamination
-                  ? "/admin/exam-question-bank"
-                  : `/admin/exam-question-bank?courseId=${courseId}${
-                      moduleId ? `&moduleId=${moduleId}` : ""
-                    }`
-              }
+              {...(isActiveLink("questions")
+                ? { onClick: openBankPicker }
+                : {
+                    link: isStandaloneExamination
+                      ? "/admin/exam-question-bank"
+                      : `/admin/exam-question-bank?courseId=${courseId}${
+                          moduleId ? `&moduleId=${moduleId}` : ""
+                        }`,
+                  })}
             >
               Question Bank
             </Button>

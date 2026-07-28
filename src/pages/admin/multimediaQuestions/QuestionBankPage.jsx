@@ -151,7 +151,7 @@ const QuestionBankPage = () => {
               <Table variant="simple" size="sm">
                 <Thead bg="#F7FAFC">
                   <Tr>
-                    {["#", "Question", "Type", "Difficulty", "Marks", "Media", "Formatting", "Actions"].map((h) => (
+                    {["#", "Question", "Type", "Difficulty", "Media", "Formatting", "Actions"].map((h) => (
                       <Th key={h} py="14px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">{h}</Th>
                     ))}
                   </Tr>
@@ -177,9 +177,6 @@ const QuestionBankPage = () => {
                           <Badge bg={ds.bg} color={ds.color} px="8px" py="2px" borderRadius="6px" textTransform="none" fontSize="11px">
                             {q.difficultyLevel}
                           </Badge>
-                        </Td>
-                        <Td py="12px">
-                          <Text fontSize="13px" fontWeight="700" color="#6b006b">{q.marks}</Text>
                         </Td>
                         <Td py="12px"><MediaChips media={q.media} /></Td>
                         <Td py="12px">

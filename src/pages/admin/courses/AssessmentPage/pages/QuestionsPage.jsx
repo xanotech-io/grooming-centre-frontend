@@ -67,11 +67,15 @@ import {
   updateExaminationById as updateExamPaperConfig,
 } from "../../../../../services";
 import { buildBatchUploadLink } from "../../../examQuestionImport/questionRowUtils";
+import SelectBankQuestionsModal from "../../../examQuestionBank/SelectBankQuestionsModal";
 import {
   appendFormData,
   capitalizeFirstLetter,
   capitalizeWords,
+  clearNeedsApprovalSubmission,
   isAutoAddToBank,
+  markNeedsApprovalSubmission,
+  needsApprovalSubmission,
   setAutoAddToBank,
 } from "../../../../../utils";
 import useAssessmentPreview from "../../../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
@@ -92,6 +96,123 @@ const BANK_TYPE_TO_FORM_TYPE = {
   fill_blank: "FillBlank",
   short_answer: "ShortAnswer",
   essay: "Essay",
+};
+
+// ── Shared bank→question builder ────────────────────────────────────────────
+// Used both to queue a bank question locally (pendingCreate/pendingEdit,
+// parent not saved yet) and to create it for real on an already-existing
+// assessment/examination (List Of Questions' "Question Bank" add). Returns
+// null when the bank question's type is locked out by `allowedQuestionTypes`.
+const buildBankQueueItem = (
+  bankQuestion,
+  { isStandaloneExamination, isExamination, assessmentId, sectionTitle, sectionMarks, allowedQuestionTypes },
+) => {
+  const mappedType = BANK_TYPE_TO_FORM_TYPE[bankQuestion.questionType] || "Essay";
+  if (allowedQuestionTypes && !allowedQuestionTypes.includes(mappedType)) return null;
+
+  const isObjective = mappedType === "MCQ" || mappedType === "TrueFalse";
+  const optionKey = isStandaloneExamination ? "option" : "name";
+  const options = isObjective
+    ? mappedType === "TrueFalse"
+      ? ["True", "False"].map((label, idx) => ({
+          [optionKey]: label,
+          isAnswer: bankQuestion.correctAnswer === label,
+          optionIndex: idx + 1,
+        }))
+      : (bankQuestion.options || []).map((o, idx) => ({
+          [optionKey]: o.text,
+          isAnswer: !!o.isCorrect,
+          optionIndex: idx + 1,
+        }))
+    : [];
+
+  const effectiveMarks = sectionMarks != null ? sectionMarks : Number(bankQuestion.marks) || 1;
+  const bankDifficultyLevel = (bankQuestion.difficultyLevel || "Medium").toLowerCase();
+
+  const typeSpecificFields = isObjective
+    ? { options: JSON.stringify(options) }
+    : mappedType === "FillBlank"
+      ? { correctAnswer: bankQuestion.correctAnswer || "", questionType: "FillBlank" }
+      : mappedType === "ShortAnswer"
+        ? { modelAnswer: bankQuestion.correctAnswer || "", questionType: "ShortAnswer" }
+        : { rubricDescription: bankQuestion.explanation || "", questionType: "Essay" };
+
+  let data;
+  if (isStandaloneExamination) {
+    data = {
+      standAloneExaminationId: isExamination,
+      question: bankQuestion.question,
+      ...(sectionTitle && { section: sectionTitle }),
+      markingType: "automatic",
+      ...(isObjective && { options }),
+    };
+  } else if (isExamination) {
+    data = {
+      examinationId: isExamination,
+      question: bankQuestion.question,
+      marks: effectiveMarks,
+      markingType: "automatic",
+      ...(sectionTitle && { section: sectionTitle }),
+      difficultyLevel: bankDifficultyLevel,
+      questionType: mappedType,
+      ...typeSpecificFields,
+    };
+  } else {
+    data = {
+      assessmentId,
+      question: bankQuestion.question,
+      markingType: "automatic",
+      questionType: mappedType,
+      ...(sectionTitle && { section: sectionTitle }),
+      ...(isObjective ? { options: JSON.stringify(options) } : typeSpecificFields),
+    };
+  }
+
+  return {
+    data,
+    addToBank: false,
+    bank: {
+      questionPlainText: bankQuestion.question,
+      questionType: mappedType,
+      marks: effectiveMarks,
+      difficultyLevel: bankDifficultyLevel,
+      options,
+      bankSourceFields: {
+        correctAnswer: bankQuestion.correctAnswer,
+        modelAnswer: bankQuestion.correctAnswer,
+        rubricDescription: bankQuestion.explanation,
+      },
+    },
+    // Lets a later click on this queued item (in "List Of Questions") hydrate
+    // CreateQuestionPage's form back up — same fields the manual-entry
+    // queuing branches in `onSubmit` capture.
+    formSnapshot: {
+      questionType: mappedType,
+      marks: effectiveMarks,
+      markingType: "automatic",
+      difficultyLevel: bankDifficultyLevel,
+      bloomLevel: "",
+      section: sectionTitle,
+      rubric: "",
+      answer: isObjective ? String(options.find((o) => o.isAnswer)?.optionIndex || 1) : "",
+      matchingPairs: [{ left: "", right: "" }],
+      optionValues: isObjective ? options.map((o) => o[optionKey]) : [],
+      correctAnswer: bankQuestion.correctAnswer || "",
+      modelAnswer: bankQuestion.correctAnswer || "",
+      rubricDescription: bankQuestion.explanation || "",
+      questionText: bankQuestion.question,
+    },
+  };
+};
+
+// Persists one bank-sourced question payload against whichever real create
+// endpoint applies — used when the parent assessment/exam already exists,
+// so a bank pick is saved immediately instead of queued.
+const createBankQuestionForReal = (data, { isStandaloneExamination, isExamination }) => {
+  const finalBody = isStandaloneExamination ? data : appendFormData(data);
+  if (isStandaloneExamination) return adminCreateStandaloneExaminationQuestion(finalBody);
+  if (isExamination) return adminCreateExaminationQuestion(finalBody);
+  return adminCreateAssessmentQuestion(finalBody);
 };
 
 // ── Section-level locks & weightage ─────────────────────────────────────────
@@ -168,6 +289,7 @@ const QuestionsPage = () => {
   const isEditMode = useQueryParams().get("edit") === "true";
   const submitForApproval = useQueryParams().get("submitForApproval") === "1";
   const editSubmit = useQueryParams().get("editSubmit") === "1";
+  const queuedIndexParam = useQueryParams().get("queuedIndex");
   const isStandaloneExamination =
     courseId === "not-set" && assessmentId === "not-set" && isExamination
       ? true
@@ -193,7 +315,69 @@ const QuestionsPage = () => {
   const storeSections = useAssessmentStore((s) => s.sections);
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
   const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const setAssessment = useAssessmentStore((s) => s.setAssessment);
   const handleGoBack = useGoBack();
+  const { push } = useHistory();
+  const toast = useToast();
+  const [creatingForUpload, setCreatingForUpload] = useState(false);
+
+  // The batch-upload endpoint requires a real assessment/examination UUID —
+  // it never accepts the "new" placeholder. While pending creation, clicking
+  // "Upload & Batch Import Questions" creates the parent record first (same
+  // create call `performCreateParent` uses below) and only then navigates,
+  // so the batch-upload page always receives a real id.
+  const handleBatchUploadClick = async () => {
+    if (!pendingCreate) return;
+    setCreatingForUpload(true);
+    try {
+      const { kind, body: finalBody, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
+      let realParentId;
+
+      if (kind === "ModuleExam" || kind === "Exam") {
+        const { examination } = await adminCreateExamination(finalBody);
+        if (kind === "ModuleExam") {
+          await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
+        }
+        if (parentAddToBank) setAutoAddToBank("examination", examination.id);
+        setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+        realParentId = examination.id;
+      } else if (kind === "StandaloneExam") {
+        const { examination } = await adminCreateStandaloneExamination(finalBody);
+        setAssessment(examination);
+        realParentId = examination.id;
+      } else {
+        const { assessment } = await adminCreateAssessment(finalBody);
+        setAssessment(assessment);
+        if (parentAddToBank) setAutoAddToBank("assessment", assessment.id);
+        realParentId = assessment.id;
+      }
+
+      // This was created without going through the approval modal — flag it
+      // so the question listing page (`QuestionListingPage` below) can offer
+      // a one-time "Submit for Approval" action once the import is done.
+      markNeedsApprovalSubmission(
+        isStandaloneExamination ? "standalone" : isExamination ? "examination" : "assessment",
+        realParentId,
+      );
+
+      push(
+        buildBatchUploadLink({
+          courseId,
+          assessmentId: isExamination ? undefined : realParentId,
+          examinationId: isExamination ? realParentId : undefined,
+          standalone: isStandaloneExamination,
+        }),
+      );
+    } catch (err) {
+      toast({
+        description: "Couldn't create the assessment before uploading — please try again",
+        position: "top",
+        status: "error",
+      });
+    } finally {
+      setCreatingForUpload(false);
+    }
+  };
 
   const [templateSections, setTemplateSections] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
@@ -312,7 +496,21 @@ const QuestionsPage = () => {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessmentId, isExamination, isStandaloneExamination, storeSections, isPendingCreation, pendingCreate, assessmentManager.assessment?.sections]);
+  }, [
+    assessmentId,
+    isExamination,
+    isStandaloneExamination,
+    storeSections,
+    isPendingCreation,
+    // Deliberately narrowed from the whole `pendingCreate` object: every
+    // question queue/save/remove replaces it with a new object reference
+    // (`{ ...pendingCreate, questions: ... }`), which re-triggered this
+    // effect — and its marking-template GET — on every single local edit.
+    // Only these two derived values actually change what this effect does.
+    pendingCreate?.paperConfigBody?.configuredSections,
+    pendingCreate?.markingTemplateId,
+    assessmentManager.assessment?.sections,
+  ]);
 
   // Nothing was ever saved to the backend, so if the in-memory details-form
   // data is gone (e.g. the page was refreshed) there's nothing to recover.
@@ -363,9 +561,11 @@ const QuestionsPage = () => {
         <Heading fontSize="heading.h3">
           {isQuestionListingPage
             ? null
-            : questionId === "new"
-              ? "Create "
-              : "Update "}
+            : queuedIndexParam !== null
+              ? "Edit Queued "
+              : questionId === "new"
+                ? "Create "
+                : "Update "}
           {isStandaloneExamination
             ? "Standalone Examination"
             : isExamination
@@ -375,9 +575,15 @@ const QuestionsPage = () => {
         </Heading>
 
         {!isQuestionListingPage && !isExistingQuestion && (
-          <Button link={batchUploadLink}>
-            Upload &amp; Batch Import Questions
-          </Button>
+          isPendingCreation ? (
+            <Button onClick={handleBatchUploadClick} disabled={creatingForUpload}>
+              {creatingForUpload ? "Creating..." : "Upload & Batch Import Questions"}
+            </Button>
+          ) : (
+            <Button link={batchUploadLink}>
+              Upload &amp; Batch Import Questions
+            </Button>
+          )
         )}
       </Flex>
 
@@ -423,12 +629,18 @@ const QuestionsPage = () => {
               <Heading fontSize="heading.h5">List Of Questions</Heading>
 
               <Link
-                href={getQuestionListingLink(
+                href={`${getQuestionListingLink(
                   courseId,
                   assessmentId,
                   isExamination,
                   moduleId,
-                )}
+                )}${
+                  isPendingCreation
+                    ? "&submitForApproval=1"
+                    : isPendingEditSubmit
+                      ? "&editSubmit=1"
+                      : ""
+                }`}
               >
                 <Text bold color="primary.base">
                   See All
@@ -454,6 +666,29 @@ const QuestionsPage = () => {
                   />
                 ),
               )}
+              {/* Not created yet — queued via "Add more questions" while the
+                  parent exam/assessment is still pending (see pendingCreate/
+                  pendingEdit `.questions`). No real id exists for these until
+                  the batch is saved, so they link to an edit-in-place view
+                  keyed by their queue index instead of a real question id. */}
+              {(isPendingCreation ? pendingCreate?.questions : isPendingEditSubmit ? pendingEdit?.questions : null)?.map(
+                (_, index) => (
+                  <ButtonNavItem
+                    key={`queued-${index}`}
+                    number={(assessmentManager.assessment?.questions?.length || 0) + index + 1}
+                    answered
+                    isCurrent={queuedIndexParam === `${index}`}
+                    link={getEditQueuedQuestionLink(
+                      courseId,
+                      assessmentId,
+                      isExamination,
+                      moduleId,
+                      index,
+                      isPendingCreation ? "submitForApproval" : "editSubmit",
+                    )}
+                  />
+                ),
+              )}
             </Grid>
           </Box>
         </Box>
@@ -462,7 +697,7 @@ const QuestionsPage = () => {
   );
 };
 
-const ButtonNavItem = ({ number, answered, isCurrent, link }) => {
+const ButtonNavItem = ({ number, answered, isCurrent, link, disabled }) => {
   const styleProps = answered
     ? {
         backgroundColor: "primary.base",
@@ -473,27 +708,30 @@ const ButtonNavItem = ({ number, answered, isCurrent, link }) => {
         borderColor: "primary.base",
       };
 
-  return (
-    <Link href={link}>
-      <Flex
-        flexDirection={{ base: "column", md: "column", lg: "row" }}
-        justifyContent={{ base: "flex-start", md: "flex-start", lg: "center" }}
-        boxSize="40px"
-        rounded="4px"
-        alignItems="center"
-        as="button"
-        cursor="pointer"
-        transition=".1s"
-        border={isCurrent ? "2px" : "1px"}
-        transform={isCurrent && "scale(1.05)"}
-        {...styleProps}
-      >
-        <Text bold as="level1">
-          {number}
-        </Text>
-      </Flex>
-    </Link>
+  const content = (
+    <Flex
+      flexDirection={{ base: "column", md: "column", lg: "row" }}
+      justifyContent={{ base: "flex-start", md: "flex-start", lg: "center" }}
+      boxSize="40px"
+      rounded="4px"
+      alignItems="center"
+      as={disabled ? undefined : "button"}
+      cursor={disabled ? "default" : "pointer"}
+      transition=".1s"
+      border={isCurrent ? "2px" : "1px"}
+      transform={isCurrent && "scale(1.05)"}
+      {...styleProps}
+    >
+      <Text bold as="level1">
+        {number}
+      </Text>
+    </Flex>
   );
+
+  // Queued-but-not-yet-created questions have no real id/route to link to.
+  if (disabled) return content;
+
+  return <Link href={link}>{content}</Link>;
 };
 
 const useQuestionDetails = (assessmentManager) => {
@@ -575,11 +813,27 @@ const CreateQuestionPage = ({
   // instructors, what the approval modal gates).
   const isPendingEditSubmit = editSubmit && !isExistingQuestion && !isEditMode;
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
   const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
   const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
   const clearPendingEdit = useAssessmentStore((s) => s.clearPendingEdit);
   const setAssessment = useAssessmentStore((s) => s.setAssessment);
-  const fromBankQuestionId = pendingCreate?.fromBankQuestionId;
+  const fromBankQuestionIds = pendingCreate?.fromBankQuestionIds;
+
+  // Clicking a queued (not-yet-created) tile in "List Of Questions" lands
+  // here with `queuedIndex` instead of a real question id — there is no real
+  // id until the whole batch is saved on submit.
+  const queuedIndexParam = useQueryParams().get("queuedIndex");
+  const queuedSource = isPendingCreation ? pendingCreate : isPendingEditSubmit ? pendingEdit : null;
+  const queuedIndex =
+    queuedSource && queuedIndexParam !== null && queuedIndexParam !== ""
+      ? Number(queuedIndexParam)
+      : null;
+  const queuedItem = queuedIndex !== null ? queuedSource?.questions?.[queuedIndex] : null;
+  const isEditingQueued = queuedIndex !== null && !!queuedItem;
+  const isBankPickerOpen = useAssessmentStore((s) => s.isBankPickerOpen);
+  const closeBankPicker = useAssessmentStore((s) => s.closeBankPicker);
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [createdSuccess, setCreatedSuccess] = useState(null);
 
@@ -593,7 +847,7 @@ const CreateQuestionPage = ({
         assessmentManager.assessment?.amountOfQuestions,
     ) || null;
 
-  const buildRealQuestionRoute = (realParentId, { listing }) => {
+  const buildRealQuestionRoute = (realParentId, { listing, keepPending } = {}) => {
     const finalAssessmentId = isExamination ? courseId : (realParentId ?? assessmentId);
     const finalExamination = isExamination ? (realParentId ?? isExamination) : undefined;
     if (listing) return getQuestionListingLink(courseId, finalAssessmentId, finalExamination, moduleId);
@@ -601,6 +855,11 @@ const CreateQuestionPage = ({
     const params = new URLSearchParams();
     if (finalExamination) params.set("examination", finalExamination);
     if (moduleId) params.set("moduleId", moduleId);
+    // Only set while nothing real exists yet — keeps the next question form
+    // in the same pending-creation/pending-edit-submit state so it queues
+    // instead of trying to save straight away.
+    if (keepPending && isPendingCreation) params.set("submitForApproval", "1");
+    if (keepPending && isPendingEditSubmit) params.set("editSubmit", "1");
     const query = params.toString();
     return query ? `${base}?${query}` : base;
   };
@@ -625,13 +884,81 @@ const CreateQuestionPage = ({
     push(buildRealQuestionRoute(realParentId, { listing: false }));
   };
 
+  // Queued questions only live in the store — nothing to delete on the
+  // backend, just splice this slot out of pendingCreate/pendingEdit and
+  // head back to a blank pending form.
+  const handleRemoveQueuedQuestion = () => {
+    if (!window.confirm("Remove this queued question? It hasn't been created yet.")) return;
+    const updatedQuestions = (queuedSource.questions || []).filter((_, i) => i !== queuedIndex);
+    if (isPendingCreation) {
+      setPendingCreate({ ...pendingCreate, questions: updatedQuestions });
+    } else {
+      setPendingEdit({ ...pendingEdit, questions: updatedQuestions });
+    }
+    toast({ description: "Queued question removed", position: "top", status: "success" });
+    goToQueueAnotherQuestion();
+  };
+
+  // Used by "Add more questions" while the parent exam/assessment doesn't
+  // exist yet (or its edit is still held back) — nothing has been saved, so
+  // this queues the current question locally (see the onSubmit branch below)
+  // and reopens a blank form without disturbing `pendingCreate`/`pendingEdit`.
+  const goToQueueAnotherQuestion = () => {
+    push(buildRealQuestionRoute(undefined, { listing: false, keepPending: true }));
+  };
+
+  // Once the queue is full, land on the listing view instead of another
+  // blank form — mirrors the "See All" link's href, which keeps
+  // pendingCreate/pendingEdit alive (unlike goToQuestionListing, which
+  // clears them) since nothing has actually been created/saved yet.
+  const goToQueuedListing = () => {
+    const pendingSuffix = isPendingCreation
+      ? "&submitForApproval=1"
+      : isPendingEditSubmit
+        ? "&editSubmit=1"
+        : "";
+    push(`${getQuestionListingLink(courseId, assessmentId, isExamination, moduleId)}${pendingSuffix}`);
+  };
+
   // After a question is saved: if this exam/assessment was set up for more
   // than one question, offer to add another right away instead of always
   // dropping straight to the question list.
   const finishSaving = (realParentId) => {
-    if (amountOfQuestions > 1) {
+    // How many questions exist after this save — used to stop offering
+    // "Add more questions" once the exam/assessment has as many as was
+    // asked for.
+    const questionsBeforeThisSave = isPendingCreation
+      ? pendingCreate?.questions?.length || 0
+      : isPendingEditSubmit
+        ? pendingEdit?.questions?.length || 0
+        : assessmentManager.assessment?.questions?.length || 0;
+    const totalAfterSave = questionsBeforeThisSave + 1;
+    const reachedLimit = amountOfQuestions && totalAfterSave >= amountOfQuestions;
+
+    if (amountOfQuestions > 1 && !reachedLimit) {
+      // Everything has actually been created/saved for real by this point —
+      // clear the pending state and move off the pending URL right away,
+      // same as `goToQuestionListing`/`goToAddAnotherQuestion` do below.
+      // Leaving `pendingCreate`/`pendingEdit` set (and staying on the old
+      // `submitForApproval=1`/`editSubmit=1` URL) while this screen shows
+      // let a stale queued-question tile — still rendered in the sidebar
+      // because nothing had cleared it yet — or the browser back button
+      // land the user back on what looked like an untouched pending form.
+      // Clicking "Create and Submit"/"Update and Submit" from there called
+      // performCreateParent/performEditParent a second time with the same
+      // body, which the backend rejected as a duplicate ("already exists").
+      clearPendingCreate();
+      clearPendingEdit();
+      push(buildRealQuestionRoute(realParentId, { listing: false }));
       setCreatedSuccess({ realParentId });
     } else {
+      if (reachedLimit) {
+        toast({
+          description: `You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — you can't add another question.`,
+          position: "top",
+          status: "info",
+        });
+      }
       goToQuestionListing(realParentId);
     }
   };
@@ -760,9 +1087,8 @@ const CreateQuestionPage = ({
   const searchBank = useCallback(async () => {
     setBankLoading(true);
     try {
-      const params = { limit: 10, status: "active" };
+      const params = { limit: 10 };
       if (bankSearch) params.search = bankSearch;
-      if (courseId && courseId !== "not-set") params.courseId = courseId;
       const res = await listExamQuestionBank(params);
       const payload = res?.data ?? res;
       const items = Array.isArray(payload?.questions)
@@ -776,7 +1102,7 @@ const CreateQuestionPage = ({
     } finally {
       setBankLoading(false);
     }
-  }, [bankSearch, courseId]);
+  }, [bankSearch]);
 
   useEffect(() => {
     if (useBank) searchBank();
@@ -844,27 +1170,144 @@ const CreateQuestionPage = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bankApplyKey]);
 
+  // ── Editing a queued (not-yet-created) question ─────────────────────────
+  // Clicking a queued tile in "List Of Questions" lands here with
+  // `queuedIndex` instead of a real question id. Hydrate the form from that
+  // queue entry's `formSnapshot` (captured when it was queued — see
+  // `onSubmit`'s queuing branches and `buildBankQueueItem`), reusing the same
+  // remount-then-fill trick as the bank-apply flow above since the RichText
+  // editor and the type-specific fields only exist in the DOM once
+  // `questionType` has actually switched.
+  const pendingQueuedApplyRef = useRef(null);
+  const appliedQueuedIndexRef = useRef(null);
+
+  useEffect(() => {
+    if (!isEditingQueued) {
+      appliedQueuedIndexRef.current = null;
+      return;
+    }
+    if (appliedQueuedIndexRef.current === queuedIndex) return;
+    appliedQueuedIndexRef.current = queuedIndex;
+
+    const snap = queuedItem.formSnapshot;
+    if (!snap) return;
+
+    pendingQueuedApplyRef.current = snap;
+    questionRichTextManager.handleInitData(snap.questionText);
+    setBankApplyKey((k) => k + 1);
+    setQuestionType(snap.questionType || "MCQ");
+    setMarks(snap.marks || 1);
+    setMarkingType(snap.markingType || "automatic");
+    setDifficultyLevel(snap.difficultyLevel || "medium");
+    setBloomLevel(snap.bloomLevel || "");
+    setSelectedSectionId(snap.section || "");
+    setRubric(snap.rubric || "");
+    setAnswer(snap.answer || "");
+    setMatchingPairs(
+      snap.matchingPairs?.length ? snap.matchingPairs : [{ left: "", right: "" }],
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditingQueued, queuedIndex]);
+
+  useEffect(() => {
+    const snap = pendingQueuedApplyRef.current;
+    if (!snap) return;
+    pendingQueuedApplyRef.current = null;
+
+    (snap.optionValues || []).forEach((text, idx) => setValue(`option-${idx + 1}`, text));
+    setValue("correctAnswer", snap.correctAnswer || "");
+    setValue("modelAnswer", snap.modelAnswer || "");
+    setValue("rubricDescription", snap.rubricDescription || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankApplyKey]);
+
+  // ── Queue Question Bank items directly into pendingCreate/pendingEdit —
+  // used both by the plural fromBankQuestionIds hand-off below and by the
+  // "Question Bank" multi-select modal opened mid-creation. Mirrors the
+  // create-mode `data` shape onSubmit builds further down, sourced from a
+  // bank question's fields instead of the live form.
+  const bankQueueCtx = {
+    isStandaloneExamination,
+    isExamination,
+    assessmentId,
+    sectionTitle: selectedSectionId || undefined,
+    sectionMarks,
+    allowedQuestionTypes,
+  };
+
+  const buildQueuedItemFromBankQuestion = (bankQuestion) => {
+    const item = buildBankQueueItem(bankQuestion, bankQueueCtx);
+    if (!item) {
+      toast({
+        description: `Skipped "${bankQuestion.question}" — section "${selectedSectionId}" only accepts ${allowedQuestionTypes.join(" / ")} questions.`,
+        position: "top",
+        status: "warning",
+      });
+    }
+    return item;
+  };
+
+  const queueBankQuestions = (bankQuestions) => {
+    const items = bankQuestions.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    if (!items.length) return;
+
+    if (isPendingCreation) {
+      setPendingCreate({ ...pendingCreate, questions: [...(pendingCreate.questions || []), ...items] });
+    } else if (isPendingEditSubmit) {
+      setPendingEdit({ ...pendingEdit, questions: [...(pendingEdit.questions || []), ...items] });
+    }
+
+    toast({
+      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+      position: "top",
+      status: "success",
+    });
+  };
+
+  // The parent assessment/exam already exists (not pending creation/edit) —
+  // a bank pick is saved for real, right away, so it shows up in "List Of
+  // Questions" like any other question and is immediately clickable to edit.
+  const saveBankQuestionsForReal = async (bankQuestions) => {
+    const items = bankQuestions.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    if (!items.length) return;
+    try {
+      for (const item of items) {
+        await createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination });
+      }
+      assessmentManager.handleFetch(true);
+      toast({
+        description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.`,
+        position: "top",
+        status: "success",
+      });
+    } catch (err) {
+      toast({
+        description: err?.response?.data?.message || "Failed to add question(s) from the bank",
+        position: "top",
+        status: "error",
+      });
+    }
+  };
+
   // Arrived here straight from the Question Bank via "Next" on the details
-  // form — prefill this first question from the bank item the admin picked,
-  // same mapping as manually applying a bank question above.
+  // form — prefill this first question from the first bank item the admin
+  // picked (same mapping as manually applying a bank question above), and
+  // queue the rest so they show up in "Queued Questions" right away.
   const appliedFromBankRef = useRef(false);
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[QuestionsPage] bank prefill check", { isPendingCreation, fromBankQuestionId, alreadyApplied: appliedFromBankRef.current });
-    if (!isPendingCreation || !fromBankQuestionId || appliedFromBankRef.current) return;
+    if (!isPendingCreation || !fromBankQuestionIds?.length || appliedFromBankRef.current) return;
     appliedFromBankRef.current = true;
-    getExamQuestionBankItem(fromBankQuestionId)
-      .then((res) => {
-        // eslint-disable-next-line no-console
-        console.log("[QuestionsPage] fetched bank question", res);
-        applyBankQuestion(res?.data ?? res);
+    Promise.all(fromBankQuestionIds.map((id) => getExamQuestionBankItem(id).then((res) => res?.data ?? res)))
+      .then((bankQuestions) => {
+        applyBankQuestion(bankQuestions[0]);
+        if (bankQuestions.length > 1) queueBankQuestions(bankQuestions.slice(1));
       })
       .catch((err) => {
-        console.error("[QuestionsPage] failed to load bank question for prefill", fromBankQuestionId, err?.response?.data ?? err);
-        toast({ description: "Couldn't load the picked question from the bank", position: "top", status: "error" });
+        console.error("[QuestionsPage] failed to load bank questions for prefill", fromBankQuestionIds, err?.response?.data ?? err);
+        toast({ description: "Couldn't load the picked questions from the bank", position: "top", status: "error" });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPendingCreation, fromBankQuestionId]);
+  }, [isPendingCreation, fromBankQuestionIds]);
 
   useEffect(() => {
     if (question) {
@@ -962,10 +1405,17 @@ const CreateQuestionPage = ({
   const [workflowContent, setWorkflowContent] = useState(null);
   const pendingCreateBothRef = useRef(null);
   const createdParentRef = useRef(null);
-  // Set by the "Add more questions" button (beside "Update and Submit") so
-  // the approval modal's onSuccess below knows to skip straight to a blank
-  // question form instead of the usual done/listing destination.
+  // Set by the "Add more questions" button (beside "Create/Update and
+  // Submit") so onSubmit below knows to queue this question locally instead
+  // of opening the approval modal — only the latter button should ever
+  // trigger a supervisor-approval submission.
   const addAnotherRef = useRef(false);
+  // Set by the "Create and Submit" button on the plain add-question page
+  // (a new question on an already-real assessment/exam) — saves the
+  // question as normal, then opens the same approval modal used elsewhere,
+  // targeting the already-real assessment/exam as the content being
+  // submitted.
+  const submitForApprovalRef = useRef(false);
 
   // Creates the exam/assessment that "Next" deferred, using the details
   // form values held in `pendingCreate`. Called from inside the approval
@@ -1075,6 +1525,165 @@ const CreateQuestionPage = ({
         return;
       }
 
+      // Standalone uses plain JSON; assessment/examination use multipart FormData.
+      // `overrideData` lets a queued question (built on an earlier render) be
+      // saved here instead of this render's own `data`. Defined up here
+      // (rather than after the field validations below) because the
+      // "Create and Submit with nothing new to add" branch right after this
+      // needs it before any of that validation runs.
+      const saveQuestion = async (realParentId, overrideData) => {
+        const questionData = overrideData || data;
+        const finalData = isPendingCreation ? withRealParentId(questionData, realParentId) : questionData;
+        const finalBody = isStandaloneExamination ? finalData : appendFormData(finalData);
+        return isEditMode
+          ? isStandaloneExamination
+            ? await adminEditStandaloneExaminationQuestion(finalBody)
+            : isExamination
+              ? await adminEditExaminationQuestion(finalBody)
+              : await adminEditAssessmentQuestion(finalBody)
+          : isStandaloneExamination
+            ? await adminCreateStandaloneExaminationQuestion(finalBody)
+            : isExamination
+              ? await adminCreateExaminationQuestion(finalBody)
+              : await adminCreateAssessmentQuestion(finalBody);
+      };
+
+      // Shared by the current question (via `maybeAddToBank` further down)
+      // and by any questions queued earlier through "Add more questions" —
+      // each queued item carries its own snapshot of these same fields.
+      // Also defined up here (like `saveQuestion` above) since the early-exit
+      // branch right below needs it before the field validations run.
+      const addQuestionToBank = async ({
+        questionPlainText: bankQuestionText,
+        questionType: bankQuestionType,
+        marks: bankMarks,
+        difficultyLevel: bankDifficultyLevel,
+        options: bankOptionsSource,
+        bankSourceFields: bankSource,
+      }) => {
+        const bankType = FORM_TYPE_TO_BANK_TYPE[bankQuestionType];
+        if (!bankType) {
+          toast({
+            description: "This question type isn't supported by the Question Bank yet",
+            position: "top",
+            status: "warning",
+          });
+          return;
+        }
+        const isBankObjectiveType =
+          bankQuestionType === "MCQ" || bankQuestionType === "TrueFalse";
+        let bankPayload;
+        try {
+          bankPayload = {
+            question: bankQuestionText,
+            questionType: bankType,
+            marks: Number(bankMarks) || 1,
+            difficultyLevel: capitalizeFirstLetter(bankDifficultyLevel || "medium"),
+            status: "draft",
+          };
+          if (isBankObjectiveType) {
+            const bankOptions = bankOptionsSource.map((o) => ({
+              text: o.name ?? o.option ?? "",
+              isCorrect: !!o.isAnswer,
+            }));
+            bankPayload.options = bankOptions.filter((o) => o.text);
+            bankPayload.correctAnswer =
+              bankOptions.find((o) => o.isCorrect)?.text ?? "";
+          } else if (bankQuestionType === "FillBlank") {
+            bankPayload.correctAnswer = bankSource.correctAnswer || "";
+          } else if (bankQuestionType === "ShortAnswer") {
+            bankPayload.correctAnswer = bankSource.modelAnswer || "";
+          } else if (bankQuestionType === "Essay" && bankSource.rubricDescription) {
+            bankPayload.explanation = bankSource.rubricDescription;
+          }
+          if (courseId && courseId !== "not-set") bankPayload.courseId = courseId;
+
+          await createExamQuestionBankItem(bankPayload);
+        } catch (bankErr) {
+          console.error("[QuestionsPage] failed to add question to bank", bankPayload, bankErr?.response?.data ?? bankErr);
+          toast({
+            description:
+              bankErr?.response?.data?.message ||
+              "Question saved, but failed to add it to the Question Bank",
+            position: "top",
+            status: "warning",
+          });
+        }
+      };
+
+      // "Create and Submit"/"Update and Submit" clicked with the current
+      // form left genuinely blank (typically right after "Save Changes" on
+      // a queued item, which returns to a fresh blank form) while at least
+      // one question is already queued. There's nothing new here to
+      // validate or add — skip straight to submitting exactly what's
+      // already queued instead of forcing the field validations below
+      // (which would otherwise demand a phantom extra question, or previously,
+      // before the queue was cleared on save, silently resubmitted whatever
+      // question was last on the form as a duplicate).
+      const hasQueuedAlready = (queuedSource?.questions?.length || 0) > 0;
+      const currentFormIsBlank = !questionRichTextManager.getPlainText().trim();
+      if (
+        (isPendingCreation || isPendingEditSubmit) &&
+        !isEditingQueued &&
+        !addAnotherRef.current &&
+        hasQueuedAlready &&
+        currentFormIsBlank
+      ) {
+        if (isPendingCreation) {
+          const createBoth = async () => {
+            const parent = await performCreateParent();
+            createdParentRef.current = parent;
+            for (const queued of pendingCreate.questions || []) {
+              await saveQuestion(parent.id, queued.data);
+              if (queued.addToBank || pendingCreate.addToBank) {
+                await addQuestionToBank(queued.bank);
+              }
+            }
+            // No `maybeAddToBank()` here — that call is for the *current*
+            // form's question, and this branch only runs when the current
+            // form is intentionally blank (nothing new to add to the bank).
+            return { id: parent.id };
+          };
+
+          const requestType =
+            pendingCreate.kind === "StandaloneExam"
+              ? "StandaloneExam"
+              : pendingCreate.kind === "ModuleExam" || pendingCreate.kind === "Exam"
+                ? "CourseExam"
+                : "CourseAssessment";
+          const modalCourseId = courseId !== "not-set" ? courseId : undefined;
+
+          pendingCreateBothRef.current = createBoth;
+          setWorkflowContent({
+            contentTitle: pendingCreate.title,
+            requestType,
+            courseId: modalCourseId,
+          });
+        } else {
+          const editBoth = async () => {
+            const parent = await performEditParent();
+            createdParentRef.current = parent;
+            for (const queued of pendingEdit.questions || []) {
+              await saveQuestion(undefined, queued.data);
+              if (queued.addToBank) {
+                await addQuestionToBank(queued.bank);
+              }
+            }
+            return { id: parent.id };
+          };
+
+          pendingCreateBothRef.current = editBoth;
+          setWorkflowContent({
+            contentId: pendingEdit.contentId,
+            contentTitle: pendingEdit.title,
+            requestType: pendingEdit.requestType,
+            courseId: pendingEdit.courseId,
+          });
+        }
+        setWorkflowModalOpen(true);
+        return;
+      }
+
       // Defense in depth — the UI already disables/blocks disallowed
       // choices, but a section can be locked or filled after this form was
       // opened, so re-validate the section's constraints right before save.
@@ -1152,6 +1761,28 @@ const CreateQuestionPage = ({
       // resolve to, so per-question marks can't be assigned by hand.
       const effectiveMarks = sectionMarks != null ? sectionMarks : Number(marks);
 
+      // Lets a queued (not-yet-created) copy of this question be reopened
+      // later and hydrated back into this same form — see the
+      // `isEditingQueued` hydration effects above and the `onSubmit` branch
+      // below that overwrites a queue slot in place.
+      const queuedFormSnapshot = {
+        questionType,
+        marks,
+        markingType,
+        difficultyLevel,
+        bloomLevel,
+        section: editSectionTitle,
+        rubric,
+        answer,
+        matchingPairs,
+        optionValues: [1, 2, 3, 4].map((num) => {
+          const opt = options.find((o) => o.optionIndex === num);
+          return opt?.name ?? opt?.option ?? "";
+        }),
+        ...bankSourceFields,
+        questionText,
+      };
+
       const editMeta = {
         marks: effectiveMarks,
         markingType,
@@ -1167,7 +1798,7 @@ const CreateQuestionPage = ({
         if (isStandaloneExamination) {
           // JSON body — PATCH /v1/stand-alone-examination-question/edit
           data = {
-            questionId,
+            standAloneExaminationQuestionId: questionId,
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
             markingType,
@@ -1275,74 +1906,104 @@ const CreateQuestionPage = ({
         }
       }
 
+
       const maybeAddToBank = async (forceAdd) => {
         if (isEditMode || !(addToBank || autoAddToBank || forceAdd)) return;
-        const bankType = FORM_TYPE_TO_BANK_TYPE[questionType];
-        if (!bankType) {
-          toast({
-            description: "This question type isn't supported by the Question Bank yet",
-            position: "top",
-            status: "warning",
-          });
-          return;
-        }
-        let bankPayload;
-        try {
-          bankPayload = {
-            question: questionPlainText,
-            questionType: bankType,
-            marks: Number(marks) || 1,
-            difficultyLevel: capitalizeFirstLetter(difficultyLevel || "medium"),
-            status: "draft",
-          };
-          if (isObjectiveType) {
-            const bankOptions = options.map((o) => ({
-              text: o.name ?? o.option ?? "",
-              isCorrect: !!o.isAnswer,
-            }));
-            bankPayload.options = bankOptions.filter((o) => o.text);
-            bankPayload.correctAnswer =
-              bankOptions.find((o) => o.isCorrect)?.text ?? "";
-          } else if (questionType === "FillBlank") {
-            bankPayload.correctAnswer = bankSourceFields.correctAnswer || "";
-          } else if (questionType === "ShortAnswer") {
-            bankPayload.correctAnswer = bankSourceFields.modelAnswer || "";
-          } else if (questionType === "Essay" && bankSourceFields.rubricDescription) {
-            bankPayload.explanation = bankSourceFields.rubricDescription;
-          }
-          if (courseId && courseId !== "not-set") bankPayload.courseId = courseId;
-
-          await createExamQuestionBankItem(bankPayload);
-        } catch (bankErr) {
-          console.error("[QuestionsPage] failed to add question to bank", bankPayload, bankErr?.response?.data ?? bankErr);
-          toast({
-            description:
-              bankErr?.response?.data?.message ||
-              "Question saved, but failed to add it to the Question Bank",
-            position: "top",
-            status: "warning",
-          });
-        }
+        await addQuestionToBank({
+          questionPlainText,
+          questionType,
+          marks,
+          difficultyLevel,
+          options,
+          bankSourceFields,
+        });
       };
 
-      // Standalone uses plain JSON; assessment/examination use multipart FormData
-      const saveQuestion = async (realParentId) => {
-        const finalData = isPendingCreation ? withRealParentId(data, realParentId) : data;
-        const finalBody = isStandaloneExamination ? finalData : appendFormData(finalData);
-        return isEditMode
-          ? isStandaloneExamination
-            ? await adminEditStandaloneExaminationQuestion(finalBody)
-            : isExamination
-              ? await adminEditExaminationQuestion(finalBody)
-              : await adminEditAssessmentQuestion(finalBody)
-          : isStandaloneExamination
-            ? await adminCreateStandaloneExaminationQuestion(finalBody)
-            : isExamination
-              ? await adminCreateExaminationQuestion(finalBody)
-              : await adminCreateAssessmentQuestion(finalBody);
-      };
+      // ── Editing a queued (not-yet-created) question in place ────────────
+      // Nothing to save to the backend yet — just overwrite this slot in
+      // pendingCreate/pendingEdit.questions and go back to a blank pending
+      // form, mirroring how a fresh "Add more questions" queue entry is built
+      // above, just replacing rather than appending.
+      if (isEditingQueued) {
+        const updatedItem = {
+          ...queuedItem,
+          data,
+          addToBank,
+          bank: { questionPlainText, questionType, marks, difficultyLevel, options, bankSourceFields },
+          formSnapshot: queuedFormSnapshot,
+        };
+        const updatedQuestions = (queuedSource.questions || []).map((q, i) =>
+          i === queuedIndex ? updatedItem : q,
+        );
+        if (isPendingCreation) {
+          setPendingCreate({ ...pendingCreate, questions: updatedQuestions });
+        } else {
+          setPendingEdit({ ...pendingEdit, questions: updatedQuestions });
+        }
+        toast({
+          description: "Queued question updated",
+          position: "top",
+          status: "success",
+        });
+        // Reset the form to a genuinely blank state before returning —
+        // `reset()` alone doesn't touch the rich-text editor (its content
+        // lives in `questionRichTextManager`'s own state, not react-hook-form),
+        // so without this the question text stayed on screen after "Save
+        // Changes". Submitting from there without typing anything new
+        // resubmitted the identical, already-queued content as an extra
+        // question on "Create and Submit" — the backend rejected it as a
+        // duplicate ("assessment question already exists").
+        reset();
+        questionRichTextManager.handleInitData(null);
+        setBankApplyKey((k) => k + 1);
+        goToQueueAnotherQuestion();
+        return;
+      }
 
       if (isPendingCreation) {
+        // "Add more questions" — nothing is created yet, so just stash this
+        // question's already-built payload in `pendingCreate` and reopen a
+        // blank (still-pending) form. It's created later, in one batch with
+        // every other queued question, when "Create and Submit" finally runs.
+        if (addAnotherRef.current) {
+          addAnotherRef.current = false;
+          const updatedQuestions = [
+            ...(pendingCreate.questions || []),
+            {
+              data,
+              addToBank,
+              bank: { questionPlainText, questionType, marks, difficultyLevel, options, bankSourceFields },
+              formSnapshot: queuedFormSnapshot,
+            },
+          ];
+          setPendingCreate({ ...pendingCreate, questions: updatedQuestions });
+          reset();
+          // `reset()` doesn't touch the rich-text editor's own state — clear
+          // it too so the next blank form doesn't still show this question's
+          // text (which risked getting resubmitted as a duplicate).
+          questionRichTextManager.handleInitData(null);
+          setBankApplyKey((k) => k + 1);
+          // This question is safely queued either way — only decide here
+          // whether there's room left to offer another blank form, so
+          // hitting the limit never costs the question just filled out.
+          if (amountOfQuestions && updatedQuestions.length >= amountOfQuestions) {
+            toast({
+              description: `Question added. You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — submit this for approval to finish.`,
+              position: "top",
+              status: "info",
+            });
+            goToQueuedListing();
+          } else {
+            toast({
+              description: "Question added. It'll be created once you submit this for approval.",
+              position: "top",
+              status: "success",
+            });
+            goToQueueAnotherQuestion();
+          }
+          return;
+        }
+
         // Nothing exists yet. "createBoth" is the single unit of work that
         // actually saves anything — hand it to the approval modal so the
         // assigned supervisor (or an explicit null, for super admin) is
@@ -1350,6 +2011,12 @@ const CreateQuestionPage = ({
         const createBoth = async () => {
           const parent = await performCreateParent();
           createdParentRef.current = parent;
+          for (const queued of pendingCreate.questions || []) {
+            await saveQuestion(parent.id, queued.data);
+            if (queued.addToBank || pendingCreate.addToBank) {
+              await addQuestionToBank(queued.bank);
+            }
+          }
           await saveQuestion(parent.id);
           // The exam-level "auto add every question" flag was just set on
           // the real ID above — the render-scoped `autoAddToBank` above is
@@ -1377,6 +2044,44 @@ const CreateQuestionPage = ({
       }
 
       if (isPendingEditSubmit) {
+        // Same deferral as the isPendingCreation branch above, but for a
+        // shell that already exists: queue instead of saving right away.
+        if (addAnotherRef.current) {
+          addAnotherRef.current = false;
+          const updatedQuestions = [
+            ...(pendingEdit.questions || []),
+            {
+              data,
+              addToBank,
+              bank: { questionPlainText, questionType, marks, difficultyLevel, options, bankSourceFields },
+              formSnapshot: queuedFormSnapshot,
+            },
+          ];
+          setPendingEdit({ ...pendingEdit, questions: updatedQuestions });
+          reset();
+          // `reset()` doesn't touch the rich-text editor's own state — clear
+          // it too so the next blank form doesn't still show this question's
+          // text (which risked getting resubmitted as a duplicate).
+          questionRichTextManager.handleInitData(null);
+          setBankApplyKey((k) => k + 1);
+          if (amountOfQuestions && updatedQuestions.length >= amountOfQuestions) {
+            toast({
+              description: `Question added. You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — submit this for approval to finish.`,
+              position: "top",
+              status: "info",
+            });
+            goToQueuedListing();
+          } else {
+            toast({
+              description: "Question added. It'll be created once you submit this for approval.",
+              position: "top",
+              status: "success",
+            });
+            goToQueueAnotherQuestion();
+          }
+          return;
+        }
+
         // The shell already exists — "editBoth" is the single unit of work
         // that actually changes anything, held back until the approval
         // modal's assigned supervisor (or an explicit null, for super
@@ -1384,6 +2089,12 @@ const CreateQuestionPage = ({
         const editBoth = async () => {
           const parent = await performEditParent();
           createdParentRef.current = parent;
+          for (const queued of pendingEdit.questions || []) {
+            await saveQuestion(undefined, queued.data);
+            if (queued.addToBank) {
+              await addQuestionToBank(queued.bank);
+            }
+          }
           await saveQuestion();
           return { id: parent.id };
         };
@@ -1394,6 +2105,34 @@ const CreateQuestionPage = ({
           contentTitle: pendingEdit.title,
           requestType: pendingEdit.requestType,
           courseId: pendingEdit.courseId,
+        });
+        setWorkflowModalOpen(true);
+        return;
+      }
+
+      if (submitForApprovalRef.current) {
+        submitForApprovalRef.current = false;
+
+        const requestType = isStandaloneExamination
+          ? "StandaloneExam"
+          : isExamination
+            ? "CourseExam"
+            : "CourseAssessment";
+        const modalCourseId = courseId !== "not-set" ? courseId : undefined;
+
+        pendingCreateBothRef.current = async () => {
+          await saveQuestion();
+          await maybeAddToBank();
+          reset();
+          assessmentManager.handleFetch(true);
+          return { id: assessmentId, title: assessmentManager.assessment?.topic };
+        };
+        createdParentRef.current = { id: assessmentId };
+        setWorkflowContent({
+          contentId: assessmentId,
+          contentTitle: assessmentManager.assessment?.topic,
+          requestType,
+          courseId: modalCourseId,
         });
         setWorkflowModalOpen(true);
         return;
@@ -1502,7 +2241,9 @@ const CreateQuestionPage = ({
             label={getQuestionNumber(
               question && questionId !== "new"
                 ? question.index
-                : assessmentManager.assessment?.questions?.length,
+                : isEditingQueued
+                  ? (assessmentManager.assessment?.questions?.length || 0) + queuedIndex
+                  : assessmentManager.assessment?.questions?.length,
             )}
             placeholder="Enter your question here"
             onChange={questionRichTextManager.handleChange}
@@ -1790,7 +2531,7 @@ const CreateQuestionPage = ({
                   id={`option-${i + 1}`}
                   label={label}
                   value={label}
-                  disabled
+                  readOnly
                   {...register(`option-${i + 1}`)}
                 />
               </Flex>
@@ -1955,10 +2696,21 @@ const CreateQuestionPage = ({
             Cancel
           </Button>
         )}
+        {isEditingQueued && (
+          <Button ghost onClick={goToQueueAnotherQuestion} type="button">
+            Cancel
+          </Button>
+        )}
+        {isEditingQueued && (
+          <Button ghost onClick={handleRemoveQueuedQuestion} type="button">
+            Remove Question
+          </Button>
+        )}
         <Button
           type="submit"
           onClick={() => {
             addAnotherRef.current = false;
+            submitForApprovalRef.current = false;
           }}
           disabled={isLoading || isSubmitting || error}
           isLoading={isLoading || isSubmitting}
@@ -1967,25 +2719,50 @@ const CreateQuestionPage = ({
             ? "Delete Question"
             : isEditMode
               ? "Update Question"
-              : isPendingCreation
-                ? "Create and Submit"
-                : isPendingEditSubmit
-                  ? "Update and Submit"
-                  : "Add Question"}
+              : isEditingQueued
+                ? "Save Changes"
+                : isPendingCreation
+                  ? "Create and Submit"
+                  : isPendingEditSubmit
+                    ? "Update and Submit"
+                    : "Add Question"}
         </Button>
-        {isPendingEditSubmit && (
+        {!isExistingQuestion && !isEditMode && !isPendingCreation && !isPendingEditSubmit && (
           <Button
             type="submit"
             ghost
             onClick={() => {
-              addAnotherRef.current = true;
+              addAnotherRef.current = false;
+              submitForApprovalRef.current = true;
             }}
             disabled={isLoading || isSubmitting || error}
             isLoading={isLoading || isSubmitting}
           >
-            Add more questions
+            Create and Submit
           </Button>
         )}
+        {(isPendingCreation || isPendingEditSubmit) &&
+          !isEditingQueued &&
+          !(
+            amountOfQuestions &&
+            ((isPendingCreation ? pendingCreate?.questions : pendingEdit?.questions)?.length || 0) >=
+              amountOfQuestions
+          ) && (
+            <Button
+              type="submit"
+              ghost
+              onClick={() => {
+                // The limit is enforced after this question is safely
+                // queued (in onSubmit) — never before, so reaching it never
+                // costs the question just filled out on this form.
+                addAnotherRef.current = true;
+              }}
+              disabled={isLoading || isSubmitting || error}
+              isLoading={isLoading || isSubmitting}
+            >
+              Add more questions
+            </Button>
+          )}
         {isEditMode && (
           <Button
             ghost
@@ -1996,12 +2773,12 @@ const CreateQuestionPage = ({
               isExamination,
             )}
           >
-            Add Question
+            Create and Submit
           </Button>
         )}
       </Flex>
 
-      {(isPendingCreation || isPendingEditSubmit) && workflowContent && (
+      {workflowContent && (
         <WorkflowSubmitModal
           isOpen={workflowModalOpen}
           onClose={() => setWorkflowModalOpen(false)}
@@ -2011,17 +2788,15 @@ const CreateQuestionPage = ({
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
           onCreate={() => pendingCreateBothRef.current()}
-          onSuccess={() => {
-            const realParentId = createdParentRef.current?.id;
-            if (addAnotherRef.current) {
-              addAnotherRef.current = false;
-              goToAddAnotherQuestion(realParentId);
-            } else {
-              finishSaving(realParentId);
-            }
-          }}
+          onSuccess={() => finishSaving(createdParentRef.current?.id)}
         />
       )}
+
+      <SelectBankQuestionsModal
+        isOpen={isBankPickerOpen}
+        onClose={closeBankPicker}
+        onAdd={isPendingCreation || isPendingEditSubmit ? queueBankQuestions : saveBankQuestionsForReal}
+      />
     </Box>
   );
 };
@@ -2066,7 +2841,7 @@ const buildQuestionEditPayload = (
 
   if (isStandaloneExamination) {
     return {
-      questionId: question.id,
+      standAloneExaminationQuestionId: question.id,
       question: question.question,
       ...(section !== undefined && { section }),
       markingType: question.markingType || "automatic",
@@ -2153,11 +2928,227 @@ const QuestionListingPage = ({
 }) => {
   const { id: courseId, assessmentId } = useParams();
   const isExamination = useQueryParams().get("examination");
+  const moduleId = useQueryParams().get("moduleId");
   const isStandaloneExamination =
     courseId === "not-set" && assessmentId === "not-set" && isExamination
       ? true
       : false;
   const toast = useToast();
+  const isSuperAdmin = useIsSuperAdmin();
+  const { push } = useHistory();
+  const setAssessment = useAssessmentStore((s) => s.setAssessment);
+  const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
+  const clearPendingEdit = useAssessmentStore((s) => s.clearPendingEdit);
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [hasSubmittedForApproval, setHasSubmittedForApproval] = useState(false);
+  // Only content created via the batch-upload shortcut (which bypasses the
+  // approval modal to get a real id for the upload endpoint) ever needs
+  // this — normal "Create and Submit" already submits for approval in one
+  // step, and so does the "Create and Submit" button on the plain
+  // "Add Question" form for already-real content.
+  const needsSubmit =
+    hasSubmittedForApproval ||
+    needsApprovalSubmission(
+      isStandaloneExamination ? "standalone" : isExamination ? "examination" : "assessment",
+      assessment?.id,
+    );
+
+  // Same pending-creation/pending-edit-submit deferral as QuestionsPage/
+  // CreateQuestionPage — while the parent exam/assessment doesn't exist yet
+  // (or its edit is held back), questions queued via "Add more questions"
+  // only live in the store, not in a fetched `assessment.questions`.
+  const submitForApproval = useQueryParams().get("submitForApproval") === "1";
+  const editSubmit = useQueryParams().get("editSubmit") === "1";
+  const isPendingCreation = submitForApproval;
+  const isPendingEditSubmit = !submitForApproval && editSubmit;
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
+  const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
+  const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
+  const isBankPickerOpen = useAssessmentStore((s) => s.isBankPickerOpen);
+  const closeBankPicker = useAssessmentStore((s) => s.closeBankPicker);
+  const queuedQuestions =
+    (isPendingCreation ? pendingCreate?.questions : isPendingEditSubmit ? pendingEdit?.questions : null) || [];
+
+  // No form is open here, so a bank pick made from this page never has a
+  // "current section" to inherit or a section-type lock to respect.
+  const bankQueueCtx = { isStandaloneExamination, isExamination, assessmentId };
+
+  // Header's "Question Bank" button opens this same in-page picker from
+  // whichever sub-view (form or listing) is active — while the parent is
+  // still pending, a pick is queued the same way "Add more questions" does;
+  // once it's real, a pick is created immediately and refetched so it shows
+  // up here right away, clickable to edit like any other question.
+  const queueBankQuestionsFromListing = (bankQuestions) => {
+    const items = bankQuestions.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
+    if (!items.length) return;
+
+    if (isPendingCreation) {
+      setPendingCreate({ ...pendingCreate, questions: [...(pendingCreate.questions || []), ...items] });
+    } else if (isPendingEditSubmit) {
+      setPendingEdit({ ...pendingEdit, questions: [...(pendingEdit.questions || []), ...items] });
+    }
+
+    toast({
+      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+      position: "top",
+      status: "success",
+    });
+  };
+
+  const saveBankQuestionsForReal = async (bankQuestions) => {
+    const items = bankQuestions.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
+    if (!items.length) return;
+    try {
+      for (const item of items) {
+        await createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination });
+      }
+      handleFetch(true);
+      toast({
+        description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.`,
+        position: "top",
+        status: "success",
+      });
+    } catch (err) {
+      toast({
+        description: err?.response?.data?.message || "Failed to add question(s) from the bank",
+        position: "top",
+        status: "error",
+      });
+    }
+  };
+
+  // Queued questions only live in the store — nothing to delete on the
+  // backend, just splice the slot out of pendingCreate/pendingEdit.
+  const handleRemoveQueuedQuestion = (index) => {
+    if (!window.confirm("Remove this queued question? It hasn't been created yet.")) return;
+    const updatedQuestions = queuedQuestions.filter((_, i) => i !== index);
+    if (isPendingCreation) {
+      setPendingCreate({ ...pendingCreate, questions: updatedQuestions });
+    } else {
+      setPendingEdit({ ...pendingEdit, questions: updatedQuestions });
+    }
+    toast({ description: "Queued question removed", position: "top", status: "success" });
+  };
+
+  // ── Creates (or applies the held-back edit to) the exam/assessment and
+  // saves every queued question, all gated behind the approval modal's
+  // supervisor pick — same split as CreateQuestionPage's "Create and
+  // Submit"/"Update and Submit", but reachable straight from this listing
+  // view instead of requiring a detour through a (possibly blank) question
+  // form. Mirrors QuestionsStandalone.jsx's own listing-view version of this
+  // same button.
+  const [pendingWorkflowModalOpen, setPendingWorkflowModalOpen] = useState(false);
+  const [pendingWorkflowContent, setPendingWorkflowContent] = useState(null);
+  const createdParentRef = useRef(null);
+  const savedQueueItemsRef = useRef(new WeakSet());
+
+  const performCreateParent = async () => {
+    const { kind, body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
+
+    if (kind === "ModuleExam" || kind === "Exam") {
+      const { examination } = await adminCreateExamination(body);
+      if (kind === "ModuleExam") {
+        await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
+      }
+      if (parentAddToBank) setAutoAddToBank("examination", examination.id);
+      setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+      return { id: examination.id };
+    }
+
+    if (kind === "StandaloneExam") {
+      const { examination } = await adminCreateStandaloneExamination(body);
+      setAssessment(examination);
+      return { id: examination.id };
+    }
+
+    const { assessment: created } = await adminCreateAssessment(body);
+    setAssessment(created);
+    if (parentAddToBank) setAutoAddToBank("assessment", created.id);
+    return { id: created.id };
+  };
+
+  const performEditParent = async () => {
+    const { kind, contentId, body, paperConfigBody } = pendingEdit;
+
+    if (kind === "StandaloneExam") {
+      await adminEditStandaloneExamination(contentId, body);
+      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      return { id: contentId };
+    }
+
+    if (kind === "ModuleExam" || kind === "Exam") {
+      await adminEditExamination(contentId, body);
+      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      return { id: contentId };
+    }
+
+    await adminEditAssessment(contentId, body);
+    return { id: contentId };
+  };
+
+  const handlePendingWorkflowCreate = async () => {
+    const parent =
+      createdParentRef.current ||
+      (isPendingCreation ? await performCreateParent() : await performEditParent());
+    createdParentRef.current = parent;
+    for (const queued of queuedQuestions) {
+      if (savedQueueItemsRef.current.has(queued)) continue;
+      await createBankQuestionForReal(
+        isPendingCreation
+          ? {
+              ...queued.data,
+              ...(isStandaloneExamination
+                ? { standAloneExaminationId: parent.id }
+                : isExamination
+                  ? { examinationId: parent.id }
+                  : { assessmentId: parent.id }),
+            }
+          : queued.data,
+        { isStandaloneExamination, isExamination },
+      );
+      savedQueueItemsRef.current.add(queued);
+    }
+    return { id: parent.id };
+  };
+
+  const handleOpenCreateAndSubmit = () => {
+    if (isPendingCreation) {
+      const requestType =
+        pendingCreate.kind === "StandaloneExam"
+          ? "StandaloneExam"
+          : pendingCreate.kind === "ModuleExam" || pendingCreate.kind === "Exam"
+            ? "CourseExam"
+            : "CourseAssessment";
+      setPendingWorkflowContent({
+        contentTitle: pendingCreate.title,
+        requestType,
+        courseId: courseId !== "not-set" ? courseId : undefined,
+      });
+    } else {
+      setPendingWorkflowContent({
+        contentId: pendingEdit.contentId,
+        contentTitle: pendingEdit.title,
+        requestType: pendingEdit.requestType,
+        courseId: pendingEdit.courseId,
+      });
+    }
+    setPendingWorkflowModalOpen(true);
+  };
+
+  const handlePendingWorkflowSuccess = () => {
+    const realParentId = createdParentRef.current?.id;
+    const editNextRoute = pendingEdit?.nextRoute;
+    clearPendingCreate();
+    clearPendingEdit();
+    const finalAssessmentId = isExamination ? courseId : (realParentId ?? assessmentId);
+    const finalExamination = isExamination ? realParentId : undefined;
+    push(
+      isPendingEditSubmit && editNextRoute
+        ? editNextRoute
+        : getQuestionListingLink(courseId, finalAssessmentId, finalExamination, moduleId),
+    );
+  };
 
   const questions = Array.isArray(assessment?.questions)
     ? assessment.questions
@@ -2189,7 +3180,7 @@ const QuestionListingPage = ({
   const [savingSections, setSavingSections] = useState(false);
   const [reassigningId, setReassigningId] = useState(null);
 
-  const questionsIsEmpty = !isLoading && !error && !questions.length;
+  const questionsIsEmpty = !isLoading && !error && !questions.length && !queuedQuestions.length;
 
   const buildAddLink = (sectionName) => {
     const base = `/admin/courses/${courseId}/assessment/${assessmentId}/questions/new`;
@@ -2508,6 +3499,85 @@ const QuestionListingPage = ({
         </Box>
       )}
 
+      {/* ── Queued questions — added via "Add more questions" but not yet
+          created. No real id/section exists for these until the whole batch
+          is saved on submit, so they link to an edit-in-place view keyed by
+          their queue index instead of a real question id. ── */}
+      {queuedQuestions.length > 0 && (
+        <Box marginBottom={8}>
+          <Flex
+            alignItems="center"
+            mb={4}
+            pb={2}
+            borderBottom="1px"
+            borderColor="gray.300"
+          >
+            <Heading fontSize="heading.h5" color="gray.500">
+              Queued Questions (not yet created)
+            </Heading>
+          </Flex>
+
+          {queuedQuestions.map((q, index) => (
+            <Flex key={`queued-${index}`} alignItems="center" gap={2} marginBottom={4}>
+              <Link
+                style={{ flex: 1 }}
+                href={getEditQueuedQuestionLink(
+                  courseId,
+                  assessmentId,
+                  isExamination,
+                  moduleId,
+                  index,
+                  isPendingCreation ? "submitForApproval" : "editSubmit",
+                )}
+              >
+                <Box
+                  padding={4}
+                  backgroundColor="gray.50"
+                  borderRadius="md"
+                  cursor="pointer"
+                  _hover={{ backgroundColor: "gray.100" }}
+                >
+                  <Text bold mb={1}>
+                    {questions.length + index + 1}. {capitalizeWords(q.bank?.questionType || "")}
+                  </Text>
+                  <Text color="gray.600">
+                    {q.bank?.questionPlainText || "(no preview available)"}
+                  </Text>
+                </Box>
+              </Link>
+              <Button
+                ghost
+                type="button"
+                onClick={() => handleRemoveQueuedQuestion(index)}
+                aria-label="Remove question"
+              >
+                Remove
+              </Button>
+            </Flex>
+          ))}
+
+          {(isPendingCreation || isPendingEditSubmit) && (
+            <Button ghost onClick={handleOpenCreateAndSubmit}>
+              {isPendingCreation ? "Create and Submit" : "Update and Submit"}
+            </Button>
+          )}
+        </Box>
+      )}
+
+      {(isPendingCreation || isPendingEditSubmit) && pendingWorkflowContent && (
+        <WorkflowSubmitModal
+          isOpen={pendingWorkflowModalOpen}
+          onClose={() => setPendingWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
+          contentId={pendingWorkflowContent.contentId}
+          contentTitle={pendingWorkflowContent.contentTitle}
+          requestType={pendingWorkflowContent.requestType}
+          courseId={pendingWorkflowContent.courseId}
+          onCreate={handlePendingWorkflowCreate}
+          onSuccess={handlePendingWorkflowSuccess}
+        />
+      )}
+
       {/* ── Add Section ── */}
       <Box paddingTop={5} borderTop="1px" borderColor="gray.200" marginTop={4}>
         {showNewSection ? (
@@ -2547,6 +3617,49 @@ const QuestionListingPage = ({
           </Button>
         )}
       </Box>
+
+      <SelectBankQuestionsModal
+        isOpen={isBankPickerOpen}
+        onClose={closeBankPicker}
+        onAdd={isPendingCreation || isPendingEditSubmit ? queueBankQuestionsFromListing : saveBankQuestionsForReal}
+      />
+
+      {/* Only shown for content created via the batch-upload shortcut, which
+          bypasses the approval modal to get a real id for the upload
+          endpoint before any questions exist — see `markNeedsApprovalSubmission`
+          in `handleBatchUploadClick` above. */}
+      {needsSubmit && !questionsIsEmpty && (
+        <Box paddingTop={5} borderTop="1px" borderColor="gray.200" marginTop={4}>
+          <Button
+            ghost
+            disabled={hasSubmittedForApproval}
+            onClick={() => setWorkflowModalOpen(true)}
+          >
+            {hasSubmittedForApproval ? "Submitted for Approval" : "Submit for Approval"}
+          </Button>
+        </Box>
+      )}
+
+      {needsSubmit && !questionsIsEmpty && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
+          contentId={assessment.id}
+          contentTitle={assessment.topic}
+          requestType={
+            isStandaloneExamination ? "StandaloneExam" : isExamination ? "CourseExam" : "CourseAssessment"
+          }
+          courseId={courseId !== "not-set" ? courseId : undefined}
+          onSuccess={() => {
+            clearNeedsApprovalSubmission(
+              isStandaloneExamination ? "standalone" : isExamination ? "examination" : "assessment",
+              assessment.id,
+            );
+            setHasSubmittedForApproval(true);
+          }}
+        />
+      )}
     </Box>
   );
 };
@@ -2761,6 +3874,26 @@ const getEditQuestionLink = (
   return `/admin/courses/${courseId}/assessment/${assessmentId}/questions/${questionId}${
     query ? `?${query}` : ""
   }`;
+};
+
+// Links to a queued (not-yet-created) question's edit-in-place view — same
+// pending-form route as a blank "add another question" page, but carrying
+// `queuedIndex` so CreateQuestionPage hydrates from that queue slot instead
+// of rendering blank.
+const getEditQueuedQuestionLink = (
+  courseId,
+  assessmentId,
+  isExamination,
+  moduleId,
+  index,
+  pendingParam,
+) => {
+  const params = new URLSearchParams();
+  params.set(pendingParam, "1");
+  if (isExamination) params.set("examination", isExamination);
+  if (moduleId) params.set("moduleId", moduleId);
+  params.set("queuedIndex", index);
+  return `/admin/courses/${courseId}/assessment/${assessmentId}/questions/new?${params.toString()}`;
 };
 
 // Appends `edit=true` to a link built by getEditQuestionLink, which only has
