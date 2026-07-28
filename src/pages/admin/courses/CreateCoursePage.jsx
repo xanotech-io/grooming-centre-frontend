@@ -280,7 +280,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
           }
           item3={
             <BreadcrumbItem isCurrentPage>
-              <Link href="#">Create Courses</Link>
+              <Link href="#">{isEditMode ? "Edit Course" : "Create Course"}</Link>
             </BreadcrumbItem>
           }
         />
@@ -441,6 +441,11 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
 
 export const CreateCoursePageRoute = ({ component: Component, ...rest }) => {
   return (
-    <Route {...rest} render={(props) => <CreateCoursePage {...props} />} />
+    <Route
+      {...rest}
+      render={(props) => (
+        <CreateCoursePage {...props} key={props.match.params.id} />
+      )}
+    />
   );
 };

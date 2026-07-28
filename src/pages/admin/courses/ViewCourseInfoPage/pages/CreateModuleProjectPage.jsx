@@ -1,12 +1,15 @@
 import { useRef, useState } from "react";
 import { Route, useParams, useHistory } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
 import {
+  Breadcrumb,
   Button,
   DateTimePicker,
   Input,
+  Link,
   RichText,
   WorkflowSubmitModal,
 } from "../../../../../components";
@@ -118,6 +121,14 @@ const CreateModuleProjectPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Box paddingX={6} paddingTop={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/courses">Courses</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem><Link href={`/admin/courses/details/${courseId}/modules`}>Modules</Link></BreadcrumbItem>}
+          item4={<BreadcrumbItem><Link href={`/admin/courses/${courseId}/module/${moduleId}/projects`}>Projects</Link></BreadcrumbItem>}
+          item5={<BreadcrumbItem isCurrentPage><Link href="#">Create Project</Link></BreadcrumbItem>}
+        />
+      </Box>
       <Box as="form" onSubmit={handleSubmit(onSubmit)} marginY={14} marginX={6}>
         <Box backgroundColor="white" padding={10}>
           <Input

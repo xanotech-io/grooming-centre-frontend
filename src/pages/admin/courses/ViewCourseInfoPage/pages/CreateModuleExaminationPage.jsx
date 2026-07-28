@@ -6,6 +6,7 @@ import {
   AlertIcon,
   Checkbox,
   IconButton,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
@@ -14,9 +15,11 @@ import { Switch } from "@chakra-ui/switch";
 import { Select as ChakraSelect } from "@chakra-ui/select";
 import { FiTrash2 } from "react-icons/fi";
 import {
+  Breadcrumb,
   Button,
   DateTimePicker,
   Input,
+  Link,
   Select,
   Text,
 } from "../../../../../components";
@@ -371,6 +374,14 @@ const CreateModuleExaminationPage = () => {
 
   return (
     <AdminMainAreaWrapper>
+      <Box paddingX={6} paddingTop={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem><Link href="/admin/courses">Courses</Link></BreadcrumbItem>}
+          item3={<BreadcrumbItem><Link href={`/admin/courses/details/${courseId}/modules`}>Modules</Link></BreadcrumbItem>}
+          item4={<BreadcrumbItem><Link href={`/admin/courses/${courseId}/module/${moduleId}/examinations`}>Examinations</Link></BreadcrumbItem>}
+          item5={<BreadcrumbItem isCurrentPage><Link href="#">{isEditMode ? "Edit Examination" : "Create Examination"}</Link></BreadcrumbItem>}
+        />
+      </Box>
       <Box as="form" onSubmit={handleSubmit(onSubmit)} marginY={14} marginX={6}>
         {isPublished && (
           <Alert status="warning" mb={6} borderRadius="md">
@@ -626,7 +637,12 @@ export const CreateModuleExaminationPageRoute = ({ ...rest }) => {
   return (
     <Route
       {...rest}
-      render={(props) => <CreateModuleExaminationPage {...props} />}
+      render={(props) => (
+        <CreateModuleExaminationPage
+          {...props}
+          key={props.match.params.examinationId}
+        />
+      )}
     />
   );
 };

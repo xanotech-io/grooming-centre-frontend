@@ -60,7 +60,8 @@
       "Bash(NODE_PATH=/home/cyberbot/.npm/_npx/e41f203b7505f1fb/node_modules node test-export.js)",
       "Bash(curl -sf http://localhost:4000)",
       "Bash(xargs -I{} sh -c 'echo ==={}===; grep -n \"TabList\\\\|Tab \\\\|Tabs\\\\|Overview\\\\|Module\\\\|Assessment\" {} | head -20')",
-      "Bash(xargs -I{} echo {})"
+      "Bash(xargs -I{} echo {})",
+      "Bash(NODE_OPTIONS=--openssl-legacy-provider CI=true npx react-scripts build)"
     ]
   }
 }
