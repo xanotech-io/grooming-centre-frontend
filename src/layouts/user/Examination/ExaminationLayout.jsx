@@ -17,7 +17,7 @@ import { PageLoaderLayout } from "../../global/PageLoader/PageLoaderLayout";
 import { CustomModal } from "../Assessment/Modal";
 import { EmptyState } from "../..";
 import useTimerCountdown from "../Assessment/hooks/useTimerCountdown";
-import { getEndTime, sortByIndexField } from "../../../utils";
+import { getEndTime, sortByIndexField, parseOptionIndex } from "../../../utils";
 import { http } from "../../../services/http/http";
 import { submitExamMarking } from "../../../services/http/endpoints/examMarking";
 
@@ -74,7 +74,7 @@ const mapExamination = (data) => {
           id: opt.id,
           isAnswer: opt.isAnswer,
           name: opt.name,
-          optionIndex: +opt.optionIndex,
+          optionIndex: parseOptionIndex(opt.optionIndex),
         })),
       };
     }),

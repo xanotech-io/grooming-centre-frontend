@@ -544,6 +544,14 @@ const CreateLessonPage = () => {
 
 export const CreateLessonPageRoute = ({ component: Component, ...rest }) => {
   return (
-    <Route {...rest} render={(props) => <CreateLessonPage {...props} />} />
+    <Route
+      {...rest}
+      render={(props) => (
+        <CreateLessonPage
+          {...props}
+          key={`${props.match.params.moduleId}-${props.match.params.lessonId}`}
+        />
+      )}
+    />
   );
 };

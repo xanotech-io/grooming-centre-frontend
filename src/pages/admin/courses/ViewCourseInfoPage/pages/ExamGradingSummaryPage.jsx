@@ -15,8 +15,9 @@ import {
   TableContainer,
   Select,
   Input,
+  BreadcrumbItem,
 } from "@chakra-ui/react";
-import { Heading, Text, Button } from "../../../../../components";
+import { Breadcrumb, Heading, Text, Button, Link } from "../../../../../components";
 import { adminGetExamGradingSummary } from "../../../../../services";
 import { capitalizeFirstLetter, isSubmissionGraded, submissionStatusLabel } from "../../../../../utils";
 import dayjs from "dayjs";
@@ -106,8 +107,26 @@ const ExamGradingSummaryPage = () => {
 
   return (
     <Box padding={6}>
-      <Flex justifyContent="space-between" alignItems="flex-start" mb={6} flexWrap="wrap" gap={3}>
+      <Breadcrumb
+        item2={<BreadcrumbItem><Link href="/admin/courses">Courses</Link></BreadcrumbItem>}
+        item3={<BreadcrumbItem><Link href={`/admin/courses/details/${courseId}/modules`}>Modules</Link></BreadcrumbItem>}
+        item4={<BreadcrumbItem><Link href={`/admin/courses/${courseId}/module/${moduleId}/examinations`}>Examinations</Link></BreadcrumbItem>}
+        item5={<BreadcrumbItem><Link href={`/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`}>Examination</Link></BreadcrumbItem>}
+        item6={<BreadcrumbItem isCurrentPage><Link href="#">Grading Summary</Link></BreadcrumbItem>}
+      />
+
+      <Flex justifyContent="space-between" alignItems="flex-start" mb={6} mt={4} flexWrap="wrap" gap={3}>
         <Box>
+          <Button
+            secondary
+            size="sm"
+            mb={2}
+            onClick={() =>
+              push(`/admin/courses/${courseId}/module/${moduleId}/examinations/view/${examinationId}`)
+            }
+          >
+            ← Back to Examination
+          </Button>
           <Heading fontSize="heading.h4">Grading Summary</Heading>
           <Text color="gray.500" fontSize="sm" mt={1}>
             Students who submitted this exam — click a row to grade

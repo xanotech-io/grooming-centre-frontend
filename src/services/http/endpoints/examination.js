@@ -1,4 +1,4 @@
-import { getEndTime } from '../../../utils';
+import { getEndTime, parseOptionIndex } from '../../../utils';
 import { http } from '../http';
 
 /**
@@ -66,7 +66,7 @@ export const requestExaminationDetails = async (id, forAdmin) => {
           id: opt.id,
           isAnswer: opt.isAnswer,
           name: opt.name,
-          optionIndex: +opt.optionIndex,
+          optionIndex: parseOptionIndex(opt.optionIndex),
         })),
       };
     }),
@@ -342,7 +342,7 @@ export const requestModuleExaminationDetails = async (moduleId) => {
           id: opt.id,
           isAnswer: opt.isAnswer,
           name: opt.name,
-          optionIndex: +opt.optionIndex,
+          optionIndex: parseOptionIndex(opt.optionIndex),
         })),
       };
     }),

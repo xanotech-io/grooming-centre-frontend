@@ -17,7 +17,7 @@ import { PageLoaderLayout } from "../../global/PageLoader/PageLoaderLayout";
 import { CustomModal } from "./Modal";
 import { EmptyState } from "../..";
 import useTimerCountdown from "./hooks/useTimerCountdown";
-import { getEndTime, sortByIndexField } from "../../../utils";
+import { getEndTime, sortByIndexField, parseOptionIndex } from "../../../utils";
 import { http } from "../../../services/http/http";
 import { submitAssessmentMarking } from "../../../services";
 
@@ -60,7 +60,7 @@ const mapAssessment = (data) => {
           id: opt.id,
           isAnswer: opt.isAnswer,
           name: opt.name,
-          optionIndex: +opt.optionIndex,
+          optionIndex: parseOptionIndex(opt.optionIndex),
         })),
       };
     }),

@@ -291,7 +291,14 @@ const CreateModulePage = () => {
 };
 
 export const CreateModulePageRoute = ({ ...rest }) => {
-  return <Route {...rest} render={(props) => <CreateModulePage {...props} />} />;
+  return (
+    <Route
+      {...rest}
+      render={(props) => (
+        <CreateModulePage {...props} key={props.match.params.moduleId} />
+      )}
+    />
+  );
 };
 
 export default CreateModulePageRoute;
