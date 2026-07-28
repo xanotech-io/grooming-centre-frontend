@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { useToast } from "@chakra-ui/toast";
 import { Grid, GridItem } from "@chakra-ui/layout";
 import { useForm } from "react-hook-form";
@@ -10,7 +10,6 @@ import {
   Breadcrumb,
   Link,
   Spinner,
-  WorkflowSubmitModal,
 } from "../../../components";
 import { CreatePageLayout } from "../../../layouts";
 import { BreadcrumbItem, Box } from "@chakra-ui/react";
@@ -19,6 +18,8 @@ import {
   adminCreateModule,
   adminGetModule,
   adminUpdateModule,
+  adminGetDepartmentSupervisors,
+  adminGetAllDepartmentSupervisors,
   auditTrailV2PostLog,
 } from "../../../services";
 import { useFetch, useIsSuperAdmin } from "../../../hooks";
@@ -36,10 +37,6 @@ const CreateModulePage = () => {
   const toast = useToast();
   const isSuperAdmin = useIsSuperAdmin();
   const { handleDelete } = useCache();
-  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
-  const [workflowContent, setWorkflowContent] = useState(null);
-  const pendingBodyRef = useRef(null);
-  const resultModuleRef = useRef(null);
 
   const {
     handleSubmit,
@@ -54,6 +51,29 @@ const CreateModulePage = () => {
 
   // Fetch module data when editing
   const { resource, handleFetchResource } = useFetch();
+
+  const { resource: supervisorsResource, handleFetchResource: fetchSupervisors } =
+    useFetch();
+
+  const supervisorFetcher = useCallback(async () => {
+    const { supervisors } = courseId
+      ? await adminGetDepartmentSupervisors(courseId)
+      : await adminGetAllDepartmentSupervisors();
+    return supervisors;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      fetchSupervisors({ fetcher: supervisorFetcher });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuperAdmin, fetchSupervisors, supervisorFetcher]);
+
+  const supervisors = Array.isArray(supervisorsResource.data) ? supervisorsResource.data : [];
+  const supervisorOptions = supervisors
+    .filter((s) => s.id)
+    .map((s) => ({ label: `${s.firstName} ${s.lastName}`, value: s.id }));
 
   const fetcher = useCallback(async () => {
     if (!isEditMode) return null;
@@ -108,7 +128,6 @@ const CreateModulePage = () => {
   const performCreate = async (body) => {
     try {
       const { message, module } = await adminCreateModule(courseId, body);
-      resultModuleRef.current = module;
       toast({ title: message, status: "success", duration: 3000 });
       handleDelete("modules");
       auditTrailV2PostLog({
@@ -135,38 +154,28 @@ const CreateModulePage = () => {
 
   const onSubmit = async (data) => {
     try {
-      const workflowContentBase = {
-        contentTitle: data.title,
-        requestType: "Module",
-        courseId,
-      };
-
-      // Everyone, including super admin, must submit for approval before
-      // this takes effect — hold off until the modal below completes. Super
-      // admin submissions carry a null supervisor instead of skipping the
-      // workflow.
       if (isEditMode) {
         const body = {
           title: data.title,
           description: data.description,
           sequenceOrder: Number(data.sequenceOrder),
           status: data.status,
+          ...(!isSuperAdmin && { supervisor_id: data.supervisor_id }),
         };
 
-        pendingBodyRef.current = body;
-        setWorkflowContent({ ...workflowContentBase, contentId: moduleId });
+        await performEdit(body);
       } else {
         const body = {
           title: data.title,
           description: data.description,
           sequenceOrder: Number(data.sequenceOrder),
           status: "inactive",
+          ...(!isSuperAdmin && { supervisor_id: data.supervisor_id }),
         };
 
-        pendingBodyRef.current = body;
-        setWorkflowContent(workflowContentBase);
+        await performCreate(body);
       }
-      setWorkflowModalOpen(true);
+      push(`/admin/courses/details/${courseId}/modules`);
     } catch (error) {
       toast({
         title: error?.response?.data?.message || "An error occurred",
@@ -266,26 +275,25 @@ const CreateModulePage = () => {
               {...register("description")}
             />
           </GridItem>
+
+          {!isSuperAdmin && (
+            <GridItem colSpan={{ base: 1, md: 2 }}>
+              <Select
+                id="supervisor_id"
+                label="Supervisor"
+                placeholder="Select a supervisor"
+                options={supervisorOptions}
+                isLoading={supervisorsResource.loading}
+                isRequired
+                error={errors.supervisor_id?.message}
+                {...register("supervisor_id", {
+                  required: "Please select a supervisor",
+                })}
+              />
+            </GridItem>
+          )}
         </Grid>
       </CreatePageLayout>
-
-      {workflowContent && (
-        <WorkflowSubmitModal
-          isOpen={workflowModalOpen}
-          onClose={() => setWorkflowModalOpen(false)}
-          isSuperAdmin={isSuperAdmin}
-          contentId={workflowContent.contentId}
-          contentTitle={workflowContent.contentTitle}
-          requestType={workflowContent.requestType}
-          courseId={workflowContent.courseId}
-          onCreate={() =>
-            isEditMode
-              ? performEdit(pendingBodyRef.current)
-              : performCreate(pendingBodyRef.current)
-          }
-          onSuccess={() => push(`/admin/courses/details/${courseId}/modules`)}
-        />
-      )}
     </>
   );
 };
