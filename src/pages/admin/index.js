@@ -40,6 +40,7 @@ export * from "./report/ReportBuilderPage";
 export * from "./report/ElectronicRegistersReportPage";
 export * from "./report/TrackingReportingPage";
 export * from "./report/MISReportsPage";
+export * from "./report/MISReportDetailPage";
 export * from "./report/AutomatedApprovalWorkflowPage";
 export * from "./workflow/AutomatedApprovalWorkflow";
 export * from "./workflow/ReviewSubmissionPage";

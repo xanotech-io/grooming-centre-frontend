@@ -87,6 +87,7 @@ import {
   ViewStandaloneExamPageRoute,
   StandaloneStudentGradingPageRoute,
   MISReportsPageRoute,
+  MISReportDetailPageRoute,
   QuestionBankPageRoute,
   QuestionEditorPageRoute,
   QuestionPreviewPageRoute,
@@ -639,6 +640,7 @@ const MainArea = () => {
           path="/admin/report/question-bank-usage"
         />
         <MISReportsPageRoute exact path="/admin/mis-reports" />
+        <MISReportDetailPageRoute exact path="/admin/mis-reports/:id" />
         <StudentParticipationDetailsPageRoute
           exact
           path="/admin/report/participation-monitoring/:studentId"

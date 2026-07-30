@@ -11,6 +11,11 @@ export const adminListMISReports = async (params) => {
   };
 };
 
+export const adminGetMISReport = async (reportId) => {
+  const { data: { data } } = await http.get(`/v1/mis-report-v2/${reportId}`);
+  return { report: data };
+};
+
 export const adminGetMISKPIs = async () => {
   const { data: { data } } = await http.get('/v1/mis-report-v2/kpis');
   return { kpis: data };
