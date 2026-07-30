@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Route, useParams } from "react-router-dom";
-import { Box, Flex, Grid, SimpleGrid, Stack } from "@chakra-ui/layout";
+import { Box, Flex, Grid, SimpleGrid, Stack, VStack, HStack } from "@chakra-ui/layout";
 import {
   Badge,
+  Divider,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -21,6 +22,7 @@ import { BreadcrumbItem } from "@chakra-ui/react";
 import { Tag } from "@chakra-ui/tag";
 import Icon from "@chakra-ui/icon";
 import { FaGraduationCap, FaAward } from "react-icons/fa";
+import { FiDownload } from "react-icons/fi";
 import {
   Breadcrumb,
   Button,
@@ -32,6 +34,7 @@ import {
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { EmptyState } from "../../../../layouts";
 import { adminGetSingleTranscript, adminReviewTranscript } from "../../../../services";
+import { exportAsPdf } from "../../../../utils/exportToPdf";
 
 const statusColorMap = {
   Draft: "gray",
@@ -171,6 +174,121 @@ const ReviewModal = ({ isOpen, onClose, decision, transcriptId, onSuccess }) => 
 };
 
 // ---------------------------------------------------------------------------
+// Course Record Detail Modal
+// ---------------------------------------------------------------------------
+
+const formatDateTime = (value) =>
+  value
+    ? new Date(value).toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
+
+const Field = ({ label, value }) => (
+  <HStack justify="space-between" w="100%" align="flex-start" gap={4}>
+    <Text as="level5" color="gray.500" minW="140px" flexShrink={0}>
+      {label}
+    </Text>
+    <Box as="span" fontSize="sm" color="gray.800" textAlign="right" wordBreak="break-all" minW={0}>
+      {value ?? "—"}
+    </Box>
+  </HStack>
+);
+
+const CourseRecordDetailModal = ({ isOpen, onClose, record }) => {
+  if (!record) return null;
+
+  const instructorName = record.instructor
+    ? `${record.instructor.firstName ?? ""} ${record.instructor.lastName ?? ""}`.trim()
+    : null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="lg" scrollBehavior="inside" isCentered>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader fontSize="16px">
+          <Flex align="center" gap={3}>
+            <Icon color="primary.base" fontSize="18px">
+              <FaGraduationCap />
+            </Icon>
+            {record.course?.title ?? "Course Record"}
+          </Flex>
+        </ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <VStack spacing={4} align="stretch">
+            <HStack spacing={2} flexWrap="wrap">
+              <Badge
+                colorScheme={
+                  record.grade?.startsWith("A")
+                    ? "green"
+                    : record.grade?.startsWith("B")
+                    ? "blue"
+                    : record.grade?.startsWith("C")
+                    ? "yellow"
+                    : "red"
+                }
+                borderRadius="full"
+                px={2}
+              >
+                Grade: {record.grade ?? "—"}
+              </Badge>
+              <Badge colorScheme={record.certificateIssued ? "green" : "gray"} borderRadius="full" px={2}>
+                {record.certificateIssued ? "Certificate Issued" : "Certificate Not Issued"}
+              </Badge>
+              {record.examType && (
+                <Badge colorScheme="purple" borderRadius="full" px={2} textTransform="capitalize">
+                  {record.examType}
+                </Badge>
+              )}
+            </HStack>
+
+            <VStack spacing={2} align="stretch">
+              <Field label="Course ID" value={record.courseId} />
+              <Field label="Record ID" value={record.id} />
+              <Field label="Score" value={record.score != null ? `${record.score}%` : "—"} />
+              <Field label="Instructor" value={instructorName} />
+              <Field label="Instructor ID" value={record.instructorId} />
+              <Field label="Exam ID" value={record.examId} />
+              <Field
+                label="Question List"
+                value={
+                  Array.isArray(record.questionList)
+                    ? record.questionList.length
+                      ? `${record.questionList.length} question(s)`
+                      : "—"
+                    : "—"
+                }
+              />
+            </VStack>
+
+            <Divider />
+
+            <VStack spacing={2} align="stretch">
+              <Field label="Remarks" value={record.remarks} />
+              <Field label="Posted At" value={formatDateTime(record.postedAt)} />
+              <Field label="Transcript Request ID" value={record.transcriptRequestId} />
+              <Field label="Student ID" value={record.studentId} />
+              <Field label="Created At" value={formatDateTime(record.createdAt)} />
+              <Field label="Updated At" value={formatDateTime(record.updatedAt)} />
+            </VStack>
+          </VStack>
+        </ModalBody>
+        <ModalFooter>
+          <Button secondary onClick={onClose}>
+            Close
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 
@@ -178,12 +296,21 @@ const StudentTranscriptDetailsPage = () => {
   const { transcriptId } = useParams();
   const toast = useToast();
   const reviewModal = useDisclosure();
+  const recordModal = useDisclosure();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [transcript, setTranscript] = useState(null);
   const [summary, setSummary] = useState(null);
   const [reviewDecision, setReviewDecision] = useState(null);
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [downloading, setDownloading] = useState(false);
+  const printRef = useRef(null);
+
+  const openRecord = (record) => {
+    setSelectedRecord(record);
+    recordModal.onOpen();
+  };
 
   useEffect(() => {
     const fetch = async () => {
@@ -231,6 +358,23 @@ const StudentTranscriptDetailsPage = () => {
     ? `${transcript.student?.firstName ?? ""} ${transcript.student?.lastName ?? ""}`.trim()
     : "—";
 
+  const handleDownload = async () => {
+    if (!printRef.current) return;
+    setDownloading(true);
+    try {
+      await exportAsPdf(printRef.current, `${studentName || "Student"} Transcript`);
+    } catch (err) {
+      toast({
+        status: "error",
+        description: err.message || "Unable to generate transcript PDF",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <AdminMainAreaWrapper>
       <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
@@ -247,14 +391,26 @@ const StudentTranscriptDetailsPage = () => {
           }
         />
 
-        {canReview && (
+        {!loading && !error && transcript && (
           <Flex gap="8px">
-            <Button secondary onClick={() => openReview("Returned")}>
-              Return
+            <Button
+              secondary
+              leftIcon={<FiDownload />}
+              onClick={handleDownload}
+              isLoading={downloading}
+            >
+              Download Transcript
             </Button>
-            <Button onClick={() => openReview("Approved")}>
-              Approve & Issue
-            </Button>
+            {canReview && (
+              <>
+                <Button secondary onClick={() => openReview("Returned")}>
+                  Return
+                </Button>
+                <Button onClick={() => openReview("Approved")}>
+                  Approve & Issue
+                </Button>
+              </>
+            )}
           </Flex>
         )}
       </Box>
@@ -267,7 +423,7 @@ const StudentTranscriptDetailsPage = () => {
       ) : error ? (
         <EmptyState heading="Failed to load transcript" description={error} />
       ) : (
-        <Stack spacing={8}>
+        <Stack spacing={8} ref={printRef} bg="white">
           {/* Summary metric cards */}
           <SimpleGrid columns={{ base: 2, md: 4 }} gap={4}>
             <DashboardMetricCard
@@ -431,12 +587,17 @@ const StudentTranscriptDetailsPage = () => {
                       _last={{ borderBottom: "none" }}
                       alignItems="center"
                       minW="560px"
+                      cursor="pointer"
+                      _hover={{ bg: "gray.50" }}
+                      onClick={() => openRecord(record)}
                     >
                       <Flex align="center" gap={3}>
                         <Icon color="primary.base" fontSize="16px">
                           <FaGraduationCap />
                         </Icon>
-                        <Text bold>{record.course?.title ?? "—"}</Text>
+                        <Text bold color="primary.base" textDecoration="underline">
+                          {record.course?.title ?? "—"}
+                        </Text>
                       </Flex>
 
                       <Text fontSize="sm" color="gray.600">
@@ -497,6 +658,12 @@ const StudentTranscriptDetailsPage = () => {
           onSuccess={handleReviewSuccess}
         />
       )}
+
+      <CourseRecordDetailModal
+        isOpen={recordModal.isOpen}
+        onClose={recordModal.onClose}
+        record={selectedRecord}
+      />
     </AdminMainAreaWrapper>
   );
 };

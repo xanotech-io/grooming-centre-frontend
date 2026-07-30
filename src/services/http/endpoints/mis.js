@@ -21,16 +21,6 @@ export const adminGenerateMISReport = async (body) => {
   return { report: data, message };
 };
 
-export const adminArchiveMISReport = async (reportId) => {
-  const { data: { message } } = await http.patch(`/v1/mis-report-v2/${reportId}/archive`);
-  return { message };
-};
-
-export const adminUnarchiveMISReport = async (reportId) => {
-  const { data: { message } } = await http.patch(`/v1/mis-report-v2/${reportId}/unarchive`);
-  return { message };
-};
-
 export const adminDeleteMISReport = async (reportId) => {
   const { data: { message } } = await http.delete(`/v1/mis-report-v2/${reportId}`);
   return { message };

@@ -48,6 +48,10 @@ const links = [
     text: "Transcript",
   },
   {
+    href: "/my-certificates",
+    text: "My Certificates",
+  },
+  {
     href: "/assessment-results",
     text: "My Results",
   },

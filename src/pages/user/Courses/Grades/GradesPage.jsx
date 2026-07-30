@@ -17,6 +17,8 @@ import { ReactComponent as NoData } from "../../../../assets/images/no-data.svg"
 import { useEffect } from "react";
 import { utils, writeFile } from "xlsx";
 import { useParams } from "react-router-dom/cjs/react-router-dom.min";
+import { useApp } from "../../../../contexts";
+import useAutoIssueCertificates from "../../Certificate/hooks/useAutoIssueCertificates";
 
 const totalCourseChartConfig = {
   data: {
@@ -52,6 +54,7 @@ const GradesPage = () => {
 
 export const Grades = ({ isLoading, grades, myGrades }) => {
   const { id: userId } = useParams();
+  const { state } = useApp();
 
   const isAdmin = /admin/i.test(window.location.pathname);
   console.log("New update");
@@ -66,6 +69,11 @@ export const Grades = ({ isLoading, grades, myGrades }) => {
       document.getElementById("certificates")?.scrollIntoView();
     }
   }, [hash]);
+
+  useAutoIssueCertificates(
+    !isAdmin ? grades?.completedCourses : null,
+    !isAdmin ? state?.user?.id || state?.user?._id : null
+  );
 
   const handleGetData = () => {
     const wb = utils.book_new();
