@@ -1,14 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
   Flex,
   Text,
   Button,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
   SimpleGrid,
   HStack,
   Input as ChakraInput,
@@ -56,14 +51,19 @@ import {
   adminListMISReports,
   adminGetMISKPIs,
   adminGenerateMISReport,
-  adminArchiveMISReport,
-  adminUnarchiveMISReport,
   adminDeleteMISReport,
+  adminGetCourseListing,
+  adminGetDepartmentListing,
+  adminGetUserListing,
+  adminArchiveReport,
+  adminListArchiveRecords,
+  adminRetrieveArchivedReport,
 } from "../../../services";
 import { AdminMainAreaWrapper } from "../../../layouts";
 import { Breadcrumb, Link } from "../../../components";
 import { motion } from "framer-motion";
 import ScheduleReportModal from "./components/ScheduleReportModal";
+import MISReportDetailModal from "./components/MISReportDetailModal";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -77,6 +77,72 @@ const SummaryCard = ({ title, value, subtext, subtextColor }) => (
   </Box>
 );
 
+const SearchableSelect = ({ value, options, onChange, placeholder }) => {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const selectedLabel = options.find((o) => String(o.value) === String(value))?.label ?? "";
+
+  useEffect(() => { setQuery(value ? selectedLabel : ""); }, [value, selectedLabel]);
+
+  const filtered = query
+    ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setQuery(value ? selectedLabel : "");
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [value, selectedLabel]);
+
+  return (
+    <Box ref={containerRef} position="relative">
+      <ChakraInput
+        borderRadius="md" fontSize="14px"
+        value={query}
+        placeholder={placeholder}
+        autoComplete="off"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIsOpen(true);
+          if (e.target.value === "") onChange("");
+        }}
+        onFocus={() => setIsOpen(true)}
+      />
+      {isOpen && (
+        <Box
+          position="absolute" top="100%" left={0} right={0} zIndex={200}
+          bg="white" border="1px solid #E4E7EC" borderRadius="md" boxShadow="md"
+          maxH="200px" overflowY="auto" mt="2px"
+        >
+          {filtered.length === 0 ? (
+            <Box px={3} py={2} fontSize="13px" color="#667085">No results</Box>
+          ) : (
+            filtered.map((o) => (
+              <Box
+                key={o.value}
+                px={3} py="7px" fontSize="13px" cursor="pointer"
+                bg={String(o.value) === String(value) ? "#F3E8FF" : "white"}
+                _hover={{ bg: String(o.value) === String(value) ? "#F3E8FF" : "#F9FAFB" }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { onChange(o.value); setQuery(o.label); setIsOpen(false); }}
+              >
+                {o.label}
+              </Box>
+            ))
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 const getStatusColor = (status) => {
   switch (status?.toLowerCase()) {
     case "generated": return { bg: "#ECFDF3", color: "#027A48" };
@@ -86,8 +152,49 @@ const getStatusColor = (status) => {
   }
 };
 
-const TABS = ["Overview", "Academic", "Administrative", "Compliance", "Attendance", "Performance"];
-const CATEGORY_MAP = { 1: "academic", 2: "administrative", 3: "compliance" };
+const CATEGORY_OPTIONS = [
+  { value: "academic", label: "Academic" },
+  { value: "administrative", label: "Administrative" },
+  { value: "compliance", label: "Compliance" },
+];
+
+// per GC LMS Enhancement Scoping Document — metric columns shown when a single category is filtered
+const CATEGORY_METRIC_COLUMNS = {
+  academic: [
+    { key: "courseEnrollmentCount", label: "Course Enrollment Count" },
+    { key: "courseCompletionRate", label: "Course Completion Rate" },
+    { key: "averageGrade", label: "Average Grade" },
+    { key: "academicStanding", label: "Academic Standing" },
+    { key: "assessmentCompletionRate", label: "Assessment Completion Rate" },
+    { key: "activeCourses", label: "Active Courses" },
+    { key: "certificationEarned", label: "Certification Earned" },
+  ],
+  administrative: [
+    { key: "totalRegisteredUsers", label: "Total Registered Users" },
+    { key: "approvedUsers", label: "Approved Users" },
+    { key: "instructorCount", label: "Instructor Count" },
+    { key: "departmentEnrollmentRate", label: "Department Enrollment Rate" },
+    { key: "courseAvailabilityStatus", label: "Course Availability Status" },
+    { key: "userAccountStatus", label: "User Account Status" },
+    { key: "systemUsageRate", label: "System Usage Rate" },
+  ],
+  compliance: [
+    { key: "overallComplianceScore", label: "Overall Compliance Score" },
+    { key: "departmentComplianceRate", label: "Department Compliance Rate" },
+    { key: "performanceComparisons", label: "Performance Comparisons" },
+    { key: "examinationSubmissionStatus", label: "Examination Submission Status" },
+    { key: "complianceCourseStatus", label: "Compliance Course Status" },
+    { key: "completionDate", label: "Completion Date" },
+  ],
+};
+
+const formatMetricValue = (val) => {
+  if (val === null || val === undefined || val === "") return "—";
+  if (typeof val === "boolean") return val ? "Yes" : "No";
+  if (Array.isArray(val)) return val.length ? val.join(", ") : "—";
+  if (typeof val === "object") return Object.keys(val).length ? JSON.stringify(val) : "—";
+  return String(val);
+};
 
 const GENERATE_FORM_DEFAULT = {
   reportCategory: "academic",
@@ -104,8 +211,13 @@ const MISReportsPage = () => {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isGenerateOpen, onOpen: onGenerateOpen, onClose: onGenerateClose } = useDisclosure();
+  const { isOpen: isDetailOpen, onOpen: onDetailOpen, onClose: onDetailClose } = useDisclosure();
+  const [selectedReport, setSelectedReport] = useState(null);
 
-  const [activeTab, setActiveTab] = useState(0);
+  const openReportDetail = (report) => {
+    setSelectedReport(report);
+    onDetailOpen();
+  };
 
   // ── list state ──────────────────────────────────────────────────────────
   const [reports, setReports] = useState([]);
@@ -114,7 +226,8 @@ const MISReportsPage = () => {
 
   // ── filters ─────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
-    search: "", category: "", status: "", frequency: "", startDate: "", endDate: "", page: 1, limit: 20,
+    search: "", category: "", status: "", frequency: "", startDate: "", endDate: "",
+    studentId: "", courseId: "", departmentId: "", instructorId: "", page: 1, limit: 20,
   });
 
   // ── kpis ────────────────────────────────────────────────────────────────
@@ -124,18 +237,43 @@ const MISReportsPage = () => {
   const [generateForm, setGenerateForm] = useState(GENERATE_FORM_DEFAULT);
   const [generating, setGenerating] = useState(false);
 
+  // ── lookup data shared by the filter row and the Generate Report modal ───
+  const [courseOptions, setCourseOptions] = useState([]);
+  const [departmentOptions, setDepartmentOptions] = useState([]);
+  const [studentOptions, setStudentOptions] = useState([]);
+  const [instructorOptions, setInstructorOptions] = useState([]);
+
+  useEffect(() => {
+    adminGetCourseListing({ limit: 200 })
+      .then(({ courses }) => setCourseOptions(courses ?? []))
+      .catch(() => setCourseOptions([]));
+    adminGetDepartmentListing({ limit: 200 })
+      .then(({ departments }) => setDepartmentOptions(departments ?? []))
+      .catch(() => setDepartmentOptions([]));
+    adminGetUserListing({ limit: 200, role: "Student" })
+      .then(({ users }) => setStudentOptions(users ?? []))
+      .catch(() => setStudentOptions([]));
+    adminGetUserListing({ limit: 200, role: "Instructor" })
+      .then(({ users }) => setInstructorOptions(users ?? []))
+      .catch(() => setInstructorOptions([]));
+  }, []);
+
   // ── fetch ────────────────────────────────────────────────────────────────
 
   const fetchReports = useCallback(async (f) => {
     setReportsLoading(true);
     try {
       const params = { page: f.page || 1, limit: f.limit || 20 };
-      if (f.search)    params.search    = f.search;
-      if (f.category)  params.category  = f.category;
-      if (f.status)    params.status    = f.status;
-      if (f.frequency) params.frequency = f.frequency;
-      if (f.startDate) params.startDate = f.startDate;
-      if (f.endDate)   params.endDate   = f.endDate;
+      if (f.search)        params.search        = f.search;
+      if (f.category)      params.category      = f.category;
+      if (f.status)        params.status        = f.status;
+      if (f.frequency)     params.frequency     = f.frequency;
+      if (f.startDate)     params.startDate     = f.startDate;
+      if (f.endDate)       params.endDate       = f.endDate;
+      if (f.studentId)     params.studentId     = f.studentId;
+      if (f.courseId)      params.courseId      = f.courseId;
+      if (f.departmentId)  params.departmentId  = f.departmentId;
+      if (f.instructorId)  params.instructorId  = f.instructorId;
 
       const result = await adminListMISReports(params);
       setReports(result.reports ?? []);
@@ -164,14 +302,6 @@ const MISReportsPage = () => {
       .catch(() => {});
   }, []);
 
-  // re-fetch when active tab switches to a category tab
-  useEffect(() => {
-    const category = CATEGORY_MAP[activeTab] ?? "";
-    const newFilters = { ...filters, category, page: 1 };
-    setFilters(newFilters);
-    fetchReports(newFilters);
-  }, [activeTab]); // eslint-disable-line
-
   // ── filter helpers ───────────────────────────────────────────────────────
 
   const applyFilter = (key, value) => {
@@ -188,9 +318,17 @@ const MISReportsPage = () => {
 
   // ── actions ──────────────────────────────────────────────────────────────
 
-  const handleArchive = async (reportId) => {
+  const handleArchive = async (item) => {
     try {
-      const { message } = await adminArchiveMISReport(reportId);
+      const { message } = await adminArchiveReport(item.id, {
+        reportSource: "mis-report",
+        reportId: item.reportId,
+        reportName: item.reportName,
+        reportCategory: item.reportCategory,
+        reportFormat: item.reportFormat,
+        recordCount: item.recordCount,
+        generatedDate: item.generatedDate,
+      });
       toast({ description: message || "Report archived.", status: "success", position: "top" });
       fetchReports(filters);
     } catch (err) {
@@ -198,9 +336,17 @@ const MISReportsPage = () => {
     }
   };
 
-  const handleUnarchive = async (reportId) => {
+  // MIS reports only know their own reportId — look up the matching archive
+  // record (created by handleArchive above) to get the archiveId to retrieve.
+  const handleUnarchive = async (item) => {
     try {
-      const { message } = await adminUnarchiveMISReport(reportId);
+      const { archives } = await adminListArchiveRecords({ status: "Archived", limit: 200 });
+      const archive = archives.find((a) => a.report?.reportId === item.reportId);
+      if (!archive) {
+        toast({ description: "No archive record found for this report.", status: "warning", position: "top" });
+        return;
+      }
+      const { message } = await adminRetrieveArchivedReport(archive.archiveId);
       toast({ description: message || "Report unarchived.", status: "success", position: "top" });
       fetchReports(filters);
     } catch (err) {
@@ -256,6 +402,11 @@ const MISReportsPage = () => {
 
   // ── shared reports table ─────────────────────────────────────────────────
 
+  const metricColumns = CATEGORY_METRIC_COLUMNS[filters.category] ?? null;
+  const tableHeaders = metricColumns
+    ? ["Report ID", "Report Name", "Generated By", "Generated Date", ...metricColumns.map((m) => m.label), "Status", "Remarks", "Action"]
+    : ["Report ID", "Report Name", "Category", "Generated By", "Generated Date", "Format", "Frequency", "Status", "Remarks", "Action"];
+
   const renderReportsTable = () => (
     <Box bg="white" borderRadius="xl" border="1px solid #E4E7EC" overflow="hidden" boxShadow="xs">
       {/* filters row */}
@@ -277,18 +428,48 @@ const MISReportsPage = () => {
           </HStack>
 
           <HStack spacing={3} flexWrap="wrap">
-            {/* category — hidden on category-specific tabs */}
-            {activeTab === 0 && (
-              <Select
-                w="150px" size="sm" borderRadius="md" placeholder="Category"
-                value={filters.category}
-                onChange={(e) => applyFilter("category", e.target.value)}
-              >
-                <option value="academic">Academic</option>
-                <option value="administrative">Administrative</option>
-                <option value="compliance">Compliance</option>
-              </Select>
-            )}
+            <Select
+              w="160px" size="sm" borderRadius="md" placeholder="All Categories"
+              value={filters.category}
+              onChange={(e) => applyFilter("category", e.target.value)}
+            >
+              {CATEGORY_OPTIONS.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </Select>
+
+            <Box w="170px">
+              <SearchableSelect
+                placeholder="Course"
+                value={filters.courseId}
+                options={courseOptions.map((c) => ({ value: String(c.id), label: c.title }))}
+                onChange={(val) => applyFilter("courseId", val)}
+              />
+            </Box>
+            <Box w="170px">
+              <SearchableSelect
+                placeholder="Department"
+                value={filters.departmentId}
+                options={departmentOptions.map((d) => ({ value: String(d.id), label: d.name }))}
+                onChange={(val) => applyFilter("departmentId", val)}
+              />
+            </Box>
+            <Box w="170px">
+              <SearchableSelect
+                placeholder="Student"
+                value={filters.studentId}
+                options={studentOptions.map((s) => ({ value: String(s.id), label: `${s.firstName} ${s.lastName}` }))}
+                onChange={(val) => applyFilter("studentId", val)}
+              />
+            </Box>
+            <Box w="170px">
+              <SearchableSelect
+                placeholder="Instructor"
+                value={filters.instructorId}
+                options={instructorOptions.map((i) => ({ value: String(i.id), label: `${i.firstName} ${i.lastName}` }))}
+                onChange={(val) => applyFilter("instructorId", val)}
+              />
+            </Box>
 
             <Select
               w="130px" size="sm" borderRadius="md" placeholder="Status"
@@ -333,53 +514,62 @@ const MISReportsPage = () => {
           <Thead bg="#F9FAFB">
             <Tr>
               <Th w="40px" px={6} py={4}><Checkbox colorScheme="purple" /></Th>
-              {[
-                "Report ID", "Report Name", "Category", "Data Sources",
-                "Generated Date", "Format", "Frequency", "Records", "Status", "Action",
-              ].map((h) => (
+              {tableHeaders.map((h) => (
                 <Th key={h} textTransform="none" fontSize="12px" fontWeight="500" color="#475367" whiteSpace="nowrap">{h}</Th>
               ))}
             </Tr>
           </Thead>
           <Tbody>
             {reportsLoading ? (
-              <Tr><Td colSpan={11} textAlign="center" py={10} fontSize="13px" color="#667085">Loading reports...</Td></Tr>
+              <Tr><Td colSpan={tableHeaders.length + 1} textAlign="center" py={10} fontSize="13px" color="#667085">Loading reports...</Td></Tr>
             ) : reports.length === 0 ? (
-              <Tr><Td colSpan={11} textAlign="center" py={10} fontSize="13px" color="#667085">No reports found.</Td></Tr>
+              <Tr><Td colSpan={tableHeaders.length + 1} textAlign="center" py={10} fontSize="13px" color="#667085">No reports found.</Td></Tr>
             ) : (
               reports.map((item, idx) => (
-                <Tr key={item.id ?? idx} _hover={{ bg: "#F9FAFB" }}>
-                  <Td px={6} py={4}><Checkbox colorScheme="purple" /></Td>
+                <Tr
+                  key={item.id ?? idx}
+                  _hover={{ bg: "#F9FAFB" }}
+                  cursor="pointer"
+                  onClick={() => openReportDetail(item)}
+                >
+                  <Td px={6} py={4} onClick={(e) => e.stopPropagation()}><Checkbox colorScheme="purple" /></Td>
                   <Td fontSize="12px" color="#667085" whiteSpace="nowrap">{item.reportId}</Td>
                   <Td fontSize="13px" color="#101928" fontWeight="600" maxW="220px">
                     <Text isTruncated title={item.reportName}>{item.reportName}</Text>
                   </Td>
-                  <Td>
-                    <Badge
-                      bg="#F4F0FF" color="#6B21A8"
-                      borderRadius="full" px={3} py={1} fontSize="11px" fontWeight="500" textTransform="capitalize"
-                    >
-                      {item.reportCategory}
-                    </Badge>
-                  </Td>
-                  <Td fontSize="12px" color="#667085" maxW="200px">
-                    <Text isTruncated title={(item.dataSources ?? []).join(", ")}>
-                      {(item.dataSources ?? []).join(", ") || "—"}
-                    </Text>
-                  </Td>
+                  {!metricColumns && (
+                    <Td>
+                      <Badge
+                        bg="#F4F0FF" color="#6B21A8"
+                        borderRadius="full" px={3} py={1} fontSize="11px" fontWeight="500" textTransform="capitalize"
+                      >
+                        {item.reportCategory}
+                      </Badge>
+                    </Td>
+                  )}
+                  <Td fontSize="12px" color="#667085" whiteSpace="nowrap">{item.generatedBy ?? "—"}</Td>
                   <Td fontSize="12px" color="#667085" whiteSpace="nowrap">
                     {item.generatedDate ? dayjs(item.generatedDate).format("DD MMM YYYY, hh:mm A") : "—"}
                   </Td>
-                  <Td>
-                    <Badge
-                      bg="#EFF8FF" color="#175CD3"
-                      borderRadius="full" px={3} py={1} fontSize="11px" fontWeight="500" textTransform="uppercase"
-                    >
-                      {item.reportFormat}
-                    </Badge>
-                  </Td>
-                  <Td fontSize="12px" color="#667085" textTransform="capitalize">{item.frequency?.replace(/_/g, " ")}</Td>
-                  <Td fontSize="12px" color="#667085" textAlign="center">{item.recordCount ?? "—"}</Td>
+                  {metricColumns ? (
+                    metricColumns.map((m) => (
+                      <Td key={m.key} fontSize="12px" color="#667085" whiteSpace="nowrap">
+                        {formatMetricValue(item.summary?.[m.key])}
+                      </Td>
+                    ))
+                  ) : (
+                    <>
+                      <Td>
+                        <Badge
+                          bg="#EFF8FF" color="#175CD3"
+                          borderRadius="full" px={3} py={1} fontSize="11px" fontWeight="500" textTransform="uppercase"
+                        >
+                          {item.reportFormat}
+                        </Badge>
+                      </Td>
+                      <Td fontSize="12px" color="#667085" textTransform="capitalize">{item.frequency?.replace(/_/g, " ")}</Td>
+                    </>
+                  )}
                   <Td>
                     <Badge
                       bg={getStatusColor(item.status).bg}
@@ -389,7 +579,10 @@ const MISReportsPage = () => {
                       {item.status}
                     </Badge>
                   </Td>
-                  <Td>
+                  <Td fontSize="12px" color="#667085" maxW="200px">
+                    <Text isTruncated title={item.remarks}>{item.remarks || "—"}</Text>
+                  </Td>
+                  <Td onClick={(e) => e.stopPropagation()}>
                     <Menu>
                       <MenuButton
                         as={IconButton} icon={<FiMoreVertical />}
@@ -397,10 +590,11 @@ const MISReportsPage = () => {
                         border="1px solid #E4E7EC" borderRadius="md"
                       />
                       <MenuList>
+                        <MenuItem fontSize="13px" onClick={() => openReportDetail(item)}>View details</MenuItem>
                         {item.status?.toLowerCase() === "archived" ? (
-                          <MenuItem fontSize="13px" onClick={() => handleUnarchive(item.id)}>Unarchive report</MenuItem>
+                          <MenuItem fontSize="13px" onClick={() => handleUnarchive(item)}>Unarchive report</MenuItem>
                         ) : (
-                          <MenuItem fontSize="13px" onClick={() => handleArchive(item.id)}>Archive report</MenuItem>
+                          <MenuItem fontSize="13px" onClick={() => handleArchive(item)}>Archive report</MenuItem>
                         )}
                         <MenuItem fontSize="13px" color="red.500" onClick={() => handleDelete(item.id)}>Delete report</MenuItem>
                       </MenuList>
@@ -449,39 +643,9 @@ const MISReportsPage = () => {
     </Box>
   );
 
-  // ── overview tab ─────────────────────────────────────────────────────────
-
-  const renderOverview = () => (
-    <>
-      <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6} mb={8}>
-        <SummaryCard title="Total Reports" value={pagination.totalItems ?? "—"} subtext="all reports" />
-        <SummaryCard title="Avg. Generation Time" value={kpis?.avgReportGenerationTimeMs ? `${(kpis.avgReportGenerationTimeMs / 60000).toFixed(2)} min` : "—"} subtext="avg. time to generate" />
-        <SummaryCard title="Report Accuracy" value={kpis?.reportAccuracyRate ?? "—"} subtext="accuracy rate" />
-        <SummaryCard title="Automation Rate" value={kpis?.automationRate ?? "—"} subtext="automation rate" />
-      </SimpleGrid>
-      {renderReportsTable()}
-    </>
-  );
-
-  // ── category tabs (Academic / Administrative / Compliance / Attendance / Performance) ──
-
-  const renderCategoryTab = (label) => (
-    <>
-      <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6} mb={8}>
-        <SummaryCard title="Total Reports" value={pagination.totalItems ?? "—"} />
-        <SummaryCard title="Avg. Generation Time" value={kpis?.avgReportGenerationTimeMs ? `${(kpis.avgReportGenerationTimeMs / 60000).toFixed(2)} min` : "—"} subtext="avg. time to generate" />
-        <SummaryCard title="Report Accuracy" value={kpis?.reportAccuracyRate ?? "—"} subtext="accuracy rate" />
-        <SummaryCard title="Automation Rate" value={kpis?.automationRate ?? "—"} subtext="automation rate" />
-      </SimpleGrid>
-
-      <Box mb={6}>
-        <Text fontSize="18px" fontWeight="600" color="#101928" mb={4}>{label} Reports</Text>
-        {renderReportsTable()}
-      </Box>
-    </>
-  );
-
   // ── render ────────────────────────────────────────────────────────────────
+
+  const selectedCategoryLabel = CATEGORY_OPTIONS.find((c) => c.value === filters.category)?.label;
 
   return (
     <AdminMainAreaWrapper>
@@ -517,46 +681,17 @@ const MISReportsPage = () => {
           </HStack>
         </Flex>
 
-        <Tabs
-          index={activeTab}
-          onChange={(index) => setActiveTab(index)}
-          colorScheme="purple"
-          isLazy
-          variant="unstyled"
-        >
-          <TabList
-            borderBottom="1px solid #E4E7EC"
-            overflowX="auto"
-            whiteSpace="nowrap"
-            pb="4px"
-            sx={{
-              "&::-webkit-scrollbar": { height: "3px" },
-              "&::-webkit-scrollbar-thumb": { background: "#E4E7EC", borderRadius: "10px" },
-            }}
-          >
-            {TABS.map((tab, i) => (
-              <Tab
-                key={i}
-                _selected={{ color: "#660066", borderBottom: "2px solid #660066", fontWeight: "600" }}
-                borderBottom="2px solid transparent"
-                fontSize="13px" fontWeight="500" color="#344054"
-                px={4} py={3} mr={8} flexShrink={0}
-                _focus={{ boxShadow: "none" }}
-              >
-                {tab}
-              </Tab>
-            ))}
-          </TabList>
+        <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6} mb={8}>
+          <SummaryCard title="Total Reports" value={pagination.totalItems ?? "—"} subtext="all reports" />
+          <SummaryCard title="Avg. Generation Time" value={kpis?.avgReportGenerationTimeMs ? `${(kpis.avgReportGenerationTimeMs / 60000).toFixed(2)} min` : "—"} subtext="avg. time to generate" />
+          <SummaryCard title="Report Accuracy" value={kpis?.reportAccuracyRate ?? "—"} subtext="accuracy rate" />
+          <SummaryCard title="Automation Rate" value={kpis?.automationRate ?? "—"} subtext="automation rate" />
+        </SimpleGrid>
 
-          <TabPanels mt={8}>
-            <TabPanel p={0}>{renderOverview()}</TabPanel>
-            <TabPanel p={0}>{renderCategoryTab("Academic")}</TabPanel>
-            <TabPanel p={0}>{renderCategoryTab("Administrative")}</TabPanel>
-            <TabPanel p={0}>{renderCategoryTab("Compliance")}</TabPanel>
-            <TabPanel p={0}>{renderCategoryTab("Attendance")}</TabPanel>
-            <TabPanel p={0}>{renderCategoryTab("Performance")}</TabPanel>
-          </TabPanels>
-        </Tabs>
+        <Text fontSize="18px" fontWeight="600" color="#101928" mb={4}>
+          {selectedCategoryLabel ? `${selectedCategoryLabel} Reports` : "All Reports"}
+        </Text>
+        {renderReportsTable()}
       </Box>
 
       {/* Generate Report Modal */}
@@ -644,21 +779,21 @@ const MISReportsPage = () => {
               <Text fontSize="13px" fontWeight="600" color="#667085">Filters (optional)</Text>
               <Grid templateColumns="repeat(2, 1fr)" gap={4}>
                 <FormControl>
-                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Course ID</FormLabel>
-                  <ChakraInput
-                    placeholder="UUID"
+                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Course</FormLabel>
+                  <SearchableSelect
+                    placeholder="Search courses…"
                     value={generateForm.filters.courseId}
-                    onChange={(e) => setGenerateForm((f) => ({ ...f, filters: { ...f.filters, courseId: e.target.value } }))}
-                    borderRadius="md" fontSize="14px"
+                    options={courseOptions.map((c) => ({ value: String(c.id), label: c.title }))}
+                    onChange={(val) => setGenerateForm((f) => ({ ...f, filters: { ...f.filters, courseId: val } }))}
                   />
                 </FormControl>
                 <FormControl>
-                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Department ID</FormLabel>
-                  <ChakraInput
-                    placeholder="UUID"
+                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Department</FormLabel>
+                  <SearchableSelect
+                    placeholder="Search departments…"
                     value={generateForm.filters.departmentId}
-                    onChange={(e) => setGenerateForm((f) => ({ ...f, filters: { ...f.filters, departmentId: e.target.value } }))}
-                    borderRadius="md" fontSize="14px"
+                    options={departmentOptions.map((d) => ({ value: String(d.id), label: d.name }))}
+                    onChange={(val) => setGenerateForm((f) => ({ ...f, filters: { ...f.filters, departmentId: val } }))}
                   />
                 </FormControl>
                 <FormControl>
@@ -711,6 +846,7 @@ const MISReportsPage = () => {
       </Modal>
 
       <ScheduleReportModal isOpen={isOpen} onClose={onClose} />
+      <MISReportDetailModal isOpen={isDetailOpen} onClose={onDetailClose} report={selectedReport} />
     </AdminMainAreaWrapper>
   );
 };

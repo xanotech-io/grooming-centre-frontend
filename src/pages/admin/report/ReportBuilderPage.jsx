@@ -6,7 +6,7 @@ import {
   Badge, Spinner, useToast, Tag, TagLabel, TagCloseButton,
 } from '@chakra-ui/react';
 import {
-  FiSearch, FiPlus, FiSave, FiPlay, FiEdit2, FiTrash2,
+  FiSearch, FiPlus, FiSave, FiPlay, FiEdit2, FiTrash2, FiArchive,
   FiChevronLeft, FiChevronRight, FiChevronDown, FiEye, FiX,
 } from 'react-icons/fi';
 import { Route } from 'react-router-dom';
@@ -20,6 +20,7 @@ import {
   reportBuilderExecuteConfig,
   reportBuilderPreview,
   reportBuilderGetStats,
+  adminArchiveReport,
 } from '../../../services';
 
 const INITIAL_FORM = {
@@ -251,6 +252,19 @@ const ReportBuilderPage = () => {
     }
   };
 
+  const handleArchive = async (cfg) => {
+    try {
+      const { message } = await adminArchiveReport(cfg.id, {
+        reportSource: 'report-builder',
+        reportName: cfg.name,
+        reportCategory: cfg.dataSource,
+      });
+      toast({ title: message || 'Report archived', status: 'success', duration: 3000 });
+    } catch (e) {
+      toast({ title: e?.message ?? 'Archive failed', status: 'error', duration: 3000 });
+    }
+  };
+
   const handleDelete = async (configId) => {
     if (!window.confirm('Delete this report configuration? This cannot be undone.')) return;
     try {
@@ -450,6 +464,15 @@ const ReportBuilderPage = () => {
                             aria-label="Edit configuration"
                             title="Edit"
                             onClick={() => openBuilder(cfg)}
+                          />
+                          <IconButton
+                            icon={<FiArchive />}
+                            size="sm"
+                            variant="ghost"
+                            color="#B54708"
+                            aria-label="Archive report"
+                            title="Archive"
+                            onClick={() => handleArchive(cfg)}
                           />
                           <IconButton
                             icon={<FiTrash2 />}

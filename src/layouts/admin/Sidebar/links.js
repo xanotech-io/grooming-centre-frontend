@@ -363,6 +363,11 @@ export const links = [
     icon: <FiArchive />,
   },
   {
+    href: "/admin/certificate-management",
+    text: "Issued Certificates",
+    icon: <FiAward />,
+  },
+  {
     href: "/admin/course-materials",
     text: "Course Materials",
     icon: <FaFolderOpen />,

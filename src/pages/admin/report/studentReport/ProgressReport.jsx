@@ -538,6 +538,7 @@ const ProgressReport = () => {
                         "Assessment",
                         "Exam",
                         "Certificate",
+                        "Certificate Eligibility",
                         "Status",
                         "Last Access",
                       ].map((h) => (
@@ -621,6 +622,17 @@ const ProgressReport = () => {
                             {c.certificateEarned === "Yes"
                               ? "✓ Earned"
                               : "Not Yet"}
+                          </Badge>
+                        </Td>
+                        <Td py="12px">
+                          <Badge
+                            colorScheme={
+                              c.certificateEligible === "Yes" ? "green" : "gray"
+                            }
+                            variant="subtle"
+                            fontSize="11px"
+                          >
+                            {c.certificateEligible === "Yes" ? "Yes" : "No"}
                           </Badge>
                         </Td>
                         <Td py="12px">
