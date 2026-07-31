@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Flex,
@@ -38,12 +38,19 @@ import {
   Divider,
   VStack,
   BreadcrumbItem,
+  Icon,
+  Wrap,
+  Tag,
+  TagLabel,
+  TagCloseButton,
 } from "@chakra-ui/react";
 import {
   FiSearch,
   FiChevronLeft,
   FiChevronRight,
   FiMoreVertical,
+  FiClock,
+  FiPlus,
 } from "react-icons/fi";
 import { Route, useHistory } from "react-router-dom";
 import dayjs from "dayjs";
@@ -51,6 +58,7 @@ import {
   adminListMISReports,
   adminGetMISKPIs,
   adminGenerateMISReport,
+  adminCreateMISSchedule,
   adminDeleteMISReport,
   adminGetCourseListing,
   adminGetDepartmentListing,
@@ -62,7 +70,6 @@ import {
 import { AdminMainAreaWrapper } from "../../../layouts";
 import { Breadcrumb, Link } from "../../../components";
 import { motion } from "framer-motion";
-import ScheduleReportModal from "./components/ScheduleReportModal";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -151,6 +158,31 @@ const getStatusColor = (status) => {
   }
 };
 
+const EXTENSION_BY_FORMAT = { json: "json", pdf: "pdf", excel: "xlsx", csv: "csv" };
+
+// forces an actual file save in the requested format — a plain `window.open`/anchor
+// click lets the browser view JSON/CSV/PDF inline instead of downloading it, and
+// won't apply the extension for the format the user picked
+const triggerReportDownload = async (url, filenameBase, format) => {
+  const ext = EXTENSION_BY_FORMAT[format] ?? format ?? "json";
+  const filename = `${filenameBase}.${ext}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("download failed");
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } catch {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+};
+
 const CATEGORY_OPTIONS = [
   { value: "academic", label: "Academic" },
   { value: "administrative", label: "Administrative" },
@@ -187,6 +219,8 @@ const CATEGORY_METRIC_COLUMNS = {
   ],
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const GENERATE_FORM_DEFAULT = {
   reportCategory: "academic",
   reportName: "",
@@ -195,6 +229,7 @@ const GENERATE_FORM_DEFAULT = {
   accessLevel: [],
   metrics: [],
   filters: { studentId: "", departmentId: "", startDate: "", endDate: "" },
+  schedule: { enabled: false, day: "", time: "10:00", delivery: "dashboard", emails: [] },
 };
 
 // per requirement: each category exposes only the filters relevant to it
@@ -209,8 +244,8 @@ const CATEGORY_FILTER_FIELDS = {
 const MISReportsPage = () => {
   const toast = useToast();
   const history = useHistory();
-  const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isGenerateOpen, onOpen: onGenerateOpen, onClose: onGenerateClose } = useDisclosure();
+  const [scheduleEmailInput, setScheduleEmailInput] = useState("");
 
   const openReportDetail = (report) => {
     history.push(`/admin/mis-reports/${report.id}`);
@@ -239,6 +274,7 @@ const MISReportsPage = () => {
   const [departmentOptions, setDepartmentOptions] = useState([]);
   const [studentOptions, setStudentOptions] = useState([]);
   const [instructorOptions, setInstructorOptions] = useState([]);
+  const [allUserOptions, setAllUserOptions] = useState([]);
 
   useEffect(() => {
     adminGetCourseListing({ limit: 200 })
@@ -253,7 +289,18 @@ const MISReportsPage = () => {
     adminGetUserListing({ limit: 200, role: "Instructor" })
       .then(({ users }) => setInstructorOptions(users ?? []))
       .catch(() => setInstructorOptions([]));
+    adminGetUserListing({ limit: 500 })
+      .then(({ users }) => setAllUserOptions(users ?? []))
+      .catch(() => setAllUserOptions([]));
   }, []);
+
+  // resolve "generatedBy" (a user id from the API) to a display name
+  const userNameById = useMemo(() => {
+    const map = {};
+    allUserOptions.forEach((u) => { map[String(u.id)] = `${u.firstName} ${u.lastName}`.trim(); });
+    return map;
+  }, [allUserOptions]);
+  const resolveGeneratedBy = (generatedBy) => generatedBy ? (userNameById[String(generatedBy)] ?? generatedBy) : "—";
 
   // default to "all variables selected" whenever the modal opens or the category changes
   useEffect(() => {
@@ -369,15 +416,53 @@ const MISReportsPage = () => {
     }
   };
 
-  const handleGenerateClose = () => { setGenerateForm(GENERATE_FORM_DEFAULT); onGenerateClose(); };
+  const handleGenerateClose = () => {
+    setGenerateForm(GENERATE_FORM_DEFAULT);
+    setScheduleEmailInput("");
+    onGenerateClose();
+  };
+
+  const addScheduleEmail = () => {
+    const value = scheduleEmailInput.trim();
+    if (!value) return;
+    if (!EMAIL_RE.test(value)) {
+      toast({ description: "Enter a valid email address.", status: "warning", position: "top" });
+      return;
+    }
+    setGenerateForm((f) => ({
+      ...f,
+      schedule: { ...f.schedule, emails: f.schedule.emails.includes(value) ? f.schedule.emails : [...f.schedule.emails, value] },
+    }));
+    setScheduleEmailInput("");
+  };
+
+  const removeScheduleEmail = (email) =>
+    setGenerateForm((f) => ({ ...f, schedule: { ...f.schedule, emails: f.schedule.emails.filter((e) => e !== email) } }));
 
   const handleGenerate = async () => {
     if (!generateForm.reportName.trim()) {
       toast({ description: "Report name is required.", status: "warning", position: "top" });
       return;
     }
+    const { schedule } = generateForm;
+    const scheduleNeedsEmail = schedule.enabled && (schedule.delivery === "email" || schedule.delivery === "both");
+    if (scheduleNeedsEmail && schedule.emails.length === 0) {
+      toast({ description: "Add at least one email to deliver the scheduled report to.", status: "warning", position: "top" });
+      return;
+    }
     setGenerating(true);
     try {
+      if (schedule.enabled) {
+        await adminCreateMISSchedule({
+          reportCategory: generateForm.reportCategory,
+          frequency: generateForm.frequency,
+          day: schedule.day,
+          time: schedule.time,
+          deliveryMethod: schedule.delivery,
+          ...(scheduleNeedsEmail ? { emails: schedule.emails } : {}),
+        });
+      }
+
       const { filters: f } = generateForm;
       const cleanFilters = {};
       if (f.studentId)    cleanFilters.studentId    = f.studentId;
@@ -385,7 +470,7 @@ const MISReportsPage = () => {
       if (f.startDate)    cleanFilters.startDate    = f.startDate;
       if (f.endDate)      cleanFilters.endDate      = f.endDate;
 
-      const { message } = await adminGenerateMISReport({
+      const { report, message } = await adminGenerateMISReport({
         reportCategory: generateForm.reportCategory,
         reportName: generateForm.reportName,
         reportFormat: generateForm.reportFormat,
@@ -394,7 +479,16 @@ const MISReportsPage = () => {
         metrics: generateForm.metrics,
         filters: cleanFilters,
       });
-      toast({ description: message || "Report generated successfully.", status: "success", position: "top" });
+      toast({
+        description: message || (schedule.enabled ? "Report generated and schedule saved." : "Report generated successfully."),
+        status: "success", position: "top",
+      });
+
+      if (report?.downloadUrl) {
+        const baseName = (generateForm.reportName || report.reportId || "report").replace(/[^\w-]+/g, "_");
+        triggerReportDownload(report.downloadUrl, baseName, generateForm.reportFormat);
+      }
+
       handleGenerateClose();
       fetchReports(filters);
     } catch (err) {
@@ -546,7 +640,7 @@ const MISReportsPage = () => {
                       {item.reportCategory}
                     </Badge>
                   </Td>
-                  <Td fontSize="12px" color="#667085" whiteSpace="nowrap">{item.generatedBy ?? "—"}</Td>
+                  <Td fontSize="12px" color="#667085" whiteSpace="nowrap">{resolveGeneratedBy(item.generatedBy)}</Td>
                   <Td fontSize="12px" color="#667085" whiteSpace="nowrap">
                     {item.generatedDate ? dayjs(item.generatedDate).format("DD MMM YYYY, hh:mm A") : "—"}
                   </Td>
@@ -656,12 +750,6 @@ const MISReportsPage = () => {
           </Text>
           <HStack spacing={3}>
             <Button
-              variant="outline" borderColor="#660066" color="#660066"
-              h="40px" fontSize="14px" fontWeight="500" onClick={onOpen}
-            >
-              Schedule report
-            </Button>
-            <Button
               bg="#660066" color="white" _hover={{ bg: "#550055" }}
               h="40px" fontSize="14px" fontWeight="500" onClick={onGenerateOpen}
             >
@@ -742,6 +830,96 @@ const MISReportsPage = () => {
                   <option value="annual">Annual</option>
                 </Select>
               </FormControl>
+
+              {!generateForm.schedule.enabled ? (
+                <Button
+                  variant="link" alignSelf="flex-start" color="#660066"
+                  fontSize="13px" fontWeight="600"
+                  onClick={() => setGenerateForm((f) => ({
+                    ...f,
+                    schedule: { ...f.schedule, enabled: true },
+                    frequency: f.frequency === "on_demand" ? "daily" : f.frequency,
+                  }))}
+                >
+                  + Schedule this report
+                </Button>
+              ) : (
+                <Box border="1px solid #E4E7EC" borderRadius="md" p={4}>
+                  <Flex justify="space-between" align="center" mb={3}>
+                    <Text fontSize="13px" fontWeight="600" color="#667085">Schedule Settings</Text>
+                    <Button
+                      variant="link" color="#B42318" fontSize="12px" fontWeight="600"
+                      onClick={() => setGenerateForm((f) => ({ ...f, schedule: GENERATE_FORM_DEFAULT.schedule }))}
+                    >
+                      Remove schedule
+                    </Button>
+                  </Flex>
+                  <VStack spacing={4} align="stretch">
+                    <FormControl>
+                      <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Frequency Day</FormLabel>
+                      <Select
+                        placeholder="Every Monday" borderRadius="md" fontSize="14px"
+                        value={generateForm.schedule.day}
+                        onChange={(e) => setGenerateForm((f) => ({ ...f, schedule: { ...f.schedule, day: e.target.value } }))}
+                      >
+                        {['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].map((d) => (
+                          <option key={d} value={d}>Every {d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Time</FormLabel>
+                      <HStack border="1px solid" borderColor="gray.200" borderRadius="md" px={3} py={2} justify="space-between">
+                        <ChakraInput
+                          type="time" border="none" p={0} fontSize="14px" color="#101928" _focus={{ boxShadow: "none" }}
+                          value={generateForm.schedule.time}
+                          onChange={(e) => setGenerateForm((f) => ({ ...f, schedule: { ...f.schedule, time: e.target.value } }))}
+                        />
+                        <Icon as={FiClock} color="gray.400" flexShrink={0} />
+                      </HStack>
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Delivery Method</FormLabel>
+                      <Select
+                        borderRadius="md" fontSize="14px"
+                        value={generateForm.schedule.delivery}
+                        onChange={(e) => setGenerateForm((f) => ({ ...f, schedule: { ...f.schedule, delivery: e.target.value } }))}
+                      >
+                        <option value="dashboard">Dashboard</option>
+                        <option value="email">Email</option>
+                        <option value="both">Both</option>
+                      </Select>
+                    </FormControl>
+                    {(generateForm.schedule.delivery === "email" || generateForm.schedule.delivery === "both") && (
+                      <FormControl isRequired>
+                        <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Recipient Emails</FormLabel>
+                        <HStack mb={2}>
+                          <ChakraInput
+                            type="email" placeholder="name@example.com" borderRadius="md" fontSize="14px"
+                            value={scheduleEmailInput}
+                            onChange={(e) => setScheduleEmailInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addScheduleEmail(); } }}
+                          />
+                          <IconButton
+                            icon={<FiPlus />} aria-label="Add email"
+                            bg="#660066" color="white" _hover={{ bg: "#550055" }}
+                            onClick={addScheduleEmail}
+                          />
+                        </HStack>
+                        <Wrap>
+                          {generateForm.schedule.emails.map((email) => (
+                            <Tag key={email} size="md" borderRadius="full" bg="#F4F0FF" color="#6B21A8">
+                              <TagLabel>{email}</TagLabel>
+                              <TagCloseButton onClick={() => removeScheduleEmail(email)} />
+                            </Tag>
+                          ))}
+                        </Wrap>
+                      </FormControl>
+                    )}
+                  </VStack>
+                </Box>
+              )}
+
               <FormControl>
                 <FormLabel fontSize="14px" fontWeight="500" color="#344054">Access Level</FormLabel>
                 <HStack spacing={6} flexWrap="wrap">
@@ -853,8 +1031,6 @@ const MISReportsPage = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
-
-      <ScheduleReportModal isOpen={isOpen} onClose={onClose} />
     </AdminMainAreaWrapper>
   );
 };
