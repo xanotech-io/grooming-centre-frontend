@@ -4,10 +4,11 @@ import {
   Input, InputGroup, InputLeftElement, Select,
   Checkbox, IconButton, Table, Thead, Tbody, Tr, Th, Td,
   Badge, Spinner, useToast, Tag, TagLabel, TagCloseButton,
+  Menu, MenuButton, MenuList, MenuItem,
 } from '@chakra-ui/react';
 import {
-  FiSearch, FiPlus, FiSave, FiPlay, FiEdit2, FiTrash2, FiArchive,
-  FiChevronLeft, FiChevronRight, FiChevronDown, FiEye, FiX,
+  FiSearch, FiPlus,
+  FiChevronLeft, FiChevronRight, FiChevronDown, FiX, FiMoreVertical,
 } from 'react-icons/fi';
 import { Route } from 'react-router-dom';
 import { AdminMainAreaWrapper } from '../../../layouts';
@@ -18,7 +19,6 @@ import {
   reportBuilderUpdateConfig,
   reportBuilderDeleteConfig,
   reportBuilderExecuteConfig,
-  reportBuilderPreview,
   reportBuilderGetStats,
   adminArchiveReport,
 } from '../../../services';
@@ -35,7 +35,10 @@ const INITIAL_FORM = {
   accessLevel: 'admin',
   sharedWith: [],
   status: 'draft',
+  schedule: { enabled: false, frequency: 'daily', day: 'monday', time: '10:00', delivery: 'dashboard', emails: [] },
 };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const FALLBACK_FIELDS = {
   exam_results: [
@@ -97,17 +100,18 @@ const ReportBuilderPage = () => {
   const toast = useToast();
   const [view, setView] = useState('list');
   const [editingConfigId, setEditingConfigId] = useState(null);
+  const [viewOnly, setViewOnly] = useState(false);
   const [configs, setConfigs] = useState([]);
   const [stats, setStats] = useState(null);
   const [catalog, setCatalog] = useState({});
   const [previewResult, setPreviewResult] = useState(null);
   const [listLoading, setListLoading] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [shareInput, setShareInput] = useState('');
+  const [scheduleEmailInput, setScheduleEmailInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSource, setFilterSource] = useState('');
@@ -176,7 +180,7 @@ const ReportBuilderPage = () => {
     if (view === 'builder') fetchCatalog();
   }, [view, fetchCatalog]);
 
-  const openBuilder = (config = null) => {
+  const openBuilder = (config = null, readOnly = false) => {
     if (config) {
       setEditingConfigId(config.id);
       setForm({
@@ -191,18 +195,27 @@ const ReportBuilderPage = () => {
         accessLevel: config.accessLevel ?? 'admin',
         sharedWith: config.sharedWith ?? [],
         status: config.status ?? 'draft',
+        schedule: { ...INITIAL_FORM.schedule, ...(config.schedule ?? {}) },
       });
     } else {
       setEditingConfigId(null);
       setForm(INITIAL_FORM);
     }
     setPreviewResult(null);
+    setScheduleEmailInput('');
+    setViewOnly(readOnly);
     setView('builder');
   };
 
   const handleSave = async (statusOverride = null) => {
     if (!form.name.trim()) {
       toast({ title: 'Report name is required', status: 'warning', duration: 3000 });
+      return;
+    }
+    const scheduleNeedsEmail = form.schedule.enabled
+      && (form.schedule.delivery === 'email' || form.schedule.delivery === 'both');
+    if (scheduleNeedsEmail && form.schedule.emails.length === 0) {
+      toast({ title: 'Add at least one email to deliver the scheduled report to', status: 'warning', duration: 3000 });
       return;
     }
     const payload = { ...form };
@@ -227,24 +240,11 @@ const ReportBuilderPage = () => {
     }
   };
 
-  const handlePreview = async () => {
-    setPreviewLoading(true);
-    setPreviewResult(null);
-    try {
-      const { result } = await reportBuilderPreview(form);
-      setPreviewResult(result);
-    } catch (e) {
-      toast({ title: e?.message ?? 'Preview failed', status: 'error', duration: 3000 });
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
   const handleExecute = async (cfg) => {
     try {
+      openBuilder(cfg, true);
       const { result } = await reportBuilderExecuteConfig(cfg.id);
       setPreviewResult(result);
-      openBuilder(cfg);
       fetchStats();
       toast({ title: 'Report executed successfully', status: 'success', duration: 3000 });
     } catch (e) {
@@ -260,6 +260,8 @@ const ReportBuilderPage = () => {
         reportCategory: cfg.dataSource,
       });
       toast({ title: message || 'Report archived', status: 'success', duration: 3000 });
+      fetchList();
+      fetchStats();
     } catch (e) {
       toast({ title: e?.message ?? 'Archive failed', status: 'error', duration: 3000 });
     }
@@ -295,6 +297,27 @@ const ReportBuilderPage = () => {
 
   const removeShare = (item) => {
     setForm(f => ({ ...f, sharedWith: f.sharedWith.filter(s => s !== item) }));
+  };
+
+  const addScheduleEmail = () => {
+    const val = scheduleEmailInput.trim();
+    if (!val) return;
+    if (!EMAIL_RE.test(val)) {
+      toast({ title: 'Enter a valid email address', status: 'warning', duration: 3000 });
+      return;
+    }
+    setForm(f => ({
+      ...f,
+      schedule: {
+        ...f.schedule,
+        emails: f.schedule.emails.includes(val) ? f.schedule.emails : [...f.schedule.emails, val],
+      },
+    }));
+    setScheduleEmailInput('');
+  };
+
+  const removeScheduleEmail = (email) => {
+    setForm(f => ({ ...f, schedule: { ...f.schedule, emails: f.schedule.emails.filter(e => e !== email) } }));
   };
 
   const filteredConfigs = configs.filter(c =>
@@ -445,45 +468,25 @@ const ReportBuilderPage = () => {
                             : '—'}
                         </Text>
                       </Td>
-                      <Td px={4} py={4}>
-                        <HStack spacing={1}>
-                          <IconButton
-                            icon={<FiPlay />}
-                            size="sm"
+                      <Td px={4} py={4} onClick={e => e.stopPropagation()}>
+                        <Menu>
+                          <MenuButton
+                            as={IconButton}
+                            icon={<FiMoreVertical />}
                             variant="ghost"
-                            color="#660066"
-                            aria-label="Execute report"
-                            title="Execute"
-                            onClick={() => handleExecute(cfg)}
-                          />
-                          <IconButton
-                            icon={<FiEdit2 />}
                             size="sm"
-                            variant="ghost"
-                            color="#3182CE"
-                            aria-label="Edit configuration"
-                            title="Edit"
-                            onClick={() => openBuilder(cfg)}
+                            color="#98A2B3"
+                            border="1px solid #E4E7EC"
+                            borderRadius="md"
+                            aria-label="Report actions"
                           />
-                          <IconButton
-                            icon={<FiArchive />}
-                            size="sm"
-                            variant="ghost"
-                            color="#B54708"
-                            aria-label="Archive report"
-                            title="Archive"
-                            onClick={() => handleArchive(cfg)}
-                          />
-                          <IconButton
-                            icon={<FiTrash2 />}
-                            size="sm"
-                            variant="ghost"
-                            color="#E53E3E"
-                            aria-label="Delete configuration"
-                            title="Delete"
-                            onClick={() => handleDelete(cfg.id)}
-                          />
-                        </HStack>
+                          <MenuList>
+                            <MenuItem fontSize="13px" onClick={() => handleExecute(cfg)}>View</MenuItem>
+                            <MenuItem fontSize="13px" onClick={() => openBuilder(cfg)}>Edit</MenuItem>
+                            <MenuItem fontSize="13px" onClick={() => handleArchive(cfg)}>Archive</MenuItem>
+                            <MenuItem fontSize="13px" color="red.500" onClick={() => handleDelete(cfg.id)}>Delete</MenuItem>
+                          </MenuList>
+                        </Menu>
                       </Td>
                     </Tr>
                   ))
@@ -538,50 +541,29 @@ const ReportBuilderPage = () => {
             Back to Reports
           </Button>
           <Text fontSize="20px" fontWeight="700" color="#101928">
-            {editingConfigId ? 'Edit Report Configuration' : 'New Report Configuration'}
+            {viewOnly
+              ? 'View Report Configuration'
+              : editingConfigId
+                ? 'Edit Report Configuration'
+                : 'New Report Configuration'}
           </Text>
         </HStack>
-        <HStack spacing={3}>
-          <Button
-            leftIcon={<FiEye />}
-            variant="outline"
-            borderColor="#E4E7EC"
-            color="#344054"
-            h="44px"
-            fontSize="14px"
-            fontWeight="600"
-            isLoading={previewLoading}
-            onClick={handlePreview}
-          >
-            Preview
-          </Button>
-          <Button
-            leftIcon={<FiSave />}
-            variant="outline"
-            borderColor="#660066"
-            color="#660066"
-            h="44px"
-            fontSize="14px"
-            fontWeight="600"
-            isLoading={saving}
-            onClick={() => handleSave('draft')}
-          >
-            Save Draft
-          </Button>
-          <Button
-            leftIcon={<FiPlay />}
-            bg="#660066"
-            color="white"
-            _hover={{ bg: '#550055' }}
-            h="44px"
-            fontSize="14px"
-            fontWeight="600"
-            isLoading={saving}
-            onClick={() => handleSave('finalized')}
-          >
-            Finalize
-          </Button>
-        </HStack>
+        {!viewOnly && (
+          <HStack spacing={3}>
+            <Button
+              bg="#660066"
+              color="white"
+              _hover={{ bg: '#550055' }}
+              h="44px"
+              fontSize="14px"
+              fontWeight="600"
+              isLoading={saving}
+              onClick={() => handleSave('finalized')}
+            >
+              Generate Report
+            </Button>
+          </HStack>
+        )}
       </Flex>
 
       <Grid templateColumns="repeat(12, 1fr)" gap={5}>
@@ -595,6 +577,7 @@ const ReportBuilderPage = () => {
                 <VStack align="start" spacing={2}>
                   <Text fontSize="13px" fontWeight="500" color="#344054">Report Name *</Text>
                   <Input
+                    isReadOnly={viewOnly}
                     placeholder="e.g. Exam Score Summary"
                     bg="#F9FAFB"
                     border="1px solid #E4E7EC"
@@ -607,6 +590,7 @@ const ReportBuilderPage = () => {
                 <VStack align="start" spacing={2}>
                   <Text fontSize="13px" fontWeight="500" color="#344054">Description</Text>
                   <Input
+                    isReadOnly={viewOnly}
                     placeholder="Optional description"
                     bg="#F9FAFB"
                     border="1px solid #E4E7EC"
@@ -618,7 +602,7 @@ const ReportBuilderPage = () => {
                 </VStack>
                 <VStack align="start" spacing={2}>
                   <Text fontSize="13px" fontWeight="500" color="#344054">Data Source *</Text>
-                  <Select
+                  <Select isDisabled={viewOnly}
                     bg="#F9FAFB"
                     border="1px solid #E4E7EC"
                     h="42px"
@@ -658,7 +642,7 @@ const ReportBuilderPage = () => {
                   ) : (
                     <VStack align="start" spacing={3}>
                       {sourceFields.map(field => (
-                        <Checkbox
+                        <Checkbox isDisabled={viewOnly}
                           key={field.key}
                           colorScheme="purple"
                           isChecked={form.dataFields.includes(field.key)}
@@ -683,6 +667,7 @@ const ReportBuilderPage = () => {
                       <VStack align="start" spacing={2}>
                         <Text fontSize="13px" fontWeight="500" color="#344054">Start Date</Text>
                         <Input
+                          isReadOnly={viewOnly}
                           type="date"
                           bg="#F9FAFB"
                           border="1px solid #E4E7EC"
@@ -697,6 +682,7 @@ const ReportBuilderPage = () => {
                       <VStack align="start" spacing={2}>
                         <Text fontSize="13px" fontWeight="500" color="#344054">End Date</Text>
                         <Input
+                          isReadOnly={viewOnly}
                           type="date"
                           bg="#F9FAFB"
                           border="1px solid #E4E7EC"
@@ -714,7 +700,7 @@ const ReportBuilderPage = () => {
                     <Grid templateColumns="repeat(2, 1fr)" gap={4}>
                       <VStack align="start" spacing={2}>
                         <Text fontSize="13px" fontWeight="500" color="#344054">Grade</Text>
-                        <Select
+                        <Select isDisabled={viewOnly}
                           bg="#F9FAFB"
                           border="1px solid #E4E7EC"
                           h="42px"
@@ -732,7 +718,7 @@ const ReportBuilderPage = () => {
                       </VStack>
                       <VStack align="start" spacing={2}>
                         <Text fontSize="13px" fontWeight="500" color="#344054">Status</Text>
-                        <Select
+                        <Select isDisabled={viewOnly}
                           bg="#F9FAFB"
                           border="1px solid #E4E7EC"
                           h="42px"
@@ -754,7 +740,7 @@ const ReportBuilderPage = () => {
                     <Grid templateColumns="repeat(2, 1fr)" gap={4}>
                       <VStack align="start" spacing={2}>
                         <Text fontSize="13px" fontWeight="500" color="#344054">Sort By Field</Text>
-                        <Select
+                        <Select isDisabled={viewOnly}
                           bg="#F9FAFB"
                           border="1px solid #E4E7EC"
                           h="42px"
@@ -775,7 +761,7 @@ const ReportBuilderPage = () => {
                       </VStack>
                       <VStack align="start" spacing={2}>
                         <Text fontSize="13px" fontWeight="500" color="#344054">Sort Order</Text>
-                        <Select
+                        <Select isDisabled={viewOnly}
                           bg="#F9FAFB"
                           border="1px solid #E4E7EC"
                           h="42px"
@@ -801,7 +787,7 @@ const ReportBuilderPage = () => {
                             return (
                               <Tag key={g} size="sm" bg="#F3E8FF" color="#660066" borderRadius="full">
                                 <TagLabel fontSize="12px">{field?.label ?? g}</TagLabel>
-                                <TagCloseButton
+                                <TagCloseButton isDisabled={viewOnly}
                                   onClick={() =>
                                     setForm(f => ({ ...f, groupBy: f.groupBy.filter(x => x !== g) }))
                                   }
@@ -811,7 +797,7 @@ const ReportBuilderPage = () => {
                           })}
                         </HStack>
                       )}
-                      <Select
+                      <Select isDisabled={viewOnly}
                         bg="#F9FAFB"
                         border="1px solid #E4E7EC"
                         h="42px"
@@ -865,7 +851,7 @@ const ReportBuilderPage = () => {
               {/* Access Level */}
               <Box>
                 <Text fontSize="13px" fontWeight="600" color="#344054" mb={2}>Access Level</Text>
-                <Select
+                <Select isDisabled={viewOnly}
                   bg="#F9FAFB"
                   border="1px solid #E4E7EC"
                   fontSize="13px"
@@ -884,6 +870,7 @@ const ReportBuilderPage = () => {
                 <Text fontSize="13px" fontWeight="600" color="#344054" mb={2}>Share With</Text>
                 <HStack mb={2}>
                   <Input
+                    isReadOnly={viewOnly}
                     placeholder="Enter username"
                     bg="#F9FAFB"
                     border="1px solid #E4E7EC"
@@ -893,7 +880,7 @@ const ReportBuilderPage = () => {
                     onChange={e => setShareInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addShare()}
                   />
-                  <IconButton
+                  <IconButton isDisabled={viewOnly}
                     icon={<FiPlus />}
                     size="sm"
                     bg="#660066"
@@ -907,7 +894,7 @@ const ReportBuilderPage = () => {
                   {form.sharedWith.map(user => (
                     <HStack key={user} justify="space-between" w="100%">
                       <Text fontSize="12px" color="#475367">{user}</Text>
-                      <IconButton
+                      <IconButton isDisabled={viewOnly}
                         icon={<FiX />}
                         size="xs"
                         variant="ghost"
@@ -918,6 +905,148 @@ const ReportBuilderPage = () => {
                     </HStack>
                   ))}
                 </VStack>
+              </Box>
+
+              {/* Schedule */}
+              <Box>
+                <Flex justify="space-between" align="center" mb={2}>
+                  <Text fontSize="13px" fontWeight="600" color="#344054">Schedule</Text>
+                  {form.schedule.enabled && !viewOnly && (
+                    <Button
+                      variant="link"
+                      color="#B42318"
+                      fontSize="12px"
+                      fontWeight="600"
+                      onClick={() => setForm(f => ({ ...f, schedule: INITIAL_FORM.schedule }))}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </Flex>
+
+                {!form.schedule.enabled ? (
+                  <Button
+                    variant="link"
+                    alignSelf="flex-start"
+                    color="#660066"
+                    fontSize="13px"
+                    fontWeight="600"
+                    isDisabled={viewOnly}
+                    onClick={() => setForm(f => ({ ...f, schedule: { ...f.schedule, enabled: true } }))}
+                  >
+                    + Schedule this report
+                  </Button>
+                ) : (
+                  <VStack align="stretch" spacing={3}>
+                    <Box>
+                      <Text fontSize="12px" color="#667085" mb={1}>Frequency</Text>
+                      <Select isDisabled={viewOnly}
+                        bg="#F9FAFB"
+                        border="1px solid #E4E7EC"
+                        h="40px"
+                        fontSize="13px"
+                        value={form.schedule.frequency}
+                        onChange={e => setForm(f => ({ ...f, schedule: { ...f.schedule, frequency: e.target.value } }))}
+                      >
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                      </Select>
+                    </Box>
+
+                    {form.schedule.frequency === 'weekly' && (
+                      <Box>
+                        <Text fontSize="12px" color="#667085" mb={1}>Day</Text>
+                        <Select isDisabled={viewOnly}
+                          bg="#F9FAFB"
+                          border="1px solid #E4E7EC"
+                          h="40px"
+                          fontSize="13px"
+                          value={form.schedule.day}
+                          onChange={e => setForm(f => ({ ...f, schedule: { ...f.schedule, day: e.target.value } }))}
+                        >
+                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(d => (
+                            <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                          ))}
+                        </Select>
+                      </Box>
+                    )}
+
+                    <Box>
+                      <Text fontSize="12px" color="#667085" mb={1}>Time</Text>
+                      <Input
+                        isReadOnly={viewOnly}
+                        type="time"
+                        bg="#F9FAFB"
+                        border="1px solid #E4E7EC"
+                        h="40px"
+                        fontSize="13px"
+                        value={form.schedule.time}
+                        onChange={e => setForm(f => ({ ...f, schedule: { ...f.schedule, time: e.target.value } }))}
+                      />
+                    </Box>
+
+                    <Box>
+                      <Text fontSize="12px" color="#667085" mb={1}>Delivery Method</Text>
+                      <Select isDisabled={viewOnly}
+                        bg="#F9FAFB"
+                        border="1px solid #E4E7EC"
+                        h="40px"
+                        fontSize="13px"
+                        value={form.schedule.delivery}
+                        onChange={e => setForm(f => ({ ...f, schedule: { ...f.schedule, delivery: e.target.value } }))}
+                      >
+                        <option value="dashboard">Dashboard</option>
+                        <option value="email">Email</option>
+                        <option value="both">Both</option>
+                      </Select>
+                    </Box>
+
+                    {(form.schedule.delivery === 'email' || form.schedule.delivery === 'both') && (
+                      <Box>
+                        <Text fontSize="12px" color="#667085" mb={1}>Recipient Emails</Text>
+                        <HStack mb={2}>
+                          <Input
+                            isReadOnly={viewOnly}
+                            type="email"
+                            placeholder="name@example.com"
+                            bg="#F9FAFB"
+                            border="1px solid #E4E7EC"
+                            fontSize="12px"
+                            h="36px"
+                            value={scheduleEmailInput}
+                            onChange={e => setScheduleEmailInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && addScheduleEmail()}
+                          />
+                          <IconButton isDisabled={viewOnly}
+                            icon={<FiPlus />}
+                            size="sm"
+                            bg="#660066"
+                            color="white"
+                            _hover={{ bg: '#550055' }}
+                            onClick={addScheduleEmail}
+                            aria-label="Add email"
+                          />
+                        </HStack>
+                        <VStack align="start" spacing={1}>
+                          {form.schedule.emails.map(email => (
+                            <HStack key={email} justify="space-between" w="100%">
+                              <Text fontSize="12px" color="#475367">{email}</Text>
+                              <IconButton isDisabled={viewOnly}
+                                icon={<FiX />}
+                                size="xs"
+                                variant="ghost"
+                                color="#667085"
+                                onClick={() => removeScheduleEmail(email)}
+                                aria-label={`Remove ${email}`}
+                              />
+                            </HStack>
+                          ))}
+                        </VStack>
+                      </Box>
+                    )}
+                  </VStack>
+                )}
               </Box>
 
               {/* Export Format */}
@@ -948,7 +1077,7 @@ const ReportBuilderPage = () => {
       </Grid>
 
       {/* Preview Results */}
-      {(previewLoading || previewResult) && (
+      {previewResult && (
         <Box mt={6} bg="white" borderRadius="xl" border="1.5px solid #F2F4F7" overflow="hidden">
           <Flex p={4} align="center" justify="space-between" borderBottom="1px solid #F2F4F7">
             <Text fontSize="15px" fontWeight="700" color="#101928">Preview Results</Text>
@@ -969,14 +1098,7 @@ const ReportBuilderPage = () => {
             )}
           </Flex>
 
-          {previewLoading ? (
-            <Flex justify="center" align="center" h="160px">
-              <VStack spacing={3}>
-                <Spinner color="#660066" size="lg" />
-                <Text fontSize="13px" color="#667085">Generating preview...</Text>
-              </VStack>
-            </Flex>
-          ) : previewResult?.data?.length > 0 ? (
+          {previewResult?.data?.length > 0 ? (
             <Box overflowX="auto">
               <Table variant="simple" size="sm">
                 <Thead bg="#F9FAFB">
