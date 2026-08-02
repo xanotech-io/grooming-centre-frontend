@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Route, useParams } from "react-router-dom";
 import { Box, Flex, Grid, GridItem } from "@chakra-ui/layout";
 import { BreadcrumbItem, Badge } from "@chakra-ui/react";
@@ -9,8 +10,9 @@ import {
   Link,
   SkeletonText,
   RichTextToView,
+  WorkflowSubmitModal,
 } from "../../../components";
-import { FaEdit, FaDownload, FaFilePowerpoint } from "react-icons/fa";
+import { FaEdit, FaDownload, FaFilePowerpoint, FaFileWord, FaFileAlt, FaSitemap } from "react-icons/fa";
 import useViewLessonInfo from "./hooks/useViewLessonInfo";
 import { Skeleton } from "@chakra-ui/skeleton";
 import dayjs from "dayjs";
@@ -18,13 +20,14 @@ import dayjs from "dayjs";
 const ViewLessonInfoPage = () => {
   const manager = useViewLessonInfo();
   const { courseId } = useParams();
+  const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
 
   const { lesson, isLoading } = manager;
 
-  console.log(lesson?.file);
-
   const fileIsAVideo = /((\.)(mp4|mkv))$/i.test(lesson?.file);
   const fileIsPowerPoint = /((\.)(ppt|pptx))$/i.test(lesson?.file) || lesson?.lessonType?.name === "PowerPoint";
+  const fileIsWord = /((\.)(doc|docx))$/i.test(lesson?.file);
+  const fileIsPDF = /((\.)(pdf))$/i.test(lesson?.file);
 
   const handleDownloadFile = () => {
     if (lesson?.file) {
@@ -48,7 +51,9 @@ const ViewLessonInfoPage = () => {
           }
           item3={
             <BreadcrumbItem isCurrentPage>
-              <Link href={`/admin/courses/details/${courseId}/lessons`}>
+              <Link
+                href={`/admin/courses/${courseId}/module/${lesson?.moduleId}/lessons`}
+              >
                 Lessons
               </Link>
             </BreadcrumbItem>
@@ -69,16 +74,28 @@ const ViewLessonInfoPage = () => {
           flexDirection="row"
         >
           <Heading fontSize="heading.h3">Lesson details</Heading>
-          <Button
-            disabled={!lesson}
-            paddingLeft={2}
-            sizes="small"
-            rightIcon={<FaEdit />}
-            secondary
-            link={`/admin/courses/${lesson?.courseId}/lessons/edit/${lesson?.id}`}
-          >
-            Edit
-          </Button>
+          <Flex gap={3}>
+            <Button
+              disabled={!lesson}
+              paddingLeft={2}
+              sizes="small"
+              rightIcon={<FaSitemap />}
+              secondary
+              onClick={() => setIsWorkflowModalOpen(true)}
+            >
+              Submit for Approval
+            </Button>
+            <Button
+              disabled={!lesson}
+              paddingLeft={2}
+              sizes="small"
+              rightIcon={<FaEdit />}
+              secondary
+              link={`/admin/courses/${lesson?.courseId}/lessons/edit/${lesson?.id}`}
+            >
+              Edit
+            </Button>
+          </Flex>
         </Flex>
 
         <Box backgroundColor="white" paddingX={10} paddingY={12} shadow="md">
@@ -95,7 +112,7 @@ const ViewLessonInfoPage = () => {
               {lesson?.title}
             </Heading>
           )}
-          <Grid templateColumns="repeat(2, 1fr)" marginBottom={10}>
+          <Grid templateColumns="repeat(2, 1fr)" marginBottom={10} rowGap={8}>
             <GridItem>
               {isLoading ? (
                 <SkeletonText numberOfLines={2} width="100px" />
@@ -140,6 +157,30 @@ const ViewLessonInfoPage = () => {
                 </>
               )}
             </GridItem>
+            <GridItem>
+              {isLoading ? (
+                <SkeletonText numberOfLines={2} width="100px" />
+              ) : (
+                <>
+                  <Heading lineHeight={8} fontSize="heading.h6">
+                    File Type
+                  </Heading>
+                  <Text>{lesson?.fileType || "—"}</Text>
+                </>
+              )}
+            </GridItem>
+            <GridItem>
+              {isLoading ? (
+                <SkeletonText numberOfLines={2} width="100px" />
+              ) : (
+                <>
+                  <Heading lineHeight={8} fontSize="heading.h6">
+                    Uploaded By
+                  </Heading>
+                  <Text>{lesson?.uploadedBy || "—"}</Text>
+                </>
+              )}
+            </GridItem>
           </Grid>
           <Box marginBottom={10}>
             {isLoading ? (
@@ -181,37 +222,26 @@ const ViewLessonInfoPage = () => {
               </>
             ) : (
               <>
-                {console.log(lesson?.file)}
                 <Heading fontSize="heading.6">Lesson File</Heading>
                 <Box paddingTop={6}>
                   {fileIsPowerPoint ? (
-                    <Flex
-                      direction="column"
-                      alignItems="center"
-                      justifyContent="center"
-                      border="2px dashed"
-                      borderColor="gray.300"
-                      borderRadius="md"
-                      padding={8}
-                      minHeight="300px"
-                      backgroundColor="gray.50"
-                    >
-                      <FaFilePowerpoint size={80} color="#D24726" style={{ marginBottom: '16px' }} />
-                      <Heading fontSize="lg" color="gray.700" marginBottom={2}>
-                        PowerPoint Presentation
-                      </Heading>
-                      <Text color="gray.600" marginBottom={4} textAlign="center">
-                        {lesson?.file?.split('/').pop() || 'Presentation.pptx'}
-                      </Text>
-                      <Button
-                        leftIcon={<FaDownload />}
-                        colorScheme="orange"
-                        size="lg"
-                        onClick={handleDownloadFile}
-                      >
-                        Download PowerPoint File
-                      </Button>
-                    </Flex>
+                    <DocumentPreviewCard
+                      icon={<FaFilePowerpoint size={80} color="#D24726" />}
+                      label="PowerPoint Presentation"
+                      fileName={lesson?.file?.split('/').pop() || 'Presentation.pptx'}
+                      buttonLabel="Download PowerPoint File"
+                      colorScheme="orange"
+                      onDownload={handleDownloadFile}
+                    />
+                  ) : fileIsWord ? (
+                    <DocumentPreviewCard
+                      icon={<FaFileWord size={80} color="#2B579A" />}
+                      label="Word Document"
+                      fileName={lesson?.file?.split('/').pop() || 'Document.docx'}
+                      buttonLabel="Download Word Document"
+                      colorScheme="blue"
+                      onDownload={handleDownloadFile}
+                    />
                   ) : fileIsAVideo ? (
                     <iframe
                       title="Lesson Video"
@@ -219,14 +249,21 @@ const ViewLessonInfoPage = () => {
                       width="100%"
                       height="500px"
                     />
-                  ) : (
+                  ) : fileIsPDF ? (
                     <iframe
                       title="Lesson Pdf"
                       src={lesson?.file}
                       width="100%"
                       height="500px"
-                      // width="320px"
-                      // height="400px"
+                    />
+                  ) : (
+                    <DocumentPreviewCard
+                      icon={<FaFileAlt size={80} color="#718096" />}
+                      label="Course Document"
+                      fileName={lesson?.file?.split('/').pop() || 'Document'}
+                      buttonLabel="Download File"
+                      colorScheme="gray"
+                      onDownload={handleDownloadFile}
                     />
                   )}
                 </Box>
@@ -235,7 +272,57 @@ const ViewLessonInfoPage = () => {
           </Box>
         </Box>
       </Box>
+
+      <WorkflowSubmitModal
+        isOpen={isWorkflowModalOpen}
+        onClose={() => setIsWorkflowModalOpen(false)}
+        contentId={lesson?.id}
+        contentTitle={lesson?.title}
+        requestType="Lesson"
+      />
     </Box>
+  );
+};
+
+const DocumentPreviewCard = ({ icon, label, fileName, buttonLabel, colorScheme, onDownload }) => {
+  return (
+    <Flex
+      direction="column"
+      alignItems="center"
+      justifyContent="center"
+      border="2px dashed"
+      borderColor="gray.300"
+      borderRadius="md"
+      padding={8}
+      minHeight="300px"
+      backgroundColor="gray.50"
+    >
+      <Box
+        as="button"
+        type="button"
+        onClick={onDownload}
+        title={`Click to download ${fileName}`}
+        cursor="pointer"
+        marginBottom={4}
+        _hover={{ opacity: 0.8 }}
+      >
+        {icon}
+      </Box>
+      <Heading fontSize="lg" color="gray.700" marginBottom={2}>
+        {label}
+      </Heading>
+      <Text color="gray.600" marginBottom={4} textAlign="center">
+        {fileName}
+      </Text>
+      <Button
+        leftIcon={<FaDownload />}
+        colorScheme={colorScheme}
+        size="lg"
+        onClick={onDownload}
+      >
+        {buttonLabel}
+      </Button>
+    </Flex>
   );
 };
 

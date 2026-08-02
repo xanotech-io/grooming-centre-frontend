@@ -5,12 +5,10 @@ import {
   Heading,
   Table,
   Text,
-  Breadcrumb,
   Link,
 } from '../../../components';
-import { BreadcrumbItem, Tag } from '@chakra-ui/react';
+import {  Tag } from '@chakra-ui/react';
 import { FaSortAmountUpAlt } from 'react-icons/fa';
-import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
 import {
   adminDeleteStandaloneExaminationQuestion,
   adminGetStandaloneExaminationListing,

@@ -5,6 +5,7 @@ import { handleSuccessResponse } from "../helpers";
 import {
   adminGetStandaloneExaminationListingRes,
   adminGetStandaloneExaminationParticipantsRes,
+  standaloneExamAccessRecordsRes,
   // submitExaminationRes,
   // adminCreateExaminationQuestionRes,
   // adminCreateExaminationRes,
@@ -62,9 +63,17 @@ const adminGetStandaloneExaminationParticipants = [
 //   handleSuccessResponse(adminEditAssessmentQuestionRes)
 // );
 
+const standaloneExamAccessRecords = [
+  rest.get(
+    getUrl("/stand-alone-examination/access-records/:examId"),
+    handleSuccessResponse(standaloneExamAccessRecordsRes)
+  ),
+];
+
 const standaloneExamination = [
   ...adminGetStandaloneExaminationListing,
   ...adminGetStandaloneExaminationParticipants,
+  ...standaloneExamAccessRecords,
   // adminCreateExamination,
   // adminCreateExaminationQuestion,
   // adminEditExaminationQuestion,

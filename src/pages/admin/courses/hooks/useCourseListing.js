@@ -26,11 +26,11 @@ const useCourseListing = () => {
         fetcher
       );
       // console.log(courseListing );
-      if (componentIsMount)
+      if (componentIsMount.current)
         setCourseListing({ data: courseListing });
     } catch (err) {
       console.log(err.message);
-      if (componentIsMount) setCourseListing({ err: err.message });
+      if (componentIsMount.current) setCourseListing({ err: err.message });
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps

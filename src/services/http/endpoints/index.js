@@ -32,7 +32,7 @@ import { http } from '../..';
  * @returns {Promise<{ message: string }>}
  */
 export const adminInviteUser = async (body) => {
-  const path = '/admin/invite/user';
+  const path = '/v1/admin/invite/user';
 
   const {
     data: { message },
@@ -42,7 +42,7 @@ export const adminInviteUser = async (body) => {
 };
 
 export const adminInvitBatcheUser = async (body) => {
-  const path = '/admin/invite/batch-user';
+  const path = '/v1/admin/invite/batch-user';
 
   const {
     data: { message },
@@ -52,17 +52,17 @@ export const adminInvitBatcheUser = async (body) => {
 };
 
 export const adminCreatePoll = async (body) => {
-  const path = '/polls/create';
+  const path = '/v1/polls/create';
 
   const {
-    data: { message },
+    data: { message, data },
   } = await http.post(path, body);
 
-  return { message };
+  return { message, poll: data };
 };
 
 export const adminCreateOption = async (body) => {
-  const path = '/polls/option/create';
+  const path = '/v1/polls/option/create';
 
   const {
     data: { message },
@@ -73,7 +73,7 @@ export const adminCreateOption = async (body) => {
 
 
 export const adminGetDashboardStats = async () => {
-  const path = `/admin/dashboard-stats`;
+  const path = `/v1/admin/dashboard-stats`;
 
   const {
     data: { data },
@@ -88,7 +88,7 @@ export const adminGetDashboardStats = async () => {
  * @returns {Promise<{ message: string }>}
  */
 export const superAdminInviteAdmin = async (body) => {
-  const path = '/superadmin/invite/admin';
+  const path = '/v1/superadmin/invite/admin';
 
   const {
     data: { message },
@@ -104,7 +104,7 @@ export const superAdminInviteAdmin = async (body) => {
  * @returns {Promise<{ data: Object }>}
  */
 export const requestMetadata = async () => {
-  const path = '/metadata';
+  const path = '/v1/metadata';
 
   const {
     data: { data },

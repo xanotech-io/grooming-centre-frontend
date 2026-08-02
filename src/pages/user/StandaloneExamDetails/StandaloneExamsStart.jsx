@@ -1,5 +1,4 @@
-import { Box, Flex, Grid, HStack, Stack, Center } from "@chakra-ui/layout";
-import { Radio, RadioGroup } from "@chakra-ui/radio";
+import { Box, Flex, Grid, HStack } from "@chakra-ui/layout";
 import { useCallback, useEffect, useState } from "react";
 import { Route } from "react-router";
 import {
@@ -13,96 +12,106 @@ import {
 } from "../../../components";
 import { EmptyState, PageLoaderLayout } from "../../../layouts";
 import { CustomModal } from "../../../layouts/user/Assessment/Modal";
+import {
+  QuestionInput,
+  normalizeQuestionType,
+} from "../../../layouts/user/Examination/ExaminationLayout";
 import breakpoints from "../../../theme/breakpoints";
 import useStandalone from "./standaloneHooks/useStandalone";
-import congratsIcon from "../../../assets/images/congratsIcon.png";
 import { useToast } from "@chakra-ui/toast";
 import { capitalizeFirstLetter } from "../../../utils";
-import {
-  userCreateStandaloneExaminationGrade,
-  usersGetStandaloneExaminationListing,
-} from "../../../services";
+import { submitSAExamAnswers, getSAExamResult } from "../../../services";
 import { useQueryParams } from "../../../hooks";
-import { Warning } from "@material-ui/icons";
 import { useHistory } from "react-router-dom";
 const StandaloneExamsStart = () => {
   const {
     assessment,
-    course_id,
     currentQuestion,
     disablePreviousQuestion,
     error,
     isLoading,
-    modalManager,
     shouldSubmit,
     selectedAnswers,
     timerCountdownManger,
     submitStatus,
-    handleSubmitConfirmation,
     handleQuestionChange,
     handleNextQuestion,
     handlePreviousQuestion,
     handleOptionSelect,
     pageLength,
     index,
-    questionId,
-    optionId,
     end,
   } = useStandalone();
   const toast = useToast();
-  const questionArr = Object.values(questionId);
-  const optionArr = Object.values(optionId);
-
   const isExamination = useQueryParams().get("exam");
   const [grade, setGrade] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [myAssessment, setMyAssessment] = useState([]);
-  const [modalContent, setModalContent] = useState();
-  const [modalPrompt, setModalPrompt] = useState(null);
-  const [modalCanClose, setModalCanClose] = useState(true);
+  const [loading] = useState(false);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const { push } = useHistory();
   const [modal, setModal] = useState({
     state: false,
     congrats: false,
     score: false,
   });
+
+  useEffect(() => {
+    if (!isExamination) return;
+    getSAExamResult(isExamination)
+      .then(({ result }) => {
+        if (result) {
+          setAlreadySubmitted(true);
+          setGrade(result.totalScore ?? result.score ?? "");
+        }
+      })
+      .catch(() => {});
+  }, [isExamination]);
   const [exitAttempts, setExitAttempts] = useState(0);
   const totalSteps = 3;
-  const handleExamSubmit = async () => {
+  const handleExamSubmit = useCallback(async () => {
     try {
+      const answers = Object.entries(selectedAnswers).map(
+        ([questionId, answer]) => ({
+          questionId,
+          answer,
+          timeTaken: 0,
+        }),
+      );
       const body = {
-        standAloneExaminationId: isExamination,
-        standAloneExaminationQuestionsId: questionArr,
-        standAloneExaminationOptionsId: optionArr,
+        answers,
+        submissionTime: new Date().toISOString(),
+        timeTaken: 0,
       };
-      const { message } = await userCreateStandaloneExaminationGrade(body);
+      const { submission } = await submitSAExamAnswers(isExamination, body);
       toast({
-        description:
+        description: capitalizeFirstLetter(
           exitAttempts === totalSteps
-            ? capitalizeFirstLetter("Examination auto submitted successfully")
-            : capitalizeFirstLetter(message),
+            ? "Examination auto submitted successfully"
+            : "Examination submitted successfully",
+        ),
         position: "top",
         status: "success",
       });
-      setModal({ ...modal, congrats: true });
+      if (submission?.totalScore != null) setGrade(submission.totalScore);
+      else if (submission?.score != null) setGrade(submission.score);
+      setModal((prevModal) => ({ ...prevModal, congrats: true }));
     } catch (error) {
       toast({
-        description: error.message,
+        description: error?.response?.data?.message || error.message,
         position: "top",
         status: "error",
       });
     }
-  };
+  }, [isExamination, selectedAnswers, exitAttempts, totalSteps, toast]);
 
-  const handleExitAttempt = () => {
+  const handleExitAttempt = useCallback(() => {
     if (exitAttempts < totalSteps) {
-      setExitAttempts(exitAttempts + 1);
+      setExitAttempts((prev) => prev + 1);
     }
     if (exitAttempts === totalSteps) {
       push("/standalone-exams");
       handleExamSubmit();
     }
-  };
+  }, [exitAttempts, totalSteps, push, handleExamSubmit]);
 
   useEffect(() => {
     const handleUnload = (event) => {
@@ -131,28 +140,14 @@ const StandaloneExamsStart = () => {
       window.removeEventListener("beforeunload", handleUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [exitAttempts]);
+  }, [exitAttempts, handleExitAttempt, toast]);
 
-  const handleViewResult = useCallback(async () => {
-    setModal({ ...modal, score: true });
-    setLoading(true);
-    try {
-      const { examinations } = await usersGetStandaloneExaminationListing();
-      setMyAssessment(examinations);
-    } catch (error) {
-      setLoading(false);
-    }
-  }, [modal]);
+  const handleViewResult = useCallback(() => {
+    setModal((prev) => ({ ...prev, score: true }));
+  }, []);
 
-  useEffect(() => {
-    const currentExamDetails = myAssessment?.find(
-      (item) => item?.id === isExamination
-    );
-    setGrade(currentExamDetails?.standAloneExaminationGrade[0]?.score);
-    setLoading(false);
-  }, [isExamination, myAssessment]);
-
-  const handleSubmit = () => {
+  const handleSubmit = (e) => {
+    e?.preventDefault?.();
     setModal({ ...modal, state: true });
   };
 
@@ -170,124 +165,47 @@ const StandaloneExamsStart = () => {
 
   const renderContent = () => (
     <>
-      {modal.state && (
-        <Box
-          zIndex="100"
-          backgroundColor="rgba(0, 0, 0, 0.6)"
-          width="100vw"
-          top="0"
-          right="0"
-          position="fixed"
-          height="100vh"
-          padding="40px"
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-        >
-          <Box
-            borderRadius="10px"
-            backgroundColor="white"
-            width="525px"
-            height="256px"
-          >
-            {modal.congrats ? (
-              <Box>
-                {modal.score ? (
-                  <Box
-                    alignItems="center"
-                    display="flex"
-                    flexDirection="column"
-                    gap="30px"
-                    padding="20px"
-                  >
-                    <p style={{ fontWeight: "bold" }}>Result Overview</p>
-                    <p>Your Score is</p>
-                    {loading ? (
-                      <Center height="100%">
-                        <Spinner />
-                      </Center>
-                    ) : (
-                      <>
-                        <p>{grade}%</p>
-                        <Button link={`/standalone-exams`}>
-                          Back to Exams
-                        </Button>
-                      </>
-                    )}
-                  </Box>
-                ) : (
-                  <Box
-                    alignItems="center"
-                    display="flex"
-                    flexDirection="column"
-                    gap="20px"
-                    padding="20px"
-                  >
-                    <p style={{ fontWeight: "bold" }}>Congratulations</p>
-                    <img src={congratsIcon} width={"50px"} alt="congrats" />
-                    <p> completed</p>
-                    <Button onClick={() => handleViewResult()}>
-                      View Result
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-            ) : (
-              <Box padding="15px">
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "5px",
-                  }}
-                >
-                  <h2
-                    style={{
-                      fontWeight: "bold",
-                      fontSize: "16px",
-                      marginTop: "7px",
-                    }}
-                  >
-                    Are you sure you want to submit your examination?
-                  </h2>
-                  <Text marginBottom="10px" marginTop="10px">
-                    Please note that you will not be able to retake this
-                    examination after you submit. Double check your answers
-                    before submitting.
-                  </Text>
-                  <Text marginBottom={5}>
-                    You answered{" "}
-                    <Box as="b" color="secondary.6" fontSize="text.level3">
-                      {Reflect.ownKeys(selectedAnswers).length}
-                    </Box>{" "}
-                    out of{" "}
-                    <Box as="b" fontSize="text.level3">
-                      {pageLength + 1}
-                    </Box>{" "}
-                    questions
-                  </Text>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "20px",
-                    float: "right",
-                    marginTop: "50px",
-                  }}
-                >
-                  <Button
-                    onClick={() => setModal({ ...modal, state: false })}
-                    secondary
-                  >
-                    Cancel
-                  </Button>
-                  <Button onClick={() => handleExamSubmit()}>Submit</Button>
-                </div>
-              </Box>
-            )}
-          </Box>
-        </Box>
-      )}
+      <CustomModal
+        isOpen={modal.state}
+        onClose={() => setModal({ state: false, congrats: false, score: false })}
+        canClose={!modal.congrats}
+        prompt={
+          modal.congrats
+            ? null
+            : {
+                heading: "Are you sure you want to submit your examination?",
+                body: (
+                  <>
+                    <Text marginBottom={5}>
+                      Please note that you will not be able to retake this
+                      examination after you submit. Double check your answers
+                      before submitting.
+                    </Text>
+                    <Text marginBottom={5}>
+                      You answered{" "}
+                      <Box as="b" color="secondary.6" fontSize="text.level3">
+                        {Reflect.ownKeys(selectedAnswers).length}
+                      </Box>{" "}
+                      out of{" "}
+                      <Box as="b" fontSize="text.level3">
+                        {pageLength + 1}
+                      </Box>{" "}
+                      questions
+                    </Text>
+                  </>
+                ),
+                submitProps: { onClick: handleExamSubmit },
+              }
+        }
+      >
+        {modal.congrats &&
+          (modal.score ? (
+            <ExamResultContent grade={grade} loading={loading} />
+          ) : (
+            <ExamSubmittedContent onViewResult={handleViewResult} />
+          ))}
+      </CustomModal>
+
       {exitAttempts === totalSteps ? null : (
         <NavigationBlocker
           when={!submitStatus.success && !error && isLoading && end === true}
@@ -297,6 +215,47 @@ const StandaloneExamsStart = () => {
 
       {isLoading ? (
         <PageLoaderLayout />
+      ) : alreadySubmitted ? (
+        <Flex
+          justifyContent="center"
+          alignItems="center"
+          height="100vh"
+          backgroundColor="accent.1"
+        >
+          <Box
+            bg="white"
+            p={10}
+            borderRadius="10px"
+            shadow="0px 2px 7px rgba(0,0,0,0.1)"
+            textAlign="center"
+            maxW="480px"
+            w="100%"
+          >
+            <Box
+              w="64px"
+              h="64px"
+              bg="green.100"
+              borderRadius="50%"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              mx="auto"
+              mb={4}
+            >
+              <Text fontSize="2xl">✓</Text>
+            </Box>
+            <Heading as="h2" fontSize="heading.h4" mb={3}>
+              Already Submitted
+            </Heading>
+            <Text mb={2}>You have already submitted this examination.</Text>
+            {grade !== "" && (
+              <Text fontWeight="bold" fontSize="text.level2" mb={6}>
+                Your Score: {grade}%
+              </Text>
+            )}
+            <Button link="/standalone-exams">Back to Exams</Button>
+          </Box>
+        </Flex>
       ) : error ? (
         <EmptyState
           height="100vh"
@@ -310,15 +269,6 @@ const StandaloneExamsStart = () => {
         />
       ) : (
         <>
-          <CustomModal
-            onClose={modalManager.onClose}
-            canClose={modalManager.canClose}
-            isOpen={modalManager.isOpen}
-            prompt={modalManager.prompt}
-          >
-            {modalManager.content}
-          </CustomModal>
-
           <Flex
             justifyContent="center"
             alignItems="flex-start"
@@ -357,7 +307,7 @@ const StandaloneExamsStart = () => {
                   marginRight={5}
                 >
                   {renderSubHeading(
-                    `Question ${index + 1} of ${pageLength + 1}`
+                    `Question ${index + 1} of ${pageLength + 1}`,
                   )}
                   <Flex
                     flexDirection="column"
@@ -365,11 +315,7 @@ const StandaloneExamsStart = () => {
                     as="form"
                     flex={1}
                     // minHeight="500px"
-                    onSubmit={
-                      shouldSubmit
-                        ? handleSubmitConfirmation
-                        : handleNextQuestion
-                    }
+                    onSubmit={shouldSubmit ? handleSubmit : handleNextQuestion}
                   >
                     <Box marginBottom={6}>
                       <RichTextToView
@@ -390,27 +336,16 @@ const StandaloneExamsStart = () => {
                       )}
                     </Box>
 
-                    <RadioGroup
-                      defaultValue="1"
-                      marginBottom={8}
-                      flex={1}
-                      onChange={handleOptionSelect}
-                      value={selectedAnswers[currentQuestion?.id] || "default"}
-                    >
-                      <Stack spacing={4}>
-                        {currentQuestion?.standAloneExaminationOption?.map(
-                          (option) => (
-                            <Radio key={option.id} value={option.id}>
-                              <Text>{option.name}</Text>
-                            </Radio>
-                          )
-                        )}
-
-                        <Radio value={"default"} display="none">
-                          <Text>default</Text>
-                        </Radio>
-                      </Stack>
-                    </RadioGroup>
+                    <QuestionInput
+                      question={{
+                        ...currentQuestion,
+                        questionType: normalizeQuestionType(currentQuestion?.questionType),
+                        options: currentQuestion?.standAloneExaminationOption,
+                      }}
+                      selectedAnswers={selectedAnswers}
+                      onOptionSelect={handleOptionSelect}
+                      onAnswerChange={handleOptionSelect}
+                    />
 
                     <Flex justifyContent="space-between">
                       <Button
@@ -482,7 +417,7 @@ const StandaloneExamsStart = () => {
                           width="20px"
                           height="6px"
                           border="1px"
-                          borderColor="#800020"
+                          borderColor="primary.base"
                         ></Box>
                         <Text as="level5" bold>
                           Unanswered
@@ -519,15 +454,57 @@ const StandaloneExamsStart = () => {
   return renderContent();
 };
 
+const ExamSubmittedContent = ({ onViewResult }) => (
+  <Flex direction="column" alignItems="center" p={6} gap={4} textAlign="center">
+    <Box
+      w="64px"
+      h="64px"
+      bg="green.100"
+      borderRadius="50%"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Text fontSize="2xl">✓</Text>
+    </Box>
+    <Heading fontSize="heading.h4">Examination Submitted!</Heading>
+    <Text color="gray.500">
+      Your examination has been submitted successfully.
+    </Text>
+    <Button onClick={onViewResult} marginTop={4}>
+      View Result
+    </Button>
+  </Flex>
+);
+
+const ExamResultContent = ({ grade, loading }) => (
+  <Flex direction="column" alignItems="center" p={6} gap={4} textAlign="center">
+    <Heading fontSize="heading.h4">Result Overview</Heading>
+    {loading ? (
+      <Spinner />
+    ) : (
+      <>
+        <Text color="gray.500">Your Score</Text>
+        <Text fontSize="heading.h3" fontWeight="bold" color="primary.base">
+          {grade}%
+        </Text>
+        <Button link="/standalone-exams" marginTop={4}>
+          Back to Exams
+        </Button>
+      </>
+    )}
+  </Flex>
+);
+
 const ButtonNavItem = ({ number, answered, isCurrent, onClick }) => {
   const styleProps = answered
     ? {
-        backgroundColor: "#800020",
+        backgroundColor: "primary.base",
         color: "white",
         borderColor: "transparent",
       }
     : {
-        borderColor: "#800020",
+        borderColor: "primary.base",
       };
 
   return (

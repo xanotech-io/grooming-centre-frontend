@@ -5,7 +5,7 @@ import {
 import { ChevronRight } from "@material-ui/icons";
 import { Link } from "../";
 
-export const Breadcrumb = ({ item2, item3, item4, props }) => {
+export const Breadcrumb = ({ item2, item3, item4, item5, item6, props }) => {
   return (
     <BreadcrumbChakraui
       paddingY={4}
@@ -21,6 +21,8 @@ export const Breadcrumb = ({ item2, item3, item4, props }) => {
       {item2}
       {item3}
       {item4}
+      {item5}
+      {item6}
     </BreadcrumbChakraui>
   );
 };

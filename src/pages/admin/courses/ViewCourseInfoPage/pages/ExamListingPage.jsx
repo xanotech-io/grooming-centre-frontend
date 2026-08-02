@@ -13,15 +13,16 @@ import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminDeleteExamination,
-  adminDeleteMultipleCourses,
   adminGetExaminationListing,
 } from "../../../../../services";
 import { getDuration } from "../../../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../../../hooks";
+import { useAddExaminationToBank } from "../../../examQuestionBank/useAddExaminationToBank";
 
 const ExamListingPage = () => {
   const { id: courseId } = useParams();
+  const { addExaminationToBank } = useAddExaminationToBank();
   const tableProps = {
     filterControls: [
       {
@@ -94,6 +95,15 @@ const ExamListingPage = () => {
             `/admin/courses/${examination.courseId}/assessment/${examination.courseId}/overview?examination=${examination.id}`,
         },
         {
+          text: "Add to Question Bank",
+          onClick: (examination) =>
+            addExaminationToBank({
+              examinationId: examination.id,
+              courseId: examination.courseId,
+              examinationTitle: examination.title?.text,
+            }),
+        },
+        {
           isDelete: true,
         },
       ],
@@ -153,11 +163,16 @@ const ExamListingPage = () => {
           Examination
         </Heading>
 
-        <Button
-          link={`/admin/courses/${courseId}/assessment/new/overview?examination=true`}
-        >
-          Add Examination
-        </Button>
+        <Flex gap="8px">
+          <Button secondary link={`/admin/exam-question-bank?courseId=${courseId}`}>
+            Question Bank
+          </Button>
+          <Button
+            link={`/admin/courses/${courseId}/assessment/new/overview?examination=new`}
+          >
+            Add Examination
+          </Button>
+        </Flex>
       </Flex>
 
       <Table

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCache } from "../../../../../../contexts";
@@ -5,6 +6,7 @@ import { useComponentIsMount, useQueryParams } from "../../../../../../hooks";
 import {
   requestAssessmentDetails,
   requestExaminationDetails,
+  requestModuleExaminationDetails,
 } from "../../../../../../services";
 
 const useCourseExamPreview = (
@@ -15,9 +17,11 @@ const useCourseExamPreview = (
 ) => {
   const { handleGetOrSetAndGet } = useCache();
   const componentIsMount = useComponentIsMount();
+ 
   const { id: courseId, assessment_id } = useParams();
   const queryParams = useQueryParams();
   const isExamination = queryParams.get("examination");
+  const moduleExamId = queryParams.get("moduleExam");
 
   const [assessmentDetails, setAssessmentDetails] = useState({
     data: null,
@@ -32,12 +36,15 @@ const useCourseExamPreview = (
   const assessmentIsNew = assessmentId === "new";
 
   const fetcher = useCallback(async () => {
+    if (moduleExamId) {
+      const data = await requestModuleExaminationDetails(moduleExamId);
+      return data?.examination;
+    }
     const data = await (!isExamination
-      ? requestAssessmentDetails(assessment_id, isForAdmin)
-      : requestExaminationDetails(assessmentId, isForAdmin)); // `assessmentId` is `courseId` in this case
-
+      ? requestAssessmentDetails(assessmentId, isForAdmin)
+      : requestExaminationDetails(assessmentId, isForAdmin));
     return isExamination ? data?.examination : data?.assessment;
-  }, [assessmentId, isExamination, isForAdmin]);
+  }, [assessmentId, isExamination, moduleExamId, isForAdmin]);
 
   const fetchAssessmentDetails = useCallback(
     async (bypassCache) => {
@@ -45,15 +52,15 @@ const useCourseExamPreview = (
 
       try {
         const assessmentDetails = await handleGetOrSetAndGet(
-          isExamination || assessmentId,
+          moduleExamId || isExamination || assessmentId,
           fetcher,
           bypassCache
         );
 
-        if (componentIsMount) setAssessmentDetails({ data: assessmentDetails });
+        if (componentIsMount.current) setAssessmentDetails({ data: assessmentDetails });
       } catch (err) {
         console.error(err);
-        if (componentIsMount) setAssessmentDetails({ err: err.message });
+        if (componentIsMount.current) setAssessmentDetails({ err: err.message });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

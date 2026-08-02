@@ -1,14 +1,9 @@
-import { Box, Flex } from "@chakra-ui/layout";
+import {  Flex } from "@chakra-ui/layout";
 import { Route, useParams } from "react-router-dom";
 import { FaSortAmountUpAlt } from "react-icons/fa";
-import { Tag } from "@chakra-ui/tag";
 import { BreadcrumbItem } from "@chakra-ui/react";
-import { useApp } from "../../../../contexts";
 import { useTableRows } from "../../../../hooks";
-import {
-  adminDeleteMultipleCourses,
-  adminGetModuleListing,
-} from "../../../../services";
+
 import { AdminMainAreaWrapper } from "../../../../layouts";
 import {
   Breadcrumb,
@@ -16,12 +11,10 @@ import {
   Heading,
   Link,
   Table,
-  Text,
 } from "../../../../components";
 import {
   adminDeletePolls,
   adminGetPollOptions,
-  adminGetSinglePoll,
 } from "../../../../services/http/endpoints/poll";
 
 const OptionListingPage = () => {

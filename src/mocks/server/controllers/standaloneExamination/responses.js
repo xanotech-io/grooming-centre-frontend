@@ -95,6 +95,40 @@ export const adminGetStandaloneExaminationParticipantsRes = {
 //   message: "submit successful",
 // };
 
+export const standaloneExamAccessRecordsRes = {
+  data: {
+    exam_access_records: [
+      {
+        access_id: "EXL-001",
+        student_id: "STU-001",
+        exam_id: "EXM-AGR101",
+        access_link: "https://exam.link/abc123",
+        sent_by: "System",
+        status: "Accessed",
+        sent_date: "2025-11-01T08:00:00Z",
+      },
+      {
+        access_id: "EXL-002",
+        student_id: "STU-002",
+        exam_id: "EXM-ENG201",
+        access_link: "https://exam.link/xyz456",
+        sent_by: "System",
+        status: "Sent",
+        sent_date: "2025-11-02T09:30:00Z",
+      },
+      {
+        access_id: "EXL-003",
+        student_id: "STU-003",
+        exam_id: "EXM-ENG201",
+        access_link: "https://exam.link/def789",
+        sent_by: "Admin",
+        status: "Sent",
+        sent_date: "2025-11-02T10:00:00Z",
+      },
+    ],
+  },
+};
+
 // export const adminCreateExaminationQuestionRes = {
 //   message: "examination question created successfully",
 // };

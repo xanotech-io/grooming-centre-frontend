@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { BreadcrumbItem } from "@chakra-ui/breadcrumb";
 import { Box, Flex, Grid, GridItem } from "@chakra-ui/layout";
 import { Skeleton } from "@chakra-ui/skeleton";
-import { FaEdit } from "react-icons/fa";
+import { FaEdit, FaSitemap } from "react-icons/fa";
 import { Route } from "react-router-dom";
 import {
   Breadcrumb,
@@ -10,6 +11,7 @@ import {
   Link,
   SkeletonText,
   Text,
+  WorkflowSubmitModal,
 } from "../../../components";
 import { useApp } from "../../../contexts";
 import useViewLibraryFile from "./hook/useViewLibraryFile";
@@ -17,6 +19,7 @@ import useViewLibraryFile from "./hook/useViewLibraryFile";
 const ViewFileDetailsPage = () => {
   const { getOneMetadata } = useApp();
   const { library } = useViewLibraryFile();
+  const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
   const libraryFile = library.data;
   const isLoading = library.loading;
 
@@ -49,15 +52,27 @@ const ViewFileDetailsPage = () => {
           flexDirection="row"
         >
           <Heading fontSize="heading.h3">File details</Heading>
-          <Button
-            paddingLeft={2}
-            sizes="small"
-            rightIcon={<FaEdit />}
-            secondary
-            link={`/admin/library/edit/${libraryFile?.id}`}
-          >
-            Edit
-          </Button>
+          <Flex gap={3}>
+            <Button
+              paddingLeft={2}
+              sizes="small"
+              rightIcon={<FaSitemap />}
+              secondary
+              disabled={!libraryFile}
+              onClick={() => setIsWorkflowModalOpen(true)}
+            >
+              Submit for Approval
+            </Button>
+            <Button
+              paddingLeft={2}
+              sizes="small"
+              rightIcon={<FaEdit />}
+              secondary
+              link={`/admin/library/edit/${libraryFile?.id}`}
+            >
+              Edit
+            </Button>
+          </Flex>
         </Flex>
 
         <Box backgroundColor="white" paddingX={10} paddingY={12} shadow="md">
@@ -154,6 +169,14 @@ const ViewFileDetailsPage = () => {
           </Box>
         </Box>
       </Box>
+
+      <WorkflowSubmitModal
+        isOpen={isWorkflowModalOpen}
+        onClose={() => setIsWorkflowModalOpen(false)}
+        contentId={libraryFile?.id}
+        contentTitle={libraryFile?.title}
+        requestType="LibraryMaterial"
+      />
     </Box>
   );
 };

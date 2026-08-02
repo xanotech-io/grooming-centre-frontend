@@ -11,13 +11,11 @@ import { http } from "../http";
  * @returns {Promise<{ courses: CourseListArray }>}
  */
 export const adminGetCourseListing = async (params) => {
-  const path = `/course/admin/list?sort=desc`;
+  const path = `/v1/course/admin/list?sort=desc`;
 
   const {
     data: { data },
   } = await http.get(path, { params });
-
-  console.log(data);
 
   return {
     courses: data.rows.map((course) => ({
@@ -25,9 +23,15 @@ export const adminGetCourseListing = async (params) => {
       displayId: course.displayId,
       title: course.title,
       instructor: {
-        firstName: course.user.firstName,
-        lastName: course.user.lastName,
+        firstName: course.user?.firstName,
+        lastName: course.user?.lastName,
       },
+      assignedInstructor: course.reassignedInstructor
+        ? {
+            firstName: course.reassignedInstructor.firstName,
+            lastName: course.reassignedInstructor.lastName,
+          }
+        : null,
       startDate: course.lesson[0] ? course.lesson[0].startTime : "not set",
       isPublished: course.isPublished,
     })),
@@ -43,7 +47,7 @@ export const adminGetCourseListing = async (params) => {
  * @returns {Promise<{ courses: CourseListArray }>}
  */
 export const adminGetCoursesByDepartment = async (departmentId) => {
-  const path = `/course/admin/${departmentId}`;
+  const path = `/v1/course/admin/${departmentId}`;
 
   const {
     data: { data },
@@ -57,8 +61,8 @@ export const adminGetCoursesByDepartment = async (departmentId) => {
       displayId: course.displayId,
       title: course.title,
       instructor: {
-        firstName: course.instructor.firstName,
-        lastName: course.instructor.lastName,
+        firstName: course.instructor?.firstName,
+        lastName: course.instructor?.lastName,
       },
       startDate: course.startTime || "not set",
     })),
@@ -72,7 +76,7 @@ export const adminGetCoursesByDepartment = async (departmentId) => {
  * @returns {Promise<{ message: string, course: { id: string }}>}
  */
 export const adminEditCourse = async (courseId, body) => {
-  const path = `/course/edit/${courseId}`;
+  const path = `/v1/course/edit/${courseId}`;
 
   const {
     data: { message, data },
@@ -91,7 +95,7 @@ export const adminEditCourse = async (courseId, body) => {
  * @returns {Promise<{ message: string, course: { id: string } }>}
  */
 export const adminCreateCourse = async (body) => {
-  const path = "/course/create";
+  const path = "/v1/course/create";
 
   const {
     data: { message, data },
@@ -108,7 +112,7 @@ export const adminCreateCourse = async (body) => {
  * @returns {Promise<{ courses: CourseListArray }>}
  */
 export const userGetCourseListing = async () => {
-  const path = `/course/user/courses`;
+  const path = `/v1/course/user/courses`;
 
   const {
     data: { data },
@@ -125,7 +129,7 @@ export const userGetCourseListing = async () => {
  * @returns {Promise<{ courses: CourseListArray }>}
  */
 export const adminGetUserCourseListing = async (userId, params) => {
-  const path = `/admin/courses/${userId}`;
+  const path = `/v1/admin/courses/${userId}`;
 
   const {
     data: { data },
@@ -153,7 +157,7 @@ export const adminGetUserCourseListing = async (userId, params) => {
  * @returns {Promise<{ course: Course }>}
  */
 export const userGetCourseDetails = async (id) => {
-  const path = `/course/${id}`;
+  const path = `/v1/course/${id}`;
 
   const {
     data: { data },
@@ -182,15 +186,15 @@ export const userGetCourseDetails = async (id) => {
       assessments, // TODO: remove lazy mapping
       examination: data.examination
         ? {
-            ...data.examination,
-            hasCompleted: data.examination.examinationScoreSheets?.[0]
-              ? true
-              : false,
-            endTime: getEndTime(
-              data.examination.startTime,
-              data.examination.duration
-            ),
-          }
+          ...data.examination,
+          hasCompleted: data.examination.examinationScoreSheets?.[0]
+            ? true
+            : false,
+          endTime: getEndTime(
+            data.examination.startTime,
+            data.examination.duration
+          ),
+        }
         : null,
       startTime: data.lesson[0]?.startTime,
       endTime: data?.lesson[data.lesson.length - 1]?.endTime,
@@ -205,7 +209,7 @@ export const userGetCourseDetails = async (id) => {
  * @returns {Promise<{ course: Course }>}
  */
 export const adminPublishCourse = async (id) => {
-  const path = `/course/publish/${id}`;
+  const path = `/v1/course/publish/${id}`;
 
   await http.patch(path);
 };
@@ -217,7 +221,7 @@ export const adminPublishCourse = async (id) => {
  * @returns {Promise<{ course: Course }>}
  */
 export const adminDeleteCourse = async (id) => {
-  const path = `/course/${id}`;
+  const path = `/v1/course/${id}`;
 
   await http.delete(path);
 };
@@ -227,7 +231,7 @@ export const adminDeleteCourse = async (id) => {
  * @returns {Promise<{ course: Course }>}
  */
 export const adminDeleteMultipleCourses = async (ids) => {
-  const path = `/admin/course/delete-multiple`;
+  const path = `/v1/admin/course/delete-multiple`;
   let formattedIds = [];
   for (let i = 0; i < ids.length; i++) {
     formattedIds.push(ids[i].id);
@@ -243,7 +247,36 @@ export const adminDeleteMultipleCourses = async (ids) => {
  * @returns {Promise<{ course: Course }>}
  */
 export const adminUnpublishCourse = async (id) => {
-  const path = `/course/unpublish/${id}`;
+  const path = `/v1/course/unpublish/${id}`;
 
   await http.patch(path);
+};
+
+/**
+ * Load full course details for the admin edit form
+ * @param {string} courseId
+ * @returns {Promise<{ courseDetails: object }>}
+ */
+export const adminGetCourseAdminDetails = async (courseId) => {
+  const {
+    data: { data },
+  } = await http.get(`/v1/course/admin/details/${courseId}`);
+
+  return { courseDetails: data };
+};
+
+/**
+ * Reassign a course to another instructor
+ * @param {string} courseId - UUID of the course
+ * @param {{ reassignedInstructorId: string }} body - UUID of the target instructor
+ * @returns {Promise<{ message: string }>}
+ */
+export const adminReassignCourse = async (courseId, body) => {
+  const path = `/v1/course/${courseId}/reassign`;
+
+  const {
+    data: { message },
+  } = await http.patch(path, body);
+
+  return { message };
 };

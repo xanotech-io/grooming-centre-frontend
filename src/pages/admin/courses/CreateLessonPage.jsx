@@ -1,3 +1,4 @@
+/* eslint-disable no-lone-blocks */
 import { useToast } from "@chakra-ui/toast";
 import { Flex, Grid, GridItem } from "@chakra-ui/layout";
 import { Route, useParams, useHistory } from "react-router-dom";
@@ -16,7 +17,13 @@ import {
 import { CreatePageLayout } from "../../../layouts";
 import { BreadcrumbItem, Box } from "@chakra-ui/react";
 import { useForm } from "react-hook-form";
-import { useDateTimePicker, useUpload, useRichText } from "../../../hooks";
+import {
+  useDateTimePicker,
+  useIsSuperAdmin,
+  useUpload,
+  useRichText,
+  useFetch,
+} from "../../../hooks";
 import {
   appendFormData,
   capitalizeFirstLetter,
@@ -24,17 +31,25 @@ import {
   populateSelectOptions,
 } from "../../../utils";
 import { useApp, useCache } from "../../../contexts";
-import { useEffect, useState } from "react";
-import { adminCreateLesson, adminEditLesson } from "../../../services";
+import { useCallback, useEffect, useState } from "react";
+import {
+  adminCreateLesson,
+  adminEditLesson,
+  adminGetDepartmentSupervisors,
+  adminGetAllDepartmentSupervisors,
+  auditTrailV2PostLog,
+} from "../../../services";
 import useViewLessonInfo from "./hooks/useViewLessonInfo";
 
 const CreateLessonPage = () => {
-  const { courseId, lessonId } = useParams();
+  const { courseId, moduleId, lessonId } = useParams();
   const isEditMode = lessonId && lessonId !== "new";
   const courseIsUnknown = courseId === "unknown";
+  const isModuleScoped = !!moduleId;
   const [loader, setUploadProgress] = useState(0);
   const { push } = useHistory();
   const toast = useToast();
+  const isSuperAdmin = useIsSuperAdmin();
   const { handleDelete } = useCache();
 
   const {
@@ -58,6 +73,29 @@ const CreateLessonPage = () => {
   const endTimeManager = useDateTimePicker();
   const fileManager = useUpload({ previewElementId: "file-video" });
   const contentManager = useRichText();
+
+  const { resource: supervisorsResource, handleFetchResource: fetchSupervisors } =
+    useFetch();
+
+  const supervisorFetcher = useCallback(async () => {
+    const { supervisors } = courseId
+      ? await adminGetDepartmentSupervisors(courseId)
+      : await adminGetAllDepartmentSupervisors();
+    return supervisors;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      fetchSupervisors({ fetcher: supervisorFetcher });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuperAdmin, fetchSupervisors, supervisorFetcher]);
+
+  const supervisors = Array.isArray(supervisorsResource.data) ? supervisorsResource.data : [];
+  const supervisorOptions = supervisors
+    .filter((s) => s.id)
+    .map((s) => ({ label: `${s.firstName} ${s.lastName}`, value: s.id }));
 
   const { lesson, isLoading, isError } = useViewLessonInfo();
 
@@ -97,19 +135,29 @@ const CreateLessonPage = () => {
   }, [lesson]);
 
   const setLessonAccept = (lessonTypeId) => {
-    const lessonType = getOneMetadata("lessonType", lessonTypeId)?.name;
+    const lessonType = getOneMetadata("lessonType", lessonTypeId)?.name?.toLowerCase();
 
     if (lessonType === "pdf") {
       fileManager.handleAcceptChange("application/pdf");
     }
 
     if (lessonType === "video") {
-      fileManager.handleAcceptChange("video/mp4, video/mkv");
+      fileManager.handleAcceptChange("video/*");
     }
 
-    if (lessonType === "PowerPoint") {
+    if (lessonType === "audio") {
+      fileManager.handleAcceptChange("audio/*");
+    }
+
+    if (lessonType === "powerpoint") {
       fileManager.handleAcceptChange(
-        ".ppt, .pptx, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        ".ppt, .pptx, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      );
+    }
+
+    if (lessonType === "word" || lessonType === "doc" || lessonType === "word document") {
+      fileManager.handleAcceptChange(
+        ".doc, .docx, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       );
     }
   };
@@ -127,9 +175,11 @@ const CreateLessonPage = () => {
   // Init `Lesson File` file url
   useEffect(() => {
     if (lesson) {
-      const fileIsAVideo = /((\.)(mp4|mkv))$/i.test(lesson.file);
+      const fileIsAVideo = /((\.)(mp4|mkv|webm|mov|avi))$/i.test(lesson.file);
       const fileIsPDF = /(\.pdf)$/i.test(lesson.file);
       const fileIsPowerPoint = /((\.)(ppt|pptx))$/i.test(lesson.file);
+      const fileIsAudio = /((\.)(mp3|wav|m4a|ogg|aac|flac))$/i.test(lesson.file);
+      const fileIsWord = /((\.)(doc|docx))$/i.test(lesson.file);
 
       if (fileIsAVideo) {
         fileManager.handleInitialVideoSelect(lesson.file);
@@ -137,9 +187,14 @@ const CreateLessonPage = () => {
       if (fileIsPDF) {
         fileManager.handleInitialPdfSelect(lesson.file);
       }
-
       if (fileIsPowerPoint) {
         fileManager.handleInitialPowerpointSelect(lesson.file);
+      }
+      if (fileIsAudio) {
+        fileManager.handleInitialAudioSelect(lesson.file);
+      }
+      if (fileIsWord) {
+        fileManager.handleInitialWordSelect(lesson.file);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,6 +217,70 @@ const CreateLessonPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watch, metadata]);
 
+  const performEdit = async (body, title) => {
+    try {
+      const { message, lesson } = await adminEditLesson(lessonId, body);
+      handleDelete(lesson.id);
+      toast({
+        description: capitalizeFirstLetter(message),
+        position: "top",
+        status: "success",
+      });
+      auditTrailV2PostLog({
+        eventType: "update",
+        module: "LMS",
+        status: "success",
+        resourceId: lesson?.id ?? lessonId,
+        resourceType: "Lesson",
+        remarks: `Updated lesson "${title ?? lesson?.title}"`,
+      }).catch(() => {});
+      return { id: lesson?.id ?? lessonId };
+    } catch (error) {
+      auditTrailV2PostLog({
+        eventType: "update",
+        module: "LMS",
+        status: "failure",
+        resourceId: lessonId,
+        resourceType: "Lesson",
+        remarks: error?.response?.data?.message || error.message || `Failed to update lesson "${title}"`,
+      }).catch(() => {});
+      throw error;
+    }
+  };
+
+  const performCreate = async (body, title) => {
+    try {
+      const { message, lesson } = await adminCreateLesson(
+        body,
+        handleUploadProgress,
+      );
+      toast({
+        description: capitalizeFirstLetter(message),
+        position: "top",
+        status: "success",
+      });
+      auditTrailV2PostLog({
+        eventType: "create",
+        module: "LMS",
+        status: "success",
+        resourceId: lesson?.id,
+        resourceType: "Lesson",
+        remarks: `Created lesson "${title ?? lesson?.title}"`,
+      }).catch(() => {});
+      return { id: lesson?.id };
+    } catch (error) {
+      auditTrailV2PostLog({
+        eventType: "create",
+        module: "LMS",
+        status: "failure",
+        resourceId: courseId,
+        resourceType: "Lesson",
+        remarks: error?.response?.data?.message || error.message || `Failed to create lesson "${title}"`,
+      }).catch(() => {});
+      throw error;
+    }
+  };
+
   // Handle form submission
   const onSubmit = async (data) => {
     try {
@@ -170,13 +289,14 @@ const CreateLessonPage = () => {
       const content = contentManager.handleGetValueAndValidate("Content");
       const file = fileManager.handleGetFileAndValidate(
         "Lesson File",
-        isEditMode
+        isEditMode,
       );
       const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
       data = {
         ...data,
         courseId,
+        ...(isModuleScoped && { moduleId }),
         file,
         content,
         startTime: formatDateToISO(startTime),
@@ -186,22 +306,16 @@ const CreateLessonPage = () => {
       if (isEditMode) Reflect.deleteProperty(data, "courseId");
 
       const body = appendFormData(data);
-      {
-        console.log(fileManager.pdf.url);
-      }
-      const { message, lesson } = await (isEditMode
-        ? adminEditLesson(lessonId, body)
-        : adminCreateLesson(body, handleUploadProgress));
 
-      if (isEditMode) handleDelete(lesson.id);
+      const result = isEditMode
+        ? await performEdit(body, data.title)
+        : await performCreate(body, data.title);
 
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
-      });
-
-      push(`/admin/courses/${courseId}/lesson/${lesson?.id}/view`);
+      const lessonIdForRoute = result?.id ?? lessonId;
+      const nextRoute = isModuleScoped
+        ? `/admin/courses/${courseId}/module/${moduleId}/lessons`
+        : `/admin/courses/${courseId}/lesson/${lessonIdForRoute}/view`;
+      push(nextRoute);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -234,11 +348,19 @@ const CreateLessonPage = () => {
             </BreadcrumbItem>
           }
           item3={
-            <BreadcrumbItem>
-              <Link href={`/admin/courses/details/${courseId}/lessons`}>
-                Lessons
-              </Link>
-            </BreadcrumbItem>
+            isModuleScoped ? (
+              <BreadcrumbItem>
+                <Link href={`/admin/courses/${courseId}/module/${moduleId}/lessons`}>
+                  Lessons
+                </Link>
+              </BreadcrumbItem>
+            ) : (
+              <BreadcrumbItem>
+                <Link href={`/admin/courses/details/${courseId}/lessons`}>
+                  Lessons
+                </Link>
+              </BreadcrumbItem>
+            )
           }
           item4={
             <BreadcrumbItem isCurrentPage>
@@ -254,8 +376,8 @@ const CreateLessonPage = () => {
           isSubmitting
             ? "Please wait this might take a while"
             : isEditMode
-            ? "Update Lesson"
-            : "Add Lesson"
+              ? "Update Lesson"
+              : "Add Lesson"
         }
         onSubmit={handleSubmit(onSubmit)}
         submitButtonIsDisabled={!metadata}
@@ -329,7 +451,20 @@ const CreateLessonPage = () => {
             <Select
               id="lessonTypeId"
               label="File type"
-              options={populateSelectOptions(metadata?.lessonType)}
+              placeholder="Pick a file"
+              options={(() => {
+                const seen = new Set();
+                return populateSelectOptions(metadata?.lessonType)
+                  ?.map((opt) =>
+                    opt.label.toLowerCase() === "word" ? { ...opt, label: "Document" } : opt
+                  )
+                  ?.filter((opt) => {
+                    const key = opt.label.toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                  });
+              })()}
               isLoading={!metadata?.lessonType}
               isRequired
               error={errors.lessonTypeId?.message}
@@ -346,12 +481,30 @@ const CreateLessonPage = () => {
               label="Lesson file"
               isRequired
               videoUrl={fileManager.video.url}
+              audioUrl={fileManager.audio.url}
               pdfUrl={fileManager.pdf.url}
               powerpointUrl={fileManager.powerpoint.url}
+              wordUrl={fileManager.word.url}
               disabled={!getValues("lessonTypeId")}
               onFileSelect={fileManager.handleFileSelect}
               accept={fileManager.accept}
             />
+            {!isSuperAdmin && (
+              <Box marginTop={"30px"}>
+                <Select
+                  id="supervisor_id"
+                  label="Supervisor"
+                  placeholder="Select a supervisor"
+                  options={supervisorOptions}
+                  isLoading={supervisorsResource.loading}
+                  isRequired
+                  error={errors.supervisor_id?.message}
+                  {...register("supervisor_id", {
+                    required: "Please select a supervisor",
+                  })}
+                />
+              </Box>
+            )}
             {file && (
               <Box marginTop={"30px"} width={"300px"}>
                 <Text fontSize={"17px"} mb={"10px"}>
@@ -383,6 +536,7 @@ const CreateLessonPage = () => {
             )}
           </GridItem>
         </Grid>
+
       </CreatePageLayout>
     </>
   );
@@ -390,6 +544,14 @@ const CreateLessonPage = () => {
 
 export const CreateLessonPageRoute = ({ component: Component, ...rest }) => {
   return (
-    <Route {...rest} render={(props) => <CreateLessonPage {...props} />} />
+    <Route
+      {...rest}
+      render={(props) => (
+        <CreateLessonPage
+          {...props}
+          key={`${props.match.params.moduleId}-${props.match.params.lessonId}`}
+        />
+      )}
+    />
   );
 };

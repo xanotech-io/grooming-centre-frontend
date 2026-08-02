@@ -1,8 +1,7 @@
-import { Box, Flex, Stack } from "@chakra-ui/layout";
+import { Box, Stack } from "@chakra-ui/layout";
 import { Switch } from "react-router-dom";
 import { Route } from "react-router-dom";
 import { Heading, Image, Text } from "../../../components";
-import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
 import AllCoursesPageRoute from "./AllCoursesPage";
 import CompletedCoursesPageRoute from "./CompletedCoursesPage";
 import InProgressCoursesPageRoute from "./InProgressCoursesPage";

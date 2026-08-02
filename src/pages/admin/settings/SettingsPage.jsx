@@ -1,4 +1,5 @@
-import { Box, Flex, Grid, GridItem } from "@chakra-ui/layout";
+/* eslint-disable no-unused-vars */
+import { Box, Flex, GridItem } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -12,7 +13,10 @@ import {
   Select,
   Text,
   Upload,
+  Breadcrumb,
+  Link,
 } from "../../../components";
+import { BreadcrumbItem } from "@chakra-ui/react";
 import { useApp } from "../../../contexts";
 import { useUpload, useGoBack } from "../../../hooks";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
@@ -109,7 +113,7 @@ export const AccountPage = ({ onCallToActionClick }) => {
       });
       reset();
 
-      if (message==="password changed") {
+      if (message === "password changed") {
         handleLogout();
       }
 
@@ -177,7 +181,7 @@ export const AccountPage = ({ onCallToActionClick }) => {
       console.log(user.departmentId, metadata.departments[0]);
 
       const department = metadata.departments.find(
-        ({ id }) => id === user.departmentId
+        ({ id }) => id === user.departmentId,
       )?.name;
 
       setValue("department", department);
@@ -188,7 +192,7 @@ export const AccountPage = ({ onCallToActionClick }) => {
   useEffect(() => {
     if (user && metadata?.userRoles) {
       const role = metadata.userRoles.find(
-        ({ id }) => id === user.userRoleId
+        ({ id }) => id === user.userRoleId,
       )?.name;
 
       setValue("role", capitalizeWords(role));
@@ -199,7 +203,12 @@ export const AccountPage = ({ onCallToActionClick }) => {
   const handleGoBack = useGoBack();
 
   return (
-    <AdminMainAreaWrapper bg='#fff'>
+    <AdminMainAreaWrapper bg="#fff">
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={<BreadcrumbItem isCurrentPage><Link href="#">Settings</Link></BreadcrumbItem>}
+        />
+      </Flex>
       <Box as="form" paddingY={2} onSubmit={handleSubmit(onSubmit)}>
         {!onCallToActionClick && (
           <Heading fontSize="heading.h3" paddingBottom={4}>
@@ -384,11 +393,16 @@ export const AccountPage = ({ onCallToActionClick }) => {
         <PasswordInput
           id="new_password"
           label="New password"
-          error={errors2.new_password &&"New password is required and must be different from old password"}
+          error={
+            errors2.new_password &&
+            "New password is required and must be different from old password"
+          }
           {...register2("new_password", {
             required: true,
-            validate: (value) => value !== values2.old_password || "New password is required and must be different from old password",
-  
+            validate: (value) =>
+              value !== values2.old_password ||
+              "New password is required and must be different from old password",
+
             minLength: {
               value: 3,
             },

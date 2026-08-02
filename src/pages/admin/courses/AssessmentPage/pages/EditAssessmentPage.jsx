@@ -17,16 +17,12 @@ import {
 } from '../../../../../hooks';
 import { AdminMainAreaWrapper } from '../../../../../layouts';
 import {
-  adminEditStandaloneExamination,
-  adminEditAssessment,
-  adminEditExamination,
-} from '../../../../../services';
-import {
   capitalizeFirstLetter,
   capitalizeWords,
   formatDateToISO,
 } from '../../../../../utils';
-import { useCache, useApp } from '../../../../../contexts';
+import { useApp } from '../../../../../contexts';
+import useAssessmentStore from '../../../../../store/assessmentStore';
 import { MultiSelect } from 'react-multi-select-component';
 import { Tag, TagLabel } from '@chakra-ui/react';
 
@@ -34,6 +30,7 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
   const { id: courseId, assessmentId } = useParams();
 
   const isExamination = useQueryParams().get('examination');
+  const moduleId = useQueryParams().get('moduleId');
   const isStandaloneExamination =
     courseId === 'not-set' && assessmentId === 'not-set' && isExamination
       ? true
@@ -48,6 +45,7 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
 
   const { push } = useHistory();
   const toast = useToast();
+  const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
 
   const {
     register,
@@ -59,6 +57,7 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
   const handleCancel = useGoBack();
 
   const startTimeManager = useDateTimePicker();
+  const endTimeManager = useDateTimePicker();
 
   // Init `Title` value
   useEffect(() => {
@@ -76,6 +75,14 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentOrExam?.startTime]);
 
+  // Init `EndTime` value
+  useEffect(() => {
+    if (assessmentOrExam?.endTime) {
+      endTimeManager.handleChange(assessmentOrExam.endTime);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assessmentOrExam?.endTime]);
+
   // Init `Duration` value
   useEffect(() => {
     if (assessmentOrExam) {
@@ -92,54 +99,64 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentOrExam]);
 
-  const { handleDelete } = useCache();
+  // const { handleDelete } = useCache();
 
-  // Handle form submission
+  // Handle form submission — nothing is saved yet. The edit is held in
+  // memory and only actually applied (together with the workflow submit
+  // modal) once a question has been saved on the other side of "Next",
+  // mirroring the shell-plus-question deferral the create flow already uses.
   const onSubmit = async (data) => {
     try {
       const startTime =
         startTimeManager.handleGetValueAndValidate('Start Time');
+      const endTime = endTimeManager.handleGetValueAndValidate('End Time');
 
       data = {
         ...data,
         courseId,
         startTime: formatDateToISO(startTime),
+        endTime: formatDateToISO(endTime),
       };
 
       isStandaloneExamination && Reflect.deleteProperty(data, 'courseId');
-      // const body = isStandaloneExamination
-      //   ? {
-      //       ...data,
-      //       ...(standaloneExamType === "users"
-      //         ? {
-      //             usersId: selectedIDs.map(({ value }) => value),
-      //           }
-      //         : {
-      //             departmentIds: selectedIDs.map(({ value }) => value),
-      //           }),
-      //     }
-      //   : data;
       const body = data;
 
-      const { message } = await (isStandaloneExamination
-        ? adminEditStandaloneExamination(isExamination, body)
-        : isExamination
-        ? adminEditExamination(assessmentId, body)
-        : adminEditAssessment(assessmentId, body));
-
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: 'top',
-        status: 'success',
+      setPendingEdit({
+        kind: isStandaloneExamination
+          ? 'StandaloneExam'
+          : isExamination
+          ? 'Exam'
+          : 'Assessment',
+        contentId: isStandaloneExamination ? isExamination : assessmentId,
+        body,
+        title: data.title,
+        requestType: isStandaloneExamination
+          ? 'StandaloneExam'
+          : isExamination
+          ? 'CourseExam'
+          : 'CourseAssessment',
+        courseId: courseId !== 'not-set' ? courseId : undefined,
+        nextRoute: isStandaloneExamination
+          ? `/admin/standalone-exams/${isExamination}/${data.title}`
+          : moduleId
+          ? `/admin/courses/${courseId}/module/${moduleId}/${
+              isExamination ? 'examinations' : 'assessments'
+            }`
+          : isExamination
+          ? `/admin/courses/details/${courseId}/exam`
+          : `/admin/courses/details/${courseId}/modules`,
+        description: isExamination
+          ? `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`
+          : `Assessment: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
       });
 
-      handleDelete(isExamination || assessmentId);
-
-      isStandaloneExamination
-        ? push(`/admin/standalone-exams/${isExamination}/${data.title}`)
+      const moduleQuery = moduleId ? `&moduleId=${moduleId}` : '';
+      const questionsRoute = isStandaloneExamination
+        ? `/admin/standalone-exams/questions/?examination=${isExamination}&editSubmit=1`
         : isExamination
-        ? push(`/admin/courses/details/${courseId}/exam`)
-        : push(`/admin/courses/details/${courseId}/assessment`);
+        ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${isExamination}&editSubmit=1${moduleQuery}`
+        : `/admin/courses/${courseId}/assessment/${assessmentId}/questions/new?editSubmit=1${moduleQuery}`;
+      push(questionsRoute);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -338,6 +355,15 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
               />
             </GridItem>
             <GridItem>
+              <DateTimePicker
+                id="endTime"
+                isRequired
+                label="End date & time"
+                value={endTimeManager.value}
+                onChange={endTimeManager.handleChange}
+              />
+            </GridItem>
+            <GridItem>
               <Input
                 label="Duration"
                 type="number"
@@ -375,10 +401,10 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
               !metadata?.departments ||
               users.err
             }
-            loadingText="Updating"
+            loadingText="Saving"
             type="submit"
           >
-            Update
+            Next
           </Button>
         </Flex>
       </Box>

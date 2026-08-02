@@ -1,12 +1,13 @@
-import { Box, Flex, Grid, GridItem } from "@chakra-ui/layout";
+import { Box, Flex, GridItem } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useParams, useHistory } from "react-router-dom";
 import {
   Button,
   DateTimePicker,
   Input,
+  Select,
   Spinner,
   Text,
 } from "../../../../../components";
@@ -17,10 +18,10 @@ import {
 } from "../../../../../hooks";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
-  adminCreateAssessment,
-  adminCreateExamination,
-  adminCreateStandaloneExamination,
+  adminGetMarkingTemplateById,
+  adminGetMarkingTemplates,
 } from "../../../../../services";
+import useAssessmentStore from "../../../../../store/assessmentStore";
 import {
   capitalizeFirstLetter,
   capitalizeWords,
@@ -28,22 +29,63 @@ import {
 } from "../../../../../utils";
 import { MultiSelect } from "react-multi-select-component";
 import { useApp } from "../../../../../contexts";
-import { Tag, TagCloseButton, TagLabel } from "@chakra-ui/react";
+import { Checkbox, Tag, TagCloseButton, TagLabel } from "@chakra-ui/react";
 
 const CreateAssessmentPage = ({ users }) => {
   const { id: courseId, assessmentId } = useParams();
 
   const isExamination = useQueryParams().get("examination");
+  const moduleId = useQueryParams().get("moduleId");
   const isStandaloneExamination =
     courseId === "not-set" && assessmentId === "not-set" && isExamination
       ? true
       : false;
+  const isModuleAssessment = !isExamination && !isStandaloneExamination && !!moduleId;
 
   const [standaloneExamType, setStandaloneExamType] = useState("departments");
+  const [addToBank, setAddToBank] = useState(false);
 
   const { push } = useHistory();
   const toast = useToast();
+  const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
+  const fromBankQuestionIds = useAssessmentStore((s) => s.fromBankQuestionIds);
+  const clearFromBankQuestionIds = useAssessmentStore((s) => s.clearFromBankQuestionIds);
+  // Captured once on mount: whatever the Question Bank's "use in a new exam"
+  // picker left behind belongs to this visit — consume it immediately so a
+  // later, unrelated create flow can never pick up a stale value.
+  const bankQuestionIdsRef = useRef(fromBankQuestionIds);
+  useEffect(() => {
+    if (fromBankQuestionIds?.length) clearFromBankQuestionIds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [selectedIDs, setSelectedIDs] = useState([]);
+  const [markingTemplates, setMarkingTemplates] = useState([]);
+  const [markingTemplateId, setMarkingTemplateId] = useState("");
+  const [templateSections, setTemplateSections] = useState([]);
+
+  const usageScope = isStandaloneExamination
+    ? "Standalone Exam"
+    : isExamination
+    ? "Normal Exam"
+    : "Assessment";
+
+  useEffect(() => {
+    adminGetMarkingTemplates()
+      .then(({ templates }) =>
+        setMarkingTemplates(templates.filter((t) => t.usageScope === usageScope))
+      )
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usageScope]);
+
+  useEffect(() => {
+    if (!markingTemplateId) { setTemplateSections([]); return; }
+    adminGetMarkingTemplateById(markingTemplateId)
+      .then(({ template }) =>
+        setTemplateSections(Array.isArray(template?.sections) ? template.sections : [])
+      )
+      .catch(() => setTemplateSections([]));
+  }, [markingTemplateId]);
   const {
     state: { metadata },
   } = useApp();
@@ -57,20 +99,31 @@ const CreateAssessmentPage = ({ users }) => {
   const handleCancel = useGoBack();
 
   const startTimeManager = useDateTimePicker();
+  const endTimeManager = useDateTimePicker();
 
   // Handle form submission
   const onSubmit = async (data) => {
     try {
       const startTime =
         startTimeManager.handleGetValueAndValidate("Start Time");
+      const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
       if (selectedIDs.length === 0 && isStandaloneExamination)
         throw new Error("Please select at least one User or Department");
 
+      if (!markingTemplateId)
+        throw new Error("A marking template must be selected before creating an assessment or examination.");
+
       data = {
         ...data,
         courseId,
+        markingTemplateId,
+        duration: Number(data.duration),
+        amountOfQuestions: Number(data.amountOfQuestions),
+        totalMarks: Number(data.totalMarks),
         startTime: formatDateToISO(startTime),
+        endTime: formatDateToISO(endTime),
+        ...(isModuleAssessment ? { moduleId } : {}),
       };
 
       isStandaloneExamination && Reflect.deleteProperty(data, "courseId");
@@ -87,27 +140,27 @@ const CreateAssessmentPage = ({ users }) => {
                 }),
           }
         : data;
-      console.log(body, "jjjjj");
-      const { message, assessment, examination } =
-        await (isStandaloneExamination
-          ? adminCreateStandaloneExamination(body)
+
+      // Nothing is created yet — hold the details in memory and create both
+      // the assessment/exam and the first question together once "Create
+      // and Submit" is clicked on the question step below.
+      setPendingCreate({
+        kind: isStandaloneExamination
+          ? "StandaloneExam"
           : isExamination
-          ? adminCreateExamination(body)
-          : adminCreateAssessment(body));
-
-      toast({
-        description: capitalizeFirstLetter(message),
-        position: "top",
-        status: "success",
+            ? "Exam"
+            : "Assessment",
+        body,
+        markingTemplateId,
+        addToBank: isModuleAssessment ? addToBank : undefined,
+        title: data.title,
+        fromBankQuestionIds: bankQuestionIdsRef.current,
       });
-
-      isExamination
-        ? push(
-            `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examination.id}`
-          )
-        : push(
-            `/admin/courses/${courseId}/assessment/${assessment.id}/questions/new`
-          );
+      const moduleQuery = isModuleAssessment ? `&moduleId=${moduleId}` : "";
+      const nextRoute = isExamination
+        ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=new&submitForApproval=1`
+        : `/admin/courses/${courseId}/assessment/new/questions/new?submitForApproval=1${moduleQuery}`;
+      push(nextRoute);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -270,6 +323,15 @@ const CreateAssessmentPage = ({ users }) => {
               />
             </GridItem>
             <GridItem>
+              <DateTimePicker
+                id="endTime"
+                isRequired
+                label="End date & time"
+                value={endTimeManager.value}
+                onChange={endTimeManager.handleChange}
+              />
+            </GridItem>
+            <GridItem>
               <Input
                 label="Duration"
                 type="number"
@@ -293,7 +355,69 @@ const CreateAssessmentPage = ({ users }) => {
                 })}
               />
             </GridItem>
+            <GridItem>
+              <Input
+                label="Total Marks"
+                type="number"
+                id="totalMarks"
+                placeholder="e.g. 100"
+                error={errors.totalMarks?.message}
+                {...register("totalMarks", {
+                  required: "Please enter total marks",
+                })}
+              />
+            </GridItem>
+            <GridItem colSpan={{ base: 1, lg: 2 }}>
+              <Select
+                label="Marking Template"
+                placeholder="Select a marking template"
+                isRequired
+                value={markingTemplateId}
+                onChange={(e) => setMarkingTemplateId(e.target.value)}
+                options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
+              />
+            </GridItem>
+
+            {templateSections.length > 0 && (
+              <GridItem colSpan={{ base: 1, lg: 2 }}>
+                <Select
+                  label="Sections"
+                  placeholder="— Sections in this template —"
+                  options={templateSections.map((s) => ({ label: s.name, value: s.name }))}
+                  disabled
+                />
+                <Flex flexWrap="wrap" gap={2} mt={3}>
+                  {templateSections.map((s) => (
+                    <Box
+                      key={s.name}
+                      px={3}
+                      py={1}
+                      borderRadius="md"
+                      border="1px"
+                      borderColor="primary.base"
+                      fontSize="sm"
+                    >
+                      <Text bold color="primary.base">{s.name}</Text>
+                      <Text fontSize="xs" color="gray.500">
+                        {s.questionCount} question{s.questionCount !== 1 ? "s" : ""} · {s.marksPerQuestion} mark{s.marksPerQuestion !== 1 ? "s" : ""} each
+                      </Text>
+                    </Box>
+                  ))}
+                </Flex>
+              </GridItem>
+            )}
           </Box>
+
+          {isModuleAssessment && (
+            <Checkbox
+              isChecked={addToBank}
+              onChange={(e) => setAddToBank(e.target.checked)}
+              colorScheme="purple"
+              mt={2}
+            >
+              Add to Question Bank — automatically save every question created for this assessment to the bank
+            </Checkbox>
+          )}
         </Box>
         <Flex paddingY={10} marginX={6} justifyContent="space-between">
           <Button secondary onClick={handleCancel}>
@@ -310,7 +434,7 @@ const CreateAssessmentPage = ({ users }) => {
             loadingText="Saving"
             type="submit"
           >
-            Save
+            Next
           </Button>
         </Flex>
       </Box>

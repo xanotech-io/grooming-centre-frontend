@@ -13,6 +13,7 @@ export const useUpload = (props) => {
   const [audio, setAudio] = useState({ url: null });
   const [excel, setExcel] = useState({ url: null });
   const [powerpoint, setPowerpoint] = useState({ url: null });
+  const [word, setWord] = useState({ url: null });
 
   const handleFileSelect = (file) => {
     const fileIsAnImage = /(image)/i.test(accept);
@@ -21,6 +22,7 @@ export const useUpload = (props) => {
     const fileIsAudio = /(audio)/i.test(accept);
     const fileIsExcel = /(csv)/i.test(accept) || /(xlsx)/i.test(accept) || /(xls)/i.test(accept);
     const fileIsPowerpoint = /(ppt|pptx)/i.test(accept) || /powerpoint/i.test(accept);
+    const fileIsWord = /(msword)/i.test(accept) || /(wordprocessingml)/i.test(accept);
 
     if (file) {
       if (fileIsAnImage) {
@@ -53,13 +55,19 @@ export const useUpload = (props) => {
         const url = file.name;
         setPowerpoint({ url });
       }
+
+      if (fileIsWord) {
+        const url = file.name;
+        setWord({ url });
+      }
     } else {
       setVideo({ url: null });
       setImage({ url: null });
       setPdf({ url: null });
       setAudio({ url: null });
-      setExcel({ url: null })
+      setExcel({ url: null });
       setPowerpoint({ url: null });
+      setWord({ url: null });
     }
 
     setFile(file);
@@ -70,8 +78,9 @@ export const useUpload = (props) => {
     setImage({ url: null });
     setPdf({ url: null });
     setAudio({ url: null });
-    setExcel({ url: null })
+    setExcel({ url: null });
     setPowerpoint({ url: null });
+    setWord({ url: null });
 
     setFile(null);
   };
@@ -104,11 +113,14 @@ export const useUpload = (props) => {
   const handleInitialPowerpointSelect = (url) => {
     setPowerpoint({ url });
   };
+  const handleInitialWordSelect = (url) => {
+    setWord({ url });
+  };
 
   const handleAcceptChange = (accept) => setAccept(accept);
 
   const handleGetFileAndValidate = (label, bypass) => {
-    if (!bypass && !image.url && !video.url && !pdf.url && !audio.url && !excel.url && !powerpoint.url)
+    if (!bypass && !image.url && !video.url && !pdf.url && !audio.url && !excel.url && !powerpoint.url && !word.url)
       throw new Error(`Please upload a ${label}`);
 
     return file;
@@ -122,6 +134,7 @@ export const useUpload = (props) => {
     audio,
     excel,
     powerpoint,
+    word,
     file,
     handleFileSelect,
     handleFileDelete,
@@ -132,6 +145,7 @@ export const useUpload = (props) => {
     handleInitialPdfSelect,
     handleInitialAudioSelect,
     handleInitialExcelSelect,
-    handleInitialPowerpointSelect
+    handleInitialPowerpointSelect,
+    handleInitialWordSelect,
   };
 };

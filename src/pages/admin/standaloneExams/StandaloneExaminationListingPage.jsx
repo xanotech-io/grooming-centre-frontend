@@ -18,8 +18,9 @@ import {
 import { getDuration } from "../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../hooks";
+import { useAddStandaloneExamToBank } from "../examQuestionBank/useAddStandaloneExamToBank";
 
-const tableProps = {
+const buildTableProps = ({ onAddToBank }) => ({
   filterControls: [
     {
       triggerText: "Sort",
@@ -62,9 +63,7 @@ const tableProps = {
       text: "Examination Title",
       fraction: "2fr",
       renderContent: (data) => (
-        <Link
-          href={`/admin/standalone-exams/overview?examination=${data.examinationId}`}
-        >
+        <Link href={`/admin/standalone-exams/view/${data.examinationId}`}>
           <Text>{data.text}</Text>
         </Link>
       ),
@@ -72,26 +71,49 @@ const tableProps = {
     {
       id: "3",
       key: "noOfUsers",
-      text: "No. of Candidates",
-      fraction: "200px",
+      text: "Candidates",
+      fraction: "120px",
+    },
+    {
+      id: "questions",
+      key: "amountOfQuestions",
+      text: "Questions",
+      fraction: "100px",
     },
     {
       id: "4",
       key: "startDate",
       text: "Start Date",
-      fraction: "200px",
+      fraction: "180px",
     },
     {
       id: "5",
       key: "duration",
       text: "Duration",
-      fraction: "150px",
+      fraction: "120px",
+    },
+    {
+      id: "markingMode",
+      key: "markingMode",
+      text: "Marking",
+      fraction: "120px",
+      renderContent: (mode) => (
+        <Tag
+          borderRadius="full"
+          size="sm"
+          backgroundColor="purple.50"
+          color="purple.700"
+          textTransform="capitalize"
+        >
+          <Text bold>{mode ?? "—"}</Text>
+        </Tag>
+      ),
     },
     {
       id: "6",
       key: "status",
       text: "Status",
-      fraction: "150px",
+      fraction: "130px",
       renderContent: (status) => (
         <Box>
           <Tag
@@ -100,7 +122,7 @@ const tableProps = {
             backgroundColor={status ? "accent.4" : "accent.1"}
             color={status ? "accent.5" : "accent.3"}
           >
-            <Text bold>{status ? "Published" : "UnPublished"}</Text>
+            <Text bold>{status ? "Published" : "Unpublished"}</Text>
           </Tag>
         </Box>
       ),
@@ -110,9 +132,23 @@ const tableProps = {
   options: {
     action: [
       {
+        text: "View",
+        link: (examination) =>
+          `/admin/standalone-exams/view/${examination.id}`,
+      },
+      {
         text: "Edit",
         link: (examination) =>
           `/admin/standalone-exams/overview/?examination=${examination.id}`,
+      },
+      {
+        text: "Submission",
+        link: (examination) =>
+          `/admin/standalone-exams/view/${examination.id}?tab=submissions`,
+      },
+      {
+        text: "Add to Question Bank",
+        onClick: onAddToBank,
       },
       {
         isDelete: true,
@@ -121,22 +157,33 @@ const tableProps = {
     multipleDeleteFetcher: async (selectedExaminations) => {
       await deleteStandaloneExamination(selectedExaminations[0]?.id);
     },
+    selection: true,
     pagination: true,
   },
-};
+});
 
 const StandaloneExaminationListingPage = () => {
+  const { addStandaloneExamToBank } = useAddStandaloneExamToBank();
+
+  const tableProps = buildTableProps({
+    onAddToBank: (examination) =>
+      addStandaloneExamToBank({
+        examinationId: examination.id,
+        examinationTitle: examination.title?.text,
+      }),
+  });
+
   const mapExaminationToRow = (examination) => ({
     id: examination.id,
-    // courseId,
     title: {
       text: examination.title,
       examinationId: examination.id,
-      // courseId,
     },
-    startDate: dayjs(examination.startTime).format("DD/MM/YYYY h:mm a"),
+    startDate: dayjs(examination.startTime).format("DD/MM/YYYY h:mma"),
     duration: getDuration(examination.duration).combinedText,
     noOfUsers: examination.noOfUsers,
+    amountOfQuestions: examination.amountOfQuestions ?? "—",
+    markingMode: examination.markingMode,
     status: examination.isPublished,
   });
 
@@ -159,13 +206,6 @@ const StandaloneExaminationListingPage = () => {
             <Link href="/admin/standalone-exams"> Standalone Examination</Link>
           </BreadcrumbItem>
         }
-        // item3={
-        //   <BreadcrumbItem isCurrentPage>
-        //     <Link href="/admin/standalone-exams/:examinationId/:examinationName">
-        //       Examination
-        //     </Link>
-        //   </BreadcrumbItem>
-        // }
       />
 
       <Box
@@ -178,10 +218,17 @@ const StandaloneExaminationListingPage = () => {
         marginBottom={5}
       >
         <Heading as="h1" fontSize="heading.h3">
-          Examination
+          Standalone Exams
         </Heading>
 
-        <Button link={`/admin/standalone-exams/overview`}>Create Exam</Button>
+        <Box display={"flex"} gap="8px">
+          <Button link={`/admin/exam-question-bank`} secondary>Question Bank</Button>
+
+          <Button link={`/admin/standalone-exams/temporary-library`} secondary>Exam Template Library</Button>
+
+          <Button link={`/admin/standalone-exams/overview`}>Create New Exam</Button>
+        </Box>
+
       </Box>
 
       <Table

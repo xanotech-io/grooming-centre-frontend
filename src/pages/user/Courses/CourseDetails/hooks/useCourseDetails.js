@@ -32,10 +32,10 @@ const useCourseDetails = (courseId) => {
           bypassCache
         );
 
-        if (componentIsMount) setCourseDetails({ data: courseDetails });
+        if (componentIsMount.current) setCourseDetails({ data: courseDetails });
       } catch (err) {
         console.log(err);
-        if (componentIsMount) setCourseDetails({ err: err.message });
+        if (componentIsMount.current) setCourseDetails({ err: err.message });
       }
     },
 

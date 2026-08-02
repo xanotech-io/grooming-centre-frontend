@@ -6,7 +6,7 @@ import { http } from "../http";
  * @returns {Promise<{ data: User }>}
  */
 export const requestMyData = async () => {
-  const path = "/me";
+  const path = "/v1/me";
 
   const {
     data: { data },
@@ -22,7 +22,7 @@ export const requestMyData = async () => {
  * @returns {Promise<{  message: string }>}
  */
 export const requestUpdateDetails = async (body) => {
-  const path = "/user/edit-details";
+  const path = "/v1/user/edit-details";
 
   const {
     data: { message },
@@ -31,7 +31,7 @@ export const requestUpdateDetails = async (body) => {
   return { message };
 };
 export const updatePassword = async (body) => {
-  const path = "/password/create/new";
+  const path = "/v1/password/create/new";
 
   const {
     data: { message },
@@ -45,7 +45,7 @@ export const updatePassword = async (body) => {
  * @returns {Promise<{  message: string }>}
  */
 export const userCreateNewPassword = async (body) => {
-  const path = "/password/create/new";
+  const path = "/v1/password/create/new";
 
   const {
     data: { message },
@@ -60,7 +60,7 @@ export const userCreateNewPassword = async (body) => {
  * @returns {Promise<{ message: string }>}
  */
 export const userForgetPassword = async (body) => {
-  const path = "/forgot/password";
+  const path = "/v1/forgot/password";
 
   const {
     data: { message },
@@ -75,11 +75,11 @@ export const userForgetPassword = async (body) => {
  * @returns {Promise<{ message: string }>}
  */
 export const userResetPassword = async (body, token) => {
-  const path = "/password/reset";
+  const path = "/v1/password/reset";
 
   const {
     data: { message },
-  } = await http.patch(path, body, {token});
+  } = await http.patch(path, body, { token });
 
   return { message };
 };
@@ -90,7 +90,7 @@ export const userResetPassword = async (body, token) => {
  * @returns {Promise<{ user: `Object`, token: `string`, message: string }>}
  */
 export const requestSignin = async (body) => {
-  const path = "/login";
+  const path = "/v1/login";
 
   const {
     data: {

@@ -6,7 +6,7 @@ import { http } from '../http';
  * @returns {Promise<{ events: Array<{ id: string, description: string, name: string, startTime: Date, endTime: Date, departmentId: string }> }>}
  */
 export const userGetEventListing = async () => {
-  const path = `/events/upcoming`;
+  const path = `/v1/events/upcoming`;
 
   const {
     data: { data },
@@ -22,6 +22,8 @@ export const userGetEventListing = async () => {
     departmentId: event.departmentId,
     link: event.eventLink,
     password: event.eventPassword,
+    createdBy: event.createdBy ?? event.created_by,
+    createdAt: event.createdAt ?? event.created_at,
   }));
 
   return { events };
@@ -34,7 +36,7 @@ export const userGetEventListing = async () => {
  * @returns {Promise<void>}
  */
 export const userJoinEvent = async (eventId) => {
-  const path = `/event-attendance/create/${eventId}`;
+  const path = `/v1/event-attendance/create/${eventId}`;
 
   await http.post(path);
 };
@@ -46,7 +48,7 @@ export const userJoinEvent = async (eventId) => {
  * @returns {Promise<{ events: Array<{ id: string, description: string, name: string, startTime: Date, endTime: Date, departmentId: string }> }>}
  */
 export const adminGetEventListing = async (params) => {
-  const path = `/events/all`;
+  const path = `/v1/events/all`;
 
   const {
     data: { data },
@@ -62,6 +64,8 @@ export const adminGetEventListing = async (params) => {
     departmentId: event.departmentId,
     coverImage: event.coverImage,
     attendeesCount: event.eventAttendeesCount || 0,
+    createdBy: event.createdBy ?? event.created_by,
+    createdAt: event.createdAt ?? event.created_at,
   }));
 
   return { events };
@@ -71,16 +75,16 @@ export const adminGetEventListing = async (params) => {
  * Endpoint for admin to create a event
  * @param {object} body
  *
- * @returns {Promise<{ message: string }>}
+ * @returns {Promise<{ message: string, event: object }>}
  */
 export const adminCreateEvent = async (body) => {
-  const path = `/events/create`;
+  const path = `/v1/events/create`;
 
   const {
-    data: { message },
+    data: { message, data },
   } = await http.post(path, body);
 
-  return { message };
+  return { message, event: data };
 };
 
 /**
@@ -91,7 +95,7 @@ export const adminCreateEvent = async (body) => {
  * @returns {Promise<{ message: string }>}
  */
 export const adminEditEvent = async (eventId, body) => {
-  const path = `/events/edit/${eventId}`;
+  const path = `/v1/events/edit/${eventId}`;
 
   const {
     data: { message },

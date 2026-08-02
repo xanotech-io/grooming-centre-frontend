@@ -5,32 +5,31 @@ import { useParams } from "react-router";
 import { useCache } from "../../../../contexts";
 import { Text } from "../../../../components";
 import useQueryParams from "../../../../hooks/useQueryParams";
-import useAssessmentPreview from "../../../../pages/user/Courses/TakeCourse/hooks/useAssessmentPreview";
-import { createCertificate, submitAssessment } from "../../../../services";
+import { submitAssessmentMarking } from "../../../../services";
 import { submitExamination } from "../../../../services/http/endpoints/examination";
-import { hasEnded, isUpcoming, sortByIndexField } from "../../../../utils";
+import {  sortByIndexField } from "../../../../utils";
 import { CongratsModalContent } from "../Modal";
 import useTimerCountdown from "./useTimerCountdown";
 import { Box } from "@chakra-ui/layout";
 import useCourseExamPreview from "../../../../pages/user/Courses/TakeCourse/hooks/courseExamPreview/useCourseExamPreview";
 import {
   useHistory,
-  useLocation,
+
 } from "react-router-dom/cjs/react-router-dom.min";
-import { Warning } from "@material-ui/icons";
+
 
 const useAssessment = () => {
-  const { assessment, isLoading, error, setError } = useCourseExamPreview();
+  const { assessment, isLoading, error } = useCourseExamPreview();
   const { course_id } = useParams();
   const isExamination = useQueryParams().get("examination");
   const [score, setScore] = useState("");
+   // eslint-disable-next-line no-unused-vars
   const [end, setEnd] = useState(true);
-  const [count, increaseCount] = useState(0);
+
   const { push } = useHistory();
   const totalSteps = 3;
   const [nav, setNav] = useState(false);
   const [exitAttempts, setExitAttempts] = useState(0);
-  const [onblur, setIsOnblur] = useState(false);
   assessment.questions = sortByIndexField(
     assessment.questions,
     "questionIndex"
@@ -55,29 +54,6 @@ const useAssessment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessment.questions?.[0]]);
 
-  // Handle Late/Too Early comer :) and deals with completed assessment
-  useEffect(() => {
-    if (assessment.hasCompleted)
-      return setError(
-        `You have already taken this ${
-          isExamination ? "examination" : "assessment"
-        }`
-      );
-
-    if (isUpcoming(assessment.startTime))
-      return setError(
-        `This ${
-          isExamination ? "examination" : "assessment"
-        } is not yet time to be taken`
-      );
-
-    if (hasEnded(assessment.endTime))
-      setError(
-        `This ${isExamination ? "examination" : "assessment"} has already ended`
-      );
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessment.endTime, assessment.startTime]);
 
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [submitStatus, setSubmitStatus] = useState({
@@ -97,47 +73,45 @@ const useAssessment = () => {
     });
 
     try {
-      const questionIdArr = assessment?.questions?.reduce((acc, question) => {
-        acc.push(question.id);
-        return acc;
-      }, []);
-      const optionIdArr = [];
+      if (isExamination) {
+        const examinationQuestionsId = assessment?.questions?.map((q) => q.id);
+        const examinationOptionsId = examinationQuestionsId.map(
+          (id) => selectedAnswers[id] || null
+        );
+        const body = {
+          examinationId: assessment.id,
+          courseId: assessment.courseId,
+          examinationQuestionsId,
+          examinationOptionsId,
+        };
+        const { message, data } = await submitExamination(body);
+        setScore(data?.score);
+        toast({
+          description: exitAttempts === totalSteps ? "Exam auto submitted" : message,
+          position: "top",
+          status: "success",
+        });
+      } else {
+        const answers = assessment?.questions?.map((q) => ({
+          questionId: q.id,
+          answer: selectedAnswers[q.id] ?? null,
+          timeTaken: 0,
+        }));
+        const body = {
+          answers,
+          submissionTime: new Date().toISOString(),
+          timeTaken: 0,
+        };
+        const { message, data } = await submitAssessmentMarking(assessment.id, body);
+        setScore(data?.totalScore ?? data?.score);
+        toast({
+          description: exitAttempts === totalSteps ? "Assessment auto submitted" : message,
+          position: "top",
+          status: "success",
+        });
+      }
 
-      questionIdArr.forEach((questionId, index) => {
-        optionIdArr[index] = selectedAnswers[questionId] || null;
-      });
-
-      const context = isExamination ? "examination" : "assessment";
-
-      const body = {
-        [`${context}Id`]: assessment.id,
-        [`${context}QuestionsId`]: questionIdArr,
-        [`${context}OptionsId`]: optionIdArr,
-        // userId: user.id,
-        courseId: assessment.courseId,
-      };
-
-      //   {
-      //     "assessmentId": "2a69af3f-3073-41b2-994d-bc31f69e37cb",
-      //     "courseId": "c3b2a0a5-59eb-454f-9c2f-5a6b1c4ff1e2",
-      // }
-
-      console.log(questionIdArr, optionIdArr);
-
-      const { message, data } = await (isExamination
-        ? submitExamination(body)
-        : submitAssessment(body));
-
-      setScore(data?.score);
-      toast({
-        description:
-          exitAttempts === totalSteps ? "Exam auto submitted" : message,
-        position: "top",
-        status: "success",
-      });
-      setSubmitStatus({
-        success: true,
-      });
+      setSubmitStatus({ success: true });
     } catch (error) {
       toast({
         description: error.message,
@@ -154,9 +128,9 @@ const useAssessment = () => {
   }, [
     assessment.courseId,
     assessment.id,
+    assessment.questions,
     isExamination,
     selectedAnswers,
-    // user?.id,
   ]);
 
   useEffect(() => {
@@ -176,6 +150,7 @@ const useAssessment = () => {
       const body = {
         courseId: assessment.courseId,
       };
+      console.log(body)
     } catch (error) {
       toast({
         description: error.message,
@@ -287,6 +262,8 @@ const useAssessment = () => {
       window.removeEventListener("beforeunload", handleUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exitAttempts]);
 
   const handleQuestionChange = (question) => setCurrentQuestion(question);
@@ -307,10 +284,17 @@ const useAssessment = () => {
     handleQuestionChange(previousQuestion);
   };
 
-  const handleOptionSelect = (selectedAssessmentOptionId) => {
+  const handleOptionSelect = (value) => {
     setSelectedAnswers((prev) => ({
       ...prev,
-      [currentQuestion?.id]: selectedAssessmentOptionId,
+      [currentQuestion?.id]: value,
+    }));
+  };
+
+  const handleAnswerChange = (value) => {
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [currentQuestion?.id]: value,
     }));
   };
 
@@ -338,6 +322,7 @@ const useAssessment = () => {
     handleNextQuestion,
     handlePreviousQuestion,
     handleOptionSelect,
+    handleAnswerChange,
     handleCert,
     nav,
     timerCountdownManger,

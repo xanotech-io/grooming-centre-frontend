@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Container,
   Typography,
@@ -17,7 +17,7 @@ import {
   Tabs,
   Tab,
   makeStyles,
-} from '@material-ui/core';
+} from "@material-ui/core";
 import {
   FolderOpen,
   InsertDriveFile,
@@ -28,12 +28,14 @@ import {
   GetApp as Download,
   Visibility,
   Storage,
-  FilterList,
   Error as ErrorIcon,
-} from '@material-ui/icons';
-import { useFileManagement } from './hooks/useFileManagement';
-import FileDetailsModal from './components/FileDetailsModal';
-import FileStatsCard from './components/FileStatsCard';
+} from "@material-ui/icons";
+import { BreadcrumbItem, Flex } from "@chakra-ui/react";
+import { Breadcrumb, Link } from "../../../components";
+import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
+import { useFileManagement } from "./hooks/useFileManagement";
+import FileDetailsModal from "./components/FileDetailsModal";
+import FileStatsCard from "./components/FileStatsCard";
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -51,25 +53,25 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: theme.spacing(3),
   },
   loadingContainer: {
-    display: 'flex',
-    justifyContent: 'center',
+    display: "flex",
+    justifyContent: "center",
     padding: theme.spacing(4),
   },
   fileCard: {
-    height: '100%',
-    cursor: 'pointer',
-    transition: 'transform 0.2s, box-shadow 0.2s',
-    '&:hover': {
-      transform: 'translateY(-2px)',
+    height: "100%",
+    cursor: "pointer",
+    transition: "transform 0.2s, box-shadow 0.2s",
+    "&:hover": {
+      transform: "translateY(-2px)",
       boxShadow: theme.shadows[4],
-    }
+    },
   },
   fileCardContent: {
     padding: theme.spacing(2),
   },
   fileIcon: {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     marginBottom: theme.spacing(2),
   },
   fileName: {
@@ -83,16 +85,16 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: theme.spacing(2),
   },
   actionButtons: {
-    display: 'flex',
+    display: "flex",
     gap: theme.spacing(1),
   },
   paginationContainer: {
-    display: 'flex',
-    justifyContent: 'center',
+    display: "flex",
+    justifyContent: "center",
     marginTop: theme.spacing(4),
   },
   emptyState: {
-    textAlign: 'center',
+    textAlign: "center",
     padding: theme.spacing(8),
   },
   emptyIcon: {
@@ -108,18 +110,18 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(1, 2),
     marginBottom: theme.spacing(2),
     borderRadius: theme.shape.borderRadius,
-    backgroundColor: '#f44336',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
+    backgroundColor: "#f44336",
+    color: "white",
+    display: "flex",
+    alignItems: "center",
   },
   alertIcon: {
     marginRight: theme.spacing(1),
   },
   // Custom Pagination styles
   pagination: {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     gap: theme.spacing(1),
   },
   paginationButton: {
@@ -136,8 +138,8 @@ const DocumentsPage = () => {
   const classes = useStyles();
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [selectedTable, setSelectedTable] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTable, setSelectedTable] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState(0); // 0: All Files, 1: Statistics
@@ -159,52 +161,60 @@ const DocumentsPage = () => {
       fetchFiles({
         page: currentPage,
         limit: pageSize,
-        table: selectedTable === 'all' ? '' : selectedTable,
+        table: selectedTable === "all" ? "" : selectedTable,
         search: searchQuery,
       });
     } else {
       fetchStats();
     }
-  }, [currentPage, pageSize, selectedTable, searchQuery, viewMode, fetchFiles, fetchStats]);
+  }, [
+    currentPage,
+    pageSize,
+    selectedTable,
+    searchQuery,
+    viewMode,
+    fetchFiles,
+    fetchStats,
+  ]);
 
   const getFileIcon = (fileName, table) => {
     if (!fileName) return <Description />;
-    
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    
+
+    const extension = fileName.split(".").pop()?.toLowerCase();
+
     switch (extension) {
-      case 'pdf':
-        return <PictureAsPdf style={{ color: '#d32f2f' }} />;
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-      case 'webp':
-        return <Image style={{ color: '#2e7d32' }} />;
-      case 'mp4':
-      case 'avi':
-      case 'mov':
-      case 'wmv':
-        return <VideoFile style={{ color: '#1976d2' }} />;
+      case "pdf":
+        return <PictureAsPdf style={{ color: "#d32f2f" }} />;
+      case "jpg":
+      case "jpeg":
+      case "png":
+      case "gif":
+      case "webp":
+        return <Image style={{ color: "#2e7d32" }} />;
+      case "mp4":
+      case "avi":
+      case "mov":
+      case "wmv":
+        return <VideoFile style={{ color: "#1976d2" }} />;
       default:
-        return <InsertDriveFile style={{ color: '#757575' }} />;
+        return <InsertDriveFile style={{ color: "#757575" }} />;
     }
   };
 
   const getTableColor = (table) => {
     const colors = {
-      course: '#1976d2',
-      users: '#2e7d32',
-      lesson: '#ed6c02',
-      library: '#9c27b0',
-      events: '#d32f2f',
-      assessmentQuestions: '#0288d1',
-      examinationQuestions: '#7b1fa2',
-      chatMessages: '#689f38',
-      chatRooms: '#f57c00',
-      standAloneExaminationQuestion: '#5d4037',
+      course: "#1976d2",
+      users: "#2e7d32",
+      lesson: "#ed6c02",
+      library: "#9c27b0",
+      events: "#d32f2f",
+      assessmentQuestions: "#0288d1",
+      examinationQuestions: "#7b1fa2",
+      chatMessages: "#689f38",
+      chatRooms: "#f57c00",
+      standAloneExaminationQuestion: "#5d4037",
     };
-    return colors[table] || '#616161';
+    return colors[table] || "#616161";
   };
 
   const handleFileClick = (file) => {
@@ -214,9 +224,9 @@ const DocumentsPage = () => {
 
   const handleDownload = async (file) => {
     try {
-      await downloadFile(file.fileUrl, file.recordTitle || 'document');
+      await downloadFile(file.fileUrl, file.recordTitle || "document");
     } catch (error) {
-      console.error('Download failed:', error);
+      console.error("Download failed:", error);
     }
   };
 
@@ -246,11 +256,21 @@ const DocumentsPage = () => {
   }
 
   return (
-    <Container maxWidth="lg" className={classes.container}>
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Documents</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Container maxWidth="lg" className={classes.container}>
       {/* Header */}
       <Box className={classes.header}>
         <Typography variant="h4" component="h1" gutterBottom>
-          <FolderOpen style={{ marginRight: 16, verticalAlign: 'middle' }} />
+          <FolderOpen style={{ marginRight: 16, verticalAlign: "middle" }} />
           Documents Management
         </Typography>
         <Typography variant="body1" color="textSecondary">
@@ -339,8 +359,15 @@ const DocumentsPage = () => {
             <>
               <Grid container spacing={2}>
                 {files.map((file) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={`${file.table}-${file.recordId}-${file.fieldName}`}>
-                    <Card 
+                  <Grid
+                    item
+                    xs={12}
+                    sm={6}
+                    md={4}
+                    lg={3}
+                    key={`${file.table}-${file.recordId}-${file.fieldName}`}
+                  >
+                    <Card
                       className={classes.fileCard}
                       onClick={() => handleFileClick(file)}
                     >
@@ -348,8 +375,12 @@ const DocumentsPage = () => {
                         {/* File Icon and Preview */}
                         <Box className={classes.fileIcon}>
                           {getFileIcon(file.fileUrl, file.table)}
-                          <Typography variant="h6" className={classes.fileName} noWrap>
-                            {file.recordTitle || 'Untitled'}
+                          <Typography
+                            variant="h6"
+                            className={classes.fileName}
+                            noWrap
+                          >
+                            {file.recordTitle || "Untitled"}
                           </Typography>
                         </Box>
 
@@ -360,14 +391,18 @@ const DocumentsPage = () => {
                             size="small"
                             style={{
                               backgroundColor: getTableColor(file.table),
-                              color: 'white',
-                              fontSize: '0.75rem',
+                              color: "white",
+                              fontSize: "0.75rem",
                             }}
                           />
                         </Box>
 
                         {/* Field Name */}
-                        <Typography variant="body2" color="textSecondary" className={classes.fieldName}>
+                        <Typography
+                          variant="body2"
+                          color="textSecondary"
+                          className={classes.fieldName}
+                        >
                           Field: {file.fieldName}
                         </Typography>
 
@@ -427,11 +462,14 @@ const DocumentsPage = () => {
                     >
                       Prev
                     </Button>
-                    
-                    <Typography variant="body2" className={classes.paginationInfo}>
+
+                    <Typography
+                      variant="body2"
+                      className={classes.paginationInfo}
+                    >
                       Page {currentPage} of {pagination.totalPages}
                     </Typography>
-                    
+
                     <Button
                       className={classes.paginationButton}
                       variant="outlined"
@@ -465,9 +503,9 @@ const DocumentsPage = () => {
                   No files found
                 </Typography>
                 <Typography variant="body1" color="textSecondary">
-                  {searchQuery || selectedTable !== 'all'
-                    ? 'Try adjusting your filters or search terms'
-                    : 'No files have been uploaded to the system yet'}
+                  {searchQuery || selectedTable !== "all"
+                    ? "Try adjusting your filters or search terms"
+                    : "No files have been uploaded to the system yet"}
                 </Typography>
               </CardContent>
             </Card>
@@ -489,6 +527,7 @@ const DocumentsPage = () => {
         onDownload={handleDownload}
       />
     </Container>
+    </AdminMainAreaWrapper>
   );
 };
 

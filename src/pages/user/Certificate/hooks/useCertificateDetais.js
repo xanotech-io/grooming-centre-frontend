@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { requestCertificateDetails } from "../../../../services";
@@ -33,9 +34,9 @@ const useCertificateDetails = () => {
 
       console.log(certificateDetails);
 
-      if (componentIsMount) setCertificateDetails({ data: certificateDetails });
+      if (componentIsMount.current) setCertificateDetails({ data: certificateDetails });
     } catch (err) {
-      if (componentIsMount) setCertificateDetails({ err: err.message });
+      if (componentIsMount.current) setCertificateDetails({ err: err.message });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [course_id, componentIsMount]);

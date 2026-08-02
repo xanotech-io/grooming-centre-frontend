@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCache } from "../../../../../contexts";
@@ -68,10 +69,10 @@ const useAssessmentPreview = (
           bypassCache
         );
 
-        if (componentIsMount) setAssessmentDetails({ data: assessmentDetails });
+        if (componentIsMount.current) setAssessmentDetails({ data: assessmentDetails });
       } catch (err) {
         console.error(err);
-        if (componentIsMount) setAssessmentDetails({ err: err.message });
+        if (componentIsMount.current) setAssessmentDetails({ err: err.message });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,6 +82,7 @@ const useAssessmentPreview = (
   const handleFetch = (bypassCache) => {
     if (
       !assessmentIsNew &&
+      isExamination !== "new" &&
       assessmentId !== isStandaloneExaminationAndIsNotEditMode
     )
       fetchAssessmentDetails(bypassCache);

@@ -197,7 +197,7 @@ const ActionIconButton = ({
                 key={index}
                 as={opt.link && Link}
                 to={opt.link?.(row)}
-                onClick={opt.onClick}
+                onClick={opt.onClick ? () => opt.onClick(row) : undefined}
                 {...opt.props}
               >
                 {opt.text}

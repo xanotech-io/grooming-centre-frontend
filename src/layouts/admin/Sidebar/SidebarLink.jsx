@@ -89,7 +89,7 @@ const SidebarLink = ({ link, onClick }) => {
           overflow="hidden"
           transition="max-height .5s linear"
           maxHeight={
-            accordionManager.isOpen ? `${37 * link.links.length}px` : 0
+            accordionManager.isOpen ? `${52 * link.links.length}px` : 0
           }
         >
           {link.links.map((link) => (

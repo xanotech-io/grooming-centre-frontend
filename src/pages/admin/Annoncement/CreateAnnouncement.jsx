@@ -1,19 +1,17 @@
-import { Box, useToast } from '@chakra-ui/react';
-import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { Route, useHistory, useParams } from 'react-router-dom';
-import { Input, Select, Textarea } from '../../../components';
-import { useApp } from '../../../contexts';
-import { CreatePageLayout } from '../../../layouts';
+import { Box, BreadcrumbItem, Flex, useToast } from "@chakra-ui/react";
+import React, { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { Route, useHistory } from "react-router-dom";
+import { Breadcrumb, Link, Select, Textarea } from "../../../components";
+import { useApp } from "../../../contexts";
+import { CreatePageLayout } from "../../../layouts";
 import {
   adminCreateAnnouncement,
   adminEditAnnouncement,
-  adminEditEvent,
-} from '../../../services';
-import { capitalizeFirstLetter, capitalizeWords } from '../../../utils';
-import { useAdminEventsPage } from '../events/EventsPage';
-import { useQueryParams } from '../../../hooks';
-import useAnnoucement from './useAnnoucement';
+} from "../../../services";
+import { capitalizeFirstLetter, capitalizeWords } from "../../../utils";
+import { useQueryParams } from "../../../hooks";
+import useAnnoucement from "./useAnnoucement";
 
 const CreateAnnouncement = () => {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(null);
@@ -25,9 +23,9 @@ const CreateAnnouncement = () => {
 
   const { push } = useHistory();
 
-  const announceId = useQueryParams().get('announcement');
+  const announceId = useQueryParams().get("announcement");
 
-  const isEditMode = announceId && announceId !== 'new';
+  const isEditMode = announceId && announceId !== "new";
 
   const { announcementDetails } = useAnnoucement();
 
@@ -35,13 +33,13 @@ const CreateAnnouncement = () => {
     register,
     handleSubmit,
     setValue,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm();
 
   // Init `Text` value
   useEffect(() => {
     if (announcementDetails) {
-      setValue('text', announcementDetails.text);
+      setValue("text", announcementDetails.text);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [announcementDetails]);
@@ -49,7 +47,7 @@ const CreateAnnouncement = () => {
   // Init `DepartmentId` value
   useEffect(() => {
     if (announcementDetails) {
-      setValue('departmentId', announcementDetails.departmentId);
+      setValue("departmentId", announcementDetails.departmentId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [announcementDetails, metadata]);
@@ -67,8 +65,8 @@ const CreateAnnouncement = () => {
 
       toast({
         description: capitalizeFirstLetter(message),
-        position: 'top',
-        status: 'success',
+        position: "top",
+        status: "success",
       });
 
       push(`/admin/announcement`);
@@ -76,8 +74,8 @@ const CreateAnnouncement = () => {
       console.error(error);
       toast({
         description: capitalizeFirstLetter(error.message),
-        position: 'top',
-        status: 'error',
+        position: "top",
+        status: "error",
       });
     }
   };
@@ -90,18 +88,32 @@ const CreateAnnouncement = () => {
   };
   return (
     <CreatePageLayout
-      title={`${isEditMode ? 'Edit' : 'Create'} Announcement`}
-      submitButtonText={isEditMode ? 'Update' : 'Submit'}
+      title={`${isEditMode ? "Edit" : "Create"} Announcement`}
+      submitButtonText={isEditMode ? "Update" : "Submit"}
       onSubmit={handleSubmit(onSubmit)}
       // submitButtonIsLoading={isSubmitting || isLoading}
       // submitButtonIsDisabled={
       //   isSubmitting || isLoading || hasError || disableSubmit
       // }
     >
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem>
+              <Link href="/admin/announcement">Announcements</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Create Announcement</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
       <Box
         as="div"
-        display={{ lg: 'grid', base: 'flex', md: 'flex' }}
-        flexDirection={{ base: 'column', md: 'column' }}
+        display={{ lg: "grid", base: "flex", md: "flex" }}
+        flexDirection={{ base: "column", md: "column" }}
         gridTemplateColumns="1fr 1fr"
         gap={10}
         marginBottom={10}
@@ -111,13 +123,13 @@ const CreateAnnouncement = () => {
           label="Content"
           id="text"
           isRequired
-          {...register('text', {
-            required: 'Content is required',
+          {...register("text", {
+            required: "Content is required",
             maxLength: 1000,
           })}
           error={
-            errors.description?.type === 'maxLength'
-              ? 'Maximum length of 1000 characters'
+            errors.description?.type === "maxLength"
+              ? "Maximum length of 1000 characters"
               : errors.description?.message
           }
         />
@@ -138,8 +150,8 @@ const CreateAnnouncement = () => {
           id="departmentId"
           isLoading={!metadata?.departments}
           value={selectedDepartmentId}
-          {...register('departmentId', {
-            required: 'Please select a department',
+          {...register("departmentId", {
+            required: "Please select a department",
           })}
           onChange={(e) => setSelectedDepartmentId(e.target.value)}
         />

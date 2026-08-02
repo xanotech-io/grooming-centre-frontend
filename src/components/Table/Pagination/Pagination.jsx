@@ -44,7 +44,7 @@ const Pagination = ({
   }, [currentPage, limit, history]);
 
   useEffect(() => {
-    setParams((prev) => ({ ...prev, page: currentPage, length: limit }));
+    setParams((prev) => ({ ...prev, page: currentPage, limit }));
     setCanFilter(true);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps

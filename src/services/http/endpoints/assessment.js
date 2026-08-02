@@ -1,4 +1,4 @@
-import { getEndTime } from "../../../utils";
+import { getEndTime, parseOptionIndex } from "../../../utils";
 import { http } from "../http";
 
 /**
@@ -8,7 +8,7 @@ import { http } from "../http";
  * @returns {Promise<{ assessment: Assessment }>}
  */
 export const requestAssessmentDetails = async (id, forAdmin) => {
-  const path = `/assessment${forAdmin ? "/admin" : ""}/${id}`;
+  const path = `/v1/assessment${forAdmin ? "/admin" : ""}/${id}`;
 
   const {
     data: { data },
@@ -17,6 +17,7 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
   const assessment = {
     id: data?.id,
     courseId: data?.courseId,
+    markingTemplateId: data?.templateId ?? data?.markingTemplateId ?? null,
     topic: data?.title,
     duration: data?.duration,
     questionCount: data?.amountOfQuestions,
@@ -25,27 +26,53 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
     hasCompleted: data?.assessmentScoreSheets?.[0] ? true : false,
     minimumPercentageScoreToEarnABadge:
       data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
+    sections: Array.isArray(data?.sections) ? data.sections : [],
     questions: data?.assessmentQuestions
-      ? data?.assessmentQuestions?.map((q, index) => ({
+      ? data?.assessmentQuestions?.map((q, index) => {
+        const opts = q?.options ?? [];
+        const inferredType = (() => {
+          if (q?.questionType) return q.questionType;
+          if (opts.length === 0) return "ShortAnswer";
+          const names = opts.map((o) => (o?.name || "").toLowerCase());
+          if (opts.length === 2 && names.includes("true") && names.includes("false")) return "TrueFalse";
+          return "MCQ";
+        })();
+        return {
           id: q.id,
           question: q?.question,
           file: q?.file,
           questionIndex: index,
-          options: q?.options.map((opt) => ({
+          questionType: inferredType,
+          markingType: q?.markingType || "automatic",
+          pairs: q?.pairs ?? null,
+          modelAnswer: q?.modelAnswer ?? null,
+          correctAnswer: q?.correctAnswer ?? null,
+          rubric: q?.rubric ?? q?.rubricDescription ?? null,
+          marks: q?.marks ?? null,
+          section: q?.section ?? null,
+          bloomLevel: q?.bloomLevel ?? null,
+          difficultyLevel: q?.difficultyLevel ?? null,
+          options: opts.map((opt) => ({
             id: opt?.id,
             isAnswer: opt?.isAnswer,
             name: opt?.name,
-            optionIndex: +opt?.optionIndex,
+            optionIndex: parseOptionIndex(opt?.optionIndex),
           })),
-        }))
+        };
+      })
       : "not set",
   };
 
   return { assessment };
 };
 
+export const adminGetAssessmentMarkingTemplateId = async (assessmentId) => {
+  const { data: { data } } = await http.get(`/v1/assessment/admin/${assessmentId}`);
+  return data?.templateId ?? data?.markingTemplateId ?? null;
+};
+
 export const adminDeleteAssessmentQuestionFile = async (questionId) => {
-  const path = `/assessment/question/delete-image/${questionId}`;
+  const path = `/v1/assessment/question/delete-image/${questionId}`;
 
   await http.delete(path);
 };
@@ -57,11 +84,19 @@ export const adminDeleteAssessmentQuestionFile = async (questionId) => {
  * @returns {Promise<{ message: string }>}
  */
 export const submitAssessment = async (body) => {
-  const path = `/assessment/scoresheet/create`;
+  const path = `/v1/assessment/scoresheet/create`;
 
   const {
     data: { message, data },
   } = await http.post(path, body);
+
+  return { message, data };
+};
+
+export const submitAssessmentMarking = async (assessmentId, body) => {
+  const {
+    data: { message, data },
+  } = await http.post(`/v1/assessment-marking/submit/${assessmentId}`, body);
 
   return { message, data };
 };
@@ -72,7 +107,7 @@ export const submitAssessment = async (body) => {
  * @returns {Promise<{ message: string, assessment: { id: string } }>}
  */
 export const adminCreateAssessment = async (body) => {
-  const path = `/assessment/create`;
+  const path = `/v1/assessment/create`;
 
   const {
     data: { message, data },
@@ -80,8 +115,9 @@ export const adminCreateAssessment = async (body) => {
 
   const assessment = {
     id: data.id,
+    templateId: data.templateId ?? data.markingTemplateId ?? null,
+    sections: Array.isArray(data.sections) ? data.sections : [],
   };
-  console.log(assessment);
   return { message, assessment };
 };
 
@@ -91,13 +127,13 @@ export const adminCreateAssessment = async (body) => {
  * @returns {Promise<{ message: string }>}
  */
 export const adminCreateAssessmentQuestion = async (body) => {
-  const path = "/assessment/question/create";
+  const path = "/v1/assessment/question/create";
 
   const {
-    data: { message },
+    data: { message, data },
   } = await http.post(path, body);
 
-  return { message };
+  return { message, question: data };
 };
 
 /**
@@ -106,17 +142,17 @@ export const adminCreateAssessmentQuestion = async (body) => {
  * @returns {Promise<{ message: string }>}
  */
 export const adminEditAssessmentQuestion = async (body) => {
-  const path = `/assessment/question/edit`;
+  const path = `/v1/assessment/question/edit`;
 
   const {
-    data: { message },
+    data: { message, data },
   } = await http.patch(path, body);
 
-  return { message };
+  return { message, question: data };
 };
 
 export const adminDeleteAssessment = async (assessmentId) => {
-  const path = `/assessment/delete/${assessmentId}`;
+  const path = `/v1/assessment/delete/${assessmentId}`;
 
   const {
     data: { message },
@@ -125,7 +161,7 @@ export const adminDeleteAssessment = async (assessmentId) => {
   return { message };
 };
 export const adminDeleteAssessmentQuestion = async (questionId) => {
-  const path = `/assessment/question/delete/${questionId}`;
+  const path = `/v1/assessment/question/delete/${questionId}`;
 
   const {
     data: { message },
@@ -141,7 +177,7 @@ export const adminDeleteAssessmentQuestion = async (questionId) => {
  * @returns {Promise<{ assessments: Array<{ id: string, courseId: string, title: string,  startTime: Date, duration: number }> }>}
  */
 export const adminGetAssessmentListing = async (courseId) => {
-  const path = `/assessment/course/${courseId}`;
+  const path = `/v1/assessment/course/${courseId}`;
 
   const {
     data: { data },
@@ -151,11 +187,38 @@ export const adminGetAssessmentListing = async (courseId) => {
     id: assessment.id,
     title: assessment.title,
     courseId: assessment.courseId,
+    moduleId: assessment.moduleId,
     duration: assessment.duration,
     startTime: assessment.startTime,
   }));
 
   return { assessments };
+};
+
+/**
+ * List all assessments in a module
+ * @param {string} moduleId
+ * @returns {Promise<{ assessments: Array }>}
+ */
+export const adminListModuleAssessments = async (moduleId) => {
+  const path = `/v1/assessment/module/${moduleId}`;
+
+  const {
+    data: { data },
+  } = await http.get(path);
+
+  return {
+    assessments: data.map((assessment) => ({
+      id: assessment.id,
+      title: assessment.title,
+      courseId: assessment.courseId,
+      moduleId: assessment.moduleId,
+      duration: assessment.duration,
+      amountOfQuestions: assessment.amountOfQuestions,
+      approvalStatus: assessment.approvalStatus,
+      startTime: assessment.startTime,
+    })),
+  };
 };
 
 /**
@@ -165,7 +228,7 @@ export const adminGetAssessmentListing = async (courseId) => {
  * @returns {Promise<{ message: string, assessment: { id: string } }>}
  */
 export const adminEditAssessment = async (assessmentId, body) => {
-  const path = `/assessment/edit/${assessmentId}`;
+  const path = `/v1/assessment/edit/${assessmentId}`;
 
   const {
     data: { message, data },

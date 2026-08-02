@@ -12,7 +12,6 @@ import {
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
   adminDeleteDepartment,
-  adminDeleteMultipleCourses,
   adminGetDepartmentListing,
 } from "../../../services";
 import { BreadcrumbItem } from "@chakra-ui/react";
@@ -24,7 +23,7 @@ const DepartmentListingPage = () => {
   const appManager = useApp();
 
   const departmentName = appManager.state.metadata?.departments.map(
-    (department) => department.name
+    (department) => department.name,
   );
 
   const tableProps = {
@@ -117,7 +116,7 @@ const DepartmentListingPage = () => {
       multipleDeleteFetcher: async (selectedDepartments) => {
         let format = [];
         format.push(selectedDepartments.map((datum) => datum.id));
-        
+
         await adminDeleteDepartment(selectedDepartments);
       },
       pagination: true,
@@ -168,11 +167,10 @@ const DepartmentListingPage = () => {
           Departments
         </Heading>
 
-          <Flex gap={4}>
-            <Button link={`/admin/departments/create`}>Add Department</Button>
-            <Button link={`/admin/departments/bulk-action`}>Bulk Action</Button>
-          </Flex>
-        
+        <Flex gap={4}>
+          <Button link={`/admin/departments/create`}>Add Department</Button>
+          <Button link={`/admin/departments/bulk-action`}>Bulk Action</Button>
+        </Flex>
       </Flex>
 
       <Table

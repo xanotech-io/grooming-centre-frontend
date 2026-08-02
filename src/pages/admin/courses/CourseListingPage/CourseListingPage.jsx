@@ -12,7 +12,6 @@ import {
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminDeleteCourse,
-  adminDeleteMultipleCourses,
   adminGetCourseListing,
 } from "../../../../services";
 import { Tag } from "@chakra-ui/tag";
@@ -109,7 +108,7 @@ const CourseListingPage = () => {
         id: "3",
         key: "instructor",
         text: "Instructor",
-        fraction: "130px",
+        fraction: "150px",
       },
       {
         id: "4",
@@ -168,7 +167,11 @@ const CourseListingPage = () => {
         ? course.startDate
         : dayjs(course.startDate).format("DD/MM/YYYY h:mm a"),
     status: course.isPublished,
-    instructor: `${course.instructor.firstName} ${course.instructor.lastName}`,
+    instructor: course.assignedInstructor
+      ? `${course.assignedInstructor.firstName} ${course.assignedInstructor.lastName}`
+      : course.instructor?.firstName
+      ? `${course.instructor.firstName} ${course.instructor.lastName}`
+      : "—",
   });
 
   const fetcher = (props) => async () => {

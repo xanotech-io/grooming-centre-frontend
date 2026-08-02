@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(yarn lint *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(node -e \"require\\('/home/cyberbot/grooming-centre-frontend/node_modules/zustand'\\)\")",
+      "Bash(yarn add *)",
+      "Bash(yarn install *)",
+      "Bash(xargs ls -la)",
+      "Bash(npx react-scripts *)",
+      "Bash(xargs basename -a)",
+      "Bash(node_modules/.bin/eslint src/pages/admin/report/ArchivedReportsPage.jsx src/pages/admin/report/archiveReports/components/*.jsx src/services/http/endpoints/reportArchive.js --max-warnings=0)",
+      "Bash(grep -E \"\\(package\\\\.json|tsconfig|\\\\.js$|\\\\.jsx$\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(PORT=3456 BROWSER=none npx react-scripts start)",
+      "Bash(curl -s http://localhost:3456/)",
+      "Bash(Xvfb :99 -screen 0 1280x900x24)",
+      "Bash(DISPLAY=:99 google-chrome --no-sandbox --headless=new --screenshot=/tmp/scheduled-reporting.png --window-size=1280,900 \"http://localhost:3456/admin/report/scheduled-reporting\")",
+      "Bash(echo \"exit: $?\")"
+    ]
+  }
+}

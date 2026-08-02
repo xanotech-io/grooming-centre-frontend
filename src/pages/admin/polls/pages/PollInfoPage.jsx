@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useState } from 'react';
 import { Route, useParams } from 'react-router-dom';
 import { Box, Flex } from '@chakra-ui/layout';
@@ -30,7 +31,7 @@ const PollInfoPage = () => {
 
 	const fetchPollInfo = async pollId => {
 		try {
-			const data = await http.get(`/polls/${pollId}`);
+			const data = await http.get(`/v1/polls/${pollId}`);
 			setPollOptions(data.data.data.poll.pollOptions);
 			setQuestion(data.data.data.poll.question);
 		} catch (error) {

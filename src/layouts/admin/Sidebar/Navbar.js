@@ -1,4 +1,3 @@
-import { Skeleton } from "@chakra-ui/skeleton";
 import { AiOutlinePoweroff } from "react-icons/ai";
 import { Button, Heading } from "../../../components";
 import { useApp } from "../../../contexts";
@@ -6,14 +5,11 @@ import { links, settingsLinks, superAdminSettingsLinks } from "./links";
 import SidebarLink from "./SidebarLink";
 import {
   IconButton,
-  Avatar,
   Box,
   CloseButton,
   Flex,
-  Icon,
   Stack,
   useColorModeValue,
-  Link,
   Drawer,
   DrawerContent,
   DrawerOverlay,
@@ -60,6 +56,15 @@ export const SidebarContent = ({ onClose, ...rest }) => {
   const isSettingsPage = /settings/i.test(window.location.pathname);
   const role = getOneMetadata("userRoles", state.user?.userRoleId);
   const isSuperAdmin = /super admin/i.test(role?.name);
+  const isSupervisor = /supervisor/i.test(role?.name);
+
+  const visibleLinks = links.filter((link) => {
+    if (isSupervisor) {
+      return link.roles?.some((r) => new RegExp(r, "i").test(role?.name));
+    }
+    if (!link.roles) return true;
+    return link.roles.some((r) => new RegExp(r, "i").test(role?.name));
+  });
   return (
     <Box
       transition="2s ease"
@@ -88,7 +93,14 @@ export const SidebarContent = ({ onClose, ...rest }) => {
         </Text>
         <CloseButton display={{ base: "flex", md: "none" }} onClick={onClose} />
       </Flex>
-      <Box as="div" w="full" paddingRight={1} display="flex" flexDirection="column" height="calc(100vh - 80px)">
+      <Box
+        as="div"
+        w="full"
+        paddingRight={1}
+        display="flex"
+        flexDirection="column"
+        height="calc(100vh - 80px)"
+      >
         {isSettingsPage ? (
           <Box paddingTop={10} paddingX={5}>
             <Heading fontSize="heading.h3" paddingBottom={2}>
@@ -96,44 +108,7 @@ export const SidebarContent = ({ onClose, ...rest }) => {
             </Heading>
           </Box>
         ) : (
-          <Box padding={5}>
-            <Stack
-              as="header"
-              spacing={2}
-              justifyContent="center"
-              alignItems="center"
-              borderBottom="1px"
-              borderColor="gray.200"
-              height="200px"
-              marginBottom={5}
-              paddingBottom={5}
-            >
-              {!state.user ? (
-                <Skeleton rounded="full" boxSize="100px" />
-              ) : (
-                <Avatar
-                  name={state.user?.firstName + " " + state.user?.lastName}
-                  borderRadius="100%"
-                  width="100px"
-                  height="100px"
-                  src={state.user?.profilePics}
-                />
-              )}
-
-              {state.user && (
-                <>
-                  <Link href={`/admin/users/details/${state.user.id}/profile`}>
-                    <Text fontSize="heading.h3">
-                      {state.user.firstName || "NotSet"} {state.user.lastName}
-                    </Text>
-                  </Link>
-
-                  <Text color="gray.500" textTransform="capitalize">
-                    {getOneMetadata("userRoles", state.user.userRoleId)?.name}
-                  </Text>
-                </>
-              )}
-            </Stack>
+          <Box padding={0}>
           </Box>
         )}
 
@@ -142,14 +117,14 @@ export const SidebarContent = ({ onClose, ...rest }) => {
             {isSettingsPage
               ? isSuperAdmin
                 ? superAdminSettingsLinks.map((link) => (
-                    <SidebarLink key={link.text} link={link} />
-                  ))
+                  <SidebarLink key={link.text} link={link} />
+                ))
                 : settingsLinks.map((link) => (
-                    <SidebarLink key={link.text} link={link} />
-                  ))
-              : links.map((link) => (
-                  <SidebarLink key={link.text} link={link} onClick={onClose} />
-                ))}
+                  <SidebarLink key={link.text} link={link} />
+                ))
+              : visibleLinks.map((link) => (
+                <SidebarLink key={link.text} link={link} onClick={onClose} />
+              ))}
           </Stack>
         </Box>
         <Box padding={5} mt="auto">

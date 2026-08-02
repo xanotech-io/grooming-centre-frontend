@@ -42,10 +42,10 @@ export const useViewUserDetails = () => {
 
     try {
       const userDetails = await handleGetOrSetAndGet(userId, fetcher);
-      if (componentIsMount) setUserDetails({ data: userDetails });
+      if (componentIsMount.current) setUserDetails({ data: userDetails });
     } catch (err) {
       console.error(err);
-      if (componentIsMount) setUserDetails({ err: err.message });
+      if (componentIsMount.current) setUserDetails({ err: err.message });
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps

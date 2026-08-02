@@ -4,6 +4,8 @@ export * from "./admin/MainArea/Wrapper";
 export * from "./global/PageLoader/PageLoaderLayout";
 export * from "./user/UserLayout";
 export * from "./user/Assessment/AssessmentLayout";
+export * from "./user/Assessment/AssessmentTakingLayout";
+export * from "./user/Examination/ExaminationLayout";
 export * from "./user/Courses/CardGridLayout";
 export * from "./user/Courses/CoursesRowLayout";
 export * from "./user/Courses/TakeCourse/TakeCourseLayout";

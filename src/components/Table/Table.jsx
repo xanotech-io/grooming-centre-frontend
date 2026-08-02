@@ -8,7 +8,6 @@ import { Button, Text } from "..";
 import { DeleteMenuItemButton } from "../Cards/QuestionListCard";
 import { AiFillMinusSquare } from "react-icons/ai";
 import { BiTrash } from "react-icons/bi";
-import breakpoints from "../../theme/breakpoints";
 import { useFetch } from "../../hooks";
 import { capitalizeFirstLetter } from "../../utils";
 import { useToast } from "@chakra-ui/toast";
@@ -191,6 +190,8 @@ export const Table = ({
   generalRowStyles,
   handleFetch,
   onSelectionChange,
+  headerExtra,
+  belowHeader,
   // Calc from the width of the aside and margins
   width = "100%",
   maxWidth = "100%",
@@ -207,7 +208,7 @@ export const Table = ({
   const getTemplateColumns = () =>
     columns.reduce(
       (prev, col) => (prev += col.fraction ? `${col.fraction} ` : "2fr "),
-      ""
+      "",
     );
 
   generalRowStyles = {
@@ -248,7 +249,11 @@ export const Table = ({
         filterControls={filterControls}
         setParams={manager.setParams}
         setCanFilter={manager.setCanFilter}
+        showDateFilter={commonProps.options?.dateFilter}
+        headerExtra={headerExtra}
       />
+
+      {belowHeader}
 
       <Box paddingTop={3} marginTop={3} borderTop="1px" borderColor="accent.2">
         {manager.selectedRows.length ? (
@@ -270,7 +275,7 @@ export const Table = ({
             <DeleteMenuItemButton
               onDelete={manager.handleDeleteRows.bind(
                 null,
-                manager.selectedRows
+                manager.selectedRows,
               )}
               renderTrigger={({ onOpen }) => (
                 <Button
@@ -280,7 +285,7 @@ export const Table = ({
                   onClick={onOpen}
                   onDoubleClick={manager.handleDeleteRows.bind(
                     null,
-                    manager.selectedRows
+                    manager.selectedRows,
                   )}
                   color="secondary.7"
                 >
@@ -330,7 +335,7 @@ Table.propTypes = {
       key: PropTypes.string.isRequired,
       text: PropTypes.string.isRequired,
       minWidth: PropTypes.string,
-    })
+    }),
   ).isRequired,
   options: PropTypes.shape({
     action: PropTypes.arrayOf(
@@ -340,10 +345,11 @@ Table.propTypes = {
         link: PropTypes.func,
         props: PropTypes.object,
         onClick: PropTypes.func,
-      })
+      }),
     ),
     selection: PropTypes.bool,
     multipleDeleteFetcher: PropTypes.func,
+    dateFilter: PropTypes.bool,
   }),
   rows: PropTypes.shape({
     data: PropTypes.shape({

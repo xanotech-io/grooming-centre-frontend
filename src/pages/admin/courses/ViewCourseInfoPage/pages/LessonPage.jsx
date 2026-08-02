@@ -13,8 +13,8 @@ import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminDeleteLesson,
-  adminDeleteMultipleCourses,
   adminGetLessonListing,
+  auditTrailV2PostLog,
 } from "../../../../../services";
 import { Tag } from "@chakra-ui/tag";
 import dayjs from "dayjs";
@@ -25,7 +25,7 @@ const LessonPage = () => {
   const appManager = useApp();
 
   const departmentName = appManager.state.metadata?.departments.map(
-    (department) => department.name
+    (department) => department.name,
   );
 
   const tableProps = {
@@ -98,6 +98,20 @@ const LessonPage = () => {
         fraction: "200px",
       },
       {
+        id: "fileType",
+        key: "fileType",
+        text: "File Type",
+        fraction: "120px",
+        renderContent: (fileType) => <Text>{fileType || "—"}</Text>,
+      },
+      {
+        id: "uploadedBy",
+        key: "uploadedBy",
+        text: "Uploaded By",
+        fraction: "160px",
+        renderContent: (uploadedBy) => <Text>{uploadedBy || "—"}</Text>,
+      },
+      {
         id: "5",
         key: "status",
         text: "Status",
@@ -135,10 +149,28 @@ const LessonPage = () => {
       ],
       selection: true,
       multipleDeleteFetcher: async (selectedDepartments) => {
-        let format = [];
-        format.push(selectedDepartments.map((datum) => datum.id));
-
-        await adminDeleteLesson(selectedDepartments);
+        const titles = selectedDepartments.map((l) => l.title?.text).join(", ");
+        try {
+          await adminDeleteLesson(selectedDepartments);
+          auditTrailV2PostLog({
+            eventType: "delete",
+            module: "LMS",
+            status: "success",
+            resourceId: selectedDepartments.map((l) => l.id).join(","),
+            resourceType: "Lesson",
+            remarks: `Deleted lesson(s) "${titles}"`,
+          }).catch(() => {});
+        } catch (error) {
+          auditTrailV2PostLog({
+            eventType: "delete",
+            module: "LMS",
+            status: "failure",
+            resourceId: selectedDepartments.map((l) => l.id).join(","),
+            resourceType: "Lesson",
+            remarks: error?.response?.data?.message || error.message || `Failed to delete lesson(s) "${titles}"`,
+          }).catch(() => {});
+          throw error;
+        }
       },
       pagination: true,
     },
@@ -155,6 +187,8 @@ const LessonPage = () => {
       courseId: lesson.courseId,
     },
     startDate: dayjs(lesson.startTime).format("DD/MM/YYYY h:mm a"),
+    fileType: lesson.fileType,
+    uploadedBy: lesson.uploadedBy,
     status: lesson.active,
   });
 

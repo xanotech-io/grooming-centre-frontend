@@ -36,6 +36,8 @@ export const adminGetLessonListingRes_courseId_1 = {
         title: "Introduction to GO",
         startTime: "2021-010-21 02:25 PM",
         active: true,
+        lessonType: { id: "lessonTypeId_2", name: "video" },
+        uploader: { firstName: "Ada", lastName: "Lovelace" },
       },
     ],
   },
@@ -50,6 +52,8 @@ export const adminGetLessonListingRes_courseId_3 = {
         title: "Advance GO",
         startTime: "2021-010-21 02:25 PM",
         active: false,
+        lessonType: { id: "lessonTypeId_1", name: "pdf" },
+        uploader: { firstName: "Grace", lastName: "Hopper" },
       },
     ],
   },
@@ -71,6 +75,7 @@ export const requestLessonDetailsRes_lessonId_1 = {
       id: "lessonTypeId_2",
       name: "video",
     },
+    uploader: { firstName: "Ada", lastName: "Lovelace" },
     // lessonTracking: [{ isCompleted: true }],
   },
 };
@@ -107,6 +112,7 @@ export const requestLessonDetailsRes_lessonId_2 = {
     courseId: "fada709b-3397-4394-aca2-a75740a3f8d7",
     lessonTypeId: "5fbad180-0a64-4f7f-bfaa-b4cc4b53a67e",
     lessonType: { id: "5fbad180-0a64-4f7f-bfaa-b4cc4b53a67e", name: "video" },
+    uploader: { firstName: "Grace", lastName: "Hopper" },
   },
 };
 
@@ -126,6 +132,7 @@ export const requestLessonDetailsRes_lessonId_3 = {
       id: "b4de5c1c-fa91-4572-b05c-a7eaab62a8cd",
       name: "video",
     },
+    uploader: { firstName: "Alan", lastName: "Turing" },
     lessonTracking: [],
   },
 };
@@ -146,6 +153,7 @@ export const requestLessonDetailsRes_lessonId_4 = {
       id: "b4de5c1c-fa91-4572-b05c-a7eaab62a8cd",
       name: "video",
     },
+    uploader: { firstName: "Margaret", lastName: "Hamilton" },
     lessonTracking: [{ isCompleted: true }],
   },
 };
@@ -166,6 +174,7 @@ export const requestLessonDetailsRes_lessonId_5 = {
       id: "b4de5c1c-fa91-4572-b05c-a7eaab62a8cd",
       name: "video",
     },
+    uploader: { firstName: "Katherine", lastName: "Johnson" },
     lessonTracking: [{ isCompleted: true }],
   },
 };

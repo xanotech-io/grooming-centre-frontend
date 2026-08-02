@@ -12,9 +12,7 @@ import {
 } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
-  adminDeleteMultipleCourses,
   adminDeleteMultipleUsers,
-  adminDeleteUser,
   adminGetUserListing,
 } from "../../../../services";
 import { BreadcrumbItem } from "@chakra-ui/react";

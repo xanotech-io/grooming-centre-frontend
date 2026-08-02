@@ -4,9 +4,7 @@ import { useCache } from "../../../../../contexts";
 import useComponentIsMount from "../../../../../hooks/useComponentIsMount";
 import useQueryParams from "../../../../../hooks/useQueryParams";
 import {
-  requestAssessmentDetails,
   requestExaminationDetails,
-  getStandaloneExaminationDetails,
 } from "../../../../../services";
 import { isStandaloneExaminationAndIsNotEditMode } from "../../../../admin/courses/AssessmentPage/pages/OverviewPage";
 
@@ -28,7 +26,7 @@ const useAssessmentPreview = (
 ) => {
   const { handleGetOrSetAndGet } = useCache();
   const componentIsMount = useComponentIsMount();
-  const { courseId, assessment_id } = useParams();
+  const {  assessment_id } = useParams();
 
   assessmentId = assessmentId || assessment_id;
   const assessmentIsNew = assessmentId === "new";

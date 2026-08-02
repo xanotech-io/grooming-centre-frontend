@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Route } from 'react-router-dom';
 import { Box, Flex } from '@chakra-ui/layout';
 import { BreadcrumbItem } from '@chakra-ui/react';
@@ -15,7 +15,6 @@ import { FaSortAmountUpAlt, FaUser, FaClock, FaTrash } from 'react-icons/fa';
 import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
 import { useToast } from '@chakra-ui/toast';
 import { EmptyState } from '../../../layouts';
-import { Tag } from '@chakra-ui/tag';
 import { Avatar } from '@chakra-ui/avatar';
 import { useTableRows } from '../../../hooks';
 import { http } from '../../../services/http/http';
@@ -37,7 +36,7 @@ const ViewAudit = () => {
     setError(null);
     
     try {
-      const response = await http.get('/admin/user-audit', { params });
+      const response = await http.get('/v1/admin/user-audit', { params });
 
       // Transform the data to match table format
       const rows = response.data.data.rows?.map(mapAuditToRow) || [];
@@ -92,7 +91,7 @@ const ViewAudit = () => {
   const deleteAuditLog = async (auditId) => {
     try {
       setIsDeleting(true);
-      await http.delete(`/admin/user-audit/${auditId}`);
+      await http.delete(`/v1/admin/user-audit/${auditId}`);
       
       toast({
         description: 'Audit log deleted successfully',
@@ -122,7 +121,7 @@ const ViewAudit = () => {
 
     try {
       setIsDeleting(true);
-      await http.delete('/admin/user-audit');
+      await http.delete('/v1/admin/user-audit');
       
       toast({
         description: 'All audit logs deleted successfully',

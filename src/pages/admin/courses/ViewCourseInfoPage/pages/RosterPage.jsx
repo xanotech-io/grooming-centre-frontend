@@ -1,0 +1,186 @@
+import React, { useCallback, useEffect, useState } from "react";
+import { Route, useParams } from "react-router-dom";
+import { Box, BreadcrumbItem, Flex, useDisclosure, useToast } from "@chakra-ui/react";
+import { useFetch } from "../../../../../hooks";
+import {
+  adminGetCourseRoster,
+  adminExportCourseRoster,
+  auditTrailV2PostLog,
+} from "../../../../../services";
+import { Breadcrumb, Link } from "../../../../../components";
+import { AdminMainAreaWrapper } from "../../../../../layouts/admin/MainArea/Wrapper";
+
+import RosterHeader from "../components/RosterHeader";
+import RosterStats from "../components/RosterStats";
+import RosterFilters from "../components/RosterFilters";
+import RosterTable from "../components/RosterTable";
+import ExportModal from "../components/ExportModal";
+
+const EMPTY_SUMMARY = {
+  totalStudents: 0,
+  enrolled: 0,
+  pending: 0,
+  completed: 0,
+  averageProgress: 0,
+};
+
+const RosterPage = () => {
+  const { id: courseId } = useParams();
+  const toast = useToast();
+
+  const { resource, handleFetchResource: fetchRoster } = useFetch();
+  const exportModal = useDisclosure();
+
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const fetcher = useCallback(async () => {
+    if (!courseId) return { roster: null, pagination: {} };
+    return adminGetCourseRoster(courseId, { page, limit: 10 });
+  }, [courseId, page]);
+
+  useEffect(() => {
+    fetchRoster({ fetcher });
+  }, [fetchRoster, fetcher]);
+
+  const roster = resource.data?.roster ?? null;
+  const pagination = resource.data?.pagination ?? {};
+
+  const allStudents = roster?.students ?? [];
+
+  const filteredStudents = allStudents.filter((s) => {
+    const q = search.toLowerCase();
+    const matchesSearch =
+      !search ||
+      `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
+      s.email.toLowerCase().includes(q) ||
+      s.studentId.toLowerCase().includes(q);
+    const matchesStatus = !status || s.enrollmentStatus === status;
+    return matchesSearch && matchesStatus;
+  });
+
+  const summary = roster?.summary ?? EMPTY_SUMMARY;
+
+  const handleSearchChange = (val) => { setSearch(val); setPage(1); };
+  const handleStatusChange = (val) => { setStatus(val); setPage(1); };
+  const handleReset = () => { setSearch(""); setStatus(""); setPage(1); };
+
+  const handleExport = async (body) => {
+    if (!courseId) return;
+    setIsExporting(true);
+    try {
+      const { exportRecord } = await adminExportCourseRoster(courseId, body);
+
+      if (exportRecord.fileUrl) {
+        const link = document.createElement("a");
+        link.href = exportRecord.fileUrl;
+        link.download = exportRecord.fileName || "";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      auditTrailV2PostLog({
+        eventType: "export",
+        module: "LMS",
+        status: "success",
+        resourceId: courseId,
+        resourceType: "Course Roster",
+        remarks: `Exported roster as ${exportRecord.format}${roster?.courseName ? ` for ${roster.courseName}` : ""}. Export ID: ${exportRecord.exportId}`,
+      }).catch(() => {});
+      toast({
+        title: "Export successful",
+        description: `Roster exported as ${exportRecord.format}. Export ID: ${exportRecord.exportId}`,
+        status: "success",
+        duration: 5000,
+        isClosable: true,
+      });
+      exportModal.onClose();
+    } catch {
+      auditTrailV2PostLog({
+        eventType: "export",
+        module: "LMS",
+        status: "failure",
+        resourceId: courseId,
+        resourceType: "Course Roster",
+        remarks: `Failed to export roster as ${body?.format}${roster?.courseName ? ` for ${roster.courseName}` : ""}`,
+      }).catch(() => {});
+      toast({
+        title: "Export failed",
+        description: "Unable to export the roster. Please try again.",
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <AdminMainAreaWrapper>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Breadcrumb
+          item2={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="/admin/courses">Courses</Link>
+            </BreadcrumbItem>
+          }
+          item3={
+            <BreadcrumbItem isCurrentPage>
+              <Link href="#">Roster</Link>
+            </BreadcrumbItem>
+          }
+        />
+      </Flex>
+      <Box marginX="22px" marginY="20px">
+        <RosterHeader
+          courseName={roster?.courseName}
+          semester={roster?.semester}
+          instructorName={roster?.instructor?.name}
+          onExportClick={exportModal.onOpen}
+        />
+
+        {roster && <RosterStats summary={summary} />}
+
+        <Box bg="white" borderRadius="8px" border="1px solid #E2E8F0" overflow="hidden">
+          <RosterFilters
+            search={search}
+            onSearchChange={handleSearchChange}
+            status={status}
+            onStatusChange={handleStatusChange}
+            onReset={handleReset}
+          />
+
+          <RosterTable
+            students={filteredStudents}
+            loading={resource.loading}
+            error={resource.err}
+            pagination={pagination}
+            page={page}
+            onPageChange={setPage}
+            courseSelected={!!courseId}
+            courseName={roster?.courseName}
+          />
+        </Box>
+
+        <ExportModal
+          isOpen={exportModal.isOpen}
+          onClose={exportModal.onClose}
+          courseId={courseId}
+          courseName={roster?.courseName}
+          onExport={handleExport}
+          isExporting={isExporting}
+        />
+      </Box>
+    </AdminMainAreaWrapper>
+  );
+};
+
+export const RosterPageRoute = ({ ...rest }) => (
+  <Route {...rest} render={(props) => <RosterPage {...props} />} />
+);
+
+export default RosterPageRoute;

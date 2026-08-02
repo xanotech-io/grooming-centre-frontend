@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { Box, Radio, RadioGroup, Stack, Text } from '@chakra-ui/react';
 import React, { useState, useCallback, useEffect } from 'react';
 import { BiChevronDown, BiChevronUp } from 'react-icons/bi';

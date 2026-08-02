@@ -13,7 +13,7 @@ export const getUserExaminationRecords = async (userId, params = {}) => {
         type: params.type || 'all',
     });
 
-    const path = `/examination-records/user/${userId}?${queryParams}`;
+    const path = `/v1/examination-records/user/${userId}?${queryParams}`;
     const { data: { data } } = await http.get(path);
 
     return data;
@@ -27,7 +27,7 @@ export const getUserExaminationRecords = async (userId, params = {}) => {
  * @returns {Promise<object>} Detailed examination record
  */
 export const getExaminationRecordDetails = async (userId, examinationId, type = 'regular') => {
-    const path = `/examination-records/user/${userId}/examination/${examinationId}?type=${type}`;
+    const path = `/v1/examination-records/user/${userId}/examination/${examinationId}?type=${type}`;
     const { data: { data } } = await http.get(path);
 
     return data;
@@ -39,7 +39,7 @@ export const getExaminationRecordDetails = async (userId, examinationId, type = 
  * @returns {Promise<object>} Examination statistics
  */
 export const getUserExaminationStats = async (userId) => {
-    const path = `/examination-records/user/${userId}/stats`;
+    const path = `/v1/examination-records/user/${userId}/stats`;
     const { data: { data } } = await http.get(path);
 
     return data;
@@ -51,7 +51,7 @@ export const getUserExaminationStats = async (userId) => {
  * @returns {Promise<Blob>} Excel file blob
  */
 export const downloadUserTranscript = async (userId) => {
-    const path = `/examination/transcript/download/${userId}`;
+    const path = `/v2/examination/transcript/download/${userId}`;
     const response = await http.get(path, {
         responseType: 'blob', // Important: tell axios to expect binary data
     });

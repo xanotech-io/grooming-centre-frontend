@@ -1,4 +1,3 @@
-import axios from "axios";
 import { http } from "../http";
 
 /**
@@ -8,7 +7,7 @@ import { http } from "../http";
  * @returns {Promise<{ assessments: Array<{ id: string, name: string, createdAt: Date, noOfUsers: number }> }>}
  */
 export const adminGetDepartmentListing = async (params) => {
-  const path = `/department/all`;
+  const path = `/v1/department/all`;
 
   const {
     data: { data },
@@ -29,7 +28,7 @@ export const adminGetDepartmentListing = async (params) => {
   };
 };
 export const adminDeleteDepartment = async (ids) => {
-  const path = `/department/delete`;
+  const path = `/v1/department/delete`;
   let formattedIds = [];
   for (let i = 0; i < ids.length; i++) {
     formattedIds.push(ids[i].id);
@@ -48,7 +47,7 @@ export const adminDeleteDepartment = async (ids) => {
 
 // admincreatedepartment 1
 export const adminCreateDepartment = async (body) => {
-  const path = "/department/create";
+  const path = "/v1/department/create";
 
   const {
     data: { message, data },
@@ -67,7 +66,7 @@ export const adminCreateDepartment = async (body) => {
  * @returns {Promise<{ message: string, data: object }>}
  */
 export const adminAddSelectedUsersToDepartment = async (departmentId, userIds) => {
-  const path = `/department/${departmentId}/add-selected-users`;
+  const path = `/v1/department/${departmentId}/add-selected-users`;
 
   const {
     data: { message, data },
@@ -83,7 +82,7 @@ export const adminAddSelectedUsersToDepartment = async (departmentId, userIds) =
  * @returns {Promise<{ message: string, data: object }>}
  */
 export const adminBulkAddUsersToDepartment = async (departmentId, users) => {
-  const path = `/department/${departmentId}/bulk-add-users`;
+  const path = `/v1/department/${departmentId}/bulk-add-users`;
 
   const {
     data: { message, data },
@@ -91,6 +90,32 @@ export const adminBulkAddUsersToDepartment = async (departmentId, users) => {
 
   return { message, data };
 };
+
+/**
+ * Endpoint to fetch supervisors across all departments (used when a poll,
+ * workflow, etc. targets "all departments" rather than a single one).
+ * @returns {Promise<{ supervisors: Array<{ id: string, firstName: string, lastName: string }> }>}
+ */
+export const adminGetAllDepartmentSupervisors = async () => {
+  const path = `/v1/department/supervisors/all`;
+
+  const {
+    data: { data },
+  } = await http.get(path);
+
+  const raw = data?.rows ?? data ?? [];
+  return { supervisors: (Array.isArray(raw) ? raw : []).map(normalizeSupervisor) };
+};
+
+// Supervisor listing endpoints have been observed to nest the person under
+// `user`/`supervisor` on some responses instead of returning flat fields —
+// normalize so `id`/`firstName`/`lastName` are always present when they exist.
+const normalizeSupervisor = (s) => ({
+  ...s,
+  id: s.id ?? s.userId ?? s.supervisorId ?? s.user?.id,
+  firstName: s.firstName ?? s.user?.firstName ?? "",
+  lastName: s.lastName ?? s.user?.lastName ?? "",
+});
 
 /**
  * Endpoint to for admin to create a department
@@ -101,7 +126,7 @@ export const adminBulkAddUsersToDepartment = async (departmentId, users) => {
  * @returns {Promise<{ message: string, departments: Array<{ id: string, firstName: string, lastName: string, email: string, userRoleId: string,departmentId: string }>}>}
  */
 export const adminGetDepartmentUsersListing = async (departmentId, params) => {
-  const path = `/department/users/${departmentId}`;
+  const path = `/v1/department/users/${departmentId}`;
 
   const {
     data: { message, data },
