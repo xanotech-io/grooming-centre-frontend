@@ -14,6 +14,7 @@ import {
     Th,
     Td,
     TableContainer,
+    Checkbox,
 } from "@chakra-ui/react";
 import { useHistory } from "react-router-dom";
 import { FaRegSave, FaFileAlt } from "react-icons/fa";
@@ -41,7 +42,7 @@ const EXAM_TYPE_OPTIONS = [
 
 const EMPTY_SECTION = {
     section_name: "",
-    question_type: "",
+    question_types: [],
     marking_type: "",
     total_marks: null,
 };
@@ -57,6 +58,8 @@ const QUESTION_TYPE_LOCK_OPTIONS = [
     { label: "Short Answer", value: "ShortAnswer" },
     { label: "Essay", value: "Essay" },
 ];
+
+const ALL_QUESTION_TYPES = QUESTION_TYPE_LOCK_OPTIONS.filter((o) => o.value !== "").map((o) => o.value);
 
 const MARKING_TYPE_LOCK_OPTIONS = [
     { label: "Any marking type", value: "" },
@@ -89,7 +92,7 @@ const SectionRow = ({ section, idx, onChange, onRemove, disabled }) => (
         </Flex>
 
         <Grid templateColumns="repeat(2, 1fr)" gap={6}>
-            <GridItem>
+            <GridItem colSpan={2}>
                 <Input
                     id={`section-${idx}-name`}
                     label="Name"
@@ -99,16 +102,39 @@ const SectionRow = ({ section, idx, onChange, onRemove, disabled }) => (
                     onChange={(e) => onChange(idx, "section_name", e.target.value)}
                 />
             </GridItem>
-            <GridItem>
-                <Select
-                    id={`section-${idx}-question-type`}
-                    label="Question Type"
-                    noEmptyOption
-                    isDisabled={disabled}
-                    value={section.question_type ?? ""}
-                    onChange={(e) => onChange(idx, "question_type", e.target.value)}
-                    options={QUESTION_TYPE_LOCK_OPTIONS}
-                />
+            <GridItem colSpan={2}>
+                <Text fontSize="sm" fontWeight="500" mb={2}>Question Types</Text>
+                <HStack spacing={4} flexWrap="wrap">
+                    <Checkbox
+                        isChecked={(section.question_types?.length ?? 0) === ALL_QUESTION_TYPES.length}
+                        isIndeterminate={
+                            (section.question_types?.length ?? 0) > 0 &&
+                            section.question_types.length < ALL_QUESTION_TYPES.length
+                        }
+                        isDisabled={disabled}
+                        onChange={(e) =>
+                            onChange(idx, "question_types", e.target.checked ? ALL_QUESTION_TYPES : [])
+                        }
+                    >
+                        All
+                    </Checkbox>
+                    {QUESTION_TYPE_LOCK_OPTIONS.filter((o) => o.value !== "").map((opt) => (
+                        <Checkbox
+                            key={opt.value}
+                            isChecked={(section.question_types ?? []).includes(opt.value)}
+                            isDisabled={disabled}
+                            onChange={(e) => {
+                                const current = section.question_types ?? [];
+                                const next = e.target.checked
+                                    ? [...current, opt.value]
+                                    : current.filter((v) => v !== opt.value);
+                                onChange(idx, "question_types", next);
+                            }}
+                        >
+                            {opt.label}
+                        </Checkbox>
+                    ))}
+                </HStack>
             </GridItem>
             <GridItem>
                 <Select
@@ -163,9 +189,10 @@ const TemplateStandalone = () => {
     const totalMarksIsAuto = true;
     const [markingTemplates, setMarkingTemplates] = useState([]);
     const [fieldErrors, setFieldErrors] = useState({});
-    // Hybrid only: how many standalone (non-sectioned) questions of each
-    // type to create — marks per question come from the selected marking
-    // template, same "law" it applies to a plain "without sections" exam.
+    // How many questions of each type to create — for "without sections"
+    // this is every question in the exam; for "hybrid" it's just the
+    // non-sectioned ones. Marks per question always come from the
+    // selected marking template, never typed in by hand.
     const [standaloneQuestionCounts, setStandaloneQuestionCounts] = useState({});
 
     const [sections, setSections] = useState([]);
@@ -186,6 +213,10 @@ const TemplateStandalone = () => {
         const perQuestionMark = Number(selectedTemplate?.markDistribution?.[type]) || 0;
         return acc + qty * perQuestionMark;
     }, 0);
+    const standaloneQuantityTotal = standaloneTypes.reduce(
+        (acc, type) => acc + (Number(standaloneQuestionCounts[type]) || 0),
+        0,
+    );
 
     // "Exam with sections" has no standalone total-marks input of its own —
     // it's always the sum of every section's own weightage, since that's
@@ -196,22 +227,21 @@ const TemplateStandalone = () => {
     }, [examType, sectionsWeightageTotal]);
 
     // "Exam without sections" likewise has no standalone total-marks input —
-    // it's derived from the selected marking template's own markDistribution
-    // (marks already allocated per question type), not typed in by hand.
+    // it's derived from how many questions of each type the admin enters
+    // (below) times that type's mark value from the marking template, not
+    // the template's own default questionQuantity and not typed in by hand.
     useEffect(() => {
         if (examType !== "without_sections") return;
-        if (!selectedTemplate) {
-            setTotalMarks("");
-            return;
-        }
-        const sum =
-            selectedTemplate.totalMarks ??
-            Object.values(selectedTemplate.markDistribution || {}).reduce(
-                (acc, v) => acc + (Number(v) || 0),
-                0,
-            );
-        setTotalMarks(String(sum));
-    }, [examType, selectedTemplate]);
+        setTotalMarks(String(standaloneMarksTotal));
+    }, [examType, standaloneMarksTotal]);
+
+    // Same reasoning for Number of Questions: it's the sum of the per-type
+    // quantities entered below, not a separate manual field, for "without
+    // sections" exams.
+    useEffect(() => {
+        if (examType !== "without_sections") return;
+        setAmountOfQuestions(String(standaloneQuantityTotal));
+    }, [examType, standaloneQuantityTotal]);
 
     // Hybrid combines both laws: the sections' own weightage, plus the
     // standalone questions' marks (quantity per type × that type's mark
@@ -247,7 +277,12 @@ const TemplateStandalone = () => {
     const handleNext = () => {
         if (isCreateMode) {
             const newErrors = {};
-            if (!amountOfQuestions) newErrors.amountOfQuestions = "Please enter number of questions";
+            if (examType === "without_sections") {
+                if (templateId && (!amountOfQuestions || Number(amountOfQuestions) <= 0))
+                    newErrors.amountOfQuestions = "Enter at least one question-type quantity below";
+            } else if (!amountOfQuestions) {
+                newErrors.amountOfQuestions = "Please enter number of questions";
+            }
             if (examType === "with_sections") {
                 if (!sections.length || Number(totalMarks) <= 0)
                     newErrors.totalMarks = "Add at least one section and enter its weightage/total score";
@@ -263,6 +298,14 @@ const TemplateStandalone = () => {
             setFieldErrors(newErrors);
             if (Object.keys(newErrors).length > 0) return;
 
+            // Seeded with every type the selected marking template actually
+            // supports (even ones left blank/0) so QuestionsStandalone.jsx
+            // can tell "not supported by this template" (key absent) apart
+            // from "supported, just capped at 0" (key present, value 0).
+            const seededStandaloneQuestionCounts = Object.fromEntries(
+                standaloneTypes.map((type) => [type, standaloneQuestionCounts[type] ?? ""]),
+            );
+
             if (pendingCreate?.kind === "StandaloneExam") {
                 setPendingCreate({
                     ...pendingCreate,
@@ -272,7 +315,9 @@ const TemplateStandalone = () => {
                         totalMarks: Number(totalMarks),
                         templateId,
                         examType,
-                        ...(examType === "hybrid" && { standaloneQuestionCounts }),
+                        ...((examType === "hybrid" || examType === "without_sections") && {
+                            standaloneQuestionCounts: seededStandaloneQuestionCounts,
+                        }),
                     },
                     paperConfigBody: {
                         ...pendingCreate.paperConfigBody,
@@ -284,7 +329,7 @@ const TemplateStandalone = () => {
                                 section_name: s.section_name,
                                 questions_count: Number(s.questions_count) || 0,
                                 time_limit: s.time_limit ? Number(s.time_limit) : null,
-                                question_type: s.question_type || "",
+                                question_types: s.question_types || [],
                                 marking_type: s.marking_type || "",
                                 total_marks: s.total_marks ? Number(s.total_marks) : null,
                             })),
@@ -315,9 +360,15 @@ const TemplateStandalone = () => {
                                     label="Number of Questions"
                                     type="number"
                                     id="amountOfQuestions"
-                                    placeholder="Enter the number of questions"
+                                    placeholder={
+                                        examType === "without_sections"
+                                            ? "Sum of the question-type quantities below"
+                                            : "Enter the number of questions"
+                                    }
                                     error={fieldErrors.amountOfQuestions}
                                     value={amountOfQuestions}
+                                    isReadOnly={examType === "without_sections"}
+                                    isDisabled={examType === "without_sections"}
                                     onChange={(e) => setAmountOfQuestions(e.target.value)}
                                 />
                             </GridItem>
@@ -330,7 +381,7 @@ const TemplateStandalone = () => {
                                         examType === "with_sections"
                                             ? "Sum of section weightages"
                                             : examType === "without_sections"
-                                            ? "Based on the selected marking template"
+                                            ? "Sum of the question-type marks below"
                                             : "Sections weightage + standalone questions marks"
                                     }
                                     error={fieldErrors.totalMarks}
@@ -406,7 +457,7 @@ const TemplateStandalone = () => {
                                         <Text fontSize="14px" fontWeight="600" color="#4A5568" marginBottom="12px">
                                             {examType === "hybrid"
                                                 ? `Standalone Questions — marks per type from "${selectedTemplate.markingTemplateName}"`
-                                                : `Marks Distribution — ${selectedTemplate.markingTemplateName}`}
+                                                : `Question Quantities — marks per type from "${selectedTemplate.markingTemplateName}"`}
                                         </Text>
                                         <TableContainer>
                                             <Table variant="simple" size="sm">
@@ -415,9 +466,7 @@ const TemplateStandalone = () => {
                                                         <Th textTransform="none" color="#4A5568">Question Type</Th>
                                                         <Th textTransform="none" color="#4A5568">Quantity</Th>
                                                         <Th textTransform="none" color="#4A5568">Marks</Th>
-                                                        {examType === "hybrid" && (
-                                                            <Th textTransform="none" color="#4A5568">Subtotal</Th>
-                                                        )}
+                                                        <Th textTransform="none" color="#4A5568">Subtotal</Th>
                                                     </Tr>
                                                 </Thead>
                                                 <Tbody>
@@ -440,60 +489,41 @@ const TemplateStandalone = () => {
                                                                     </Badge>
                                                                 </Td>
                                                                 <Td fontSize="13px" color="#1A202C">
-                                                                    {examType === "hybrid" ? (
-                                                                        <Input
-                                                                            id={`standalone-qty-${type}`}
-                                                                            type="number"
-                                                                            min={0}
-                                                                            placeholder="0"
-                                                                            value={standaloneQuestionCounts[type] ?? ""}
-                                                                            onChange={(e) =>
-                                                                                setStandaloneQuestionCounts((p) => ({
-                                                                                    ...p,
-                                                                                    [type]: e.target.value,
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    ) : (
-                                                                        selectedTemplate.questionQuantity?.[type] ?? "—"
-                                                                    )}
+                                                                    <Input
+                                                                        id={`standalone-qty-${type}`}
+                                                                        type="number"
+                                                                        min={0}
+                                                                        placeholder="0"
+                                                                        value={standaloneQuestionCounts[type] ?? ""}
+                                                                        onChange={(e) =>
+                                                                            setStandaloneQuestionCounts((p) => ({
+                                                                                ...p,
+                                                                                [type]: e.target.value,
+                                                                            }))
+                                                                        }
+                                                                    />
                                                                 </Td>
                                                                 <Td fontSize="13px" fontWeight="600" color="#6b006b">
                                                                     {perQuestionMark ?? "—"}
                                                                 </Td>
-                                                                {examType === "hybrid" && (
-                                                                    <Td fontSize="13px" color="#1A202C">
-                                                                        {(Number(standaloneQuestionCounts[type]) || 0) *
-                                                                            (Number(perQuestionMark) || 0)}
-                                                                    </Td>
-                                                                )}
+                                                                <Td fontSize="13px" color="#1A202C">
+                                                                    {(Number(standaloneQuestionCounts[type]) || 0) *
+                                                                        (Number(perQuestionMark) || 0)}
+                                                                </Td>
                                                             </Tr>
                                                         );
                                                     })}
                                                 </Tbody>
                                             </Table>
                                         </TableContainer>
-                                        {examType === "hybrid" && (
-                                            <Text fontSize="xs" color="gray.500" mt={2}>
-                                                Sections weightage ({sectionsWeightageTotal}) + Standalone questions ({standaloneMarksTotal}) = Total Marks ({sectionsWeightageTotal + standaloneMarksTotal})
-                                            </Text>
-                                        )}
+                                        <Text fontSize="xs" color="gray.500" mt={2}>
+                                            {examType === "hybrid"
+                                                ? `Sections weightage (${sectionsWeightageTotal}) + Standalone questions (${standaloneMarksTotal}) = Total Marks (${sectionsWeightageTotal + standaloneMarksTotal})`
+                                                : `Total: ${standaloneQuantityTotal} questions, ${standaloneMarksTotal} marks`}
+                                        </Text>
                                     </Box>
                                 </GridItem>
                             )}
-
-                            <GridItem>
-                                <Input label="Total Score" id="totalScore" placeholder="Enter the total score" type="number" />
-                            </GridItem>
-                            <GridItem>
-                                <Input label="Highest Mark" id="highestMark" placeholder="Enter the highest score" type="number" />
-                            </GridItem>
-                            <GridItem>
-                                <Input label="Average Score" id="averageScore" placeholder="Enter the average score" type="number" />
-                            </GridItem>
-                            <GridItem>
-                                <Input label="Lowest Score" id="lowestScore" placeholder="Enter the lowest score" type="number" />
-                            </GridItem>
                         </Grid>
                     </Box>
 
