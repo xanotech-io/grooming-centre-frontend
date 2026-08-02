@@ -516,9 +516,6 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
   const handleCancel = useGoBack();
   const startTimeManager = useDateTimePicker();
   const endTimeManager = useDateTimePicker();
-  const [markingTemplates, setMarkingTemplates] = useState([]);
-  const [templateId, setTemplateId] = useState("");
-  const [markingMode, setMarkingMode] = useState("automatic");
   const [addToBank, setAddToBank] = useState(false);
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
@@ -534,23 +531,10 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [sections, setSections] = useState([]);
-  const addSection = () => setSections((p) => [...p, { ...EMPTY_SECTION }]);
-  const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
-  const updateSection = (i, field, value) =>
-    setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
   const [randomization, setRandomization] = useState({
     question_order: false,
     option_order: false,
   });
-
-  useEffect(() => {
-    adminGetMarkingTemplates()
-      .then(({ templates }) =>
-        setMarkingTemplates(templates)
-      )
-      .catch(() => {});
-  }, []);
 
   // Restore whatever was already filled in before the user moved on to the
   // Questions step and came back — otherwise navigating away and back to
@@ -567,14 +551,9 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
 
     const { body, paperConfigBody, addToBank: pendingAddToBank } = pendingCreate;
     if (body?.title) setValue("title", body.title);
-    if (body?.amountOfQuestions != null) setValue("amountOfQuestions", body.amountOfQuestions);
-    if (body?.totalMarks != null) setValue("totalMarks", body.totalMarks);
     if (body?.duration != null) setValue("duration", body.duration);
-    if (body?.templateId) setTemplateId(body.templateId);
-    if (body?.markingMode) setMarkingMode(body.markingMode);
     if (body?.startTime) startTimeManager.handleChange(body.startTime);
     if (body?.endTime) endTimeManager.handleChange(body.endTime);
-    if (paperConfigBody?.configuredSections?.length) setSections(paperConfigBody.configuredSections);
     if (paperConfigBody?.randomization) setRandomization(paperConfigBody.randomization);
     if (pendingAddToBank) setAddToBank(pendingAddToBank);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -585,41 +564,23 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
       const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
       const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
-      if (!templateId)
-        throw new Error("A marking template must be selected before creating an examination.");
-
       const body = {
         title: data.title,
         duration: Number(data.duration),
-        amountOfQuestions: Number(data.amountOfQuestions),
-        totalMarks: Number(data.totalMarks),
-        templateId,
-        markingMode,
         startTime: formatDateToISO(startTime),
         endTime: formatDateToISO(endTime),
       };
 
       const paperConfigBody = {
         examType: "standalone_examination",
-        // Sections are optional — the backend rejects an empty
-        // `configuredSections` array, so leave the key out entirely
-        // when none were added instead of sending `[]`.
-        ...(sections.length > 0 && {
-          configuredSections: sections.map((s) => ({
-            section_name: s.section_name,
-            questions_count: Number(s.questions_count) || 0,
-            time_limit: s.time_limit ? Number(s.time_limit) : null,
-            question_type: s.question_type || "",
-            marking_type: s.marking_type || "",
-            total_marks: s.total_marks ? Number(s.total_marks) : null,
-          })),
-        }),
         randomization,
       };
 
-      // Nothing is created yet — hold the details in memory and create both
-      // the exam and the first question together once "Create and Submit"
-      // is clicked on the question step below.
+      // Nothing is created yet — hold the details in memory. The Template /
+      // Marking Scheme step (next) fills in amountOfQuestions, totalMarks,
+      // templateId and the Sections builder, then the exam and first
+      // question are created together once "Create and Submit" is clicked
+      // on the question step.
       setPendingCreate({
         kind: "StandaloneExam",
         body,
@@ -628,7 +589,7 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
         title: data.title,
         fromBankQuestionIds: bankQuestionIdsRef.current,
       });
-      push("/admin/standalone-exams/questions/?examination=new&submitForApproval=1");
+      push("/admin/standalone-exams/template?examination=new");
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -653,29 +614,6 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
               placeholder="Enter examination title"
               error={errors.title?.message}
               {...register("title", { required: "Title is required" })}
-            />
-          </GridItem>
-
-          <GridItem>
-            <Input
-              label="Number of Questions"
-              type="number"
-              id="amountOfQuestions"
-              placeholder="Enter the number of questions"
-              error={errors.amountOfQuestions?.message}
-              {...register("amountOfQuestions", {
-                required: "Please enter number of questions",
-              })}
-            />
-          </GridItem>
-          <GridItem>
-            <Input
-              label="Total Marks"
-              type="number"
-              id="totalMarks"
-              placeholder="e.g. 100"
-              error={errors.totalMarks?.message}
-              {...register("totalMarks", { required: "Please enter total marks" })}
             />
           </GridItem>
 
@@ -707,47 +645,7 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
               {...register("duration", { required: "Please enter duration" })}
             />
           </GridItem>
-
-          <GridItem>
-            <Select
-              label="Marking Mode"
-              placeholder="Select marking mode"
-              isRequired
-              value={markingMode}
-              onChange={(e) => setMarkingMode(e.target.value)}
-              options={[
-                { label: "Automatic", value: "automatic" },
-                { label: "Manual", value: "manual" },
-                { label: "Hybrid", value: "hybrid" },
-              ]}
-            />
-          </GridItem>
-          <GridItem>
-            <Select
-              label="Marking Template"
-              placeholder="Select a marking template"
-              isRequired
-              value={templateId}
-              onChange={(e) => setTemplateId(e.target.value)}
-              options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
-            />
-          </GridItem>
         </Grid>
-
-        <Heading as="h3" size="md" marginTop="32px" marginBottom="16px" color="#1A202C">
-          Sections
-        </Heading>
-        {sections.length === 0 && (
-          <Text fontSize="sm" color="gray.500" mb={3}>
-            No sections added yet. Sections let you group questions and optionally cap time per group.
-          </Text>
-        )}
-        {sections.map((s, i) => (
-          <SectionRow key={i} section={s} idx={i} onChange={updateSection} onRemove={removeSection} />
-        ))}
-        <Button secondary type="button" onClick={addSection}>
-          + Add Section
-        </Button>
 
         <Heading as="h3" size="md" marginTop="32px" marginBottom="8px" color="#1A202C">
           Randomization
@@ -801,7 +699,7 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
             _hover={{ bg: "#520052" }}
           >
             <FaFileAlt />
-            Next
+            Next: Template
           </Button>
         </Flex>
       </Box>

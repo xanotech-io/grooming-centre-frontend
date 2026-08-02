@@ -36,3 +36,25 @@ export const getDepartmentTranscriptAnalytics = async (departmentId) => {
   const { data } = await http.get(`${BASE}/department-analytics/${departmentId}`);
   return data;
 };
+
+/**
+ * View the certificate issued for a student's course on their transcript.
+ * GET /v1/student-transcript-v2/{transcriptId}/course/{courseId}/certificate
+ * 404s if none has been issued yet.
+ */
+export const getTranscriptCourseCertificate = async (transcriptId, courseId) => {
+  const { data } = await http.get(`${BASE}/${transcriptId}/course/${courseId}/certificate`);
+  return data;
+};
+
+/**
+ * Manually issue/override-generate a certificate for a course on a transcript,
+ * for when auto-generation on completion didn't fire.
+ * POST /v1/student-transcript-v2/{transcriptId}/course/{courseId}/certificate/generate
+ * Body: { certificateType } — defaults to "Completion" server-side.
+ * 422s if the student hasn't reached 100% course progress.
+ */
+export const generateTranscriptCourseCertificate = async (transcriptId, courseId, body = {}) => {
+  const { data } = await http.post(`${BASE}/${transcriptId}/course/${courseId}/certificate/generate`, body);
+  return data;
+};

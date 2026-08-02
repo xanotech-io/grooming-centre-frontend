@@ -51,8 +51,9 @@ import {
   StatNumber,
   StatHelpText,
 } from "@chakra-ui/react";
-import { FiRefreshCw, FiEye, FiCheck, FiRotateCcw, FiUpload, FiSearch, FiChevronDown, FiX } from "react-icons/fi";
+import { FiRefreshCw, FiEye, FiCheck, FiRotateCcw, FiUpload, FiSearch, FiChevronDown, FiX, FiAward } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
+import { TranscriptCertificateModal } from "../../../components";
 import {
   listTranscriptRequests,
   getTranscript,
@@ -227,6 +228,14 @@ function TranscriptDetailDrawer({ isOpen, onClose, transcriptId, onReviewed }) {
   const [postRemarks, setPostRemarks] = useState("");
   const [posting, setPosting] = useState(false);
 
+  const { isOpen: isCertOpen, onOpen: onCertOpen, onClose: onCertClose } = useDisclosure();
+  const [certRecord, setCertRecord] = useState(null);
+
+  const openCertificate = (record) => {
+    setCertRecord(record);
+    onCertOpen();
+  };
+
   useEffect(() => {
     if (!transcriptId || !isOpen) return;
     setLoading(true);
@@ -268,6 +277,13 @@ function TranscriptDetailDrawer({ isOpen, onClose, transcriptId, onReviewed }) {
     onPostOpen();
   };
 
+  const refreshTranscript = async () => {
+    const res = await getTranscript(transcriptId);
+    const payload = res?.data || res;
+    setTranscript(payload?.transcript || payload);
+    setSummary(payload?.summary || summary);
+  };
+
   const handlePostCompletion = async () => {
     if (!examId.trim()) {
       toast({ title: "Exam ID is required", status: "warning", duration: 3000 });
@@ -282,11 +298,7 @@ function TranscriptDetailDrawer({ isOpen, onClose, transcriptId, onReviewed }) {
       });
       toast({ title: "Exam completion posted to transcript", status: "success", duration: 3000 });
       onPostClose();
-      // refresh transcript
-      const res = await getTranscript(transcriptId);
-      const payload = res?.data || res;
-      setTranscript(payload?.transcript || payload);
-      setSummary(payload?.summary || summary);
+      await refreshTranscript();
     } catch (err) {
       const msg = err?.response?.data?.message || "Post failed";
       toast({ title: msg, status: "error", duration: 4000 });
@@ -404,7 +416,9 @@ function TranscriptDetailDrawer({ isOpen, onClose, transcriptId, onReviewed }) {
                       </Tr>
                     </Thead>
                     <Tbody>
-                      {(transcript.courseRecords || []).map((rec) => (
+                      {(transcript.courseRecords || []).map((rec) => {
+                        const hasCertificate = Boolean(rec.certificateId ?? rec.certificateIssued);
+                        return (
                         <Tr key={rec.id} _hover={{ bg: "gray.50" }}>
                           <Td>
                             <Text fontSize="sm" fontWeight="medium">{rec.course?.title || "—"}</Text>
@@ -421,9 +435,17 @@ function TranscriptDetailDrawer({ isOpen, onClose, transcriptId, onReviewed }) {
                             </Badge>
                           </Td>
                           <Td>
-                            <Badge colorScheme={rec.certificateIssued ? "green" : "gray"} variant="subtle">
-                              {rec.certificateIssued ? "Yes" : "No"}
-                            </Badge>
+                            <Tooltip label={hasCertificate ? "View certificate" : "Generate certificate"}>
+                              <Button
+                                size="xs"
+                                variant={hasCertificate ? "outline" : "solid"}
+                                colorScheme={hasCertificate ? "green" : "purple"}
+                                leftIcon={<FiAward />}
+                                onClick={() => openCertificate(rec)}
+                              >
+                                {hasCertificate ? "View" : "Generate"}
+                              </Button>
+                            </Tooltip>
                           </Td>
                           <Td fontSize="xs" color="gray.500">
                             {rec.completionDate ? new Date(rec.completionDate).toLocaleDateString() : "—"}
@@ -445,7 +467,8 @@ function TranscriptDetailDrawer({ isOpen, onClose, transcriptId, onReviewed }) {
                             )}
                           </Td>
                         </Tr>
-                      ))}
+                        );
+                      })}
                     </Tbody>
                   </Table>
                   {(transcript.courseRecords || []).length === 0 && (
@@ -566,6 +589,16 @@ function TranscriptDetailDrawer({ isOpen, onClose, transcriptId, onReviewed }) {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      <TranscriptCertificateModal
+        isOpen={isCertOpen}
+        onClose={onCertClose}
+        transcriptId={transcriptId}
+        courseId={certRecord?.course?.id}
+        courseTitle={certRecord?.course?.title}
+        hasCertificate={Boolean(certRecord?.certificateId ?? certRecord?.certificateIssued)}
+        onGenerated={refreshTranscript}
+      />
     </>
   );
 }

@@ -76,7 +76,10 @@ import {
 import useAssessmentPreview from "../../user/Courses/TakeCourse/hooks/useAssessmentPreview";
 import useAssessmentStore from "../../../store/assessmentStore";
 
-const QUESTION_TYPES = ["MCQ", "TrueFalse", "Matching", "FillBlank"];
+// ShortAnswer/Essay appended at the end, never inserted — every existing
+// QUESTION_TYPES.indexOf(...)/[tabIndex] lookup elsewhere in this file
+// depends on MCQ/TrueFalse/Matching/FillBlank keeping indices 0-3.
+const QUESTION_TYPES = ["MCQ", "TrueFalse", "Matching", "FillBlank", "ShortAnswer", "Essay"];
 
 // Question Bank type mapping — this simplified form has no Essay/ShortAnswer tabs
 // and the bank has no "Matching" equivalent, so those are intentionally excluded.
@@ -99,6 +102,57 @@ const TYPE_LABEL = {
   FillBlank: "Fill in the Blank",
   ShortAnswer: "Short Answer",
   Essay: "Essay",
+};
+
+// "with_sections"/"without_sections"/"hybrid" is the internal representation
+// used throughout this file and TemplateStandalone.jsx's own exam-type
+// checks — the backend's ExamType enum instead expects "sectioned" /
+// "unsectioned" / "hybrid", so remap right at the API boundary instead of
+// renaming the internal value everywhere it's compared against.
+const EXAM_TYPE_TO_API = {
+  with_sections: "sectioned",
+  without_sections: "unsectioned",
+  hybrid: "hybrid",
+};
+const toApiCreateBody = (body) => {
+  if (!body) return body;
+  // Belt-and-suspenders: TemplateStandalone.jsx already clears `templateId`
+  // when Exam Type is "with sections", but a `pendingCreate` persisted to
+  // localStorage from before that fix (or from an earlier Exam Type
+  // selection in the same session that never went through "Next" again)
+  // can still be sitting on a stale value. Sections define their own
+  // marking, so strip it here too — right at the actual API boundary —
+  // regardless of what's upstream.
+  const isSectioned = body.examType === "with_sections";
+  return {
+    ...body,
+    ...(body.examType && EXAM_TYPE_TO_API[body.examType] && { examType: EXAM_TYPE_TO_API[body.examType] }),
+    templateId: isSectioned ? undefined : body.templateId,
+  };
+};
+
+// A sectioned exam sends its sections on the create body itself (see
+// TemplateStandalone.jsx) — `configuredSections` there is a local-only
+// convenience (question_types/marking_type detail for this file's own
+// sectionQuestionTypes feature) confirmed to be rejected outright
+// ("configuredSections is not allowed") by the backend, so it must never
+// reach the paper-config PUT for a sectioned exam. Hybrid/non-sectioned
+// exams still send it there as before — only creation itself is confirmed
+// to reject it, and hybrid has no other place to put its sections.
+const toApiPaperConfigBody = (body, paperConfigBody) =>
+  body?.examType === "with_sections"
+    ? { ...paperConfigBody, configuredSections: undefined }
+    : paperConfigBody;
+
+// A queued item's own explicit `questionType` covers FillBlank/Matching/
+// ShortAnswer/Essay; MCQ/TrueFalse never set one (they carry `options`
+// instead), so fall back to the same options-shape sniffing the existing-
+// question hydration effect above uses.
+const inferQueuedQuestionType = (data) => {
+  if (data?.questionType && QUESTION_TYPES.includes(data.questionType)) return data.questionType;
+  if (Array.isArray(data?.options) && data.options.length === 2) return "TrueFalse";
+  if (Array.isArray(data?.options) && data.options.length) return "MCQ";
+  return null;
 };
 
 // Shared by the pending-creation queue (buildQueuedItemFromBankQuestion) and
@@ -171,6 +225,19 @@ const QuestionsStandalone = () => {
   const [creatingForUpload, setCreatingForUpload] = useState(false);
   const [templateSections, setTemplateSections] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
+  // section name -> allowed question types, from the Template/Marking Scheme
+  // step's "Exam with sections" checkbox builder — only ever populated for a
+  // brand-new "with sections" or "hybrid" exam still in pendingCreate (see
+  // the effect below); every other case (existing exam, without sections)
+  // leaves this empty and the Questions page behaves exactly as it did before.
+  const [sectionQuestionTypes, setSectionQuestionTypes] = useState({});
+  // Hybrid has sections too (optionally) — shown as the same tabs, combined
+  // with a "Standalone Questions" tab for the non-sectioned portion (see
+  // isHybridExam/usingTemplateTypeRestriction in CreateQuestionPage below).
+  const isSectionedExam =
+    isPendingCreation &&
+    (pendingCreate?.body?.examType === "with_sections" ||
+      pendingCreate?.body?.examType === "hybrid");
 
   // The batch-upload endpoint requires a real examination UUID — it never
   // accepts the "new" placeholder. While pending creation, clicking "Upload
@@ -184,8 +251,8 @@ const QuestionsStandalone = () => {
     setCreatingForUpload(true);
     try {
       const { body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
-      const { examination } = await adminCreateStandaloneExamination(body);
-      await updateExamPaperConfig(examination.id, paperConfigBody);
+      const { examination } = await adminCreateStandaloneExamination(toApiCreateBody(body));
+      await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody));
       if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
       // This exam was created without going through the approval modal —
@@ -210,6 +277,11 @@ const QuestionsStandalone = () => {
       const configuredSections = pendingCreate?.paperConfigBody?.configuredSections;
       if (Array.isArray(configuredSections) && configuredSections.length > 0) {
         setTemplateSections(configuredSections.map((s) => s.section_name));
+        setSectionQuestionTypes(
+          Object.fromEntries(
+            configuredSections.map((s) => [s.section_name, s.question_types || []]),
+          ),
+        );
         return;
       }
       if (!pendingCreate?.body?.templateId) {
@@ -366,6 +438,8 @@ const QuestionsStandalone = () => {
             {...assessmentManager}
             templateSections={templateSections}
             sectionsLoading={sectionsLoading}
+            sectionQuestionTypes={sectionQuestionTypes}
+            isSectionedExam={isSectionedExam}
           />
         )}
 
@@ -531,6 +605,8 @@ const useQuestionDetails = (assessmentManager) => {
 const CreateQuestionPage = ({
   templateSections,
   sectionsLoading,
+  sectionQuestionTypes = {},
+  isSectionedExam = false,
   ...assessmentManager
 }) => {
   const { push } = useHistory();
@@ -718,8 +794,8 @@ const CreateQuestionPage = ({
   // submit call.
   const performCreateParent = async () => {
     const { body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
-    const { examination } = await adminCreateStandaloneExamination(body);
-    await updateExamPaperConfig(examination.id, paperConfigBody);
+    const { examination } = await adminCreateStandaloneExamination(toApiCreateBody(body));
+    await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody));
     if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
     setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
     return { id: examination.id };
@@ -754,6 +830,114 @@ const CreateQuestionPage = ({
   const [variantInput, setVariantInput] = useState("");
   const [markingType, setMarkingType] = useState("automatic");
   const [selectedSectionId, setSelectedSectionId] = useState("");
+
+  // "Exam with sections": whichever question types the active section's
+  // Template/Marking Scheme checkbox list allowed — null (not an empty
+  // array) when unrestricted, so every check below is a no-op for hybrid/
+  // without-sections/existing exams, which never set this.
+  const allowedTypesForSection =
+    isSectionedExam && selectedSectionId && sectionQuestionTypes[selectedSectionId]?.length
+      ? QUESTION_TYPES.filter((t) => sectionQuestionTypes[selectedSectionId].includes(t))
+      : null;
+
+  // "Exam without sections" and hybrid's non-sectioned "Standalone
+  // Questions" tab both draw from the same Quantity-per-type/marking-
+  // template restriction set up on the Template/Marking Scheme step — once
+  // the queue already has that many questions of a type, no more of that
+  // type can be added. Only ever populated for a brand-new "without
+  // sections"/"hybrid" exam still in pendingCreate; every other case leaves
+  // this at its default (no cap), same non-invasive scoping as
+  // `isSectionedExam` above.
+  const isHybridExam = isPendingCreation && pendingCreate?.body?.examType === "hybrid";
+  const isUnsectionedExam =
+    isPendingCreation && pendingCreate?.body?.examType === "without_sections";
+  // Hybrid only applies the template restriction while on the "Standalone
+  // Questions" tab (no section selected) — a section's own checkbox list
+  // (allowedTypesForSection above) governs question types once a section
+  // is active, exactly like a plain "with sections" exam.
+  const usingTemplateTypeRestriction =
+    isUnsectionedExam || (isHybridExam && !selectedSectionId);
+  const standaloneQuestionCounts = pendingCreate?.body?.standaloneQuestionCounts || {};
+  // The Template/Marking Scheme step seeds a key for every question type the
+  // selected marking template actually supports (even ones left at 0) — a
+  // type absent here isn't offered by the template at all, so it's disabled
+  // outright, never just quantity-capped. Falls back to "no restriction"
+  // when nothing was seeded (e.g. older pendingCreate data from before this
+  // existed), so this can't hide every tab by accident.
+  const templateSupportedTypes =
+    usingTemplateTypeRestriction && Object.keys(standaloneQuestionCounts).length > 0
+      ? Object.keys(standaloneQuestionCounts)
+      : null;
+  const queuedTypeCounts = usingTemplateTypeRestriction
+    ? (pendingCreate?.questions || []).reduce((acc, q, i) => {
+        // Editing this exact queued slot doesn't add a new question —
+        // exclude it so its own type doesn't count against its own
+        // remaining quota.
+        if (isEditingQueued && i === queuedIndex) return acc;
+        // A hybrid section's own questions draw from that section's
+        // weightage, never the template's standalone-quantity pool.
+        if (q.data?.section) return acc;
+        const t = inferQueuedQuestionType(q.data);
+        if (t) acc[t] = (acc[t] || 0) + 1;
+        return acc;
+      }, {})
+    : {};
+  const typeQuota = (type) => {
+    const raw = standaloneQuestionCounts[type];
+    return raw !== undefined && raw !== null && raw !== "" ? Number(raw) : null;
+  };
+  // Despite the name, this now covers both reasons a type can be
+  // unavailable: the template doesn't support it at all, or its own
+  // Quantity has already been reached.
+  const typeAtCapacity = (type) => {
+    if (templateSupportedTypes && !templateSupportedTypes.includes(type)) return true;
+    const quota = typeQuota(type);
+    return quota != null && (queuedTypeCounts[type] || 0) >= quota;
+  };
+  // Hybrid gets one extra tab ("" — Standalone Questions) alongside its real
+  // sections, so the admin can switch between the sectioned and marking-
+  // template-driven halves. A plain "with sections" exam has no standalone
+  // half, so its tabs are exactly its real sections, unchanged.
+  const sectionTabValues = isHybridExam ? ["", ...templateSections] : templateSections;
+
+  // A brand-new "with sections" form has no section picked yet — default to
+  // the first one so the Answer Options tabs immediately reflect a real
+  // restriction instead of showing all 4 types pre-selection. Skipped
+  // whenever there's a real `question` to hydrate from (existing/queued
+  // question edit, or a bank-apply) — that effect (below) sets the real
+  // section and always wins since it re-runs whenever `question` resolves.
+  // Hybrid is deliberately excluded — its default tab is "Standalone
+  // Questions" (selectedSectionId already starts at "").
+  useEffect(() => {
+    if (!isSectionedExam || isHybridExam || selectedSectionId || question || templateSections.length === 0) return;
+    setSelectedSectionId(templateSections[0]);
+  }, [isSectionedExam, isHybridExam, selectedSectionId, question, templateSections]);
+
+  // If switching sections (or the default-select above) leaves the
+  // currently active Answer Options tab pointing at a type this section
+  // doesn't allow, snap to the first allowed one. tabIndex still indexes
+  // into the full QUESTION_TYPES array here — only the TabList's rendered
+  // tabs are restricted (see the Answer Options Tabs below) — so this is
+  // the only place that needs to know about the restriction.
+  useEffect(() => {
+    if (!allowedTypesForSection) return;
+    if (allowedTypesForSection.includes(QUESTION_TYPES[tabIndex])) return;
+    const fallbackIndex = QUESTION_TYPES.indexOf(allowedTypesForSection[0]);
+    if (fallbackIndex !== -1) setTabIndex(fallbackIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSectionId, sectionQuestionTypes]);
+
+  // "Exam without sections" / hybrid's "Standalone Questions" tab: if the
+  // active tab's type has already hit its Quantity (e.g. right after saving
+  // the last allowed question of that type), snap to the first type that
+  // still has room left.
+  useEffect(() => {
+    if (!usingTemplateTypeRestriction) return;
+    if (!typeAtCapacity(questionType)) return;
+    const fallback = QUESTION_TYPES.find((t) => !typeAtCapacity(t));
+    if (fallback) setTabIndex(QUESTION_TYPES.indexOf(fallback));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usingTemplateTypeRestriction, questionType, queuedTypeCounts]);
 
   const {
     register,
@@ -883,8 +1067,10 @@ const CreateQuestionPage = ({
     setMarkingType(qData.markingType || "automatic");
     setSelectedSectionId(qData.section || "");
 
-    if (qData.questionType === "FillBlank") {
-      setTabIndex(QUESTION_TYPES.indexOf("FillBlank"));
+    // Prefer the explicit type this queue entry was saved with — falls back
+    // to shape-sniffing only for older shapes that never carried one.
+    if (qData.questionType && QUESTION_TYPES.includes(qData.questionType)) {
+      setTabIndex(QUESTION_TYPES.indexOf(qData.questionType));
     } else if (
       Array.isArray(qData.options) &&
       qData.options.length === 2 &&
@@ -908,6 +1094,10 @@ const CreateQuestionPage = ({
       if (correct) setAnswer(String(correct.optionIndex));
     } else if (qData.questionType === "FillBlank") {
       setValue("correctAnswer", qData.correctAnswer || "");
+    } else if (qData.questionType === "ShortAnswer") {
+      setValue("modelAnswer", qData.modelAnswer || "");
+    } else if (qData.questionType === "Essay") {
+      setValue("rubricDescription", qData.rubricDescription || "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bankApplyKey]);
@@ -1021,6 +1211,8 @@ const CreateQuestionPage = ({
     if (correct) setAnswer(`${correct.optionIndex}`);
 
     if (question.correctAnswer) setValue("correctAnswer", question.correctAnswer);
+    if (question.modelAnswer) setValue("modelAnswer", question.modelAnswer);
+    if (question.rubricDescription) setValue("rubricDescription", question.rubricDescription);
     if (Array.isArray(question.acceptVariants) && question.acceptVariants.length > 0) {
       setAcceptVariants(question.acceptVariants);
     }
@@ -1199,6 +1391,22 @@ const CreateQuestionPage = ({
           throw new Error("All matching pairs must have both values filled");
       }
 
+      // "Exam without sections" / hybrid's "Standalone Questions" tab: don't
+      // allow saving a new question of a type the marking template doesn't
+      // support, or one that's already at its configured Quantity. Editing a
+      // queued item in place isn't adding a new one, so it's exempt.
+      if (!isEditingQueued && usingTemplateTypeRestriction && typeAtCapacity(questionType)) {
+        if (templateSupportedTypes && !templateSupportedTypes.includes(questionType)) {
+          throw new Error(
+            `${TYPE_LABEL[questionType] ?? questionType} isn't one of the question types in the selected marking template.`,
+          );
+        }
+        const quota = typeQuota(questionType);
+        throw new Error(
+          `You've reached the ${quota} ${TYPE_LABEL[questionType] ?? questionType} question${quota === 1 ? "" : "s"} you specified for this exam.`,
+        );
+      }
+
       const maybeAddToBank = async (forceAdd) => {
         if (isEditMode || !(addToBank || autoAddToBank || forceAdd)) return;
         const bankType = FORM_TYPE_TO_BANK_TYPE[questionType];
@@ -1255,7 +1463,11 @@ const CreateQuestionPage = ({
             }
           : questionType === "Matching"
             ? { questionType: "Matching", pairs: JSON.stringify(matchingPairs) }
-            : {};
+            : questionType === "ShortAnswer"
+              ? { questionType: "ShortAnswer", modelAnswer: data.modelAnswer }
+              : questionType === "Essay"
+                ? { questionType: "Essay", rubricDescription: data.rubricDescription }
+                : {};
 
       // ── Editing a queued (bank-added, not-yet-created) question in place ──
       // Nothing to save to the backend yet — just overwrite this slot in
@@ -1497,6 +1709,36 @@ const CreateQuestionPage = ({
       padding={6}
       width={{ base: "100%", md: "100%", lg: "70%" }}
     >
+      {/* ── Section tabs ("Exam with sections" only) ── */}
+      {isSectionedExam && templateSections.length > 0 && (
+        <Box paddingX="20px" paddingTop="16px" backgroundColor="white">
+          <Text fontSize="sm" fontWeight="600" color="#1A202C" mb={2}>
+            Section
+          </Text>
+          <Tabs
+            colorScheme="purple"
+            index={Math.max(sectionTabValues.indexOf(selectedSectionId), 0)}
+            onChange={(idx) => setSelectedSectionId(sectionTabValues[idx])}
+          >
+            <TabList borderBottom="1px solid #E2E8F0">
+              {sectionTabValues.map((name) => (
+                <Tab
+                  key={name || "__standalone__"}
+                  _selected={{
+                    color: "#6b006b",
+                    borderColor: "#6b006b",
+                    fontWeight: "bold",
+                  }}
+                  fontSize="sm"
+                >
+                  {name || "Standalone Questions"}
+                </Tab>
+              ))}
+            </TabList>
+          </Tabs>
+        </Box>
+      )}
+
       {/* ── Question text + image ── */}
       <Box
         paddingTop="20px"
@@ -1698,49 +1940,55 @@ const CreateQuestionPage = ({
               </ChakraSelect>
             </Box>
 
-            {/* Section */}
-            <Box minW="220px">
-              <Flex justifyContent="space-between" alignItems="baseline">
-                <Text fontSize="sm" fontWeight="500" mb={1} color="#1A202C">
-                  Section{" "}
-                  {sectionsLoading && (
-                    <Text as="span" fontSize="xs" color="gray.400">
-                      (loading…)
-                    </Text>
+            {/* Section — the tabs above already cover this for "Exam with
+                sections" and hybrid (which gets its own "Standalone
+                Questions" tab alongside its real sections); this dropdown is
+                only for every other case (without-sections/existing exams
+                with no section-tab support), unchanged. */}
+            {!isSectionedExam && (
+              <Box minW="220px">
+                <Flex justifyContent="space-between" alignItems="baseline">
+                  <Text fontSize="sm" fontWeight="500" mb={1} color="#1A202C">
+                    Section{" "}
+                    {sectionsLoading && (
+                      <Text as="span" fontSize="xs" color="gray.400">
+                        (loading…)
+                      </Text>
+                    )}
+                  </Text>
+                  {isExamination && (
+                    <Link
+                      href={`/admin/exam-paper-config/${isExamination}?examType=standalone_examination`}
+                    >
+                      <Text fontSize="xs" color="#6b006b">
+                        Configure sections
+                      </Text>
+                    </Link>
                   )}
-                </Text>
-                {isExamination && (
-                  <Link
-                    href={`/admin/exam-paper-config/${isExamination}?examType=standalone_examination`}
-                  >
-                    <Text fontSize="xs" color="#6b006b">
-                      Configure sections
-                    </Text>
-                  </Link>
-                )}
-              </Flex>
-              <ChakraSelect
-                value={selectedSectionId}
-                onChange={(e) => setSelectedSectionId(e.target.value)}
-                size="sm"
-                bg="white"
-                borderColor="#E2E8F0"
-                disabled={sectionsLoading || templateSections.length === 0}
-                placeholder={
-                  sectionsLoading
-                    ? "Loading sections…"
-                    : templateSections.length === 0
-                      ? "No sections available"
-                      : "Select a section"
-                }
-              >
-                {templateSections.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </ChakraSelect>
-            </Box>
+                </Flex>
+                <ChakraSelect
+                  value={selectedSectionId}
+                  onChange={(e) => setSelectedSectionId(e.target.value)}
+                  size="sm"
+                  bg="white"
+                  borderColor="#E2E8F0"
+                  disabled={sectionsLoading || templateSections.length === 0}
+                  placeholder={
+                    sectionsLoading
+                      ? "Loading sections…"
+                      : templateSections.length === 0
+                        ? "No sections available"
+                        : "Select a section"
+                  }
+                >
+                  {templateSections.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </ChakraSelect>
+              </Box>
+            )}
           </Flex>
 
           <Heading fontSize="18px" mb={4} color="#1A202C">
@@ -1757,13 +2005,21 @@ const CreateQuestionPage = ({
           >
             <TabList borderBottom="1px solid #E2E8F0" mb="24px">
               {[
-                "Multiple Choice (MCQ)",
-                "True / False",
-                "Matching",
-                "Fill in the Blank",
-              ].map((label) => (
+                ["MCQ", "Multiple Choice (MCQ)"],
+                ["TrueFalse", "True / False"],
+                ["Matching", "Matching"],
+                ["FillBlank", "Fill in the Blank"],
+                ["ShortAnswer", "Short Answer"],
+                ["Essay", "Essay"],
+              ].map(([type, label]) => (
                 <Tab
-                  key={label}
+                  key={type}
+                  display={
+                    (allowedTypesForSection && !allowedTypesForSection.includes(type)) ||
+                    (usingTemplateTypeRestriction && typeAtCapacity(type))
+                      ? "none"
+                      : undefined
+                  }
                   _selected={{
                     color: "#6b006b",
                     borderColor: "#6b006b",
@@ -1943,6 +2199,35 @@ const CreateQuestionPage = ({
                     </Wrap>
                   )}
                 </Box>
+              </TabPanel>
+
+              {/* Short Answer */}
+              <TabPanel p={0}>
+                <Box backgroundColor="blue.50" borderRadius="md" p={3} mb={4}>
+                  <Text color="blue.700" fontSize="sm">
+                    This question type is manually graded by the instructor.
+                  </Text>
+                </Box>
+                <Input
+                  label="Model Answer"
+                  placeholder="Enter the expected model answer"
+                  {...register("modelAnswer")}
+                />
+              </TabPanel>
+
+              {/* Essay */}
+              <TabPanel p={0}>
+                <Box backgroundColor="blue.50" borderRadius="md" p={3} mb={4}>
+                  <Text color="blue.700" fontSize="sm">
+                    Essay questions are manually graded by the instructor using
+                    the rubric defined in the marking template.
+                  </Text>
+                </Box>
+                <Input
+                  label="Rubric Description (optional)"
+                  placeholder="e.g. Clarity (5pts), Depth (5pts)"
+                  {...register("rubricDescription")}
+                />
               </TabPanel>
             </TabPanels>
           </Tabs>
@@ -2137,6 +2422,27 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
   const questionsIsEmpty =
     !isLoading && !error && !questions.length && !hasQueuedQuestions;
 
+  // Preserve each queued item's position in `queuedQuestions` (both the
+  // numbering below and handleRemoveQueuedQuestion/getEditQueuedQuestionLink
+  // key off that original index) even once they're re-grouped by section.
+  const numberedQueuedQuestions = queuedQuestions.map((q, index) => ({ ...q, __queuedIndex: index }));
+  const unassignedQueuedQuestions = numberedQueuedQuestions.filter((q) => !q.data?.section);
+
+  const renderQueuedCard = (q) => (
+    <QueuedQuestionCard
+      key={`queued-${q.__queuedIndex}`}
+      questionNumber={getQuestionNumber(questions.length + q.__queuedIndex)}
+      question={q.data.question}
+      editLink={getEditQueuedQuestionLink(
+        isExamination,
+        q.__queuedIndex,
+        isPendingCreation ? "submitForApproval" : "editSubmit",
+      )}
+      onRemove={() => handleRemoveQueuedQuestion(q.__queuedIndex)}
+      marginBottom={4}
+    />
+  );
+
   // The exam already exists here — unlike the pending-creation queue, each
   // picked bank question is created for real right away via the normal
   // create-question endpoint, then the list is refetched.
@@ -2225,8 +2531,8 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
 
   const performCreateParent = async () => {
     const { body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
-    const { examination } = await adminCreateStandaloneExamination(body);
-    await updateExamPaperConfig(examination.id, paperConfigBody);
+    const { examination } = await adminCreateStandaloneExamination(toApiCreateBody(body));
+    await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody));
     if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
     setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
     return { id: examination.id };
@@ -2310,21 +2616,28 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
       )}
 
       {sectionNames.length === 0
-        ? numberedQuestions.map((q) => (
-            <QuestionCard
-              key={q.id}
-              id={q.id}
-              questionNumber={getQuestionNumber(q.__index)}
-              question={q.question}
-              image={q.file}
-              section={q.section}
-              marginBottom={4}
-            />
-          ))
+        ? (
+          <>
+            {numberedQuestions.map((q) => (
+              <QuestionCard
+                key={q.id}
+                id={q.id}
+                questionNumber={getQuestionNumber(q.__index)}
+                question={q.question}
+                image={q.file}
+                section={q.section}
+                marginBottom={4}
+              />
+            ))}
+            {numberedQueuedQuestions.map(renderQueuedCard)}
+          </>
+        )
         : (
           <>
             {sectionNames.map((name, si) => {
               const sectionQs = numberedQuestions.filter((q) => q.section === name);
+              const sectionQueued = numberedQueuedQuestions.filter((q) => q.data?.section === name);
+              const sectionTotal = sectionQs.length + sectionQueued.length;
               return (
                 <Box
                   key={name}
@@ -2338,34 +2651,37 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
                     <Heading fontSize="heading.h5" color="white" flex={1}>
                       Section {si + 1}: {name}
                       <Text as="span" fontSize="xs" fontWeight="normal" color="whiteAlpha.800" ml={2}>
-                        ({sectionQs.length} question{sectionQs.length === 1 ? "" : "s"})
+                        ({sectionTotal} question{sectionTotal === 1 ? "" : "s"})
                       </Text>
                     </Heading>
                   </Flex>
-                  <Box px={5} pt={4} pb={sectionQs.length ? 0 : 4}>
-                    {sectionQs.length === 0 ? (
+                  <Box px={5} pt={4} pb={sectionTotal ? 0 : 4}>
+                    {sectionTotal === 0 ? (
                       <Box padding={4} backgroundColor="gray.50" textAlign="center" borderRadius="md" mb={4}>
                         <Text color="gray.400">No questions in this section yet.</Text>
                       </Box>
                     ) : (
-                      sectionQs.map((q) => (
-                        <QuestionCard
-                          key={q.id}
-                          id={q.id}
-                          questionNumber={getQuestionNumber(q.__index)}
-                          question={q.question}
-                          image={q.file}
-                          section={q.section}
-                          marginBottom={4}
-                        />
-                      ))
+                      <>
+                        {sectionQs.map((q) => (
+                          <QuestionCard
+                            key={q.id}
+                            id={q.id}
+                            questionNumber={getQuestionNumber(q.__index)}
+                            question={q.question}
+                            image={q.file}
+                            section={q.section}
+                            marginBottom={4}
+                          />
+                        ))}
+                        {sectionQueued.map(renderQueuedCard)}
+                      </>
                     )}
                   </Box>
                 </Box>
               );
             })}
 
-            {unassignedQuestions.length > 0 && (
+            {(unassignedQuestions.length > 0 || unassignedQueuedQuestions.length > 0) && (
               <Box marginBottom={8}>
                 <Flex alignItems="center" mb={4} pb={2} borderBottom="1px" borderColor="gray.300">
                   <Heading fontSize="heading.h5" color="gray.500">
@@ -2383,25 +2699,11 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
                     marginBottom={4}
                   />
                 ))}
+                {unassignedQueuedQuestions.map(renderQueuedCard)}
               </Box>
             )}
           </>
         )}
-
-      {queuedQuestions.map((q, index) => (
-        <QueuedQuestionCard
-          key={`queued-${index}`}
-          questionNumber={getQuestionNumber(questions.length + index)}
-          question={q.data.question}
-          editLink={getEditQueuedQuestionLink(
-            isExamination,
-            index,
-            isPendingCreation ? "submitForApproval" : "editSubmit",
-          )}
-          onRemove={() => handleRemoveQueuedQuestion(index)}
-          marginBottom={4}
-        />
-      ))}
 
       <Box paddingTop={10} display="flex" gap={3}>
         <Button

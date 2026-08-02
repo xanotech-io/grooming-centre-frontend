@@ -30,6 +30,7 @@ import {
   Heading,
   Link,
   Text,
+  TranscriptCertificateModal,
 } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { EmptyState } from "../../../../layouts";
@@ -199,7 +200,7 @@ const Field = ({ label, value }) => (
   </HStack>
 );
 
-const CourseRecordDetailModal = ({ isOpen, onClose, record }) => {
+const CourseRecordDetailModal = ({ isOpen, onClose, record, onViewCertificate }) => {
   if (!record) return null;
 
   const instructorName = record.instructor
@@ -278,9 +279,15 @@ const CourseRecordDetailModal = ({ isOpen, onClose, record }) => {
             </VStack>
           </VStack>
         </ModalBody>
-        <ModalFooter>
+        <ModalFooter gap="10px">
           <Button secondary onClick={onClose}>
             Close
+          </Button>
+          <Button
+            leftIcon={<FaAward />}
+            onClick={() => onViewCertificate(record)}
+          >
+            {record.certificateId || record.certificateIssued ? "View Certificate" : "Generate Certificate"}
           </Button>
         </ModalFooter>
       </ModalContent>
@@ -304,12 +311,33 @@ const StudentTranscriptDetailsPage = () => {
   const [summary, setSummary] = useState(null);
   const [reviewDecision, setReviewDecision] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [certRecord, setCertRecord] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const printRef = useRef(null);
 
   const openRecord = (record) => {
     setSelectedRecord(record);
     recordModal.onOpen();
+  };
+
+  const openCertificate = (record) => {
+    setCertRecord(record);
+    recordModal.onClose();
+  };
+
+  const refreshTranscript = async () => {
+    try {
+      const res = await adminGetSingleTranscript(transcriptId);
+      setTranscript(res.data?.transcript ?? null);
+      setSummary(res.data?.summary ?? null);
+    } catch (err) {
+      toast({
+        status: "error",
+        description: err.message || "Unable to refresh transcript",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   };
 
   useEffect(() => {
@@ -629,16 +657,17 @@ const StudentTranscriptDetailsPage = () => {
                       </Flex>
 
                       <Flex justify="center" align="center" gap={1}>
-                        {record.certificateIssued ? (
-                          <>
-                            <Icon color="green.500" fontSize="14px">
-                              <FaAward />
-                            </Icon>
-                            <Text as="level5" color="green.600">Issued</Text>
-                          </>
-                        ) : (
-                          <Text as="level5" color="gray.400">Not issued</Text>
-                        )}
+                        <Button
+                          xs
+                          secondary={Boolean(record.certificateId || record.certificateIssued)}
+                          leftIcon={<FaAward />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCertificate(record);
+                          }}
+                        >
+                          {record.certificateId || record.certificateIssued ? "View" : "Generate"}
+                        </Button>
                       </Flex>
                     </Grid>
                   ))
@@ -663,6 +692,17 @@ const StudentTranscriptDetailsPage = () => {
         isOpen={recordModal.isOpen}
         onClose={recordModal.onClose}
         record={selectedRecord}
+        onViewCertificate={openCertificate}
+      />
+
+      <TranscriptCertificateModal
+        isOpen={Boolean(certRecord)}
+        onClose={() => setCertRecord(null)}
+        transcriptId={transcriptId}
+        courseId={certRecord?.courseId}
+        courseTitle={certRecord?.course?.title}
+        hasCertificate={Boolean(certRecord?.certificateId ?? certRecord?.certificateIssued)}
+        onGenerated={refreshTranscript}
       />
     </AdminMainAreaWrapper>
   );

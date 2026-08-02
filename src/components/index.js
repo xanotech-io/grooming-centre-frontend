@@ -16,6 +16,7 @@ export * from './Form/Input/TagsInput/TagsInput';
 export * from './Form/Input/TagsInput/SelectedTags';
 export * from './Form/RichText/RichText';
 export * from './Form/Select';
+export * from './Form/SearchableSelect';
 export * from './Form/Textarea';
 export * from './Form/Upload/Upload';
 export * from './Image/Image';
@@ -38,4 +39,5 @@ export * from './Pagination/CoursesPagination';
 
 export * from './WorkflowReviewSection';
 export * from './ScheduledReporting';
+export { default as TranscriptCertificateModal } from './Certificates/TranscriptCertificateModal';
 export * from './StudentReportingModule';
