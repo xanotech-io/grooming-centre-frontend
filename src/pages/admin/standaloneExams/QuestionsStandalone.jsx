@@ -104,6 +104,46 @@ const TYPE_LABEL = {
   Essay: "Essay",
 };
 
+// "with_sections"/"without_sections"/"hybrid" is the internal representation
+// used throughout this file and TemplateStandalone.jsx's own exam-type
+// checks — the backend's ExamType enum instead expects "sectioned" /
+// "unsectioned" / "hybrid", so remap right at the API boundary instead of
+// renaming the internal value everywhere it's compared against.
+const EXAM_TYPE_TO_API = {
+  with_sections: "sectioned",
+  without_sections: "unsectioned",
+  hybrid: "hybrid",
+};
+const toApiCreateBody = (body) => {
+  if (!body) return body;
+  // Belt-and-suspenders: TemplateStandalone.jsx already clears `templateId`
+  // when Exam Type is "with sections", but a `pendingCreate` persisted to
+  // localStorage from before that fix (or from an earlier Exam Type
+  // selection in the same session that never went through "Next" again)
+  // can still be sitting on a stale value. Sections define their own
+  // marking, so strip it here too — right at the actual API boundary —
+  // regardless of what's upstream.
+  const isSectioned = body.examType === "with_sections";
+  return {
+    ...body,
+    ...(body.examType && EXAM_TYPE_TO_API[body.examType] && { examType: EXAM_TYPE_TO_API[body.examType] }),
+    templateId: isSectioned ? undefined : body.templateId,
+  };
+};
+
+// A sectioned exam sends its sections on the create body itself (see
+// TemplateStandalone.jsx) — `configuredSections` there is a local-only
+// convenience (question_types/marking_type detail for this file's own
+// sectionQuestionTypes feature) confirmed to be rejected outright
+// ("configuredSections is not allowed") by the backend, so it must never
+// reach the paper-config PUT for a sectioned exam. Hybrid/non-sectioned
+// exams still send it there as before — only creation itself is confirmed
+// to reject it, and hybrid has no other place to put its sections.
+const toApiPaperConfigBody = (body, paperConfigBody) =>
+  body?.examType === "with_sections"
+    ? { ...paperConfigBody, configuredSections: undefined }
+    : paperConfigBody;
+
 // A queued item's own explicit `questionType` covers FillBlank/Matching/
 // ShortAnswer/Essay; MCQ/TrueFalse never set one (they carry `options`
 // instead), so fall back to the same options-shape sniffing the existing-
@@ -211,8 +251,8 @@ const QuestionsStandalone = () => {
     setCreatingForUpload(true);
     try {
       const { body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
-      const { examination } = await adminCreateStandaloneExamination(body);
-      await updateExamPaperConfig(examination.id, paperConfigBody);
+      const { examination } = await adminCreateStandaloneExamination(toApiCreateBody(body));
+      await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody));
       if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
       // This exam was created without going through the approval modal —
@@ -754,8 +794,8 @@ const CreateQuestionPage = ({
   // submit call.
   const performCreateParent = async () => {
     const { body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
-    const { examination } = await adminCreateStandaloneExamination(body);
-    await updateExamPaperConfig(examination.id, paperConfigBody);
+    const { examination } = await adminCreateStandaloneExamination(toApiCreateBody(body));
+    await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody));
     if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
     setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
     return { id: examination.id };
@@ -2382,6 +2422,27 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
   const questionsIsEmpty =
     !isLoading && !error && !questions.length && !hasQueuedQuestions;
 
+  // Preserve each queued item's position in `queuedQuestions` (both the
+  // numbering below and handleRemoveQueuedQuestion/getEditQueuedQuestionLink
+  // key off that original index) even once they're re-grouped by section.
+  const numberedQueuedQuestions = queuedQuestions.map((q, index) => ({ ...q, __queuedIndex: index }));
+  const unassignedQueuedQuestions = numberedQueuedQuestions.filter((q) => !q.data?.section);
+
+  const renderQueuedCard = (q) => (
+    <QueuedQuestionCard
+      key={`queued-${q.__queuedIndex}`}
+      questionNumber={getQuestionNumber(questions.length + q.__queuedIndex)}
+      question={q.data.question}
+      editLink={getEditQueuedQuestionLink(
+        isExamination,
+        q.__queuedIndex,
+        isPendingCreation ? "submitForApproval" : "editSubmit",
+      )}
+      onRemove={() => handleRemoveQueuedQuestion(q.__queuedIndex)}
+      marginBottom={4}
+    />
+  );
+
   // The exam already exists here — unlike the pending-creation queue, each
   // picked bank question is created for real right away via the normal
   // create-question endpoint, then the list is refetched.
@@ -2470,8 +2531,8 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
 
   const performCreateParent = async () => {
     const { body, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
-    const { examination } = await adminCreateStandaloneExamination(body);
-    await updateExamPaperConfig(examination.id, paperConfigBody);
+    const { examination } = await adminCreateStandaloneExamination(toApiCreateBody(body));
+    await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody));
     if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
     setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
     return { id: examination.id };
@@ -2555,21 +2616,28 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
       )}
 
       {sectionNames.length === 0
-        ? numberedQuestions.map((q) => (
-            <QuestionCard
-              key={q.id}
-              id={q.id}
-              questionNumber={getQuestionNumber(q.__index)}
-              question={q.question}
-              image={q.file}
-              section={q.section}
-              marginBottom={4}
-            />
-          ))
+        ? (
+          <>
+            {numberedQuestions.map((q) => (
+              <QuestionCard
+                key={q.id}
+                id={q.id}
+                questionNumber={getQuestionNumber(q.__index)}
+                question={q.question}
+                image={q.file}
+                section={q.section}
+                marginBottom={4}
+              />
+            ))}
+            {numberedQueuedQuestions.map(renderQueuedCard)}
+          </>
+        )
         : (
           <>
             {sectionNames.map((name, si) => {
               const sectionQs = numberedQuestions.filter((q) => q.section === name);
+              const sectionQueued = numberedQueuedQuestions.filter((q) => q.data?.section === name);
+              const sectionTotal = sectionQs.length + sectionQueued.length;
               return (
                 <Box
                   key={name}
@@ -2583,34 +2651,37 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
                     <Heading fontSize="heading.h5" color="white" flex={1}>
                       Section {si + 1}: {name}
                       <Text as="span" fontSize="xs" fontWeight="normal" color="whiteAlpha.800" ml={2}>
-                        ({sectionQs.length} question{sectionQs.length === 1 ? "" : "s"})
+                        ({sectionTotal} question{sectionTotal === 1 ? "" : "s"})
                       </Text>
                     </Heading>
                   </Flex>
-                  <Box px={5} pt={4} pb={sectionQs.length ? 0 : 4}>
-                    {sectionQs.length === 0 ? (
+                  <Box px={5} pt={4} pb={sectionTotal ? 0 : 4}>
+                    {sectionTotal === 0 ? (
                       <Box padding={4} backgroundColor="gray.50" textAlign="center" borderRadius="md" mb={4}>
                         <Text color="gray.400">No questions in this section yet.</Text>
                       </Box>
                     ) : (
-                      sectionQs.map((q) => (
-                        <QuestionCard
-                          key={q.id}
-                          id={q.id}
-                          questionNumber={getQuestionNumber(q.__index)}
-                          question={q.question}
-                          image={q.file}
-                          section={q.section}
-                          marginBottom={4}
-                        />
-                      ))
+                      <>
+                        {sectionQs.map((q) => (
+                          <QuestionCard
+                            key={q.id}
+                            id={q.id}
+                            questionNumber={getQuestionNumber(q.__index)}
+                            question={q.question}
+                            image={q.file}
+                            section={q.section}
+                            marginBottom={4}
+                          />
+                        ))}
+                        {sectionQueued.map(renderQueuedCard)}
+                      </>
                     )}
                   </Box>
                 </Box>
               );
             })}
 
-            {unassignedQuestions.length > 0 && (
+            {(unassignedQuestions.length > 0 || unassignedQueuedQuestions.length > 0) && (
               <Box marginBottom={8}>
                 <Flex alignItems="center" mb={4} pb={2} borderBottom="1px" borderColor="gray.300">
                   <Heading fontSize="heading.h5" color="gray.500">
@@ -2628,25 +2699,11 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
                     marginBottom={4}
                   />
                 ))}
+                {unassignedQueuedQuestions.map(renderQueuedCard)}
               </Box>
             )}
           </>
         )}
-
-      {queuedQuestions.map((q, index) => (
-        <QueuedQuestionCard
-          key={`queued-${index}`}
-          questionNumber={getQuestionNumber(questions.length + index)}
-          question={q.data.question}
-          editLink={getEditQueuedQuestionLink(
-            isExamination,
-            index,
-            isPendingCreation ? "submitForApproval" : "editSubmit",
-          )}
-          onRemove={() => handleRemoveQueuedQuestion(index)}
-          marginBottom={4}
-        />
-      ))}
 
       <Box paddingTop={10} display="flex" gap={3}>
         <Button

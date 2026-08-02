@@ -516,7 +516,6 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
   const handleCancel = useGoBack();
   const startTimeManager = useDateTimePicker();
   const endTimeManager = useDateTimePicker();
-  const [markingMode, setMarkingMode] = useState("automatic");
   const [addToBank, setAddToBank] = useState(false);
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
@@ -553,7 +552,6 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
     const { body, paperConfigBody, addToBank: pendingAddToBank } = pendingCreate;
     if (body?.title) setValue("title", body.title);
     if (body?.duration != null) setValue("duration", body.duration);
-    if (body?.markingMode) setMarkingMode(body.markingMode);
     if (body?.startTime) startTimeManager.handleChange(body.startTime);
     if (body?.endTime) endTimeManager.handleChange(body.endTime);
     if (paperConfigBody?.randomization) setRandomization(paperConfigBody.randomization);
@@ -569,7 +567,6 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
       const body = {
         title: data.title,
         duration: Number(data.duration),
-        markingMode,
         startTime: formatDateToISO(startTime),
         endTime: formatDateToISO(endTime),
       };
@@ -646,20 +643,6 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
               placeholder="Enter duration in minutes"
               error={errors.duration?.message}
               {...register("duration", { required: "Please enter duration" })}
-            />
-          </GridItem>
-          <GridItem>
-            <Select
-              label="Marking Mode"
-              placeholder="Select marking mode"
-              isRequired
-              value={markingMode}
-              onChange={(e) => setMarkingMode(e.target.value)}
-              options={[
-                { label: "Automatic", value: "automatic" },
-                { label: "Manual", value: "manual" },
-                { label: "Hybrid", value: "hybrid" },
-              ]}
             />
           </GridItem>
         </Grid>

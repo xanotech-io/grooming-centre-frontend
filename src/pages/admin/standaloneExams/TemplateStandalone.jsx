@@ -45,6 +45,7 @@ const EMPTY_SECTION = {
     question_types: [],
     marking_type: "",
     total_marks: null,
+    question_count: null,
 };
 
 // Kept identical to OverViewStandalone.jsx's — QuestionsStandalone.jsx enforces
@@ -91,8 +92,8 @@ const SectionRow = ({ section, idx, onChange, onRemove, disabled }) => (
             />
         </Flex>
 
-        <Grid templateColumns="repeat(2, 1fr)" gap={6}>
-            <GridItem colSpan={2}>
+        <Grid templateColumns="repeat(3, 1fr)" gap={6}>
+            <GridItem colSpan={3}>
                 <Input
                     id={`section-${idx}-name`}
                     label="Name"
@@ -102,7 +103,7 @@ const SectionRow = ({ section, idx, onChange, onRemove, disabled }) => (
                     onChange={(e) => onChange(idx, "section_name", e.target.value)}
                 />
             </GridItem>
-            <GridItem colSpan={2}>
+            <GridItem colSpan={3}>
                 <Text fontSize="sm" fontWeight="500" mb={2}>Question Types</Text>
                 <HStack spacing={4} flexWrap="wrap">
                     <Checkbox
@@ -165,6 +166,24 @@ const SectionRow = ({ section, idx, onChange, onRemove, disabled }) => (
                     }
                 />
             </GridItem>
+            <GridItem>
+                <Input
+                    id={`section-${idx}-question-count`}
+                    label="Question Count"
+                    type="number"
+                    min={0}
+                    placeholder="e.g. 2"
+                    value={section.question_count ?? ""}
+                    isDisabled={disabled}
+                    onChange={(e) =>
+                        onChange(
+                            idx,
+                            "question_count",
+                            e.target.value ? Number(e.target.value) : null,
+                        )
+                    }
+                />
+            </GridItem>
         </Grid>
     </Box>
 );
@@ -201,6 +220,14 @@ const TemplateStandalone = () => {
     const updateSection = (i, field, value) =>
         setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
 
+    // A sectioned exam defines marking per-section, not via a marking
+    // template — clear out any previously-picked template (e.g. from
+    // switching Exam Type back and forth) so the disabled Select can't hold
+    // onto a stale selection that would otherwise still get submitted.
+    useEffect(() => {
+        if (examType === "with_sections") setTemplateId("");
+    }, [examType]);
+
     // The marking-templates list already carries each template's full
     // markDistribution/questionQuantity/totalMarks — no need for a separate
     // by-ID fetch once one is picked.
@@ -208,6 +235,7 @@ const TemplateStandalone = () => {
     const standaloneTypes = selectedTemplate?.questionTypes ?? Object.keys(selectedTemplate?.markDistribution || {});
 
     const sectionsWeightageTotal = sections.reduce((acc, s) => acc + (Number(s.total_marks) || 0), 0);
+    const sectionsQuestionCountTotal = sections.reduce((acc, s) => acc + (Number(s.question_count) || 0), 0);
     const standaloneMarksTotal = standaloneTypes.reduce((acc, type) => {
         const qty = Number(standaloneQuestionCounts[type]) || 0;
         const perQuestionMark = Number(selectedTemplate?.markDistribution?.[type]) || 0;
@@ -225,6 +253,14 @@ const TemplateStandalone = () => {
         if (examType !== "with_sections") return;
         setTotalMarks(String(sectionsWeightageTotal));
     }, [examType, sectionsWeightageTotal]);
+
+    // Same reasoning for Number of Questions: the backend auto-computes it
+    // from the sum of every section's own Question Count, so it's not a
+    // separate manual field for a sectioned exam either.
+    useEffect(() => {
+        if (examType !== "with_sections") return;
+        setAmountOfQuestions(String(sectionsQuestionCountTotal));
+    }, [examType, sectionsQuestionCountTotal]);
 
     // "Exam without sections" likewise has no standalone total-marks input —
     // it's derived from how many questions of each type the admin enters
@@ -269,8 +305,23 @@ const TemplateStandalone = () => {
         if (body?.templateId) setTemplateId(body.templateId);
         if (body?.examType) setExamType(body.examType);
         if (body?.standaloneQuestionCounts) setStandaloneQuestionCounts(body.standaloneQuestionCounts);
-        if (pendingCreate.paperConfigBody?.configuredSections?.length)
+        // `paperConfigBody.configuredSections` (the full local shape, with
+        // question_types/marking_type) is written for every exam type,
+        // including sectioned — prefer it. `body.sections` (the backend's
+        // strict section_name/weightage/questionCount shape, sectioned-only)
+        // is only a fallback for older persisted data from before that.
+        if (pendingCreate.paperConfigBody?.configuredSections?.length) {
             setSections(pendingCreate.paperConfigBody.configuredSections);
+        } else if (Array.isArray(body?.sections) && body.sections.length > 0) {
+            setSections(
+                body.sections.map((s) => ({
+                    ...EMPTY_SECTION,
+                    section_name: s.section_name,
+                    total_marks: s.weightage ?? null,
+                    question_count: s.questionCount ?? null,
+                })),
+            );
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -280,6 +331,9 @@ const TemplateStandalone = () => {
             if (examType === "without_sections") {
                 if (templateId && (!amountOfQuestions || Number(amountOfQuestions) <= 0))
                     newErrors.amountOfQuestions = "Enter at least one question-type quantity below";
+            } else if (examType === "with_sections") {
+                if (!amountOfQuestions || Number(amountOfQuestions) <= 0)
+                    newErrors.amountOfQuestions = "Add at least one section and enter its Question Count";
             } else if (!amountOfQuestions) {
                 newErrors.amountOfQuestions = "Please enter number of questions";
             }
@@ -307,23 +361,63 @@ const TemplateStandalone = () => {
             );
 
             if (pendingCreate?.kind === "StandaloneExam") {
+                const isSectioned = examType === "with_sections";
                 setPendingCreate({
                     ...pendingCreate,
                     body: {
                         ...pendingCreate.body,
-                        amountOfQuestions: Number(amountOfQuestions),
                         totalMarks: Number(totalMarks),
-                        templateId,
                         examType,
+                        // A sectioned exam has no marking template — sections
+                        // define their own marking instead. `undefined` (not
+                        // just omitting the key) is required here to clear
+                        // out a `templateId` already sitting in
+                        // `pendingCreate.body` from a previous visit where a
+                        // different Exam Type was selected — JSON.stringify
+                        // drops `undefined` values, so it never reaches the
+                        // backend.
+                        templateId: isSectioned ? undefined : templateId,
+                        // Confirmed against a real backend test: a sectioned
+                        // exam auto-computes amountOfQuestions from the sum of
+                        // each section's own questionCount — sending it here
+                        // isn't part of that tested/working contract, so it's
+                        // cleared the same way templateId is above.
+                        amountOfQuestions: isSectioned ? undefined : Number(amountOfQuestions),
+                        // Confirmed against a real backend test: a sectioned
+                        // exam takes its sections directly on the create body
+                        // as `sections: [{ section_name, weightage,
+                        // questionCount }]` — NOT `configuredSections` (that
+                        // field name is rejected outright) and NOT via the
+                        // separate paper-config PUT below (too late for the
+                        // backend's totalMarks-vs-sections validation, which
+                        // runs at creation time).
+                        ...(isSectioned && {
+                            sections: sections.map((s) => ({
+                                section_name: s.section_name,
+                                weightage: Number(s.total_marks) || 0,
+                                questionCount: Number(s.question_count) || 0,
+                            })),
+                        }),
                         ...((examType === "hybrid" || examType === "without_sections") && {
                             standaloneQuestionCounts: seededStandaloneQuestionCounts,
                         }),
                     },
                     paperConfigBody: {
                         ...pendingCreate.paperConfigBody,
-                        // Sections are optional — the backend rejects an empty
-                        // `configuredSections` array, so leave the key out
-                        // entirely when none were added instead of sending `[]`.
+                        // Sections are optional — the backend rejects an
+                        // empty `configuredSections` array, so leave the key
+                        // out entirely when none were added instead of
+                        // sending `[]`. Kept here (with the full
+                        // question_types/marking_type detail) even for a
+                        // sectioned exam — QuestionsStandalone.jsx's
+                        // sectionQuestionTypes feature and this page's own
+                        // restore-on-remount both still read it locally.
+                        // QuestionsStandalone.jsx is responsible for
+                        // stripping this key back out before it ever reaches
+                        // the paper-config PUT for a sectioned exam, since
+                        // `configuredSections` is rejected outright there —
+                        // the real sections went on the create body instead
+                        // (above).
                         ...(sectionsEnabled && sections.length > 0 && {
                             configuredSections: sections.map((s) => ({
                                 section_name: s.section_name,
@@ -363,12 +457,14 @@ const TemplateStandalone = () => {
                                     placeholder={
                                         examType === "without_sections"
                                             ? "Sum of the question-type quantities below"
-                                            : "Enter the number of questions"
+                                            : examType === "with_sections"
+                                                ? "Sum of each section's Question Count"
+                                                : "Enter the number of questions"
                                     }
                                     error={fieldErrors.amountOfQuestions}
                                     value={amountOfQuestions}
-                                    isReadOnly={examType === "without_sections"}
-                                    isDisabled={examType === "without_sections"}
+                                    isReadOnly={examType === "without_sections" || examType === "with_sections"}
+                                    isDisabled={examType === "without_sections" || examType === "with_sections"}
                                     onChange={(e) => setAmountOfQuestions(e.target.value)}
                                 />
                             </GridItem>
