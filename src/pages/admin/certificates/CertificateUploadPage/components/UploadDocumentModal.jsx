@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -19,7 +19,7 @@ import {
   Flex,
   useToast,
 } from "@chakra-ui/react";
-import { Button } from "../../../../../components";
+import { Button, SearchableSelect } from "../../../../../components";
 import {
   adminUploadUserDocument,
   adminGetUserListing,
@@ -31,13 +31,31 @@ const ACCEPTED_TYPES = ".pdf,.jpg,.jpeg,.png,.xlsx,.xls";
 
 const INITIAL_FORM = {
   userId: "",
+  userLabel: "",
   documentType: "",
   fileName: "",
   fileFormat: "PDF",
   courseId: "",
+  courseLabel: "",
   expiryDate: "",
   file: null,
   fileError: "",
+};
+
+const fetchStudentOptions = async (query) => {
+  const res = await adminGetUserListing({ search: query, limit: 10 });
+  return (res.users ?? []).map((u) => ({
+    id: u.id,
+    label: `${u.firstName} ${u.lastName} (${u.displayId})`,
+  }));
+};
+
+const fetchCourseOptions = async (query) => {
+  const res = await adminGetCourseListing({ search: query, limit: 10 });
+  return (res.courses ?? []).map((c) => ({
+    id: c.id,
+    label: `${c.title} (${c.displayId})`,
+  }));
 };
 
 const UploadDocumentModal = ({ isOpen, onClose, onSuccess }) => {
@@ -45,24 +63,6 @@ const UploadDocumentModal = ({ isOpen, onClose, onSuccess }) => {
   const fileInputRef = useRef();
   const [form, setForm] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
-  const [users, setUsers] = useState([]);
-  const [courses, setCourses] = useState([]);
-  const [loadingOptions, setLoadingOptions] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setLoadingOptions(true);
-    Promise.all([
-      adminGetUserListing({ limit: 500 }),
-      adminGetCourseListing({ limit: 500 }),
-    ])
-      .then(([userRes, courseRes]) => {
-        setUsers(userRes.users || []);
-        setCourses(courseRes.courses || []);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingOptions(false));
-  }, [isOpen]);
 
   const set = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -165,20 +165,14 @@ const UploadDocumentModal = ({ isOpen, onClose, onSuccess }) => {
               <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
                 Student
               </FormLabel>
-              <Select
-                value={form.userId}
-                onChange={set("userId")}
-                size="sm"
-                borderRadius="6px"
-                placeholder={loadingOptions ? "Loading students…" : "Select student"}
-                isDisabled={loadingOptions}
-              >
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.firstName} {u.lastName} ({u.displayId})
-                  </option>
-                ))}
-              </Select>
+              <SearchableSelect
+                placeholder="Search student by name…"
+                fetchOptions={fetchStudentOptions}
+                selectedLabel={form.userLabel}
+                onSelect={(id, label) =>
+                  setForm((prev) => ({ ...prev, userId: id, userLabel: label }))
+                }
+              />
             </FormControl>
 
             {/* Document Type */}
@@ -284,22 +278,16 @@ const UploadDocumentModal = ({ isOpen, onClose, onSuccess }) => {
             {/* Associated Course */}
             <FormControl>
               <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                Associated Course
+                Associated Course (optional)
               </FormLabel>
-              <Select
-                value={form.courseId}
-                onChange={set("courseId")}
-                size="sm"
-                borderRadius="6px"
-                placeholder={loadingOptions ? "Loading courses…" : "Select course (optional)"}
-                isDisabled={loadingOptions}
-              >
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title} ({c.displayId})
-                  </option>
-                ))}
-              </Select>
+              <SearchableSelect
+                placeholder="Search course by title…"
+                fetchOptions={fetchCourseOptions}
+                selectedLabel={form.courseLabel}
+                onSelect={(id, label) =>
+                  setForm((prev) => ({ ...prev, courseId: id, courseLabel: label }))
+                }
+              />
             </FormControl>
 
             {/* Expiry Date */}

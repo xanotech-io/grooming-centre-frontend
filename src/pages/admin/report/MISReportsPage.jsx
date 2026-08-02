@@ -297,7 +297,11 @@ const MISReportsPage = () => {
   // resolve "generatedBy" (a user id from the API) to a display name
   const userNameById = useMemo(() => {
     const map = {};
-    allUserOptions.forEach((u) => { map[String(u.id)] = `${u.firstName} ${u.lastName}`.trim(); });
+    allUserOptions.forEach((u) => {
+      const name = `${u.firstName} ${u.lastName}`.trim();
+      map[String(u.id)] = name;
+      if (u.displayId != null) map[String(u.displayId)] = name;
+    });
     return map;
   }, [allUserOptions]);
   const resolveGeneratedBy = (generatedBy) => generatedBy ? (userNameById[String(generatedBy)] ?? generatedBy) : "—";

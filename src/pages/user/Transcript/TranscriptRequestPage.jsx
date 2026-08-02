@@ -11,7 +11,7 @@ import {
   FaGraduationCap,
   FaAward,
 } from "react-icons/fa";
-import { Button, Heading, Text } from "../../../components";
+import { Button, Heading, Text, TranscriptCertificateModal } from "../../../components";
 import { studentRequestTranscript } from "../../../services";
 import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
 
@@ -56,6 +56,7 @@ const TranscriptRequestPage = () => {
   const [selectedType, setSelectedType] = useState("Unofficial");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [certRecord, setCertRecord] = useState(null);
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -251,13 +252,15 @@ const TranscriptRequestPage = () => {
                   </Flex>
 
                   <Flex justify="center" align="center" gap={1}>
-                    {record.certificateIssued ? (
-                      <>
-                        <Icon color="green.500" fontSize="14px">
-                          <FaAward />
-                        </Icon>
-                        <Text as="level5" color="green.600">Issued</Text>
-                      </>
+                    {record.certificateId || record.certificateIssued ? (
+                      <Button
+                        xs
+                        secondary
+                        leftIcon={<FaAward />}
+                        onClick={() => setCertRecord(record)}
+                      >
+                        View
+                      </Button>
                     ) : (
                       <Text as="level5" color="gray.400">Not issued</Text>
                     )}
@@ -273,6 +276,15 @@ const TranscriptRequestPage = () => {
             </Button>
           </Flex>
         </Box>
+
+        <TranscriptCertificateModal
+          isOpen={Boolean(certRecord)}
+          onClose={() => setCertRecord(null)}
+          transcriptId={transcript.id}
+          courseId={certRecord?.courseId}
+          courseTitle={certRecord?.courseTitle}
+          hasCertificate
+        />
       </Box>
     );
   }

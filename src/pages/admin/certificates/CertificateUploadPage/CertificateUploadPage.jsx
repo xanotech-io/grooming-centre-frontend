@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Route } from "react-router-dom";
+import { Route, useHistory } from "react-router-dom";
 import { Box, Flex, Badge, BreadcrumbItem, useDisclosure, useToast } from "@chakra-ui/react";
 import { useFetch } from "../../../../hooks";
 import { Breadcrumb, Link } from "../../../../components";
@@ -15,9 +15,6 @@ import PageHeader from "./components/PageHeader";
 import DocumentFilters from "./components/DocumentFilters";
 import DocumentTable from "./components/DocumentTable";
 import UploadDocumentModal from "./components/UploadDocumentModal";
-import ViewDocumentModal from "./components/ViewDocumentModal";
-import VerifyDocumentModal from "./components/VerifyDocumentModal";
-import RejectDocumentModal from "./components/RejectDocumentModal";
 
 const TAB_PENDING = "pending";
 const TAB_ALL = "all";
@@ -59,6 +56,7 @@ const TabButton = ({ label, isActive, onClick, badge }) => (
 
 const CertificateUploadPage = () => {
   const toast = useToast();
+  const history = useHistory();
   const [activeTab, setActiveTab] = useState(TAB_PENDING);
 
   // KPI stats
@@ -78,10 +76,6 @@ const CertificateUploadPage = () => {
 
   // Modal state
   const uploadModal = useDisclosure();
-  const viewModal = useDisclosure();
-  const verifyModal = useDisclosure();
-  const rejectModal = useDisclosure();
-  const [selectedDoc, setSelectedDoc] = useState(null);
 
   // ── KPI fetcher ──────────────────────────────────────────────────────────
   const kpiFetcher = useCallback(() => adminGetDocumentKpis(), []);
@@ -134,7 +128,7 @@ const CertificateUploadPage = () => {
     setAllPage(1);
   };
 
-  const openView = (doc) => { setSelectedDoc(doc); viewModal.onOpen(); };
+  const openView = (doc) => history.push(`/admin/certificates/documents/${doc.uploadId}`);
 
   const handleDelete = async (doc) => {
     if (!window.confirm(`Delete "${doc.fileName}"? This cannot be undone.`)) return;
@@ -238,24 +232,6 @@ const CertificateUploadPage = () => {
       <UploadDocumentModal
         isOpen={uploadModal.isOpen}
         onClose={uploadModal.onClose}
-        onSuccess={refreshCurrentTab}
-      />
-      <ViewDocumentModal
-        isOpen={viewModal.isOpen}
-        onClose={viewModal.onClose}
-        document={selectedDoc}
-        onSuccess={refreshCurrentTab}
-      />
-      <VerifyDocumentModal
-        isOpen={verifyModal.isOpen}
-        onClose={verifyModal.onClose}
-        document={selectedDoc}
-        onSuccess={refreshCurrentTab}
-      />
-      <RejectDocumentModal
-        isOpen={rejectModal.isOpen}
-        onClose={rejectModal.onClose}
-        document={selectedDoc}
         onSuccess={refreshCurrentTab}
       />
     </Box>
