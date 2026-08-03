@@ -124,10 +124,23 @@ const toApiCreateBody = (body) => {
   // marking, so strip it here too — right at the actual API boundary —
   // regardless of what's upstream.
   const isSectioned = body.examType === "with_sections";
+  const { standaloneQuestionCounts, ...rest } = body;
   return {
-    ...body,
+    ...rest,
     ...(body.examType && EXAM_TYPE_TO_API[body.examType] && { examType: EXAM_TYPE_TO_API[body.examType] }),
     templateId: isSectioned ? undefined : body.templateId,
+    // Confirmed against a real backend test: a sectioned exam auto-computes
+    // amountOfQuestions from the sum of each section's own questionCount —
+    // sending it here isn't part of that tested/working contract. Kept in
+    // `pendingCreate.body` itself (TemplateStandalone.jsx no longer strips
+    // it) so this file's own total-question-cap check still has a value to
+    // read locally; only the actual network call needs it gone.
+    amountOfQuestions: isSectioned ? undefined : body.amountOfQuestions,
+    // "standaloneQuestionCounts" is this file's own internal name for the
+    // per-type Quantity set on the Template/Marking Scheme step — the
+    // backend's field for this is `questionQuantity` (matching the marking
+    // template's own field name for the same data).
+    ...(standaloneQuestionCounts && { questionQuantity: standaloneQuestionCounts }),
   };
 };
 
@@ -153,6 +166,36 @@ const inferQueuedQuestionType = (data) => {
   if (Array.isArray(data?.options) && data.options.length === 2) return "TrueFalse";
   if (Array.isArray(data?.options) && data.options.length) return "MCQ";
   return null;
+};
+
+// "Exam without sections" and hybrid's "Standalone Questions" tab: don't
+// let a bulk bank-add push any question type past its configured Quantity —
+// keep questions up to each type's remaining room and skip the rest, the
+// same rule the single-question form already enforces one at a time.
+// `queuedTypeCounts` is the count before this batch; the running tally
+// advances per accepted item so two of the same type in the same batch
+// don't both slip through when only one more fits.
+const filterBankQuestionsByTypeQuota = (
+  bankQuestions,
+  { usingTemplateTypeRestriction, templateSupportedTypes, typeQuota, queuedTypeCounts },
+) => {
+  if (!usingTemplateTypeRestriction) return { kept: bankQuestions, skipped: 0 };
+  const runningCounts = { ...queuedTypeCounts };
+  let skipped = 0;
+  const kept = bankQuestions.filter((bq) => {
+    const mappedType = BANK_TYPE_TO_FORM_TYPE[bq.questionType];
+    if (!mappedType) return true;
+    const notSupported = templateSupportedTypes && !templateSupportedTypes.includes(mappedType);
+    const quota = typeQuota(mappedType);
+    const wouldExceed = quota != null && (runningCounts[mappedType] || 0) >= quota;
+    if (notSupported || wouldExceed) {
+      skipped += 1;
+      return false;
+    }
+    runningCounts[mappedType] = (runningCounts[mappedType] || 0) + 1;
+    return true;
+  });
+  return { kept, skipped };
 };
 
 // Shared by the pending-creation queue (buildQueuedItemFromBankQuestion) and
@@ -231,6 +274,10 @@ const QuestionsStandalone = () => {
   // the effect below); every other case (existing exam, without sections)
   // leaves this empty and the Questions page behaves exactly as it did before.
   const [sectionQuestionTypes, setSectionQuestionTypes] = useState({});
+  // section name -> how many questions it's configured for (Question Count
+  // on the Template/Marking Scheme step's section builder) — same scoping
+  // as sectionQuestionTypes above. Missing/0 means "no configured cap".
+  const [sectionQuestionCounts, setSectionQuestionCounts] = useState({});
   // Hybrid has sections too (optionally) — shown as the same tabs, combined
   // with a "Standalone Questions" tab for the non-sectioned portion (see
   // isHybridExam/usingTemplateTypeRestriction in CreateQuestionPage below).
@@ -280,6 +327,11 @@ const QuestionsStandalone = () => {
         setSectionQuestionTypes(
           Object.fromEntries(
             configuredSections.map((s) => [s.section_name, s.question_types || []]),
+          ),
+        );
+        setSectionQuestionCounts(
+          Object.fromEntries(
+            configuredSections.map((s) => [s.section_name, Number(s.question_count) || 0]),
           ),
         );
         return;
@@ -439,6 +491,7 @@ const QuestionsStandalone = () => {
             templateSections={templateSections}
             sectionsLoading={sectionsLoading}
             sectionQuestionTypes={sectionQuestionTypes}
+            sectionQuestionCounts={sectionQuestionCounts}
             isSectionedExam={isSectionedExam}
           />
         )}
@@ -606,6 +659,7 @@ const CreateQuestionPage = ({
   templateSections,
   sectionsLoading,
   sectionQuestionTypes = {},
+  sectionQuestionCounts = {},
   isSectionedExam = false,
   ...assessmentManager
 }) => {
@@ -655,6 +709,12 @@ const CreateQuestionPage = ({
   const pendingCreateBothRef = useRef(null);
   const createdParentRef = useRef(null);
   const addAnotherRef = useRef(false);
+  // "Create and Submit"/"Update and Submit" no longer opens the approval
+  // modal directly from this form — it queues whatever's on the current
+  // form (same as "Add more questions") and instead sends the admin to
+  // "See All", which already has its own full "Create and Submit" trigger
+  // for reviewing everything queued before actually submitting.
+  const goToListingRef = useRef(false);
   // Retry-safety for "Create and Submit"/"Update and Submit": if a previous
   // attempt in this same page visit created the parent exam and/or saved
   // some queued questions before failing partway (e.g. a bad payload for
@@ -1150,8 +1210,24 @@ const CreateQuestionPage = ({
       return;
     }
 
-    const items = bankQuestions.map(buildQueuedItemFromBankQuestion).filter(Boolean);
-    if (!items.length) return;
+    const { kept, skipped } = filterBankQuestionsByTypeQuota(bankQuestions, {
+      usingTemplateTypeRestriction,
+      templateSupportedTypes,
+      typeQuota,
+      queuedTypeCounts,
+    });
+
+    const items = kept.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    if (!items.length) {
+      if (skipped) {
+        toast({
+          description: `Skipped ${skipped} question${skipped === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
+          position: "top",
+          status: "warning",
+        });
+      }
+      return;
+    }
 
     if (isPendingCreation) {
       setPendingCreate({ ...pendingCreate, questions: [...(pendingCreate.questions || []), ...items] });
@@ -1160,7 +1236,9 @@ const CreateQuestionPage = ({
     }
 
     toast({
-      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${
+        skipped ? ` ${skipped} skipped — already at the configured Quantity for that type.` : ""
+      } They'll be created once you submit for approval.`,
       position: "top",
       status: "success",
     });
@@ -1321,10 +1399,21 @@ const CreateQuestionPage = ({
       // resubmitted whatever question was last on the form as a duplicate).
       const hasQueuedAlready = (queuedSource?.questions?.length || 0) > 0;
       const currentFormIsBlank = !questionRichTextManager.getPlainText().trim();
+
+      // "Create and Submit"/"Update and Submit" clicked with nothing new on
+      // the form — nothing to queue, just go straight to "See All" (its own
+      // "Create and Submit" trigger is what actually submits now).
+      if ((isPendingCreation || isPendingEditSubmit) && !isEditingQueued && goToListingRef.current && currentFormIsBlank) {
+        goToListingRef.current = false;
+        goToQueuedListing();
+        return;
+      }
+
       if (
         (isPendingCreation || isPendingEditSubmit) &&
         !isEditingQueued &&
         !addAnotherRef.current &&
+        !goToListingRef.current &&
         hasQueuedAlready &&
         currentFormIsBlank
       ) {
@@ -1508,11 +1597,15 @@ const CreateQuestionPage = ({
       }
 
       if (isPendingCreation) {
-        // "Add more questions" only queues this one locally — nothing is
-        // created/saved until "Create and Submit" opens the approval modal
-        // below and it's actually submitted.
-        if (addAnotherRef.current) {
+        // "Add more questions" queues this one locally and offers a fresh
+        // blank form; "Create and Submit" (goToListingRef) queues it the
+        // same way but heads to "See All" instead — nothing is
+        // created/saved here until that page's own "Create and Submit"
+        // trigger runs.
+        if (addAnotherRef.current || goToListingRef.current) {
+          const wentToListing = goToListingRef.current;
           addAnotherRef.current = false;
+          goToListingRef.current = false;
           const queuedData = {
             standAloneExaminationId: isExamination,
             question: questionPlainText,
@@ -1528,6 +1621,26 @@ const CreateQuestionPage = ({
           // text (which risked getting resubmitted as a duplicate).
           questionRichTextManager.handleInitData(null);
           setBankApplyKey((k) => k + 1);
+
+          // Sectioned exam: once the section this question was just queued
+          // under has hit its own configured Question Count, move on to the
+          // next section that still needs questions instead of leaving the
+          // admin stuck adding more to an already-complete one.
+          const countForSection = (name) =>
+            updatedQuestions.filter((q) => q.data.section === name).length;
+          const sectionJustCompleted =
+            isSectionedExam &&
+            sectionTitle &&
+            sectionQuestionCounts[sectionTitle] > 0 &&
+            countForSection(sectionTitle) >= sectionQuestionCounts[sectionTitle];
+          const nextSection = sectionJustCompleted
+            ? templateSections.find(
+                (name) =>
+                  name !== sectionTitle &&
+                  !(sectionQuestionCounts[name] > 0 && countForSection(name) >= sectionQuestionCounts[name]),
+              )
+            : null;
+
           // This question is safely queued either way — only decide here
           // whether there's room left to offer another blank form, so
           // hitting the limit never costs the question just filled out.
@@ -1538,6 +1651,21 @@ const CreateQuestionPage = ({
               status: "info",
             });
             goToQueuedListing();
+          } else if (wentToListing) {
+            toast({
+              description: "Question queued — review everything and submit for approval from here",
+              position: "top",
+              status: "success",
+            });
+            goToQueuedListing();
+          } else if (sectionJustCompleted && nextSection) {
+            setSelectedSectionId(nextSection);
+            toast({
+              description: `You've completed the ${sectionQuestionCounts[sectionTitle]} question${sectionQuestionCounts[sectionTitle] === 1 ? "" : "s"} for "${sectionTitle}" — now add questions for "${nextSection}".`,
+              position: "top",
+              status: "success",
+            });
+            goToQueueAnotherQuestion();
           } else {
             toast({
               description: "Question queued — it'll be created once you submit for approval",
@@ -1586,8 +1714,10 @@ const CreateQuestionPage = ({
       if (isPendingEditSubmit) {
         // Same deferral as the isPendingCreation branch above, but for an
         // exam that already exists: queue instead of saving right away.
-        if (addAnotherRef.current) {
+        if (addAnotherRef.current || goToListingRef.current) {
+          const wentToListing = goToListingRef.current;
           addAnotherRef.current = false;
+          goToListingRef.current = false;
           const queuedData = {
             standAloneExaminationId: isExamination,
             question: questionPlainText,
@@ -1608,6 +1738,13 @@ const CreateQuestionPage = ({
               description: `Question queued. You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this exam — submit this for approval to finish.`,
               position: "top",
               status: "info",
+            });
+            goToQueuedListing();
+          } else if (wentToListing) {
+            toast({
+              description: "Question queued — review everything and submit for approval from here",
+              position: "top",
+              status: "success",
             });
             goToQueuedListing();
           } else {
@@ -2303,6 +2440,12 @@ const CreateQuestionPage = ({
           type="submit"
           onClick={() => {
             addAnotherRef.current = false;
+            // For a still-pending exam/edit, this button no longer submits
+            // for approval directly — it queues whatever's on the form (if
+            // anything) and sends the admin to "See All" to review
+            // everything queued before actually submitting from there.
+            goToListingRef.current =
+              !isEditingQueued && (isPendingCreation || isPendingEditSubmit);
           }}
           disabled={isLoading || isSubmitting || error}
           isLoading={isLoading || isSubmitting}
@@ -2314,11 +2457,9 @@ const CreateQuestionPage = ({
               ? "Update Question"
               : isEditingQueued
                 ? "Save Changes"
-                : isPendingCreation
-                  ? "Create and Submit"
-                  : isPendingEditSubmit
-                    ? "Update and Submit"
-                    : "Add Question"}
+                : isPendingCreation || isPendingEditSubmit
+                  ? "See All Questions"
+                  : "Add Question"}
         </Button>
         {(isPendingCreation || isPendingEditSubmit) &&
           !isEditingQueued &&
@@ -2476,31 +2617,75 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
     }
   };
 
+  // Same Quantity-per-type restriction the create form's Answer Options
+  // tabs enforce (see the equivalent block in CreateQuestionPage) — this
+  // page has no "current section" concept, so a hybrid exam's standalone
+  // quota is checked against every queued item that has no section, same
+  // as the create form's "Standalone Questions" tab.
+  const isHybridExam = isPendingCreation && pendingCreate?.body?.examType === "hybrid";
+  const isUnsectionedExam = isPendingCreation && pendingCreate?.body?.examType === "without_sections";
+  const usingTemplateTypeRestriction = isUnsectionedExam || isHybridExam;
+  const standaloneQuestionCounts = pendingCreate?.body?.standaloneQuestionCounts || {};
+  const templateSupportedTypes =
+    usingTemplateTypeRestriction && Object.keys(standaloneQuestionCounts).length > 0
+      ? Object.keys(standaloneQuestionCounts)
+      : null;
+  const queuedTypeCounts = usingTemplateTypeRestriction
+    ? queuedQuestions.reduce((acc, q) => {
+        if (q.data?.section) return acc;
+        const t = inferQueuedQuestionType(q.data);
+        if (t) acc[t] = (acc[t] || 0) + 1;
+        return acc;
+      }, {})
+    : {};
+  const typeQuota = (type) => {
+    const raw = standaloneQuestionCounts[type];
+    return raw !== undefined && raw !== null && raw !== "" ? Number(raw) : null;
+  };
+
   // Nothing has been created yet — queue instead of hitting the
   // create-question endpoint (which needs a real examination id). Same
   // mapping used to build the pending-creation queue via "Add more
   // questions"; the placeholder `standAloneExaminationId` gets swapped for
   // the real one once "Create and Submit"/"Update and Submit" runs below.
   const queueBankQuestions = async (bankQuestions) => {
-    const items = bankQuestions
+    const { kept, skipped } = filterBankQuestionsByTypeQuota(bankQuestions, {
+      usingTemplateTypeRestriction,
+      templateSupportedTypes,
+      typeQuota,
+      queuedTypeCounts,
+    });
+
+    const items = kept
       .map((bq) => buildBankQuestionData(bq, isExamination))
       .filter(Boolean)
       .map((data) => ({ data }));
-    if (items.length < bankQuestions.length) {
+    if (items.length < kept.length) {
       toast({
         description: "Some questions were skipped — that type isn't supported here.",
         position: "top",
         status: "warning",
       });
     }
-    if (!items.length) return;
+    if (!items.length) {
+      if (skipped) {
+        toast({
+          description: `Skipped ${skipped} question${skipped === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
+          position: "top",
+          status: "warning",
+        });
+      }
+      return;
+    }
     if (isPendingCreation) {
       setPendingCreate({ ...pendingCreate, questions: [...queuedQuestions, ...items] });
     } else {
       setPendingEdit({ ...pendingEdit, questions: [...queuedQuestions, ...items] });
     }
     toast({
-      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${
+        skipped ? ` ${skipped} skipped — already at the configured Quantity for that type.` : ""
+      } They'll be created once you submit for approval.`,
       position: "top",
       status: "success",
     });

@@ -227,6 +227,11 @@ const createBankQuestionForReal = (data, { isStandaloneExamination, isExaminatio
 const OBJECTIVE_QUESTION_TYPES = ["MCQ", "TrueFalse", "FillBlank", "Matching"];
 const SUBJECTIVE_QUESTION_TYPES = ["ShortAnswer", "Essay"];
 
+// Canonical question-type order — used to keep a multi-type section's
+// allowed-list (and its "locked to X / Y" messaging) deterministic
+// regardless of the order the admin checked the boxes in.
+const QUESTION_TYPES_ORDER = ["MCQ", "TrueFalse", "FillBlank", "Matching", "ShortAnswer", "Essay"];
+
 const buildSectionConfigMap = (sections, shape) => {
   const map = {};
   (Array.isArray(sections) ? sections : []).forEach((s) => {
@@ -237,14 +242,30 @@ const buildSectionConfigMap = (sections, shape) => {
         ? {
             questionsCount: Number(s.questionCount) || null,
             questionTypeLock: s.questionType || "",
+            // A template section only ever carries a single questionType —
+            // no multi-select authoring surface exists for templates.
+            questionTypeLocks: s.questionType ? [s.questionType] : [],
             typeCategory: s.type || "",
             markingTypeLock: s.markingType || "",
             marksPerQuestion: Number(s.marksPerQuestion) || null,
             totalMarks: null,
           }
         : {
-            questionsCount: Number(s.questions_count) || null,
+            // `questions_count` is the canonical field name (matches
+            // ExamPaperConfigPage.jsx); `question_count` is accepted too
+            // for older/standalone-shaped section data.
+            questionsCount: Number(s.questions_count ?? s.question_count) || null,
             questionTypeLock: s.question_type || "",
+            // The Sections builder's checkbox multi-select — falls back to
+            // wrapping the legacy single `question_type` lock so sections
+            // authored via the older single-select UI (or
+            // ExamPaperConfigPage.jsx) still resolve to the same
+            // restriction.
+            questionTypeLocks: Array.isArray(s.question_types) && s.question_types.length
+              ? s.question_types
+              : s.question_type
+                ? [s.question_type]
+                : [],
             typeCategory: "",
             markingTypeLock: s.marking_type || "",
             marksPerQuestion: null,
@@ -257,6 +278,13 @@ const buildSectionConfigMap = (sections, shape) => {
 // null return means "no restriction" — every question type/marking type is allowed.
 const getAllowedQuestionTypes = (cfg) => {
   if (!cfg) return null;
+  // Checked before the legacy single-value lock — `questionTypeLocks` is
+  // always populated (including with a single value) whenever either form
+  // of lock is set, so this alone covers both. An empty array must mean
+  // "no restriction," never "allow nothing."
+  if (cfg.questionTypeLocks?.length) {
+    return QUESTION_TYPES_ORDER.filter((t) => cfg.questionTypeLocks.includes(t));
+  }
   if (cfg.questionTypeLock) return [cfg.questionTypeLock];
   if (cfg.typeCategory === "objective") return OBJECTIVE_QUESTION_TYPES;
   if (cfg.typeCategory === "essay") return SUBJECTIVE_QUESTION_TYPES;
@@ -279,6 +307,100 @@ const getSectionMarks = (cfg) => {
   if (cfg.totalMarks && cfg.questionsCount) return cfg.totalMarks / cfg.questionsCount;
   if (cfg.marksPerQuestion) return cfg.marksPerQuestion;
   return null;
+};
+
+// ── Exam-Type-driven per-type Quantity cap ──────────────────────────────────
+// Ported from the Standalone Exam flow's identical rule (QuestionsStandalone.jsx).
+// A queued item's own explicit type — every queued item here already carries
+// one (formSnapshot.questionType / bank.questionType / data.questionType),
+// so unlike Standalone this never needs to sniff a shape.
+const queuedQuestionType = (q) =>
+  q.formSnapshot?.questionType ?? q.bank?.questionType ?? q.data?.questionType ?? null;
+
+// "Exam without sections" and hybrid's non-sectioned questions both draw
+// from the same Quantity-per-type/marking-template restriction set up on
+// the Overview form's Exam Type step — once the queue already has that
+// many questions of a type, no more of that type can be added. Only ever
+// populated while the exam/assessment is still pending (create or a
+// deferred edit) and its Exam Type is "unsectioned"/"hybrid"; every other
+// case (sectioned, an already-real exam, or one that predates this
+// feature and has no examType at all) returns fully unrestricted.
+const buildTypeQuotaState = ({ pendingSource, isPending, selectedSectionId, isEditingQueued, queuedIndex }) => {
+  const examType = pendingSource?.body?.examType;
+  const isHybridExam = isPending && examType === "hybrid";
+  const isUnsectionedExam = isPending && examType === "unsectioned";
+  // Hybrid only applies the template restriction while on the "standalone"
+  // (no section selected) side of the form — a section's own type-lock
+  // (allowedQuestionTypes) governs question types once a section is
+  // active, exactly like a plain sectioned exam.
+  const usingTemplateTypeRestriction = isUnsectionedExam || (isHybridExam && !selectedSectionId);
+  const questionQuantity = pendingSource?.body?.questionQuantity || {};
+  // A type absent from the map isn't offered by the template at all, so
+  // it's disabled outright, never just quantity-capped. Falls back to "no
+  // restriction" when nothing was seeded (e.g. older pending data from
+  // before this existed), so this can't hide every type by accident.
+  const templateSupportedTypes =
+    usingTemplateTypeRestriction && Object.keys(questionQuantity).length > 0
+      ? Object.keys(questionQuantity)
+      : null;
+  const queuedTypeCounts = usingTemplateTypeRestriction
+    ? (pendingSource?.questions || []).reduce((acc, q, i) => {
+        // Editing this exact queued slot doesn't add a new question —
+        // exclude it so its own type doesn't count against its own
+        // remaining quota.
+        if (isEditingQueued && i === queuedIndex) return acc;
+        // A hybrid section's own questions draw from that section's
+        // weightage, never the template's standalone-quantity pool.
+        if (q.data?.section) return acc;
+        const t = queuedQuestionType(q);
+        if (t) acc[t] = (acc[t] || 0) + 1;
+        return acc;
+      }, {})
+    : {};
+  const typeQuota = (type) => {
+    const raw = questionQuantity[type];
+    return raw !== undefined && raw !== null && raw !== "" ? Number(raw) : null;
+  };
+  // Despite the name, this covers both reasons a type can be unavailable:
+  // the template doesn't support it at all, or its own Quantity has
+  // already been reached.
+  const typeAtCapacity = (type) => {
+    if (templateSupportedTypes && !templateSupportedTypes.includes(type)) return true;
+    const quota = typeQuota(type);
+    return quota != null && (queuedTypeCounts[type] || 0) >= quota;
+  };
+  return { usingTemplateTypeRestriction, templateSupportedTypes, queuedTypeCounts, typeQuota, typeAtCapacity };
+};
+
+// "Exam without sections" and hybrid's standalone side: don't let a bulk
+// bank-add push any question type past its configured Quantity — keep
+// questions up to each type's remaining room and skip the rest, the same
+// rule the single-question form enforces one at a time. `queuedTypeCounts`
+// is the count before this batch; the running tally advances per accepted
+// item so two of the same type in the same batch don't both slip through
+// when only one more fits.
+const filterBankQuestionsByTypeQuota = (
+  bankQuestions,
+  { usingTemplateTypeRestriction, templateSupportedTypes, typeQuota, queuedTypeCounts },
+  getType,
+) => {
+  if (!usingTemplateTypeRestriction) return { kept: bankQuestions, skipped: 0 };
+  const runningCounts = { ...queuedTypeCounts };
+  let skipped = 0;
+  const kept = bankQuestions.filter((bq) => {
+    const mappedType = getType(bq);
+    if (!mappedType) return true;
+    const notSupported = templateSupportedTypes && !templateSupportedTypes.includes(mappedType);
+    const quota = typeQuota(mappedType);
+    const wouldExceed = quota != null && (runningCounts[mappedType] || 0) >= quota;
+    if (notSupported || wouldExceed) {
+      skipped += 1;
+      return false;
+    }
+    runningCounts[mappedType] = (runningCounts[mappedType] || 0) + 1;
+    return true;
+  });
+  return { kept, skipped };
 };
 
 const QuestionsPage = () => {
@@ -1011,6 +1133,30 @@ const CreateQuestionPage = ({
     !!selectedSectionConfig?.questionsCount &&
     existingSectionQuestionCount >= selectedSectionConfig.questionsCount;
 
+  // Exam-Type-driven per-type Quantity cap (unsectioned/hybrid) — see
+  // buildTypeQuotaState above. `queuedSource` is already whichever of
+  // pendingCreate/pendingEdit applies; unrestricted for an already-real
+  // exam/assessment or one with no Exam Type at all.
+  const isPending = isPendingCreation || isPendingEditSubmit;
+  const {
+    usingTemplateTypeRestriction,
+    templateSupportedTypes,
+    queuedTypeCounts,
+    typeQuota,
+    typeAtCapacity,
+  } = buildTypeQuotaState({
+    pendingSource: queuedSource,
+    isPending,
+    selectedSectionId,
+    isEditingQueued,
+    queuedIndex,
+  });
+  const visibleQuestionTypes = QUESTION_TYPES.filter((type) => {
+    if (allowedQuestionTypes && !allowedQuestionTypes.includes(type)) return false;
+    if (usingTemplateTypeRestriction && typeAtCapacity(type)) return false;
+    return true;
+  });
+
   // Snap to a section's locked type/marking type as soon as it's picked —
   // covers arriving via a section's "Add Question" link and switching
   // sections mid-form. A user actively clicking a disallowed type button is
@@ -1018,17 +1164,34 @@ const CreateQuestionPage = ({
   useEffect(() => {
     if (allowedQuestionTypes && !allowedQuestionTypes.includes(questionType)) {
       setQuestionType(allowedQuestionTypes[0]);
+    } else if (usingTemplateTypeRestriction && typeAtCapacity(questionType)) {
+      const fallback = QUESTION_TYPES.find(
+        (t) => !typeAtCapacity(t) && (!allowedQuestionTypes || allowedQuestionTypes.includes(t)),
+      );
+      if (fallback) setQuestionType(fallback);
     }
     if (allowedMarkingTypes && !allowedMarkingTypes.includes(markingType)) {
       setMarkingType(allowedMarkingTypes[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSectionId]);
+  }, [selectedSectionId, usingTemplateTypeRestriction, questionType]);
 
   const handleQuestionTypeClick = (type) => {
     if (allowedQuestionTypes && !allowedQuestionTypes.includes(type)) {
       toast({
         description: `Section "${selectedSectionId}" only accepts ${allowedQuestionTypes.join(" / ")} questions.`,
+        position: "top",
+        status: "error",
+      });
+      return;
+    }
+    if (usingTemplateTypeRestriction && typeAtCapacity(type)) {
+      const notSupported = templateSupportedTypes && !templateSupportedTypes.includes(type);
+      const quota = typeQuota(type);
+      toast({
+        description: notSupported
+          ? `${type} isn't one of the question types in the selected marking template.`
+          : `You've reached the ${quota} ${type} question${quota === 1 ? "" : "s"} you specified for this exam.`,
         position: "top",
         status: "error",
       });
@@ -1258,16 +1421,37 @@ const CreateQuestionPage = ({
     return item;
   };
 
+  // "Exam without sections"/hybrid: getType maps a bank item's own type to
+  // this file's internal type name — same default ("Essay") buildBankQueueItem
+  // itself falls back to for anything unmapped.
+  const getBankQuestionType = (bq) => BANK_TYPE_TO_FORM_TYPE[bq.questionType] || "Essay";
+  const quotaFilterCtx = { usingTemplateTypeRestriction, templateSupportedTypes, typeQuota, queuedTypeCounts };
+  const quotaSkippedToast = (skipped) =>
+    skipped ? ` ${skipped} skipped — already at the configured Quantity for that type.` : "";
+
   const queueBankQuestions = (bankQuestions) => {
     if (remainingQuestionSlots === 0) {
       toast({ description: overLimitDescription, position: "top", status: "error" });
       return;
     }
     const overLimit = remainingQuestionSlots !== null && bankQuestions.length > remainingQuestionSlots;
-    const items = (overLimit ? bankQuestions.slice(0, remainingQuestionSlots) : bankQuestions)
-      .map(buildQueuedItemFromBankQuestion)
-      .filter(Boolean);
-    if (!items.length) return;
+    const cappedBankQuestions = overLimit ? bankQuestions.slice(0, remainingQuestionSlots) : bankQuestions;
+    const { kept, skipped: skippedForQuota } = filterBankQuestionsByTypeQuota(
+      cappedBankQuestions,
+      quotaFilterCtx,
+      getBankQuestionType,
+    );
+    const items = kept.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    if (!items.length) {
+      if (skippedForQuota) {
+        toast({
+          description: `Skipped ${skippedForQuota} question${skippedForQuota === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
+          position: "top",
+          status: "warning",
+        });
+      }
+      return;
+    }
 
     if (isPendingCreation) {
       setPendingCreate({ ...pendingCreate, questions: [...(pendingCreate.questions || []), ...items] });
@@ -1278,7 +1462,7 @@ const CreateQuestionPage = ({
     toast({
       description: overLimit
         ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
-        : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+        : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)} They'll be created once you submit for approval.`,
       position: "top",
       status: overLimit ? "warning" : "success",
     });
@@ -1294,8 +1478,22 @@ const CreateQuestionPage = ({
     }
     const overLimit = remainingQuestionSlots !== null && bankQuestions.length > remainingQuestionSlots;
     const cappedBankQuestions = overLimit ? bankQuestions.slice(0, remainingQuestionSlots) : bankQuestions;
-    const items = cappedBankQuestions.map(buildQueuedItemFromBankQuestion).filter(Boolean);
-    if (!items.length) return;
+    const { kept, skipped: skippedForQuota } = filterBankQuestionsByTypeQuota(
+      cappedBankQuestions,
+      quotaFilterCtx,
+      getBankQuestionType,
+    );
+    const items = kept.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    if (!items.length) {
+      if (skippedForQuota) {
+        toast({
+          description: `Skipped ${skippedForQuota} question${skippedForQuota === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
+          position: "top",
+          status: "warning",
+        });
+      }
+      return;
+    }
     try {
       for (const item of items) {
         await createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination });
@@ -1304,7 +1502,7 @@ const CreateQuestionPage = ({
       toast({
         description: overLimit
           ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
-          : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.`,
+          : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)}`,
         position: "top",
         status: overLimit ? "warning" : "success",
       });
@@ -1396,7 +1594,6 @@ const CreateQuestionPage = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question]);
 
-  console.log(selectedSectionId);
   useEffect(() => {
     if (question) {
       const optionWithAns = question.options?.find((opt) => opt.isAnswer);
@@ -1728,6 +1925,15 @@ const CreateQuestionPage = ({
       if (sectionAtCapacity) {
         throw new Error(
           `Section "${selectedSectionId}" already has its configured limit of ${selectedSectionConfig.questionsCount} question(s).`,
+        );
+      }
+      if (usingTemplateTypeRestriction && typeAtCapacity(questionType)) {
+        const notSupported = templateSupportedTypes && !templateSupportedTypes.includes(questionType);
+        const quota = typeQuota(questionType);
+        throw new Error(
+          notSupported
+            ? `${questionType} isn't one of the question types in the selected marking template.`
+            : `You've reached the ${quota} ${questionType} question${quota === 1 ? "" : "s"} you specified for this exam.`,
         );
       }
 
@@ -2361,34 +2567,51 @@ const CreateQuestionPage = ({
         {/* Question type selector — only shown in create mode */}
         {(!isExistingQuestion || isEditMode) && (
           <Box borderBottom="1px" borderColor="accent.2" pb={4} mb={6}>
-            <ButtonGroup size="xs" flexWrap="wrap" gap={2}>
-              {QUESTION_TYPES.map((type) => (
-                <Button
-                  key={type}
-                  onClick={() => handleQuestionTypeClick(type)}
-                  leftIcon={questionType === type && <BsCheckCircle />}
-                  ghost={questionType !== type}
-                  disabled={isExistingQuestion && !isEditMode}
-                  opacity={
-                    allowedQuestionTypes && !allowedQuestionTypes.includes(type)
-                      ? 0.4
-                      : 1
-                  }
-                >
-                  {type === "TrueFalse"
-                    ? "True / False"
-                    : type === "FillBlank"
-                      ? "Fill in the Blank"
-                      : type === "ShortAnswer"
-                        ? "Short Answer"
-                        : type}
-                </Button>
-              ))}
-            </ButtonGroup>
+            {visibleQuestionTypes.length === 0 ? (
+              <Text fontSize="sm" color="red.500">
+                No question type is currently available here — every type is either
+                locked out by this section or already at its configured Quantity.
+                {isExamination && " Check "}
+                {isExamination && (
+                  <Link
+                    href={`/admin/exam-paper-config/${isExamination}?examType=${isStandaloneExamination ? "standalone_examination" : "examination"}`}
+                  >
+                    <Text as="span" color="primary.base">Configure sections</Text>
+                  </Link>
+                )}
+                {isExamination && " or adjust the Exam Type quantities."}
+              </Text>
+            ) : (
+              <ButtonGroup size="xs" flexWrap="wrap" gap={2}>
+                {visibleQuestionTypes.map((type) => (
+                  <Button
+                    key={type}
+                    onClick={() => handleQuestionTypeClick(type)}
+                    leftIcon={questionType === type && <BsCheckCircle />}
+                    ghost={questionType !== type}
+                    disabled={isExistingQuestion && !isEditMode}
+                  >
+                    {type === "TrueFalse"
+                      ? "True / False"
+                      : type === "FillBlank"
+                        ? "Fill in the Blank"
+                        : type === "ShortAnswer"
+                          ? "Short Answer"
+                          : type}
+                  </Button>
+                ))}
+              </ButtonGroup>
+            )}
             {allowedQuestionTypes && (
               <Text fontSize="xs" color="orange.500" mt={2}>
                 Section &quot;{selectedSectionId}&quot; is locked to{" "}
                 {allowedQuestionTypes.join(" / ")} questions.
+              </Text>
+            )}
+            {usingTemplateTypeRestriction && (
+              <Text fontSize="xs" color="orange.500" mt={2}>
+                Limited to the question types set up in the marking template — once a
+                type's Quantity is reached, it's no longer offered here.
               </Text>
             )}
           </Box>
@@ -3029,6 +3252,26 @@ const QuestionListingPage = ({
   // "current section" to inherit or a section-type lock to respect.
   const bankQueueCtx = { isStandaloneExamination, isExamination, assessmentId };
 
+  // Same Exam-Type-driven per-type Quantity cap as CreateQuestionPage (see
+  // buildTypeQuotaState above) — no section is ever selected from this
+  // page, so a hybrid exam's standalone-quantity pool always applies here.
+  const {
+    usingTemplateTypeRestriction,
+    templateSupportedTypes,
+    queuedTypeCounts,
+    typeQuota,
+  } = buildTypeQuotaState({
+    pendingSource: isPendingCreation ? pendingCreate : isPendingEditSubmit ? pendingEdit : null,
+    isPending: isPendingCreation || isPendingEditSubmit,
+    selectedSectionId: undefined,
+    isEditingQueued: false,
+    queuedIndex: null,
+  });
+  const getBankQuestionType = (bq) => BANK_TYPE_TO_FORM_TYPE[bq.questionType] || "Essay";
+  const quotaFilterCtx = { usingTemplateTypeRestriction, templateSupportedTypes, typeQuota, queuedTypeCounts };
+  const quotaSkippedToast = (skipped) =>
+    skipped ? ` ${skipped} skipped — already at the configured Quantity for that type.` : "";
+
   // Header's "Question Bank" button opens this same in-page picker from
   // whichever sub-view (form or listing) is active — while the parent is
   // still pending, a pick is queued the same way "Add more questions" does;
@@ -3040,10 +3283,23 @@ const QuestionListingPage = ({
       return;
     }
     const overLimit = remainingQuestionSlots !== null && bankQuestions.length > remainingQuestionSlots;
-    const items = (overLimit ? bankQuestions.slice(0, remainingQuestionSlots) : bankQuestions)
-      .map((bq) => buildBankQueueItem(bq, bankQueueCtx))
-      .filter(Boolean);
-    if (!items.length) return;
+    const cappedBankQuestions = overLimit ? bankQuestions.slice(0, remainingQuestionSlots) : bankQuestions;
+    const { kept, skipped: skippedForQuota } = filterBankQuestionsByTypeQuota(
+      cappedBankQuestions,
+      quotaFilterCtx,
+      getBankQuestionType,
+    );
+    const items = kept.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
+    if (!items.length) {
+      if (skippedForQuota) {
+        toast({
+          description: `Skipped ${skippedForQuota} question${skippedForQuota === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
+          position: "top",
+          status: "warning",
+        });
+      }
+      return;
+    }
 
     if (isPendingCreation) {
       setPendingCreate({ ...pendingCreate, questions: [...(pendingCreate.questions || []), ...items] });
@@ -3054,7 +3310,7 @@ const QuestionListingPage = ({
     toast({
       description: overLimit
         ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
-        : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+        : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)} They'll be created once you submit for approval.`,
       position: "top",
       status: overLimit ? "warning" : "success",
     });
@@ -3067,8 +3323,22 @@ const QuestionListingPage = ({
     }
     const overLimit = remainingQuestionSlots !== null && bankQuestions.length > remainingQuestionSlots;
     const cappedBankQuestions = overLimit ? bankQuestions.slice(0, remainingQuestionSlots) : bankQuestions;
-    const items = cappedBankQuestions.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
-    if (!items.length) return;
+    const { kept, skipped: skippedForQuota } = filterBankQuestionsByTypeQuota(
+      cappedBankQuestions,
+      quotaFilterCtx,
+      getBankQuestionType,
+    );
+    const items = kept.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
+    if (!items.length) {
+      if (skippedForQuota) {
+        toast({
+          description: `Skipped ${skippedForQuota} question${skippedForQuota === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
+          position: "top",
+          status: "warning",
+        });
+      }
+      return;
+    }
     try {
       for (const item of items) {
         await createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination });
@@ -3077,7 +3347,7 @@ const QuestionListingPage = ({
       toast({
         description: overLimit
           ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
-          : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.`,
+          : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)}`,
         position: "top",
         status: overLimit ? "warning" : "success",
       });
