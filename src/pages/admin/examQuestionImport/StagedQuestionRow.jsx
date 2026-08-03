@@ -286,6 +286,11 @@ const StagedQuestionRow = ({ row, index, onSave, onRemove, saving, removing }) =
               {row.difficultyLevel}
             </Badge>
           )}
+          {row.section && (
+            <Badge bg="#F0E6FF" color="#6b006b" borderRadius="4px" fontSize="10px" textTransform="none">
+              Section: {row.section}
+            </Badge>
+          )}
           <Badge bg="#F7FAFC" color="gray.500" borderRadius="4px" fontSize="10px" textTransform="none">
             {row.marks} mark{row.marks === 1 ? "" : "s"}
           </Badge>

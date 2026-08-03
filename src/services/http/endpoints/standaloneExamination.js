@@ -113,6 +113,16 @@ export const getStandaloneExaminationDetails = async (id, forAdmin) => {
     endTime: getEndTime(data.startTime, data.duration),
     isPublished: data.isPublished,
     templateId: data.templateId ?? data.markingTemplateId ?? null,
+    // "sectioned" | "unsectioned" | "hybrid" | null (legacy/unset) — lets
+    // QuestionsStandalone.jsx keep showing the Section tabs after the exam
+    // becomes real (this preview endpoint feeds both the admin's "add more
+    // questions" page and the student-facing take-exam view, so it's read
+    // there, not mutated).
+    examType: data.examType ?? null,
+    // Per-type Quantity the exam was configured for (without-sections/hybrid
+    // exam types) — lets QuestionsStandalone.jsx keep enforcing the same
+    // per-type cap once the exam is real, not just while still pending.
+    questionQuantity: data.questionQuantity ?? null,
     // minimumPercentageScoreToEarnABadge:
     //   data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
     questions: questionArray.map((q, index) => ({

@@ -305,6 +305,14 @@ const TemplateStandalone = () => {
         setTotalMarks(String(sectionsWeightageTotal + standaloneMarksTotal));
     }, [examType, sectionsWeightageTotal, standaloneMarksTotal]);
 
+    // Same reasoning for Number of Questions: sections' own Question Count
+    // plus the standalone questions' quantities — not a separate manual
+    // field for hybrid either.
+    useEffect(() => {
+        if (examType !== "hybrid") return;
+        setAmountOfQuestions(String(sectionsQuestionCountTotal + standaloneQuantityTotal));
+    }, [examType, sectionsQuestionCountTotal, standaloneQuantityTotal]);
+
     useEffect(() => {
         adminGetMarkingTemplates()
             .then(({ templates }) => setMarkingTemplates(templates))
@@ -351,8 +359,9 @@ const TemplateStandalone = () => {
             } else if (examType === "with_sections") {
                 if (!amountOfQuestions || Number(amountOfQuestions) <= 0)
                     newErrors.amountOfQuestions = "Add at least one section and enter its Question Count";
-            } else if (!amountOfQuestions) {
-                newErrors.amountOfQuestions = "Please enter number of questions";
+            } else if (examType === "hybrid") {
+                if (!amountOfQuestions || Number(amountOfQuestions) <= 0)
+                    newErrors.amountOfQuestions = "Add section Question Counts and/or standalone question quantities";
             }
             if (examType === "with_sections") {
                 if (!sections.length || Number(totalMarks) <= 0)
@@ -383,7 +392,10 @@ const TemplateStandalone = () => {
                     ...pendingCreate,
                     body: {
                         ...pendingCreate.body,
-                        totalMarks: Number(totalMarks),
+                        // Backend confirmed: total marks is calculated
+                        // automatically for hybrid exams and rejects the
+                        // field if sent at creation/edit time.
+                        totalMarks: examType === "hybrid" ? undefined : Number(totalMarks),
                         examType,
                         // A sectioned exam has no marking template — sections
                         // define their own marking instead. `undefined` (not
@@ -411,8 +423,14 @@ const TemplateStandalone = () => {
                         // field name is rejected outright) and NOT via the
                         // separate paper-config PUT below (too late for the
                         // backend's totalMarks-vs-sections validation, which
-                        // runs at creation time).
-                        ...(isSectioned && {
+                        // runs at creation time). Same rule as
+                        // `configuredSections` below applies here too: the
+                        // backend rejects an empty array, so only send the
+                        // key when there's actually at least one section
+                        // (handleNext's validation above already blocks
+                        // "with sections" from reaching here with zero, but
+                        // this stays consistent/defensive either way).
+                        ...(isSectioned && sections.length > 0 && {
                             sections: sections.map((s) => ({
                                 section_name: s.section_name,
                                 weightage: Number(s.total_marks) || 0,
@@ -480,12 +498,12 @@ const TemplateStandalone = () => {
                                             ? "Sum of the question-type quantities below"
                                             : examType === "with_sections"
                                                 ? "Sum of each section's Question Count"
-                                                : "Enter the number of questions"
+                                                : "Sections' Question Count + standalone quantities"
                                     }
                                     error={fieldErrors.amountOfQuestions}
                                     value={amountOfQuestions}
-                                    isReadOnly={examType === "without_sections" || examType === "with_sections"}
-                                    isDisabled={examType === "without_sections" || examType === "with_sections"}
+                                    isReadOnly
+                                    isDisabled
                                     onChange={(e) => setAmountOfQuestions(e.target.value)}
                                 />
                             </GridItem>
