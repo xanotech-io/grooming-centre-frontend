@@ -30,6 +30,16 @@ import {
 import { MultiSelect } from "react-multi-select-component";
 import { useApp } from "../../../../../contexts";
 import { Checkbox, Tag, TagCloseButton, TagLabel } from "@chakra-ui/react";
+import { SectionsBuilder, createEmptySection } from "../../../examSectionBuilder/SectionRow";
+import QuestionQuantitiesTable from "../../../examSectionBuilder/QuestionQuantitiesTable";
+import {
+  EXAM_TYPE_OPTIONS,
+  toExamTypeApiValue,
+  normalizeSectionsForConfig,
+  computeSectionTotals,
+  computeQuantityTotals,
+  seedQuantityCounts,
+} from "../../../examSectionBuilder/examTypeConfig";
 
 const CreateAssessmentPage = ({ users }) => {
   const { id: courseId, assessmentId } = useParams();
@@ -63,6 +73,37 @@ const CreateAssessmentPage = ({ users }) => {
   const [markingTemplateId, setMarkingTemplateId] = useState("");
   const [templateSections, setTemplateSections] = useState([]);
 
+  // Exam Type / Sections / Question Quantities — same rules Standalone
+  // Exams established, folded into this same create form (no new screen).
+  // Only ever meaningful for a plain Assessment: the isStandaloneExamination
+  // branch is dead/unreachable legacy code (left untouched below), and the
+  // isExamination ("Exam") path's performCreateParent never persists
+  // sections, so sections authored there would silently vanish — out of
+  // scope for now.
+  const supportsSectionAuthoring = !isStandaloneExamination && !isExamination;
+  const [examType, setExamType] = useState("with_sections");
+  const [amountOfQuestions, setAmountOfQuestions] = useState("");
+  const [totalMarks, setTotalMarks] = useState("");
+  const [questionQuantities, setQuestionQuantities] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [sections, setSections] = useState([]);
+  const addSection = () => setSections((p) => [...p, createEmptySection()]);
+  const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
+  const updateSection = (i, field, value) =>
+    setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
+  const sectionsEnabled = supportsSectionAuthoring && (examType === "with_sections" || examType === "hybrid");
+  const amountOfQuestionsIsAuto = supportsSectionAuthoring && (examType === "with_sections" || examType === "without_sections");
+  const totalMarksIsAuto = supportsSectionAuthoring && (examType === "with_sections" || examType === "without_sections" || examType === "hybrid");
+  // A sectioned exam defines marking per-section, not via a marking
+  // template — only relaxed on the plain-Assessment path that actually
+  // supports Exam Type; every other path keeps the original unconditional
+  // requirement.
+  const templateRequired = !supportsSectionAuthoring || examType !== "with_sections";
+
+  useEffect(() => {
+    if (examType === "with_sections") setMarkingTemplateId("");
+  }, [examType]);
+
   const usageScope = isStandaloneExamination
     ? "Standalone Exam"
     : isExamination
@@ -86,6 +127,55 @@ const CreateAssessmentPage = ({ users }) => {
       )
       .catch(() => setTemplateSections([]));
   }, [markingTemplateId]);
+
+  // The marking-templates list already carries each template's full
+  // markDistribution/questionTypes — no need for a separate by-ID fetch
+  // just for the Quantities table.
+  const selectedTemplate = markingTemplates.find((t) => t.id === markingTemplateId);
+  const quantityTypes = selectedTemplate?.questionTypes ?? Object.keys(selectedTemplate?.markDistribution || {});
+
+  // Confirmed against a real backend test: a template can itself declare
+  // questionQuantity, and the backend inherits it when the exam sends none
+  // of its own — but only when the field is truly absent, not just present
+  // with blank/zero values. Pre-filling from the template's own defaults
+  // (without clobbering anything already typed) means whatever this page
+  // ends up sending always matches what the backend would have inherited
+  // anyway, and this page's own totals stay correct instead of showing 0
+  // until the admin retypes the template's numbers by hand.
+  useEffect(() => {
+    if (!supportsSectionAuthoring || !selectedTemplate?.questionQuantity) return;
+    setQuestionQuantities((prev) => ({ ...selectedTemplate.questionQuantity, ...prev }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supportsSectionAuthoring, markingTemplateId, markingTemplates]);
+
+  const { weightageTotal: sectionsWeightageTotal, questionCountTotal: sectionsQuestionCountTotal } =
+    computeSectionTotals(sections);
+  const { marksTotal: quantityMarksTotal, quantityTotal } = computeQuantityTotals(
+    quantityTypes,
+    questionQuantities,
+    selectedTemplate?.markDistribution,
+  );
+
+  // Every auto-compute effect below is a no-op for the isStandaloneExamination/
+  // isExamination paths (supportsSectionAuthoring is false there) — their
+  // amountOfQuestions/totalMarks stay exactly the plain hand-typed fields
+  // they've always been.
+  useEffect(() => {
+    if (!supportsSectionAuthoring || examType !== "with_sections") return;
+    setTotalMarks(String(sectionsWeightageTotal));
+    setAmountOfQuestions(String(sectionsQuestionCountTotal));
+  }, [supportsSectionAuthoring, examType, sectionsWeightageTotal, sectionsQuestionCountTotal]);
+
+  useEffect(() => {
+    if (!supportsSectionAuthoring || examType !== "without_sections") return;
+    setTotalMarks(String(quantityMarksTotal));
+    setAmountOfQuestions(String(quantityTotal));
+  }, [supportsSectionAuthoring, examType, quantityMarksTotal, quantityTotal]);
+
+  useEffect(() => {
+    if (!supportsSectionAuthoring || examType !== "hybrid") return;
+    setTotalMarks(String(sectionsWeightageTotal + quantityMarksTotal));
+  }, [supportsSectionAuthoring, examType, sectionsWeightageTotal, quantityMarksTotal]);
   const {
     state: { metadata },
   } = useApp();
@@ -111,19 +201,44 @@ const CreateAssessmentPage = ({ users }) => {
       if (selectedIDs.length === 0 && isStandaloneExamination)
         throw new Error("Please select at least one User or Department");
 
-      if (!markingTemplateId)
+      if (templateRequired && !markingTemplateId)
         throw new Error("A marking template must be selected before creating an assessment or examination.");
+
+      if (supportsSectionAuthoring) {
+        const newErrors = {};
+        if (!amountOfQuestions || Number(amountOfQuestions) <= 0) {
+          newErrors.amountOfQuestions = amountOfQuestionsIsAuto
+            ? "Add sections/quantities so the number of questions can be calculated"
+            : "Please enter number of questions";
+        }
+        if (!totalMarks || Number(totalMarks) <= 0) {
+          newErrors.totalMarks = totalMarksIsAuto
+            ? "Add sections/quantities so total marks can be calculated"
+            : "Please enter total marks";
+        }
+        setFieldErrors(newErrors);
+        if (Object.keys(newErrors).length > 0) {
+          throw new Error("Please fix the highlighted fields before continuing.");
+        }
+      }
 
       data = {
         ...data,
         courseId,
-        markingTemplateId,
+        markingTemplateId: templateRequired ? markingTemplateId : undefined,
         duration: Number(data.duration),
-        amountOfQuestions: Number(data.amountOfQuestions),
-        totalMarks: Number(data.totalMarks),
+        amountOfQuestions: supportsSectionAuthoring ? Number(amountOfQuestions) : Number(data.amountOfQuestions),
+        totalMarks: supportsSectionAuthoring ? Number(totalMarks) : Number(data.totalMarks),
         startTime: formatDateToISO(startTime),
         endTime: formatDateToISO(endTime),
         ...(isModuleAssessment ? { moduleId } : {}),
+        ...(supportsSectionAuthoring && { examType: toExamTypeApiValue(examType) }),
+        ...(supportsSectionAuthoring && (examType === "hybrid" || examType === "without_sections") && {
+          questionQuantity: seedQuantityCounts(quantityTypes, questionQuantities),
+        }),
+        ...(supportsSectionAuthoring && sectionsEnabled && sections.length > 0 && {
+          sections: normalizeSectionsForConfig(sections),
+        }),
       };
 
       isStandaloneExamination && Reflect.deleteProperty(data, "courseId");
@@ -155,6 +270,13 @@ const CreateAssessmentPage = ({ users }) => {
         addToBank: isModuleAssessment ? addToBank : undefined,
         title: data.title,
         fromBankQuestionIds: bankQuestionIdsRef.current,
+        // Local-only carrier for the Questions step's section-type-lock
+        // restriction while this assessment is still pending creation —
+        // never sent over the network for this kind (performCreateParent
+        // never PUTs paper config for "Assessment").
+        ...(supportsSectionAuthoring && sectionsEnabled && sections.length > 0 && {
+          paperConfigBody: { configuredSections: normalizeSectionsForConfig(sections) },
+        }),
       });
       const moduleQuery = isModuleAssessment ? `&moduleId=${moduleId}` : "";
       const nextRoute = isExamination
@@ -348,11 +470,16 @@ const CreateAssessmentPage = ({ users }) => {
                 label="Number of Questions"
                 type="number"
                 id="amountOfQuestions"
-                placeholder="Enter number of questions"
-                error={errors.amountOfQuestions?.message}
-                {...register("amountOfQuestions", {
-                  required: "Please enter number of questions",
-                })}
+                placeholder={amountOfQuestionsIsAuto ? "Calculated automatically below" : "Enter number of questions"}
+                error={supportsSectionAuthoring ? fieldErrors.amountOfQuestions : errors.amountOfQuestions?.message}
+                {...(supportsSectionAuthoring
+                  ? {
+                      value: amountOfQuestions,
+                      isReadOnly: amountOfQuestionsIsAuto,
+                      isDisabled: amountOfQuestionsIsAuto,
+                      onChange: (e) => setAmountOfQuestions(e.target.value),
+                    }
+                  : register("amountOfQuestions", { required: "Please enter number of questions" }))}
               />
             </GridItem>
             <GridItem>
@@ -360,25 +487,71 @@ const CreateAssessmentPage = ({ users }) => {
                 label="Total Marks"
                 type="number"
                 id="totalMarks"
-                placeholder="e.g. 100"
-                error={errors.totalMarks?.message}
-                {...register("totalMarks", {
-                  required: "Please enter total marks",
-                })}
+                placeholder={totalMarksIsAuto ? "Calculated automatically below" : "e.g. 100"}
+                error={supportsSectionAuthoring ? fieldErrors.totalMarks : errors.totalMarks?.message}
+                {...(supportsSectionAuthoring
+                  ? {
+                      value: totalMarks,
+                      isReadOnly: totalMarksIsAuto,
+                      isDisabled: totalMarksIsAuto,
+                      onChange: (e) => setTotalMarks(e.target.value),
+                    }
+                  : register("totalMarks", { required: "Please enter total marks" }))}
               />
             </GridItem>
+
+            {supportsSectionAuthoring && (
+              <GridItem colSpan={{ base: 1, lg: 2 }}>
+                <Select
+                  label="Exam Type"
+                  isRequired
+                  noEmptyOption
+                  value={examType}
+                  onChange={(e) => {
+                    const nextExamType = e.target.value;
+                    setExamType(nextExamType);
+                    // Sectioned exams derive marking from each section's own
+                    // marking type, so a global marking template doesn't apply.
+                    if (nextExamType === "with_sections") setMarkingTemplateId("");
+                  }}
+                  options={EXAM_TYPE_OPTIONS}
+                />
+              </GridItem>
+            )}
+
             <GridItem colSpan={{ base: 1, lg: 2 }}>
               <Select
                 label="Marking Template"
                 placeholder="Select a marking template"
-                isRequired
+                isRequired={templateRequired}
+                isDisabled={supportsSectionAuthoring && examType === "with_sections"}
                 value={markingTemplateId}
                 onChange={(e) => setMarkingTemplateId(e.target.value)}
                 options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
               />
+              {supportsSectionAuthoring && examType === "with_sections" && (
+                <Text fontSize="xs" color="gray.500" mt={2}>
+                  Sectioned exams define marking per section instead — no marking template needed.
+                </Text>
+              )}
             </GridItem>
 
-            {templateSections.length > 0 && (
+            {supportsSectionAuthoring && selectedTemplate && (examType === "without_sections" || examType === "hybrid") && (
+              <GridItem colSpan={{ base: 1, lg: 2 }}>
+                <QuestionQuantitiesTable
+                  selectedTemplate={selectedTemplate}
+                  types={quantityTypes}
+                  counts={questionQuantities}
+                  onChange={(type, value) => setQuestionQuantities((p) => ({ ...p, [type]: value }))}
+                  examType={examType}
+                  sectionsWeightageTotal={sectionsWeightageTotal}
+                  marksTotal={quantityMarksTotal}
+                  quantityTotal={quantityTotal}
+                />
+              </GridItem>
+            )}
+
+            {templateSections.length > 0 && !(supportsSectionAuthoring && examType === "with_sections" && sections.length > 0) && (
               <GridItem colSpan={{ base: 1, lg: 2 }}>
                 <Select
                   label="Sections"
@@ -407,6 +580,20 @@ const CreateAssessmentPage = ({ users }) => {
               </GridItem>
             )}
           </Box>
+
+          {supportsSectionAuthoring && sectionsEnabled && (
+            <Box mb={10}>
+              <Text as="h3" bold mb={4}>
+                Sections
+              </Text>
+              <SectionsBuilder
+                sections={sections}
+                onAdd={addSection}
+                onChange={updateSection}
+                onRemove={removeSection}
+              />
+            </Box>
+          )}
 
           {isModuleAssessment && (
             <Checkbox

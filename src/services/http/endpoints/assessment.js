@@ -27,6 +27,9 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
     minimumPercentageScoreToEarnABadge:
       data.minimumPercentageScoreToEarnABadge || 30, // TODO: remove hard coded data
     sections: Array.isArray(data?.sections) ? data.sections : [],
+    totalMarks: data?.totalMarks ?? null,
+    examType: data?.examType ?? null,
+    questionQuantity: data?.questionQuantity ?? null,
     questions: data?.assessmentQuestions
       ? data?.assessmentQuestions?.map((q, index) => {
         const opts = q?.options ?? [];

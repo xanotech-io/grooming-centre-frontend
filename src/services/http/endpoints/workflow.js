@@ -20,6 +20,8 @@ const normalize = (w) => ({
   remarks: w.remarks,
   resolutionTime: w.resolution_time ?? w.resolutionTime ?? w.resolution_time_hours,
   notificationStatus: w.notification_status ?? w.notificationStatus,
+  // Present when the submission being reviewed is exam/assessment content
+  questions: w.questions ?? null,
 });
 
 // POST /api/v1/workflows/submit
@@ -153,6 +155,18 @@ export const adminGetWorkflowReport = async () => {
 export const adminGetWorkflowAuditLog = async (workflowId) => {
   const { data } = await http.get(`/v1/workflows/audit/${workflowId}`);
   return { auditLog: data.data ?? [], message: data.message };
+};
+
+// GET /api/v1/workflows/{workflow_id}
+export const adminGetWorkflowById = async (workflowId) => {
+  const { data } = await http.get(`/v1/workflows/${workflowId}`);
+  const payload = data.data ?? {};
+  const { actions, action_history, actionHistory, history, ...rest } = payload;
+  return {
+    workflow: normalize(rest),
+    actionHistory: actions ?? action_history ?? actionHistory ?? history ?? [],
+    message: data.message,
+  };
 };
 
 // Instructor-Supervisor Mapping (v2 endpoints)

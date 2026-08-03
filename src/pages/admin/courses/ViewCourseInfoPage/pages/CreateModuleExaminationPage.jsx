@@ -5,7 +5,6 @@ import {
   Alert,
   AlertIcon,
   Checkbox,
-  IconButton,
   BreadcrumbItem,
 } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
@@ -13,7 +12,6 @@ import { useForm } from "react-hook-form";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { Switch } from "@chakra-ui/switch";
 import { Select as ChakraSelect } from "@chakra-ui/select";
-import { FiTrash2 } from "react-icons/fi";
 import {
   Breadcrumb,
   Button,
@@ -35,6 +33,18 @@ import {
 } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
 import useAssessmentStore from "../../../../../store/assessmentStore";
+import { SectionsBuilder, createEmptySection } from "../../../examSectionBuilder/SectionRow";
+import QuestionQuantitiesTable from "../../../examSectionBuilder/QuestionQuantitiesTable";
+import {
+  EXAM_TYPE_OPTIONS,
+  toExamTypeApiValue,
+  fromExamTypeApiValue,
+  normalizeSectionsForConfig,
+  hydrateSection,
+  computeSectionTotals,
+  computeQuantityTotals,
+  seedQuantityCounts,
+} from "../../../examSectionBuilder/examTypeConfig";
 
 const SectionCard = ({ title, children }) => (
   <Box
@@ -65,103 +75,6 @@ const SectionCard = ({ title, children }) => (
       {children}
     </Box>
   </Box>
-);
-
-const EMPTY_SECTION = {
-  section_name: "",
-  question_type: "",
-  marking_type: "",
-  total_marks: null,
-};
-
-// Kept identical to ExamPaperConfigPage.jsx's — QuestionsPage.jsx enforces
-// these three fields against whichever section a question is saved under.
-const QUESTION_TYPE_LOCK_OPTIONS = [
-  { label: "All", value: "" },
-  { label: "MCQ", value: "MCQ" },
-  { label: "True / False", value: "TrueFalse" },
-  { label: "Fill in the Blank", value: "FillBlank" },
-  { label: "Matching", value: "Matching" },
-  { label: "Short Answer", value: "ShortAnswer" },
-  { label: "Essay", value: "Essay" },
-];
-
-const MARKING_TYPE_LOCK_OPTIONS = [
-  { label: "Any marking type", value: "" },
-  { label: "Automatic", value: "automatic" },
-  { label: "Manual", value: "manual" },
-  { label: "Hybrid", value: "hybrid" },
-];
-
-const SectionRow = ({ section, idx, onChange, onRemove }) => (
-  <Flex gap={3} alignItems="flex-start" mb={4} flexWrap="wrap">
-    <Box flex="0 0 90px" minW="90px">
-      <Input
-        id={`section-${idx}-sequence`}
-        label="Sequence"
-        type="number"
-        value={idx + 1}
-        isReadOnly
-        isDisabled
-      />
-    </Box>
-    <Box flex={2} minW="160px">
-      <Input
-        id={`section-${idx}-name`}
-        label="Name"
-        placeholder="Section name e.g. Section A"
-        value={section.section_name}
-        onChange={(e) => onChange(idx, "section_name", e.target.value)}
-      />
-    </Box>
-    <Box flex={1} minW="150px">
-      <Select
-        id={`section-${idx}-question-type`}
-        label="Question Type"
-        noEmptyOption
-        value={section.question_type ?? ""}
-        onChange={(e) => onChange(idx, "question_type", e.target.value)}
-        options={QUESTION_TYPE_LOCK_OPTIONS}
-      />
-    </Box>
-    <Box flex={1} minW="150px">
-      <Select
-        id={`section-${idx}-marking-type`}
-        label="Marking Type"
-        noEmptyOption
-        value={section.marking_type ?? ""}
-        onChange={(e) => onChange(idx, "marking_type", e.target.value)}
-        options={MARKING_TYPE_LOCK_OPTIONS}
-      />
-    </Box>
-    <Box flex={1} minW="120px">
-      <Input
-        id={`section-${idx}-weightage`}
-        label="Weightage"
-        type="number"
-        min={0}
-        placeholder="e.g. 20"
-        value={section.total_marks ?? ""}
-        onChange={(e) =>
-          onChange(
-            idx,
-            "total_marks",
-            e.target.value ? Number(e.target.value) : null,
-          )
-        }
-      />
-    </Box>
-    <IconButton
-      aria-label="Remove section"
-      icon={<FiTrash2 size={14} />}
-      size="sm"
-      variant="ghost"
-      colorScheme="red"
-      onClick={() => onRemove(idx)}
-      alignSelf="center"
-      mt={6}
-    />
-  </Flex>
 );
 
 const BoolRow = ({ label, description, checked, onChange }) => (
@@ -211,12 +124,93 @@ const CreateModuleExaminationPage = () => {
   const [addToBank, setAddToBank] = useState(false);
   const [loadingExam, setLoadingExam] = useState(false);
 
+  // Exam Type ("" is the legacy/unset sentinel — only ever seen in edit
+  // mode, for an exam that predates this feature. A brand-new exam always
+  // starts on a real value so its Sections/Quantities rules are meaningful
+  // from the first render.)
+  const [examType, setExamType] = useState(isEditMode ? "" : "with_sections");
+  const [amountOfQuestions, setAmountOfQuestions] = useState("");
+  const [totalMarks, setTotalMarks] = useState("");
+  const [questionQuantities, setQuestionQuantities] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
+  // Sections stay visible for the legacy "" sentinel too — this is what
+  // keeps a pre-existing exam's Sections card exactly as visible as it is
+  // today, since it never had an Exam Type concept to hide it behind.
+  const sectionsEnabled = examType === "" || examType === "with_sections" || examType === "hybrid";
+  const amountOfQuestionsIsAuto = examType === "with_sections" || examType === "without_sections";
+  const totalMarksIsAuto = examType === "with_sections" || examType === "without_sections" || examType === "hybrid";
+
+  // A sectioned exam defines marking per-section, not via a marking
+  // template — clear out any previously-picked template (e.g. from
+  // switching Exam Type back and forth) so the disabled Select can't hold
+  // onto a stale selection that would otherwise still get submitted.
+  useEffect(() => {
+    if (examType === "with_sections") setMarkingTemplateId("");
+  }, [examType]);
+
   // Sections
   const [sections, setSections] = useState([]);
-  const addSection = () => setSections((p) => [...p, { ...EMPTY_SECTION }]);
+  const addSection = () => setSections((p) => [...p, createEmptySection()]);
   const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
   const updateSection = (i, field, value) =>
     setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
+
+  // The marking-templates list already carries each template's full
+  // markDistribution/questionTypes/totalMarks — no need for a separate
+  // by-ID fetch once one is picked.
+  const selectedTemplate = markingTemplates.find((t) => t.id === markingTemplateId);
+  const quantityTypes = selectedTemplate?.questionTypes ?? Object.keys(selectedTemplate?.markDistribution || {});
+
+  // Confirmed against a real backend test: a template can itself declare
+  // questionQuantity, and the backend inherits it when the exam sends none
+  // of its own — but only when the field is truly absent, not just present
+  // with blank/zero values. Pre-filling from the template's own defaults
+  // (without clobbering anything already typed) means whatever this page
+  // ends up sending always matches what the backend would have inherited
+  // anyway, and this page's own totals stay correct instead of showing 0
+  // until the admin retypes the template's numbers by hand.
+  useEffect(() => {
+    if (!selectedTemplate?.questionQuantity) return;
+    setQuestionQuantities((prev) => ({ ...selectedTemplate.questionQuantity, ...prev }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markingTemplateId, markingTemplates]);
+
+  const { weightageTotal: sectionsWeightageTotal, questionCountTotal: sectionsQuestionCountTotal } =
+    computeSectionTotals(sections);
+  const { marksTotal: quantityMarksTotal, quantityTotal } = computeQuantityTotals(
+    quantityTypes,
+    questionQuantities,
+    selectedTemplate?.markDistribution,
+  );
+
+  // "Exam with sections" has no standalone total-marks/question-count
+  // input of its own — both are always the sum of every section's own
+  // weightage/Question Count, since that's what each section's questions
+  // are bound to abide by.
+  useEffect(() => {
+    if (examType !== "with_sections") return;
+    setTotalMarks(String(sectionsWeightageTotal));
+    setAmountOfQuestions(String(sectionsQuestionCountTotal));
+  }, [examType, sectionsWeightageTotal, sectionsQuestionCountTotal]);
+
+  // "Exam without sections" likewise has no standalone total-marks/
+  // question-count input — both are derived from how many questions of
+  // each type the admin enters in the Quantities table times that type's
+  // mark value from the marking template.
+  useEffect(() => {
+    if (examType !== "without_sections") return;
+    setTotalMarks(String(quantityMarksTotal));
+    setAmountOfQuestions(String(quantityTotal));
+  }, [examType, quantityMarksTotal, quantityTotal]);
+
+  // Hybrid combines both laws for Total Marks — the sections' own
+  // weightage, plus the standalone questions' marks. Number of Questions
+  // stays hand-typed for hybrid, since sections don't track a question
+  // count contribution separately from their own weightage here.
+  useEffect(() => {
+    if (examType !== "hybrid") return;
+    setTotalMarks(String(sectionsWeightageTotal + quantityMarksTotal));
+  }, [examType, sectionsWeightageTotal, quantityMarksTotal]);
 
   // Navigation
   const [navigationMode, setNavigationMode] = useState("free");
@@ -235,7 +229,7 @@ const CreateModuleExaminationPage = () => {
   });
   useEffect(() => {
     adminGetMarkingTemplates()
-      .then(({ templates }) => setMarkingTemplates(templates))
+      .then(({ templates }) => setMarkingTemplates(templates.filter((t) => t.usageScope === "Normal Exam")))
       .catch(() => {});
   }, []);
 
@@ -260,15 +254,23 @@ const CreateModuleExaminationPage = () => {
       .then(([{ examination: exam }, paperConfigRes]) => {
         setValue("title", exam.title);
         setValue("duration", exam.duration);
-        setValue("amountOfQuestions", exam.amountOfQuestions);
-        setValue("totalMarks", exam.totalMarks);
+        if (exam.amountOfQuestions != null) setAmountOfQuestions(String(exam.amountOfQuestions));
+        if (exam.totalMarks != null) setTotalMarks(String(exam.totalMarks));
         if (exam.startTime) startTimeManager.handleChange(new Date(exam.startTime));
         if (exam.endTime) endTimeManager.handleChange(new Date(exam.endTime));
         if (exam.markingTemplateId) setMarkingTemplateId(exam.markingTemplateId);
+        // Only set when the exam actually has one — an exam that predates
+        // this feature must keep the "" legacy sentinel so its hand-typed
+        // totals and always-visible Sections card stay exactly as they
+        // are today (see the `examType` state comment above).
+        if (exam.examType) setExamType(fromExamTypeApiValue(exam.examType));
+        if (exam.questionQuantity) setQuestionQuantities(exam.questionQuantity);
 
         const cfg = paperConfigRes?.data;
         if (cfg) {
-          if (Array.isArray(cfg.configuredSections)) setSections(cfg.configuredSections);
+          if (Array.isArray(cfg.configuredSections)) {
+            setSections(cfg.configuredSections.map(hydrateSection));
+          }
           if (cfg.navigationMode) setNavigationMode(cfg.navigationMode);
           if (cfg.randomization) setRandomization(cfg.randomization);
           if (cfg.uiSettings) setUiSettings(cfg.uiSettings);
@@ -292,36 +294,60 @@ const CreateModuleExaminationPage = () => {
         startTimeManager.handleGetValueAndValidate("Start Time");
       const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
-      if (!markingTemplateId)
+      // A sectioned exam defines marking per-section, not via a marking
+      // template — the legacy "" sentinel (an exam that predates the Exam
+      // Type feature) keeps the original always-required behavior.
+      if (examType !== "with_sections" && !markingTemplateId)
         throw new Error(
           "A marking template must be selected before saving an examination.",
         );
 
+      const newErrors = {};
+      if (!amountOfQuestions || Number(amountOfQuestions) <= 0) {
+        newErrors.amountOfQuestions = amountOfQuestionsIsAuto
+          ? "Add sections/quantities so the number of questions can be calculated"
+          : "Number of questions is required";
+      }
+      if (!totalMarks || Number(totalMarks) <= 0) {
+        newErrors.totalMarks = totalMarksIsAuto
+          ? "Add sections/quantities so total marks can be calculated"
+          : "Total marks is required";
+      }
+      setFieldErrors(newErrors);
+      if (Object.keys(newErrors).length > 0) {
+        throw new Error("Please fix the highlighted fields before continuing.");
+      }
+
       const body = {
         title: data.title,
         duration: Number(data.duration),
-        amountOfQuestions: Number(data.amountOfQuestions),
-        totalMarks: Number(data.totalMarks),
+        amountOfQuestions: Number(amountOfQuestions),
+        totalMarks: Number(totalMarks),
         startTime: formatDateToISO(startTime),
         endTime: formatDateToISO(endTime),
         courseId,
         moduleId,
-        markingTemplateId,
+        // A sectioned exam has no marking template — `undefined` (not just
+        // omitting the key) clears out a `markingTemplateId` already
+        // sitting in a `pendingCreate`/`pendingEdit` from an earlier visit
+        // where a different Exam Type was selected; JSON.stringify drops
+        // `undefined` values, so it never reaches the backend.
+        markingTemplateId: examType === "with_sections" ? undefined : markingTemplateId,
         navigationMode,
         randomizationConfig: randomization,
         uiSettings: { ...uiSettings, font_size: Number(uiSettings.font_size) },
+        // Only sent once the admin has actually chosen an Exam Type — an
+        // exam that predates this feature (the "" sentinel) posts no
+        // examType at all, matching what it always sent before.
+        ...(examType && { examType: toExamTypeApiValue(examType) }),
+        ...((examType === "hybrid" || examType === "without_sections") && {
+          questionQuantity: seedQuantityCounts(quantityTypes, questionQuantities),
+        }),
       };
 
       const paperConfigBody = {
         examType: "examination",
-        configuredSections: sections.map((s) => ({
-          section_name: s.section_name,
-          questions_count: Number(s.questions_count) || 0,
-          time_limit: s.time_limit ? Number(s.time_limit) : null,
-          question_type: s.question_type || "",
-          marking_type: s.marking_type || "",
-          total_marks: s.total_marks ? Number(s.total_marks) : null,
-        })),
+        configuredSections: normalizeSectionsForConfig(sections),
         navigationMode,
         timeLimitMinutes: Number(data.duration) || 0,
         randomization,
@@ -434,26 +460,26 @@ const CreateModuleExaminationPage = () => {
               <Input
                 label="Number of Questions"
                 type="number"
-                placeholder="e.g. 20"
+                placeholder={amountOfQuestionsIsAuto ? "Calculated automatically below" : "e.g. 20"}
                 isRequired
-                error={errors.amountOfQuestions?.message}
-                {...register("amountOfQuestions", {
-                  required: "Number of questions is required",
-                  min: { value: 1, message: "Must have at least 1 question" },
-                })}
+                error={fieldErrors.amountOfQuestions}
+                value={amountOfQuestions}
+                isReadOnly={amountOfQuestionsIsAuto}
+                isDisabled={amountOfQuestionsIsAuto}
+                onChange={(e) => setAmountOfQuestions(e.target.value)}
               />
             </Box>
             <Box flex={1}>
               <Input
                 label="Total Marks"
                 type="number"
-                placeholder="e.g. 100"
+                placeholder={totalMarksIsAuto ? "Calculated automatically below" : "e.g. 100"}
                 isRequired
-                error={errors.totalMarks?.message}
-                {...register("totalMarks", {
-                  required: "Total marks is required",
-                  min: { value: 1, message: "Must be at least 1 mark" },
-                })}
+                error={fieldErrors.totalMarks}
+                value={totalMarks}
+                isReadOnly={totalMarksIsAuto}
+                isDisabled={totalMarksIsAuto}
+                onChange={(e) => setTotalMarks(e.target.value)}
               />
             </Box>
           </Flex>
@@ -474,11 +500,29 @@ const CreateModuleExaminationPage = () => {
             mb={6}
           />
 
+          <Box mb={6}>
+            <Select
+              label="Exam Type"
+              isRequired
+              noEmptyOption={examType !== ""}
+              placeholder={examType === "" ? "Not set (legacy exam)" : undefined}
+              value={examType}
+              onChange={(e) => {
+                const nextExamType = e.target.value;
+                setExamType(nextExamType);
+                // Sectioned exams derive marking from each section's own
+                // marking type, so a global marking template doesn't apply.
+                if (nextExamType === "with_sections") setMarkingTemplateId("");
+              }}
+              options={EXAM_TYPE_OPTIONS}
+            />
+          </Box>
+
           <Select
             label="Marking Template"
             placeholder="Select a marking template"
-            isRequired
-            isDisabled={isEditMode}
+            isRequired={examType !== "with_sections"}
+            isDisabled={isEditMode || examType === "with_sections"}
             value={markingTemplateId}
             onChange={(e) => setMarkingTemplateId(e.target.value)}
             options={markingTemplates.map((t) => ({
@@ -486,7 +530,12 @@ const CreateModuleExaminationPage = () => {
               value: t.id,
             }))}
           />
-          {isEditMode && (
+          {examType === "with_sections" && (
+            <Text fontSize="xs" color="gray.500" mt={2}>
+              Sectioned exams define marking per section instead — no marking template needed.
+            </Text>
+          )}
+          {isEditMode && examType !== "with_sections" && (
             <Text fontSize="xs" color="gray.500" mt={2}>
               The template can&apos;t be changed here once an exam has been
               created — go to the{" "}
@@ -502,22 +551,34 @@ const CreateModuleExaminationPage = () => {
               to customize it instead.
             </Text>
           )}
+
+          {selectedTemplate && (examType === "without_sections" || examType === "hybrid") && (
+            <Box mt={6}>
+              <QuestionQuantitiesTable
+                selectedTemplate={selectedTemplate}
+                types={quantityTypes}
+                counts={questionQuantities}
+                onChange={(type, value) => setQuestionQuantities((p) => ({ ...p, [type]: value }))}
+                examType={examType}
+                sectionsWeightageTotal={sectionsWeightageTotal}
+                marksTotal={quantityMarksTotal}
+                quantityTotal={quantityTotal}
+              />
+            </Box>
+          )}
         </SectionCard>
 
         {/* ── Sections ── */}
-        <SectionCard title="Sections">
-          {sections.length === 0 && (
-            <Text fontSize="sm" color="gray.500" mb={3}>
-              No sections added yet. Sections let you group questions and optionally cap time per group.
-            </Text>
-          )}
-          {sections.map((s, i) => (
-            <SectionRow key={i} section={s} idx={i} onChange={updateSection} onRemove={removeSection} />
-          ))}
-          <Button secondary type="button" onClick={addSection}>
-            + Add Section
-          </Button>
-        </SectionCard>
+        {sectionsEnabled && (
+          <SectionCard title="Sections">
+            <SectionsBuilder
+              sections={sections}
+              onAdd={addSection}
+              onChange={updateSection}
+              onRemove={removeSection}
+            />
+          </SectionCard>
+        )}
 
         {/* ── Navigation & Randomization ── */}
         <SectionCard title="Navigation & Randomization">

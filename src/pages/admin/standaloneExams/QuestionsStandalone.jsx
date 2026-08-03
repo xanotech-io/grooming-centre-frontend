@@ -124,8 +124,9 @@ const toApiCreateBody = (body) => {
   // marking, so strip it here too — right at the actual API boundary —
   // regardless of what's upstream.
   const isSectioned = body.examType === "with_sections";
+  const { standaloneQuestionCounts, ...rest } = body;
   return {
-    ...body,
+    ...rest,
     ...(body.examType && EXAM_TYPE_TO_API[body.examType] && { examType: EXAM_TYPE_TO_API[body.examType] }),
     templateId: isSectioned ? undefined : body.templateId,
     // Confirmed against a real backend test: a sectioned exam auto-computes
@@ -135,6 +136,11 @@ const toApiCreateBody = (body) => {
     // it) so this file's own total-question-cap check still has a value to
     // read locally; only the actual network call needs it gone.
     amountOfQuestions: isSectioned ? undefined : body.amountOfQuestions,
+    // "standaloneQuestionCounts" is this file's own internal name for the
+    // per-type Quantity set on the Template/Marking Scheme step — the
+    // backend's field for this is `questionQuantity` (matching the marking
+    // template's own field name for the same data).
+    ...(standaloneQuestionCounts && { questionQuantity: standaloneQuestionCounts }),
   };
 };
 
@@ -160,6 +166,36 @@ const inferQueuedQuestionType = (data) => {
   if (Array.isArray(data?.options) && data.options.length === 2) return "TrueFalse";
   if (Array.isArray(data?.options) && data.options.length) return "MCQ";
   return null;
+};
+
+// "Exam without sections" and hybrid's "Standalone Questions" tab: don't
+// let a bulk bank-add push any question type past its configured Quantity —
+// keep questions up to each type's remaining room and skip the rest, the
+// same rule the single-question form already enforces one at a time.
+// `queuedTypeCounts` is the count before this batch; the running tally
+// advances per accepted item so two of the same type in the same batch
+// don't both slip through when only one more fits.
+const filterBankQuestionsByTypeQuota = (
+  bankQuestions,
+  { usingTemplateTypeRestriction, templateSupportedTypes, typeQuota, queuedTypeCounts },
+) => {
+  if (!usingTemplateTypeRestriction) return { kept: bankQuestions, skipped: 0 };
+  const runningCounts = { ...queuedTypeCounts };
+  let skipped = 0;
+  const kept = bankQuestions.filter((bq) => {
+    const mappedType = BANK_TYPE_TO_FORM_TYPE[bq.questionType];
+    if (!mappedType) return true;
+    const notSupported = templateSupportedTypes && !templateSupportedTypes.includes(mappedType);
+    const quota = typeQuota(mappedType);
+    const wouldExceed = quota != null && (runningCounts[mappedType] || 0) >= quota;
+    if (notSupported || wouldExceed) {
+      skipped += 1;
+      return false;
+    }
+    runningCounts[mappedType] = (runningCounts[mappedType] || 0) + 1;
+    return true;
+  });
+  return { kept, skipped };
 };
 
 // Shared by the pending-creation queue (buildQueuedItemFromBankQuestion) and
@@ -1174,8 +1210,24 @@ const CreateQuestionPage = ({
       return;
     }
 
-    const items = bankQuestions.map(buildQueuedItemFromBankQuestion).filter(Boolean);
-    if (!items.length) return;
+    const { kept, skipped } = filterBankQuestionsByTypeQuota(bankQuestions, {
+      usingTemplateTypeRestriction,
+      templateSupportedTypes,
+      typeQuota,
+      queuedTypeCounts,
+    });
+
+    const items = kept.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    if (!items.length) {
+      if (skipped) {
+        toast({
+          description: `Skipped ${skipped} question${skipped === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
+          position: "top",
+          status: "warning",
+        });
+      }
+      return;
+    }
 
     if (isPendingCreation) {
       setPendingCreate({ ...pendingCreate, questions: [...(pendingCreate.questions || []), ...items] });
@@ -1184,7 +1236,9 @@ const CreateQuestionPage = ({
     }
 
     toast({
-      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${
+        skipped ? ` ${skipped} skipped — already at the configured Quantity for that type.` : ""
+      } They'll be created once you submit for approval.`,
       position: "top",
       status: "success",
     });
@@ -2563,31 +2617,75 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
     }
   };
 
+  // Same Quantity-per-type restriction the create form's Answer Options
+  // tabs enforce (see the equivalent block in CreateQuestionPage) — this
+  // page has no "current section" concept, so a hybrid exam's standalone
+  // quota is checked against every queued item that has no section, same
+  // as the create form's "Standalone Questions" tab.
+  const isHybridExam = isPendingCreation && pendingCreate?.body?.examType === "hybrid";
+  const isUnsectionedExam = isPendingCreation && pendingCreate?.body?.examType === "without_sections";
+  const usingTemplateTypeRestriction = isUnsectionedExam || isHybridExam;
+  const standaloneQuestionCounts = pendingCreate?.body?.standaloneQuestionCounts || {};
+  const templateSupportedTypes =
+    usingTemplateTypeRestriction && Object.keys(standaloneQuestionCounts).length > 0
+      ? Object.keys(standaloneQuestionCounts)
+      : null;
+  const queuedTypeCounts = usingTemplateTypeRestriction
+    ? queuedQuestions.reduce((acc, q) => {
+        if (q.data?.section) return acc;
+        const t = inferQueuedQuestionType(q.data);
+        if (t) acc[t] = (acc[t] || 0) + 1;
+        return acc;
+      }, {})
+    : {};
+  const typeQuota = (type) => {
+    const raw = standaloneQuestionCounts[type];
+    return raw !== undefined && raw !== null && raw !== "" ? Number(raw) : null;
+  };
+
   // Nothing has been created yet — queue instead of hitting the
   // create-question endpoint (which needs a real examination id). Same
   // mapping used to build the pending-creation queue via "Add more
   // questions"; the placeholder `standAloneExaminationId` gets swapped for
   // the real one once "Create and Submit"/"Update and Submit" runs below.
   const queueBankQuestions = async (bankQuestions) => {
-    const items = bankQuestions
+    const { kept, skipped } = filterBankQuestionsByTypeQuota(bankQuestions, {
+      usingTemplateTypeRestriction,
+      templateSupportedTypes,
+      typeQuota,
+      queuedTypeCounts,
+    });
+
+    const items = kept
       .map((bq) => buildBankQuestionData(bq, isExamination))
       .filter(Boolean)
       .map((data) => ({ data }));
-    if (items.length < bankQuestions.length) {
+    if (items.length < kept.length) {
       toast({
         description: "Some questions were skipped — that type isn't supported here.",
         position: "top",
         status: "warning",
       });
     }
-    if (!items.length) return;
+    if (!items.length) {
+      if (skipped) {
+        toast({
+          description: `Skipped ${skipped} question${skipped === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
+          position: "top",
+          status: "warning",
+        });
+      }
+      return;
+    }
     if (isPendingCreation) {
       setPendingCreate({ ...pendingCreate, questions: [...queuedQuestions, ...items] });
     } else {
       setPendingEdit({ ...pendingEdit, questions: [...queuedQuestions, ...items] });
     }
     toast({
-      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank. They'll be created once you submit for approval.`,
+      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${
+        skipped ? ` ${skipped} skipped — already at the configured Quantity for that type.` : ""
+      } They'll be created once you submit for approval.`,
       position: "top",
       status: "success",
     });

@@ -38,7 +38,7 @@ import {
   adminRejectWorkflow,
   adminEscalateWorkflow,
   adminPublishWorkflow,
-  adminGetWorkflowAuditLog,
+  adminGetWorkflowById,
 } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
 
@@ -134,6 +134,115 @@ const getStatusBadge = (status) => {
   }
 };
 
+const QuestionOptionRow = ({ option, index }) => (
+  <Flex
+    align="center"
+    gap="10px"
+    p="10px 14px"
+    borderRadius="6px"
+    bg={option.isAnswer ? "#E6F4EA" : "#F7FAFC"}
+    border="1px solid"
+    borderColor={option.isAnswer ? "#38A169" : "#E2E8F0"}
+  >
+    <Text
+      fontSize="13px"
+      fontWeight="600"
+      color={option.isAnswer ? "#276749" : "#4A5568"}
+      minW="20px"
+    >
+      {String.fromCharCode(65 + index)}.
+    </Text>
+    <Text
+      fontSize="14px"
+      color={option.isAnswer ? "#276749" : "#1A202C"}
+      flex="1"
+    >
+      {option.name}
+    </Text>
+    {option.isAnswer && <FaCheckCircle color="#38A169" size="14px" />}
+  </Flex>
+);
+
+const QuestionCard = ({ question, index }) => {
+  const hasOptions = Array.isArray(question.options) && question.options.length > 0;
+  const hasPairs = Array.isArray(question.pairs) && question.pairs.length > 0;
+
+  return (
+    <Box border="1px solid #E2E8F0" borderRadius="8px" p="20px" mb="16px">
+      <Flex justify="space-between" align="flex-start" mb="14px" gap="12px">
+        <Text fontSize="15px" fontWeight="600" color="#1A202C">
+          {index + 1}. {question.question}
+        </Text>
+        <Flex gap="8px" flexShrink={0}>
+          {question.marks != null && (
+            <Badge
+              bg="#EBF4FF"
+              color="#3182CE"
+              textTransform="none"
+              fontWeight="500"
+              px="10px"
+              py="2px"
+              borderRadius="10px"
+            >
+              {question.marks} {question.marks === 1 ? "mark" : "marks"}
+            </Badge>
+          )}
+          {question.questionType && (
+            <Badge
+              bg="#F7F0FF"
+              color="#6b006b"
+              textTransform="none"
+              fontWeight="500"
+              px="10px"
+              py="2px"
+              borderRadius="10px"
+            >
+              {question.questionType.toUpperCase()}
+            </Badge>
+          )}
+        </Flex>
+      </Flex>
+
+      {hasOptions && (
+        <Flex direction="column" gap="8px">
+          {question.options.map((opt, i) => (
+            <QuestionOptionRow key={opt.id ?? i} option={opt} index={i} />
+          ))}
+        </Flex>
+      )}
+
+      {hasPairs && (
+        <Flex direction="column" gap="8px">
+          {question.pairs.map((pair, i) => (
+            <Flex key={i} gap="12px" fontSize="14px" color="#1A202C">
+              <Text flex="1">{pair.left ?? pair.prompt ?? "—"}</Text>
+              <Text color="#A0AEC0">→</Text>
+              <Text flex="1">{pair.right ?? pair.match ?? "—"}</Text>
+            </Flex>
+          ))}
+        </Flex>
+      )}
+
+      {!hasOptions && !hasPairs && question.correctAnswer && (
+        <Text fontSize="14px" color="#276749" fontWeight="500">
+          Correct Answer: {question.correctAnswer}
+        </Text>
+      )}
+
+      {question.rubric && (
+        <Box mt="12px">
+          <Text fontSize="13px" fontWeight="600" color="#4A5568" mb="4px">
+            Rubric:
+          </Text>
+          <Text fontSize="14px" color="#4A5568">
+            {question.rubric}
+          </Text>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 const formatDateTime = (dateString) => {
   if (!dateString) return "-";
   try {
@@ -159,7 +268,7 @@ const ReviewSubmissionPage = () => {
   const role = getOneMetadata("userRoles", appState.user?.userRoleId);
   const hasAccess = ALLOWED_ROLES.test(role?.name);
 
-  const { resource: auditResource, handleFetchResource: fetchAudit } =
+  const { resource: workflowResource, handleFetchResource: fetchWorkflow } =
     useFetch();
 
   const [remarks, setRemarks] = useState("");
@@ -170,8 +279,9 @@ const ReviewSubmissionPage = () => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(null);
 
-  // Workflow data comes from router state (passed from the list page)
-  const workflow = locationState?.workflow ?? null;
+  // Prefer the freshly-fetched workflow; fall back to router state (passed
+  // from the list page) while the fetch is in flight or if it fails.
+  const workflow = workflowResource.data?.workflow ?? locationState?.workflow ?? null;
   const approverId = appState.user?.id;
 
   useEffect(() => {
@@ -180,16 +290,16 @@ const ReviewSubmissionPage = () => {
     }
   }, [workflow]);
 
-  const auditFetcher = useCallback(async () => {
-    const { auditLog } = await adminGetWorkflowAuditLog(workflowId);
-    return auditLog;
+  const workflowFetcher = useCallback(async () => {
+    const { workflow: fetchedWorkflow, actionHistory } = await adminGetWorkflowById(workflowId);
+    return { workflow: fetchedWorkflow, actionHistory };
   }, [workflowId]);
 
   useEffect(() => {
-    if (hasAccess) fetchAudit({ fetcher: auditFetcher });
-  }, [fetchAudit, auditFetcher, hasAccess]);
+    if (hasAccess) fetchWorkflow({ fetcher: workflowFetcher });
+  }, [fetchWorkflow, workflowFetcher, hasAccess]);
 
-  const auditLog = auditResource.data ?? [];
+  const auditLog = workflowResource.data?.actionHistory ?? [];
 
   if (appState.user && role && !hasAccess) {
     return <Redirect to="/admin" />;
@@ -423,12 +533,28 @@ const ReviewSubmissionPage = () => {
           </Flex>
 
           {/* Description */}
-          <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="12px">
-            Description:
-          </Text>
-          <Text color="#4A5568" fontSize="15px" lineHeight="1.7" mb="32px">
-            {workflow?.description ?? "No description provided."}
-          </Text>
+          {(workflow?.description || !workflow?.questions?.length) && (
+            <>
+              <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="12px">
+                Description:
+              </Text>
+              <Text color="#4A5568" fontSize="15px" lineHeight="1.7" mb="32px">
+                {workflow?.description ?? "No description provided."}
+              </Text>
+            </>
+          )}
+
+          {/* Questions (exam / assessment submissions) */}
+          {Array.isArray(workflow?.questions) && workflow.questions.length > 0 && (
+            <Box mb="32px">
+              <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="16px">
+                Questions ({workflow.questions.length})
+              </Text>
+              {workflow.questions.map((q, i) => (
+                <QuestionCard key={q.id ?? i} question={q} index={i} />
+              ))}
+            </Box>
+          )}
 
           {/* Attachment */}
           {workflow?.attachmentUrl && (
@@ -676,21 +802,21 @@ const ReviewSubmissionPage = () => {
           </Text>
         </Box>
 
-        {auditResource.loading && (
+        {workflowResource.loading && (
           <Flex justifyContent="center" alignItems="center" padding="40px">
             <Spinner size="md" color="#6b006b" />
           </Flex>
         )}
 
-        {auditResource.err && (
+        {workflowResource.err && (
           <Flex justifyContent="center" alignItems="center" padding="40px">
             <Text color="red.500" fontSize="14px">
-              {auditResource.err}
+              {workflowResource.err}
             </Text>
           </Flex>
         )}
 
-        {!auditResource.loading && !auditResource.err && (
+        {!workflowResource.loading && !workflowResource.err && (
           <TableContainer>
             <Table variant="simple" size="sm">
               <Thead>

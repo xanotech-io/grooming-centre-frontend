@@ -234,12 +234,29 @@ const TemplateStandalone = () => {
     const selectedTemplate = markingTemplates.find((t) => t.id === templateId);
     const standaloneTypes = selectedTemplate?.questionTypes ?? Object.keys(selectedTemplate?.markDistribution || {});
 
+    // Confirmed against a real backend test: a template can itself declare
+    // questionQuantity, and the backend inherits it when the exam sends
+    // none of its own — but only when the field is truly absent, not just
+    // present with blank/zero values. Pre-filling from the template's own
+    // defaults (without clobbering anything already typed) means whatever
+    // this page ends up sending always matches what the backend would have
+    // inherited anyway, and this page's own totals stay correct instead of
+    // showing 0 until the admin retypes the template's numbers by hand.
+    useEffect(() => {
+        if (!selectedTemplate?.questionQuantity) return;
+        setStandaloneQuestionCounts((prev) => ({ ...selectedTemplate.questionQuantity, ...prev }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [templateId, markingTemplates]);
+
     const sectionsWeightageTotal = sections.reduce((acc, s) => acc + (Number(s.total_marks) || 0), 0);
     const sectionsQuestionCountTotal = sections.reduce((acc, s) => acc + (Number(s.question_count) || 0), 0);
+    // A marking template's markDistribution value is the marks for one
+    // question of that type — the total scales with how many questions of
+    // that type are created (quantity 2 at 5 marks each = 10).
     const standaloneMarksTotal = standaloneTypes.reduce((acc, type) => {
         const qty = Number(standaloneQuestionCounts[type]) || 0;
-        const perQuestionMark = Number(selectedTemplate?.markDistribution?.[type]) || 0;
-        return acc + qty * perQuestionMark;
+        const typeMark = Number(selectedTemplate?.markDistribution?.[type]) || 0;
+        return acc + qty * typeMark;
     }, 0);
     const standaloneQuantityTotal = standaloneTypes.reduce(
         (acc, type) => acc + (Number(standaloneQuestionCounts[type]) || 0),
@@ -563,14 +580,14 @@ const TemplateStandalone = () => {
                                                     <Tr>
                                                         <Th textTransform="none" color="#4A5568">Question Type</Th>
                                                         <Th textTransform="none" color="#4A5568">Quantity</Th>
-                                                        <Th textTransform="none" color="#4A5568">Marks</Th>
+                                                        <Th textTransform="none" color="#4A5568">Marks (per question)</Th>
                                                         <Th textTransform="none" color="#4A5568">Subtotal</Th>
                                                     </Tr>
                                                 </Thead>
                                                 <Tbody>
                                                     {standaloneTypes.map((type) => {
                                                         const style = TYPE_COLOR[type] || { bg: "#F7FAFC", color: "#718096" };
-                                                        const perQuestionMark = selectedTemplate.markDistribution?.[type];
+                                                        const typeMark = selectedTemplate.markDistribution?.[type];
                                                         return (
                                                             <Tr key={type}>
                                                                 <Td>
@@ -602,11 +619,11 @@ const TemplateStandalone = () => {
                                                                     />
                                                                 </Td>
                                                                 <Td fontSize="13px" fontWeight="600" color="#6b006b">
-                                                                    {perQuestionMark ?? "—"}
+                                                                    {typeMark ?? "—"}
                                                                 </Td>
                                                                 <Td fontSize="13px" color="#1A202C">
                                                                     {(Number(standaloneQuestionCounts[type]) || 0) *
-                                                                        (Number(perQuestionMark) || 0)}
+                                                                        (Number(typeMark) || 0)}
                                                                 </Td>
                                                             </Tr>
                                                         );
