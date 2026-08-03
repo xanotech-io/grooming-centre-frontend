@@ -377,12 +377,16 @@ const TemplateStandalone = () => {
                         // drops `undefined` values, so it never reaches the
                         // backend.
                         templateId: isSectioned ? undefined : templateId,
-                        // Confirmed against a real backend test: a sectioned
-                        // exam auto-computes amountOfQuestions from the sum of
-                        // each section's own questionCount — sending it here
-                        // isn't part of that tested/working contract, so it's
-                        // cleared the same way templateId is above.
-                        amountOfQuestions: isSectioned ? undefined : Number(amountOfQuestions),
+                        // Kept locally even for a sectioned exam — this is
+                        // what QuestionsStandalone.jsx reads to enforce the
+                        // total-question cap and offer/hide "Add more
+                        // questions". The backend auto-computes its own copy
+                        // from the sections' questionCount and doesn't want
+                        // this field sent at creation time, so it's stripped
+                        // at the actual API boundary instead (toApiCreateBody
+                        // in QuestionsStandalone.jsx), the same place
+                        // templateId is stripped.
+                        amountOfQuestions: Number(amountOfQuestions),
                         // Confirmed against a real backend test: a sectioned
                         // exam takes its sections directly on the create body
                         // as `sections: [{ section_name, weightage,
@@ -421,7 +425,7 @@ const TemplateStandalone = () => {
                         ...(sectionsEnabled && sections.length > 0 && {
                             configuredSections: sections.map((s) => ({
                                 section_name: s.section_name,
-                                questions_count: Number(s.questions_count) || 0,
+                                question_count: Number(s.question_count) || 0,
                                 time_limit: s.time_limit ? Number(s.time_limit) : null,
                                 question_types: s.question_types || [],
                                 marking_type: s.marking_type || "",
@@ -506,32 +510,30 @@ const TemplateStandalone = () => {
                             </GridItem>
                         </Grid>
 
-                        <Heading as="h3" size="md" marginTop="8px" marginBottom="16px" color="#1A202C">
-                            Sections
-                        </Heading>
-                        {!sectionsEnabled && (
-                            <Text fontSize="sm" color="gray.500" mb={3}>
-                                Sections are only available for "Exam with sections" and "Hybrid" exam types.
-                            </Text>
+                        {sectionsEnabled && (
+                            <>
+                                <Heading as="h3" size="md" marginTop="8px" marginBottom="16px" color="#1A202C">
+                                    Sections
+                                </Heading>
+                                {sections.length === 0 && (
+                                    <Text fontSize="sm" color="gray.500" mb={3}>
+                                        No sections added yet. Sections let you group questions and optionally cap time per group.
+                                    </Text>
+                                )}
+                                {sections.map((s, i) => (
+                                    <SectionRow
+                                        key={i}
+                                        section={s}
+                                        idx={i}
+                                        onChange={updateSection}
+                                        onRemove={removeSection}
+                                    />
+                                ))}
+                                <Button secondary type="button" onClick={addSection}>
+                                    + Add Section
+                                </Button>
+                            </>
                         )}
-                        {sectionsEnabled && sections.length === 0 && (
-                            <Text fontSize="sm" color="gray.500" mb={3}>
-                                No sections added yet. Sections let you group questions and optionally cap time per group.
-                            </Text>
-                        )}
-                        {sections.map((s, i) => (
-                            <SectionRow
-                                key={i}
-                                section={s}
-                                idx={i}
-                                onChange={updateSection}
-                                onRemove={removeSection}
-                                disabled={!sectionsEnabled}
-                            />
-                        ))}
-                        <Button secondary type="button" disabled={!sectionsEnabled} onClick={addSection}>
-                            + Add Section
-                        </Button>
 
                         <Grid templateColumns="repeat(2, 1fr)" gap={6} marginTop="30px" marginBottom="30px">
                             <GridItem colSpan={2}>
