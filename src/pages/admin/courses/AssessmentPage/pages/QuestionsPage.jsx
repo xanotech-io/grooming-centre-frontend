@@ -9,9 +9,12 @@ import {
   Grid,
   Switch,
   Stack,
+  Tabs,
+  TabList,
+  Tab,
 } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { BsCheckCircle } from "react-icons/bs";
 import { FiMoreHorizontal } from "react-icons/fi";
@@ -320,43 +323,66 @@ const queuedQuestionType = (q) =>
 // "Exam without sections" and hybrid's non-sectioned questions both draw
 // from the same Quantity-per-type/marking-template restriction set up on
 // the Overview form's Exam Type step — once the queue already has that
-// many questions of a type, no more of that type can be added. Only ever
-// populated while the exam/assessment is still pending (create or a
-// deferred edit) and its Exam Type is "unsectioned"/"hybrid"; every other
-// case (sectioned, an already-real exam, or one that predates this
-// feature and has no examType at all) returns fully unrestricted.
-const buildTypeQuotaState = ({ pendingSource, isPending, selectedSectionId, isEditingQueued, queuedIndex }) => {
-  const examType = pendingSource?.body?.examType;
-  const isHybridExam = isPending && examType === "hybrid";
-  const isUnsectionedExam = isPending && examType === "unsectioned";
+// many questions of a type, no more of that type can be added. Originally
+// only ever populated while still pending; extended to also read the real
+// exam/assessment's own persisted `questionQuantity` and already-created
+// questions once it exists (via `realExamType`/`realQuestionQuantity`/
+// `realQuestions`), so the cap keeps applying past the point it becomes
+// real (e.g. via the batch-upload shortcut) instead of switching off. An
+// exam/assessment that's sectioned, or predates this feature and has no
+// examType at all, still returns fully unrestricted.
+const buildTypeQuotaState = ({
+  pendingSource,
+  isPending,
+  realExamType,
+  realQuestionQuantity,
+  realQuestions,
+  editingQuestionId,
+  selectedSectionId,
+  isEditingQueued,
+  queuedIndex,
+}) => {
+  const examType = isPending ? pendingSource?.body?.examType : realExamType;
+  const isHybridExam = examType === "hybrid";
+  const isUnsectionedExam = examType === "unsectioned";
   // Hybrid only applies the template restriction while on the "standalone"
   // (no section selected) side of the form — a section's own type-lock
   // (allowedQuestionTypes) governs question types once a section is
   // active, exactly like a plain sectioned exam.
   const usingTemplateTypeRestriction = isUnsectionedExam || (isHybridExam && !selectedSectionId);
-  const questionQuantity = pendingSource?.body?.questionQuantity || {};
+  const questionQuantity = isPending ? (pendingSource?.body?.questionQuantity || {}) : (realQuestionQuantity || {});
   // A type absent from the map isn't offered by the template at all, so
   // it's disabled outright, never just quantity-capped. Falls back to "no
-  // restriction" when nothing was seeded (e.g. older pending data from
+  // restriction" when nothing was seeded (e.g. older pending/real data from
   // before this existed), so this can't hide every type by accident.
   const templateSupportedTypes =
     usingTemplateTypeRestriction && Object.keys(questionQuantity).length > 0
       ? Object.keys(questionQuantity)
       : null;
-  const queuedTypeCounts = usingTemplateTypeRestriction
-    ? (pendingSource?.questions || []).reduce((acc, q, i) => {
-        // Editing this exact queued slot doesn't add a new question —
-        // exclude it so its own type doesn't count against its own
-        // remaining quota.
-        if (isEditingQueued && i === queuedIndex) return acc;
-        // A hybrid section's own questions draw from that section's
-        // weightage, never the template's standalone-quantity pool.
-        if (q.data?.section) return acc;
-        const t = queuedQuestionType(q);
-        if (t) acc[t] = (acc[t] || 0) + 1;
-        return acc;
-      }, {})
-    : {};
+  const queuedTypeCounts = !usingTemplateTypeRestriction
+    ? {}
+    : isPending
+      ? (pendingSource?.questions || []).reduce((acc, q, i) => {
+          // Editing this exact queued slot doesn't add a new question —
+          // exclude it so its own type doesn't count against its own
+          // remaining quota.
+          if (isEditingQueued && i === queuedIndex) return acc;
+          // A hybrid section's own questions draw from that section's
+          // weightage, never the template's standalone-quantity pool.
+          if (q.data?.section) return acc;
+          const t = queuedQuestionType(q);
+          if (t) acc[t] = (acc[t] || 0) + 1;
+          return acc;
+        }, {})
+      : (realQuestions || []).reduce((acc, q) => {
+          // Editing this exact question in place doesn't add a new one —
+          // exclude it so its own type doesn't count against its own
+          // remaining quota.
+          if (editingQuestionId && q.id === editingQuestionId) return acc;
+          if (q.section) return acc;
+          if (q.questionType) acc[q.questionType] = (acc[q.questionType] || 0) + 1;
+          return acc;
+        }, {});
   const typeQuota = (type) => {
     const raw = questionQuantity[type];
     return raw !== undefined && raw !== null && raw !== "" ? Number(raw) : null;
@@ -425,13 +451,6 @@ const QuestionsPage = () => {
   // actual update (from `pendingEdit`) is deferred until a question is saved.
   const isPendingEditSubmit = editSubmit && !isExistingQuestion && !isEditMode;
 
-  const batchUploadLink = buildBatchUploadLink({
-    courseId,
-    assessmentId,
-    examinationId: isExamination || undefined,
-    standalone: isStandaloneExamination,
-  });
-
   const assessmentManager = useAssessmentPreview(null, assessmentId, true);
 
   const storeSections = useAssessmentStore((s) => s.sections);
@@ -442,6 +461,28 @@ const QuestionsPage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const [creatingForUpload, setCreatingForUpload] = useState(false);
+
+  // Lifted up from CreateQuestionPage (instead of that component owning its
+  // own local state) so the "Upload & Batch Import Questions" button here —
+  // a sibling of CreateQuestionPage, not a descendant — knows which Section
+  // tab is currently active and can target the upload at it.
+  const pendingSectionId = useQueryParams().get("section");
+  const [selectedSectionId, setSelectedSectionId] = useState(pendingSectionId || "");
+  const queuedSource = isPendingCreation ? pendingCreate : isPendingEditSubmit ? pendingEdit : null;
+  const isPending = isPendingCreation || isPendingEditSubmit;
+  const examTypeForBatchUpload = isPending ? queuedSource?.body?.examType : assessmentManager.assessment?.examType;
+  const isSectionedExam = examTypeForBatchUpload === "sectioned" || examTypeForBatchUpload === "hybrid";
+
+  // Used for an already-real exam/assessment ("Add more questions") — the
+  // isPendingCreation case builds its own link fresh inside
+  // handleBatchUploadClick below, once the parent record exists.
+  const batchUploadLink = buildBatchUploadLink({
+    courseId,
+    assessmentId,
+    examinationId: isExamination || undefined,
+    standalone: isStandaloneExamination,
+    section: isSectionedExam ? selectedSectionId || undefined : undefined,
+  });
 
   // The batch-upload endpoint requires a real assessment/examination UUID —
   // it never accepts the "new" placeholder. While pending creation, clicking
@@ -488,6 +529,7 @@ const QuestionsPage = () => {
           assessmentId: isExamination ? undefined : realParentId,
           examinationId: isExamination ? realParentId : undefined,
           standalone: isStandaloneExamination,
+          section: isSectionedExam ? selectedSectionId || undefined : undefined,
         }),
       );
     } catch (err) {
@@ -729,6 +771,8 @@ const QuestionsPage = () => {
             templateSections={templateSections}
             sectionsLoading={sectionsLoading}
             sectionConfigMap={sectionConfigMap}
+            selectedSectionId={selectedSectionId}
+            setSelectedSectionId={setSelectedSectionId}
           />
         )}
 
@@ -908,6 +952,8 @@ const CreateQuestionPage = ({
   templateSections,
   sectionsLoading,
   sectionConfigMap = {},
+  selectedSectionId,
+  setSelectedSectionId,
   ...assessmentManager
 }) => {
   const { push } = useHistory();
@@ -916,7 +962,6 @@ const CreateQuestionPage = ({
   const isExamination = useQueryParams().get("examination");
   const moduleId = useQueryParams().get("moduleId");
   const isEditMode = useQueryParams().get("edit") === "true";
-  const pendingSectionId = useQueryParams().get("section");
   const submitForApproval = useQueryParams().get("submitForApproval") === "1";
   const editSubmit = useQueryParams().get("editSubmit") === "1";
   const isSuperAdmin = useIsSuperAdmin();
@@ -979,6 +1024,12 @@ const CreateQuestionPage = ({
     ((isPendingCreation ? pendingCreate?.questions?.length : isPendingEditSubmit ? pendingEdit?.questions?.length : 0) || 0);
   const remainingQuestionSlots = amountOfQuestions ? Math.max(0, amountOfQuestions - questionsSoFar) : null;
   const overLimitDescription = `You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — you can't add any more.`;
+  // Plain "Add Question" on an already-real exam/assessment, once it's
+  // already at its configured question count — surfaced proactively (button
+  // disabled + banner) instead of only rejecting it in onSubmit after the
+  // whole form was filled out.
+  const isPlainRealAdd = !isExistingQuestion && !isEditMode && !isPendingCreation && !isPendingEditSubmit;
+  const realAddAtCapacity = isPlainRealAdd && remainingQuestionSlots === 0;
 
   const buildRealQuestionRoute = (realParentId, { listing, keepPending } = {}) => {
     const finalAssessmentId = isExamination ? courseId : (realParentId ?? assessmentId);
@@ -1110,14 +1161,29 @@ const CreateQuestionPage = ({
   const [questionType, setQuestionType] = useState("MCQ");
   const [marks, setMarks] = useState(1);
   const [markingType, setMarkingType] = useState("automatic");
-  const [selectedSectionId, setSelectedSectionId] = useState(
-    pendingSectionId || "",
-  );
   const [rubric, setRubric] = useState("");
   const [difficultyLevel, setDifficultyLevel] = useState("medium");
   const [bloomLevel, setBloomLevel] = useState("");
 
-  const activeSections = templateSections;
+  // Exam-Type-driven per-type Quantity cap (unsectioned/hybrid) — see
+  // buildTypeQuotaState below. `queuedSource` is already whichever of
+  // pendingCreate/pendingEdit applies while pending; once the exam/
+  // assessment is real, the same rules are read from the fetched record
+  // instead (unrestricted for one with no Exam Type at all — e.g. it
+  // predates this feature).
+  const isPending = isPendingCreation || isPendingEditSubmit;
+  const realExamType = assessmentManager.assessment?.examType;
+  const examTypeForTabs = isPending ? queuedSource?.body?.examType : realExamType;
+  const isHybridExam = examTypeForTabs === "hybrid";
+  // Hybrid gets one extra tab ("" — Standalone Questions) alongside its real
+  // sections, so the admin can switch between the sectioned and marking-
+  // template-driven halves — same as Standalone Exam's own Questions step
+  // (QuestionsStandalone.jsx). A plain "with sections" exam/assessment has
+  // no standalone half, so its tabs are exactly its real sections.
+  const activeSections = useMemo(
+    () => (isHybridExam ? ["", ...templateSections] : templateSections),
+    [isHybridExam, templateSections],
+  );
 
   // The selected section's question-type/marking-type locks, count cap, and
   // weightage — null allowed-lists mean "no restriction" from this section.
@@ -1133,11 +1199,13 @@ const CreateQuestionPage = ({
     !!selectedSectionConfig?.questionsCount &&
     existingSectionQuestionCount >= selectedSectionConfig.questionsCount;
 
-  // Exam-Type-driven per-type Quantity cap (unsectioned/hybrid) — see
-  // buildTypeQuotaState above. `queuedSource` is already whichever of
-  // pendingCreate/pendingEdit applies; unrestricted for an already-real
-  // exam/assessment or one with no Exam Type at all.
-  const isPending = isPendingCreation || isPendingEditSubmit;
+  // "Exam with sections" — same header-level section tabs Standalone Exam's
+  // own Questions step uses (QuestionsStandalone.jsx), instead of the plain
+  // dropdown below. Also true for hybrid (see isHybridExam/activeSections
+  // above). Covers both a still-pending exam/assessment and an already-real
+  // one — an exam/assessment with no Exam Type at all keeps the dropdown
+  // exactly as it always has.
+  const isSectionedExam = examTypeForTabs === "sectioned" || isHybridExam;
   const {
     usingTemplateTypeRestriction,
     templateSupportedTypes,
@@ -1147,6 +1215,10 @@ const CreateQuestionPage = ({
   } = buildTypeQuotaState({
     pendingSource: queuedSource,
     isPending,
+    realExamType,
+    realQuestionQuantity: assessmentManager.assessment?.questionQuantity,
+    realQuestions: assessmentManager.assessment?.questions,
+    editingQuestionId: isEditMode ? question?.id : undefined,
     selectedSectionId,
     isEditingQueued,
     queuedIndex,
@@ -1156,6 +1228,19 @@ const CreateQuestionPage = ({
     if (usingTemplateTypeRestriction && typeAtCapacity(type)) return false;
     return true;
   });
+
+  // A brand-new "with sections" form has no section picked yet — default to
+  // the first one so the section tabs (and the type/marking-type locks tied
+  // to it) immediately reflect a real section instead of nothing selected.
+  // Skipped whenever there's a real `question` to hydrate from (existing/
+  // queued question edit, or a bank-apply) — that effect always wins since
+  // it re-runs whenever `question` resolves. Hybrid is deliberately
+  // excluded — its default tab is "Standalone Questions" (selectedSectionId
+  // already starts at "").
+  useEffect(() => {
+    if (!isSectionedExam || isHybridExam || selectedSectionId || question || activeSections.length === 0) return;
+    setSelectedSectionId(activeSections[0]);
+  }, [isSectionedExam, isHybridExam, selectedSectionId, question, activeSections, setSelectedSectionId]);
 
   // Snap to a section's locked type/marking type as soon as it's picked —
   // covers arriving via a section's "Add Question" link and switching
@@ -1937,6 +2022,16 @@ const CreateQuestionPage = ({
         );
       }
 
+      // Plain "Add Question" on an already-real exam/assessment: the
+      // pending/pendingEdit paths enforce this same overall cap once the
+      // question is queued (see finishSaving's "reached limit" toast above)
+      // — this is the one remaining case (adding straight to a real
+      // exam/assessment, not via the queue) that could otherwise create
+      // more questions than it was configured for.
+      if (!isPendingCreation && !isPendingEditSubmit && !isEditMode && !isEditingQueued && remainingQuestionSlots === 0) {
+        throw new Error(overLimitDescription);
+      }
+
       const file = questionImageManager.handleGetFileAndValidate(
         "Question Cover",
         true,
@@ -2453,6 +2548,41 @@ const CreateQuestionPage = ({
       padding={6}
       width={{ base: "100%", md: "100%", lg: "70%" }}
     >
+      {/* ── Section tabs ("Exam with sections" only) ── */}
+      {isSectionedExam && activeSections.length > 0 && (
+        <Box paddingX="20px" paddingTop="16px" backgroundColor="white">
+          <Text fontSize="sm" fontWeight="600" color="gray.700" mb={2}>
+            Section
+          </Text>
+          <Tabs
+            colorScheme="purple"
+            index={Math.max(activeSections.indexOf(selectedSectionId), 0)}
+            onChange={(idx) => setSelectedSectionId(activeSections[idx])}
+          >
+            <TabList borderBottom="1px solid" borderColor="accent.2">
+              {activeSections.map((name) => (
+                <Tab key={name || "__standalone__"} fontSize="sm">
+                  {name || "Standalone Questions"}
+                </Tab>
+              ))}
+            </TabList>
+          </Tabs>
+        </Box>
+      )}
+
+      {realAddAtCapacity && (
+        <Box paddingX="20px" paddingTop="16px">
+          <Box bg="#FFF5EA" border="1px solid #F6AD55" borderRadius="8px" p="12px">
+            <Text fontSize="13px" color="#7B341E">
+              This {isExamination ? "exam" : "assessment"} is set for {amountOfQuestions} question
+              {amountOfQuestions === 1 ? "" : "s"} — that many have already been added. Remove one
+              first if you need to replace it, or head to <Text as="span" fontWeight="700">See All</Text> to
+              review what's there.
+            </Text>
+          </Box>
+        </Box>
+      )}
+
       <Box
         paddingTop="20px"
         paddingX="20px"
@@ -2659,65 +2789,71 @@ const CreateQuestionPage = ({
                   </Box>
                 </>
               )}
-              {/* Section — populated from the exam's configured sections, or the linked marking template */}
-              <Box minW="200px">
-                <Flex justifyContent="space-between" alignItems="baseline">
-                  <Text fontSize="sm" mb={1} color="gray.600">
-                    Section{" "}
-                    {sectionsLoading && (
-                      <Text as="span" fontSize="xs" color="gray.400">
-                        (loading…)
-                      </Text>
+              {/* Section — populated from the exam's configured sections, or the
+                  linked marking template. The tabs above already cover this for
+                  "Exam with sections" and hybrid (including once either is
+                  real, not just pending); this dropdown is only for
+                  "without sections" or an exam with no Exam Type at all. */}
+              {!isSectionedExam && (
+                <Box minW="200px">
+                  <Flex justifyContent="space-between" alignItems="baseline">
+                    <Text fontSize="sm" mb={1} color="gray.600">
+                      Section{" "}
+                      {sectionsLoading && (
+                        <Text as="span" fontSize="xs" color="gray.400">
+                          (loading…)
+                        </Text>
+                      )}
+                    </Text>
+                    {isExamination && (
+                      <Link
+                        href={`/admin/exam-paper-config/${isExamination}?examType=${isStandaloneExamination ? "standalone_examination" : "examination"}`}
+                      >
+                        <Text fontSize="xs" color="primary.base">
+                          Configure sections
+                        </Text>
+                      </Link>
                     )}
-                  </Text>
-                  {isExamination && (
-                    <Link
-                      href={`/admin/exam-paper-config/${isExamination}?examType=${isStandaloneExamination ? "standalone_examination" : "examination"}`}
-                    >
-                      <Text fontSize="xs" color="primary.base">
-                        Configure sections
-                      </Text>
-                    </Link>
-                  )}
-                </Flex>
-                <ChakraSelect
-                  value={selectedSectionId}
-                  onChange={(e) => setSelectedSectionId(e.target.value)}
-                  size="sm"
-                  disabled={sectionsLoading || activeSections.length === 0}
-                  placeholder={
-                    sectionsLoading
-                      ? "Loading sections…"
-                      : activeSections.length === 0
-                        ? "No sections available"
-                        : "Select a section"
-                  }
-                >
-                  {activeSections.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </ChakraSelect>
-                {!!selectedSectionConfig?.questionsCount && (
-                  <Text
-                    fontSize="xs"
-                    color={sectionAtCapacity ? "red.500" : "gray.500"}
-                    mt={1}
+                  </Flex>
+                  <ChakraSelect
+                    value={selectedSectionId}
+                    onChange={(e) => setSelectedSectionId(e.target.value)}
+                    size="sm"
+                    disabled={sectionsLoading || activeSections.length === 0}
+                    placeholder={
+                      sectionsLoading
+                        ? "Loading sections…"
+                        : activeSections.length === 0
+                          ? "No sections available"
+                          : "Select a section"
+                    }
                   >
-                    {existingSectionQuestionCount}/{selectedSectionConfig.questionsCount}{" "}
-                    questions used
-                    {sectionAtCapacity && " — section is full"}
-                  </Text>
-                )}
-                {isExamination && !isStandaloneExamination && (
-                  <Text fontSize="xs" color="gray.500" mt={1}>
-                    {sectionMarks != null
-                      ? `Marks: ${sectionMarks} (from section weightage)`
-                      : "Marks: distributed equally at marking time"}
-                  </Text>
-                )}
-              </Box>
+                    {activeSections.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </ChakraSelect>
+                  {!!selectedSectionConfig?.questionsCount && (
+                    <Text
+                      fontSize="xs"
+                      color={sectionAtCapacity ? "red.500" : "gray.500"}
+                      mt={1}
+                    >
+                      {existingSectionQuestionCount}/{selectedSectionConfig.questionsCount}{" "}
+                      questions used
+                      {sectionAtCapacity && " — section is full"}
+                    </Text>
+                  )}
+                  {isExamination && !isStandaloneExamination && (
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      {sectionMarks != null
+                        ? `Marks: ${sectionMarks} (from section weightage)`
+                        : "Marks: distributed equally at marking time"}
+                    </Text>
+                  )}
+                </Box>
+              )}
             </Flex>
           </>
         )}
@@ -2978,7 +3114,7 @@ const CreateQuestionPage = ({
             addAnotherRef.current = false;
             submitForApprovalRef.current = false;
           }}
-          disabled={isLoading || isSubmitting || error}
+          disabled={isLoading || isSubmitting || error || realAddAtCapacity}
           isLoading={isLoading || isSubmitting}
         >
           {isExistingQuestion && !isEditMode
@@ -3263,6 +3399,9 @@ const QuestionListingPage = ({
   } = buildTypeQuotaState({
     pendingSource: isPendingCreation ? pendingCreate : isPendingEditSubmit ? pendingEdit : null,
     isPending: isPendingCreation || isPendingEditSubmit,
+    realExamType: assessment?.examType,
+    realQuestionQuantity: assessment?.questionQuantity,
+    realQuestions: assessment?.questions,
     selectedSectionId: undefined,
     isEditingQueued: false,
     queuedIndex: null,

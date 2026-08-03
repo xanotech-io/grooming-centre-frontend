@@ -136,6 +136,10 @@ const toApiCreateBody = (body) => {
     // it) so this file's own total-question-cap check still has a value to
     // read locally; only the actual network call needs it gone.
     amountOfQuestions: isSectioned ? undefined : body.amountOfQuestions,
+    // Backend confirmed: total marks is calculated automatically for hybrid
+    // exams and rejects the field if sent. Belt-and-suspenders alongside the
+    // strip already done in TemplateStandalone.jsx's create branch.
+    totalMarks: body.examType === "hybrid" ? undefined : body.totalMarks,
     // "standaloneQuestionCounts" is this file's own internal name for the
     // per-type Quantity set on the Template/Marking Scheme step — the
     // backend's field for this is `questionQuantity` (matching the marking
@@ -251,11 +255,6 @@ const QuestionsStandalone = () => {
   // actual update (from `pendingEdit`) is deferred until a question is saved.
   const isPendingEditSubmit = editSubmit && !isExistingQuestion && !isEditMode;
 
-  const batchUploadLink = buildBatchUploadLink({
-    examinationId: isExamination,
-    standalone: true,
-  });
-
   const assessmentManager = useAssessmentPreview(null, isExamination, true);
 
   const storeSections = useAssessmentStore((s) => s.sections);
@@ -281,10 +280,34 @@ const QuestionsStandalone = () => {
   // Hybrid has sections too (optionally) — shown as the same tabs, combined
   // with a "Standalone Questions" tab for the non-sectioned portion (see
   // isHybridExam/usingTemplateTypeRestriction in CreateQuestionPage below).
+  // Also true for an already-real exam of the same type ("Add more
+  // questions" after the exam was created, e.g. via the batch-upload
+  // shortcut) — without this, the tabs only ever appeared during the
+  // pending-creation window and silently reverted to the older bare
+  // Section dropdown the moment the exam became real.
   const isSectionedExam =
-    isPendingCreation &&
-    (pendingCreate?.body?.examType === "with_sections" ||
-      pendingCreate?.body?.examType === "hybrid");
+    (isPendingCreation &&
+      (pendingCreate?.body?.examType === "with_sections" ||
+        pendingCreate?.body?.examType === "hybrid")) ||
+    (!isPendingCreation &&
+      !!isExamination &&
+      (assessmentManager.assessment?.examType === "sectioned" ||
+        assessmentManager.assessment?.examType === "hybrid"));
+
+  // Lifted up from CreateQuestionPage (instead of that component owning its
+  // own local state) so the "Upload & Batch Import Questions" button here —
+  // a sibling of CreateQuestionPage, not a descendant — knows which Section
+  // tab is currently active and can target the upload at it.
+  const [selectedSectionId, setSelectedSectionId] = useState("");
+
+  // Used for an already-real exam ("Add more questions") — the
+  // isPendingCreation case builds its own link fresh inside
+  // handleBatchUploadClick below, once the exam shell exists.
+  const batchUploadLink = buildBatchUploadLink({
+    examinationId: isExamination,
+    standalone: true,
+    section: isSectionedExam ? selectedSectionId || undefined : undefined,
+  });
 
   // The batch-upload endpoint requires a real examination UUID — it never
   // accepts the "new" placeholder. While pending creation, clicking "Upload
@@ -307,7 +330,13 @@ const QuestionsStandalone = () => {
       // Approval" action once the import is done.
       markNeedsApprovalSubmission("standalone", examination.id);
 
-      push(buildBatchUploadLink({ examinationId: examination.id, standalone: true }));
+      push(
+        buildBatchUploadLink({
+          examinationId: examination.id,
+          standalone: true,
+          section: isSectionedExam ? selectedSectionId || undefined : undefined,
+        }),
+      );
     } catch (err) {
       toast({
         description: "Couldn't create the exam before uploading — please try again",
@@ -386,6 +415,19 @@ const QuestionsStandalone = () => {
         const configured = res?.data?.configuredSections;
         if (Array.isArray(configured) && configured.length > 0) {
           setTemplateSections(configured.map((s) => s.section_name));
+          // Same mapping the pending-creation branch above uses — without
+          // this, a real (already-created) exam's section question-type
+          // locks/Question Count caps never applied at all, only its names.
+          setSectionQuestionTypes(
+            Object.fromEntries(
+              configured.map((s) => [s.section_name, s.question_types || []]),
+            ),
+          );
+          setSectionQuestionCounts(
+            Object.fromEntries(
+              configured.map((s) => [s.section_name, Number(s.question_count) || 0]),
+            ),
+          );
           setSectionsLoading(false);
           return;
         }
@@ -493,6 +535,8 @@ const QuestionsStandalone = () => {
             sectionQuestionTypes={sectionQuestionTypes}
             sectionQuestionCounts={sectionQuestionCounts}
             isSectionedExam={isSectionedExam}
+            selectedSectionId={selectedSectionId}
+            setSelectedSectionId={setSelectedSectionId}
           />
         )}
 
@@ -661,6 +705,8 @@ const CreateQuestionPage = ({
   sectionQuestionTypes = {},
   sectionQuestionCounts = {},
   isSectionedExam = false,
+  selectedSectionId,
+  setSelectedSectionId,
   ...assessmentManager
 }) => {
   const { push } = useHistory();
@@ -735,6 +781,16 @@ const CreateQuestionPage = ({
         assessmentManager.assessment?.questionCount ??
         assessmentManager.assessment?.amountOfQuestions,
     ) || null;
+
+  // Plain "Add Question" on an already-real exam, once it already has as
+  // many questions as it was configured for — mirrors the toast/onSubmit
+  // guard above, but surfaced proactively so the admin never fills out a
+  // whole form only to have it rejected at the end.
+  const isPlainRealAdd = !isExistingQuestion && !isEditMode && !isPendingCreation && !isPendingEditSubmit;
+  const realAddAtCapacity =
+    isPlainRealAdd &&
+    !!amountOfQuestions &&
+    (assessmentManager.assessment?.questions?.length || 0) >= amountOfQuestions;
 
   const buildRealQuestionRoute = (realParentId, { listing, keepPending } = {}) => {
     const finalExamination = realParentId ?? isExamination;
@@ -869,7 +925,12 @@ const CreateQuestionPage = ({
   // submit call.
   const performEditParent = async () => {
     const { contentId, body, paperConfigBody } = pendingEdit;
-    await adminEditStandaloneExamination(contentId, body);
+    // Backend confirmed: total marks is calculated automatically for hybrid
+    // exams and rejects the field if sent — TemplateStandalone.jsx never
+    // rebuilds `body.totalMarks` on the edit path, so it can still be
+    // carrying a stale value from whatever was originally fetched.
+    const editBody = body?.examType === "hybrid" ? { ...body, totalMarks: undefined } : body;
+    await adminEditStandaloneExamination(contentId, editBody);
     if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
     return { id: contentId };
   };
@@ -889,7 +950,6 @@ const CreateQuestionPage = ({
   const [acceptVariants, setAcceptVariants] = useState([]);
   const [variantInput, setVariantInput] = useState("");
   const [markingType, setMarkingType] = useState("automatic");
-  const [selectedSectionId, setSelectedSectionId] = useState("");
 
   // "Exam with sections": whichever question types the active section's
   // Template/Marking Scheme checkbox list allowed — null (not an empty
@@ -904,44 +964,61 @@ const CreateQuestionPage = ({
   // Questions" tab both draw from the same Quantity-per-type/marking-
   // template restriction set up on the Template/Marking Scheme step — once
   // the queue already has that many questions of a type, no more of that
-  // type can be added. Only ever populated for a brand-new "without
-  // sections"/"hybrid" exam still in pendingCreate; every other case leaves
-  // this at its default (no cap), same non-invasive scoping as
-  // `isSectionedExam` above.
-  const isHybridExam = isPendingCreation && pendingCreate?.body?.examType === "hybrid";
-  const isUnsectionedExam =
-    isPendingCreation && pendingCreate?.body?.examType === "without_sections";
+  // type can be added. Originally only ever populated for a brand-new
+  // "without sections"/"hybrid" exam still in pendingCreate; extended below
+  // to also read the real exam's own persisted `questionQuantity` and
+  // already-created questions once it exists, so the cap keeps applying
+  // past the point the exam becomes real (e.g. via the batch-upload
+  // shortcut) instead of silently switching off.
+  const isHybridExam = isPendingCreation
+    ? pendingCreate?.body?.examType === "hybrid"
+    : !!isExamination && assessmentManager.assessment?.examType === "hybrid";
+  const isUnsectionedExam = isPendingCreation
+    ? pendingCreate?.body?.examType === "without_sections"
+    : !!isExamination && assessmentManager.assessment?.examType === "unsectioned";
   // Hybrid only applies the template restriction while on the "Standalone
   // Questions" tab (no section selected) — a section's own checkbox list
   // (allowedTypesForSection above) governs question types once a section
   // is active, exactly like a plain "with sections" exam.
   const usingTemplateTypeRestriction =
     isUnsectionedExam || (isHybridExam && !selectedSectionId);
-  const standaloneQuestionCounts = pendingCreate?.body?.standaloneQuestionCounts || {};
+  const standaloneQuestionCounts = isPendingCreation
+    ? pendingCreate?.body?.standaloneQuestionCounts || {}
+    : assessmentManager.assessment?.questionQuantity || {};
   // The Template/Marking Scheme step seeds a key for every question type the
   // selected marking template actually supports (even ones left at 0) — a
   // type absent here isn't offered by the template at all, so it's disabled
   // outright, never just quantity-capped. Falls back to "no restriction"
-  // when nothing was seeded (e.g. older pendingCreate data from before this
-  // existed), so this can't hide every tab by accident.
+  // when nothing was seeded (e.g. older pendingCreate/real-exam data from
+  // before this existed), so this can't hide every tab by accident.
   const templateSupportedTypes =
     usingTemplateTypeRestriction && Object.keys(standaloneQuestionCounts).length > 0
       ? Object.keys(standaloneQuestionCounts)
       : null;
-  const queuedTypeCounts = usingTemplateTypeRestriction
-    ? (pendingCreate?.questions || []).reduce((acc, q, i) => {
-        // Editing this exact queued slot doesn't add a new question —
-        // exclude it so its own type doesn't count against its own
-        // remaining quota.
-        if (isEditingQueued && i === queuedIndex) return acc;
-        // A hybrid section's own questions draw from that section's
-        // weightage, never the template's standalone-quantity pool.
-        if (q.data?.section) return acc;
-        const t = inferQueuedQuestionType(q.data);
-        if (t) acc[t] = (acc[t] || 0) + 1;
-        return acc;
-      }, {})
-    : {};
+  const queuedTypeCounts = !usingTemplateTypeRestriction
+    ? {}
+    : isPendingCreation
+      ? (pendingCreate?.questions || []).reduce((acc, q, i) => {
+          // Editing this exact queued slot doesn't add a new question —
+          // exclude it so its own type doesn't count against its own
+          // remaining quota.
+          if (isEditingQueued && i === queuedIndex) return acc;
+          // A hybrid section's own questions draw from that section's
+          // weightage, never the template's standalone-quantity pool.
+          if (q.data?.section) return acc;
+          const t = inferQueuedQuestionType(q.data);
+          if (t) acc[t] = (acc[t] || 0) + 1;
+          return acc;
+        }, {})
+      : (assessmentManager.assessment?.questions || []).reduce((acc, q) => {
+          // Editing this exact question in place doesn't add a new one —
+          // exclude it so its own type doesn't count against its own
+          // remaining quota.
+          if (isEditMode && question && q.id === question.id) return acc;
+          if (q.section) return acc;
+          if (q.questionType) acc[q.questionType] = (acc[q.questionType] || 0) + 1;
+          return acc;
+        }, {});
   const typeQuota = (type) => {
     const raw = standaloneQuestionCounts[type];
     return raw !== undefined && raw !== null && raw !== "" ? Number(raw) : null;
@@ -971,7 +1048,7 @@ const CreateQuestionPage = ({
   useEffect(() => {
     if (!isSectionedExam || isHybridExam || selectedSectionId || question || templateSections.length === 0) return;
     setSelectedSectionId(templateSections[0]);
-  }, [isSectionedExam, isHybridExam, selectedSectionId, question, templateSections]);
+  }, [isSectionedExam, isHybridExam, selectedSectionId, question, templateSections, setSelectedSectionId]);
 
   // If switching sections (or the default-select above) leaves the
   // currently active Answer Options tab pointing at a type this section
@@ -1496,6 +1573,21 @@ const CreateQuestionPage = ({
         );
       }
 
+      // Plain "Add Question" on an already-real exam: pending/pendingEdit
+      // paths enforce this same overall cap after queuing (see
+      // finishSaving/the "reached limit" toasts above) — this is the one
+      // remaining case (adding straight to a real exam, not via the queue)
+      // that could otherwise create more questions than the exam was
+      // configured for.
+      if (!isPendingCreation && !isPendingEditSubmit && !isEditMode && !isEditingQueued) {
+        const existingCount = assessmentManager.assessment?.questions?.length || 0;
+        if (amountOfQuestions && existingCount >= amountOfQuestions) {
+          throw new Error(
+            `You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this exam — you can't add another question.`,
+          );
+        }
+      }
+
       const maybeAddToBank = async (forceAdd) => {
         if (isEditMode || !(addToBank || autoAddToBank || forceAdd)) return;
         const bankType = FORM_TYPE_TO_BANK_TYPE[questionType];
@@ -1873,6 +1965,18 @@ const CreateQuestionPage = ({
               ))}
             </TabList>
           </Tabs>
+        </Box>
+      )}
+
+      {realAddAtCapacity && (
+        <Box paddingX="20px" paddingTop="16px">
+          <Box bg="#FFF5EA" border="1px solid #F6AD55" borderRadius="8px" p="12px">
+            <Text fontSize="13px" color="#7B341E">
+              This exam is set for {amountOfQuestions} question{amountOfQuestions === 1 ? "" : "s"} — that
+              many have already been added. Remove one first if you need to replace it, or head to{" "}
+              <Text as="span" fontWeight="700">See All</Text> to review what's there.
+            </Text>
+          </Box>
         </Box>
       )}
 
@@ -2447,7 +2551,7 @@ const CreateQuestionPage = ({
             goToListingRef.current =
               !isEditingQueued && (isPendingCreation || isPendingEditSubmit);
           }}
-          disabled={isLoading || isSubmitting || error}
+          disabled={isLoading || isSubmitting || error || realAddAtCapacity}
           isLoading={isLoading || isSubmitting}
           leftIcon={isExistingQuestion && !isEditMode ? <FaTrash /> : null}
         >
@@ -2725,7 +2829,12 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
 
   const performEditParent = async () => {
     const { contentId, body, paperConfigBody } = pendingEdit;
-    await adminEditStandaloneExamination(contentId, body);
+    // Backend confirmed: total marks is calculated automatically for hybrid
+    // exams and rejects the field if sent — TemplateStandalone.jsx never
+    // rebuilds `body.totalMarks` on the edit path, so it can still be
+    // carrying a stale value from whatever was originally fetched.
+    const editBody = body?.examType === "hybrid" ? { ...body, totalMarks: undefined } : body;
+    await adminEditStandaloneExamination(contentId, editBody);
     if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
     return { id: contentId };
   };

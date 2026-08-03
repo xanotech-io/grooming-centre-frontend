@@ -51,7 +51,16 @@ const TemplatePage = () => {
 
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
-  const [examType, setExamType] = useState("with_sections");
+  // New exams default to "with sections"; an exam/assessment being edited
+  // defaults to "" (the legacy/unset sentinel) instead, only overwritten
+  // below if the fetched record actually has its own examType. Unlike
+  // TemplateStandalone.jsx (whose handleNext is a no-op in edit mode, so its
+  // own "with_sections" default is harmless there), this page's handleNext
+  // runs the same auto-compute/validation logic for both create and edit —
+  // defaulting an existing, examType-less record to "with_sections" here
+  // would force its Number of Questions/Total Marks to recompute from zero
+  // sections on the very next save.
+  const [examType, setExamType] = useState(isCreateMode ? "with_sections" : "");
   const [amountOfQuestions, setAmountOfQuestions] = useState("");
   const [totalMarks, setTotalMarks] = useState("");
   const [questionQuantities, setQuestionQuantities] = useState({});
@@ -63,7 +72,7 @@ const TemplatePage = () => {
     setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
 
   const sectionsEnabled = examType === "with_sections" || examType === "hybrid";
-  const amountOfQuestionsIsAuto = examType === "with_sections" || examType === "without_sections";
+  const amountOfQuestionsIsAuto = examType === "with_sections" || examType === "without_sections" || examType === "hybrid";
   const totalMarksIsAuto = examType === "with_sections" || examType === "without_sections" || examType === "hybrid";
 
   useEffect(() => {
@@ -116,7 +125,8 @@ const TemplatePage = () => {
   useEffect(() => {
     if (examType !== "hybrid") return;
     setTotalMarks(String(sectionsWeightageTotal + quantityMarksTotal));
-  }, [examType, sectionsWeightageTotal, quantityMarksTotal]);
+    setAmountOfQuestions(String(sectionsQuestionCountTotal + quantityTotal));
+  }, [examType, sectionsWeightageTotal, quantityMarksTotal, sectionsQuestionCountTotal, quantityTotal]);
 
   // Restore whatever was already filled in before the admin moved on to the
   // Questions step and came back — mirrors the same restore pattern used on
@@ -176,21 +186,32 @@ const TemplatePage = () => {
     const newBody = {
       ...pending.body,
       amountOfQuestions: Number(amountOfQuestions),
-      totalMarks: Number(totalMarks),
+      // Backend confirmed: total marks is calculated automatically for
+      // hybrid exams and rejects the field if sent at creation/edit time.
+      totalMarks: examType === "hybrid" ? undefined : Number(totalMarks),
       markingTemplateId: templateRequired ? markingTemplateId : undefined,
       ...(examType && { examType: toExamTypeApiValue(examType) }),
       ...((examType === "hybrid" || examType === "without_sections") && {
         questionQuantity: seedQuantityCounts(quantityTypes, questionQuantities),
       }),
-      // Course Exam sections persist via paperConfigBody/updateExamPaperConfig
-      // (below) instead — only Assessment/Exam send them directly on the body.
-      ...(kind !== "ModuleExam" && sectionsEnabled && sections.length > 0 && {
+      // Course Exam and course-level Exam both go through the same
+      // create/edit-examination endpoint as each other — sections persist
+      // via paperConfigBody/updateExamPaperConfig for Course Exam only (see
+      // below); Exam has no section-persistence channel wired up at all
+      // (out of scope for now — see the Assessment Overview comment for
+      // why). Only a plain Assessment sends sections directly on its body.
+      ...(kind === "Assessment" && sectionsEnabled && sections.length > 0 && {
         sections: normalizeSectionsForConfig(sections),
       }),
     };
+    // Backend confirmed (same rule Standalone's TemplateStandalone.jsx
+    // already follows): an empty `configuredSections` array is rejected
+    // outright, so only send the key when there's actually at least one
+    // section — `undefined` (not simply omitting the key) so a stale
+    // non-empty value from a previous visit gets cleared out too.
     const newPaperConfigBody = {
       ...pending.paperConfigBody,
-      configuredSections: normalizeSectionsForConfig(sections),
+      configuredSections: sections.length > 0 ? normalizeSectionsForConfig(sections) : undefined,
     };
     const updated = { ...pending, body: newBody, paperConfigBody: newPaperConfigBody };
     if (isCreateMode) setPendingCreate(updated); else setPendingEdit(updated);

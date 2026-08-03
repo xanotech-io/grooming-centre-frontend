@@ -38,6 +38,12 @@ export const requestExaminationDetails = async (id, forAdmin) => {
     hasCompleted: raw.examinationScoreSheets?.[0] ? true : false,
     minimumPercentageScoreToEarnABadge:
       raw.minimumPercentageScoreToEarnABadge || 30,
+    // "sectioned" | "unsectioned" | "hybrid" | null (legacy/unset) — lets
+    // QuestionsPage.jsx keep enforcing Section/Quantity-per-type rules once
+    // the exam is real, not just while still pending.
+    examType: raw.examType ?? null,
+    questionQuantity: raw.questionQuantity ?? null,
+    templateId: raw.templateId ?? raw.markingTemplateId ?? null,
     questions: questionArray.map((q, index) => {
       const opts = q.options ?? [];
       const inferredType = (() => {

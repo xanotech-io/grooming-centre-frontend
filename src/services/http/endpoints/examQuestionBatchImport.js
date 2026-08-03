@@ -16,6 +16,7 @@ export const uploadExamQuestionBatch = async ({
   assessmentId,
   mediaZip,
   defaultDifficulty,
+  section,
 }) => {
   const formData = new FormData();
   formData.append("file", file);
@@ -24,6 +25,11 @@ export const uploadExamQuestionBatch = async ({
   if (assessmentId) formData.append("assessmentId", assessmentId);
   if (mediaZip) formData.append("mediaZip", mediaZip);
   if (defaultDifficulty) formData.append("defaultDifficulty", defaultDifficulty);
+  // Every row in this file belongs to the same section — the template has
+  // no per-row section column, so it's supplied once here instead. Rows are
+  // also explicitly tagged after upload (BatchUploadPage.jsx) so this still
+  // lands correctly even if the parser itself ignores this field.
+  if (section) formData.append("section", section);
 
   const { data } = await http.post(`${BASE}/upload`, formData);
   return data;

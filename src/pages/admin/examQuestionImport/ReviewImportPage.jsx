@@ -103,17 +103,57 @@ const ReviewImportPage = () => {
     }
   };
 
+  // Confirming an import kicks off backend processing (pending → processing
+  // → success/partial_success/failed — the same states ImportReportPage.jsx
+  // already renders) rather than finishing synchronously — so poll the
+  // report instead of navigating away the instant the confirm call resolves,
+  // which used to race ahead of the questions actually being created.
+  const POLL_INTERVAL_MS = 1500;
+  const MAX_POLL_ATTEMPTS = 20; // ~30s
+  const TERMINAL_STATUSES = ["success", "partial_success", "failed"];
+
   const handleConfirm = async () => {
     if (!rows.length) return;
     setConfirming(true);
     try {
-      const res = await confirmExamQuestionBatchImport(uploadId);
-      const data = res?.data ?? res;
-      const count = data?.questionIds?.length ?? rows.length;
+      await confirmExamQuestionBatchImport(uploadId);
+
+      let finalReport = null;
+      for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+        const res = await getExamQuestionBatchReport(uploadId);
+        const rep = res?.data ?? res;
+        if (TERMINAL_STATUSES.includes(rep?.uploadStatus)) {
+          finalReport = rep;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      }
+
+      if (!finalReport) {
+        toast({
+          description: "Still processing — this is taking longer than usual. Check Batch History shortly for the result.",
+          position: "top",
+          status: "warning",
+        });
+        return;
+      }
+
+      if (finalReport.uploadStatus === "failed") {
+        toast({
+          description: "Import failed — check the report for details.",
+          position: "top",
+          status: "error",
+        });
+        return;
+      }
+
+      const count = finalReport.importedCount ?? rows.length;
       toast({
-        description: `${count} question${count === 1 ? "" : "s"} imported successfully`,
+        description: `${count} question${count === 1 ? "" : "s"} imported successfully${
+          finalReport.uploadStatus === "partial_success" ? " (some rows were skipped — see the report for details)" : ""
+        }`,
         position: "top",
-        status: "success",
+        status: finalReport.uploadStatus === "partial_success" ? "warning" : "success",
       });
       history.push(buildQuestionListingLink(context));
     } catch (err) {
@@ -223,7 +263,7 @@ const ReviewImportPage = () => {
 
       {!loading && rows.length > 0 && (
         <Flex justifyContent="flex-end" mt="20px">
-          <Button isLoading={confirming} onClick={handleConfirm}>
+          <Button isLoading={confirming} loadingText="Processing..." onClick={handleConfirm}>
             Confirm Import ({rows.length} question{rows.length === 1 ? "" : "s"})
           </Button>
         </Flex>
