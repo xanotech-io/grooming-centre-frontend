@@ -164,6 +164,13 @@ const BatchUploadPage = () => {
   //     Questions" pool): governed by the marking template's per-type
   //     Quantity/markDistribution.
   const [typeRestriction, setTypeRestriction] = useState(null);
+  // The overall Number of Questions the exam/assessment was configured for
+  // — same cap the manual "Add Question" form enforces (amountOfQuestions/
+  // remainingQuestionSlots in QuestionsPage.jsx/QuestionsStandalone.jsx).
+  // Applies regardless of section/Quantity mode, and even to an exam with
+  // no Exam Type at all — every question created here still counts against
+  // it. null means no configured cap.
+  const [overallLimit, setOverallLimit] = useState(null);
 
   useEffect(() => {
     if (!context.examinationId && !context.assessmentId) return;
@@ -207,6 +214,13 @@ const BatchUploadPage = () => {
     loadRecord()
       .then(async ({ record, getSections }) => {
         if (cancelled || !record) return;
+
+        if (record.questionCount) {
+          setOverallLimit({
+            amount: Number(record.questionCount),
+            existingTotal: (record.questions || []).length,
+          });
+        }
 
         if (context.section && (record.examType === "sectioned" || record.examType === "hybrid")) {
           const configured = await getSections();
@@ -339,6 +353,24 @@ const BatchUploadPage = () => {
                   .catch(() => row),
           ),
         );
+      }
+
+      // Same overall Number of Questions cap the manual "Add Question" form
+      // enforces — applied before the type/Quantity rules below so those
+      // never see rows that were already cut for being over the total.
+      if (overallLimit && rows.length > 0) {
+        const remaining = Math.max(0, overallLimit.amount - overallLimit.existingTotal);
+        if (rows.length > remaining) {
+          const overflow = rows.slice(remaining);
+          rows = rows.slice(0, remaining);
+          await Promise.all(overflow.map((row) => deleteExamQuestionBatchRow(uploadId, row.rowId).catch(() => {})));
+          toast({
+            title: `${overflow.length} question${overflow.length === 1 ? "" : "s"} skipped — already at the ${overallLimit.amount} question limit configured for this ${contextLabel(context).toLowerCase()}`,
+            status: "warning",
+            duration: 6000,
+            isClosable: true,
+          });
+        }
       }
 
       // Same rule the manual "Add Question" form enforces: a type this
