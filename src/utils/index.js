@@ -10,4 +10,5 @@ export * from "./DateNow";
 export * from "./questionBankAutoAdd";
 export * from "./submissionStatus";
 export * from "./pendingWorkflowSubmission";
+export * from "./examMetaCache";
 export * from "./optionIndex";

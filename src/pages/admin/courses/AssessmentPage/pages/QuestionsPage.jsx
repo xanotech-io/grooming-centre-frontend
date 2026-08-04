@@ -76,7 +76,9 @@ import {
   capitalizeFirstLetter,
   capitalizeWords,
   clearNeedsApprovalSubmission,
+  getExamMeta,
   isAutoAddToBank,
+  markExamMeta,
   markNeedsApprovalSubmission,
   needsApprovalSubmission,
   setAutoAddToBank,
@@ -324,6 +326,40 @@ const queuedQuestionType = (q) =>
 // carries `.section` on its `bank` sub-object, only formSnapshot/data.
 const queuedQuestionSection = (q) => q.formSnapshot?.section ?? q.data?.section ?? null;
 
+// "ModuleExam"/"Exam"/"Assessment" — matches pendingCreate/pendingEdit.kind
+// values exactly, so the same key reads back whatever markExamMeta wrote at
+// creation/edit time. isStandaloneExamination is dead/unreachable in this
+// file (Standalone has its own QuestionsStandalone.jsx), so it's not one of
+// the cases here.
+const realExamKind = (isExamination, moduleId) =>
+  isExamination ? (moduleId ? "ModuleExam" : "Exam") : "Assessment";
+
+// The fetched record's own examType/questionQuantity, falling back to
+// whatever markExamMeta cached at creation/edit time — confirmed via a real
+// GET /v1/assessment/admin/:id response that the backend doesn't reliably
+// return these once an exam/assessment is real, which otherwise makes the
+// whole Exam Type feature (section tabs, per-type Quantity restriction) go
+// dark the moment it stops being pending.
+const getRealExamMeta = (assessment, isExamination, moduleId) => {
+  const cached = getExamMeta(realExamKind(isExamination, moduleId), assessment?.id);
+  return {
+    examType: assessment?.examType ?? cached?.examType ?? null,
+    questionQuantity: assessment?.questionQuantity ?? cached?.questionQuantity ?? null,
+  };
+};
+
+// Writes the getRealExamMeta cache the moment a pending exam/assessment
+// becomes real (create or edit) — StandaloneExam excluded, it's dead/
+// unreachable code in this file (own QuestionsStandalone.jsx handles it).
+const cacheExamMetaFromBody = (kind, id, body) => {
+  if (kind === "StandaloneExam" || !body) return;
+  markExamMeta(kind, id, {
+    examType: body.examType,
+    questionQuantity: body.questionQuantity,
+    markingTemplateId: body.markingTemplateId,
+  });
+};
+
 // "Exam without sections" and hybrid's non-sectioned questions both draw
 // from the same Quantity-per-type/marking-template restriction set up on
 // the Overview form's Exam Type step — once the queue already has that
@@ -474,7 +510,9 @@ const QuestionsPage = () => {
   const [selectedSectionId, setSelectedSectionId] = useState(pendingSectionId || "");
   const queuedSource = isPendingCreation ? pendingCreate : isPendingEditSubmit ? pendingEdit : null;
   const isPending = isPendingCreation || isPendingEditSubmit;
-  const examTypeForBatchUpload = isPending ? queuedSource?.body?.examType : assessmentManager.assessment?.examType;
+  const examTypeForBatchUpload = isPending
+    ? queuedSource?.body?.examType
+    : getRealExamMeta(assessmentManager.assessment, isExamination, moduleId).examType;
   const isSectionedExam = examTypeForBatchUpload === "sectioned" || examTypeForBatchUpload === "hybrid";
 
   // Used for an already-real exam/assessment ("Add more questions") — the
@@ -1181,7 +1219,8 @@ const CreateQuestionPage = ({
   // instead (unrestricted for one with no Exam Type at all — e.g. it
   // predates this feature).
   const isPending = isPendingCreation || isPendingEditSubmit;
-  const realExamType = assessmentManager.assessment?.examType;
+  const realExamMeta = getRealExamMeta(assessmentManager.assessment, isExamination, moduleId);
+  const realExamType = realExamMeta.examType;
   const examTypeForTabs = isPending ? queuedSource?.body?.examType : realExamType;
   const isHybridExam = examTypeForTabs === "hybrid";
   // Hybrid gets one extra tab ("" — Standalone Questions) alongside its real
@@ -1242,7 +1281,7 @@ const CreateQuestionPage = ({
     pendingSource: queuedSource,
     isPending,
     realExamType,
-    realQuestionQuantity: assessmentManager.assessment?.questionQuantity,
+    realQuestionQuantity: realExamMeta.questionQuantity,
     realQuestions: assessmentManager.assessment?.questions,
     editingQuestionId: isEditMode ? question?.id : undefined,
     selectedSectionId,
@@ -1783,6 +1822,7 @@ const CreateQuestionPage = ({
       }
       if (parentAddToBank) setAutoAddToBank("examination", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+      cacheExamMetaFromBody(kind, examination.id, finalBody);
       return { id: examination.id };
     }
 
@@ -1804,6 +1844,7 @@ const CreateQuestionPage = ({
       resourceType: "Assessment",
       remarks: `Created assessment "${finalBody.title}"`,
     }).catch(() => {});
+    cacheExamMetaFromBody(kind, assessment.id, finalBody);
     return { id: assessment.id };
   };
 
@@ -1825,11 +1866,13 @@ const CreateQuestionPage = ({
     if (kind === "ModuleExam" || kind === "Exam") {
       await adminEditExamination(contentId, finalBody);
       if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      cacheExamMetaFromBody(kind, contentId, finalBody);
       return { id: contentId };
     }
 
     // "Assessment" — same edit endpoint either way
     await adminEditAssessment(contentId, finalBody);
+    cacheExamMetaFromBody(kind, contentId, finalBody);
     return { id: contentId };
   };
 
@@ -3412,6 +3455,7 @@ const QuestionListingPage = ({
   // Same Exam-Type-driven per-type Quantity cap as CreateQuestionPage (see
   // buildTypeQuotaState above) — no section is ever selected from this
   // page, so a hybrid exam's standalone-quantity pool always applies here.
+  const realExamMeta = getRealExamMeta(assessment, isExamination, moduleId);
   const {
     usingTemplateTypeRestriction,
     templateSupportedTypes,
@@ -3420,8 +3464,8 @@ const QuestionListingPage = ({
   } = buildTypeQuotaState({
     pendingSource: isPendingCreation ? pendingCreate : isPendingEditSubmit ? pendingEdit : null,
     isPending: isPendingCreation || isPendingEditSubmit,
-    realExamType: assessment?.examType,
-    realQuestionQuantity: assessment?.questionQuantity,
+    realExamType: realExamMeta.examType,
+    realQuestionQuantity: realExamMeta.questionQuantity,
     realQuestions: assessment?.questions,
     selectedSectionId: undefined,
     isEditingQueued: false,
@@ -3555,6 +3599,7 @@ const QuestionListingPage = ({
       }
       if (parentAddToBank) setAutoAddToBank("examination", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+      cacheExamMetaFromBody(kind, examination.id, body);
       return { id: examination.id };
     }
 
@@ -3567,6 +3612,7 @@ const QuestionListingPage = ({
     const { assessment: created } = await adminCreateAssessment(body);
     setAssessment(created);
     if (parentAddToBank) setAutoAddToBank("assessment", created.id);
+    cacheExamMetaFromBody(kind, created.id, body);
     return { id: created.id };
   };
 
@@ -3582,10 +3628,12 @@ const QuestionListingPage = ({
     if (kind === "ModuleExam" || kind === "Exam") {
       await adminEditExamination(contentId, body);
       if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      cacheExamMetaFromBody(kind, contentId, body);
       return { id: contentId };
     }
 
     await adminEditAssessment(contentId, body);
+    cacheExamMetaFromBody(kind, contentId, body);
     return { id: contentId };
   };
 
@@ -3683,7 +3731,7 @@ const QuestionListingPage = ({
   // real section structure and grouped as if they were.
   const isActuallySectioned = isExamination
     ? definedSectionNames.length > 0
-    : assessment?.examType === "sectioned" || assessment?.examType === "hybrid";
+    : realExamMeta.examType === "sectioned" || realExamMeta.examType === "hybrid";
   const sectionNames = definedSectionNames.length
     ? definedSectionNames
     : isActuallySectioned
