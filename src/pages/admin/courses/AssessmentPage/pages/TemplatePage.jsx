@@ -12,6 +12,7 @@ import {
   EXAM_TYPE_OPTIONS,
   toExamTypeApiValue,
   normalizeSectionsForConfig,
+  toCreateBodySections,
   hydrateSection,
   computeSectionTotals,
   computeQuantityTotals,
@@ -173,6 +174,13 @@ const TemplatePage = () => {
         ? "Add sections/quantities so total marks can be calculated"
         : "Please enter total marks";
     }
+    // Backend confirmed: a section with a blank Name fails the same way an
+    // empty sections array does ("sections must be an array of 1-10 section
+    // objects with at least a section_name/name") — catch it here instead
+    // of letting a partially-filled section reach the backend at all.
+    if (sectionsEnabled && sections.some((s) => !s.section_name?.trim())) {
+      newErrors.sections = "Every section needs a Name before continuing";
+    }
     setFieldErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
       toast({
@@ -199,9 +207,13 @@ const TemplatePage = () => {
       // via paperConfigBody/updateExamPaperConfig for Course Exam only (see
       // below); Exam has no section-persistence channel wired up at all
       // (out of scope for now — see the Assessment Overview comment for
-      // why). Only a plain Assessment sends sections directly on its body.
+      // why). Only a plain Assessment sends sections directly on its body —
+      // confirmed via a real backend test that this needs the minimal
+      // {name, questionCount, weightage} shape (toCreateBodySections), not
+      // normalizeSectionsForConfig's paper-config-oriented shape, which the
+      // backend rejected outright even with a valid, non-empty array.
       ...(kind === "Assessment" && sectionsEnabled && sections.length > 0 && {
-        sections: normalizeSectionsForConfig(sections),
+        sections: toCreateBodySections(sections),
       }),
     };
     // Backend confirmed (same rule Standalone's TemplateStandalone.jsx
@@ -314,6 +326,11 @@ const TemplatePage = () => {
             <Heading as="h3" size="md" marginBottom="16px" color="#1A202C">
               Sections
             </Heading>
+            {fieldErrors.sections && (
+              <Text fontSize="sm" color="red.500" mb={3}>
+                {fieldErrors.sections}
+              </Text>
+            )}
             <SectionsBuilder
               sections={sections}
               onAdd={addSection}

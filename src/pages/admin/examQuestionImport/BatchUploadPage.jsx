@@ -23,16 +23,22 @@ import {
 import { Breadcrumb, Button, Heading, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts";
 import { useQueryParams } from "../../../hooks";
+import useAssessmentStore from "../../../store/assessmentStore";
+import { markNeedsApprovalSubmission } from "../../../utils";
+import { toBatchUploadSections } from "../examSectionBuilder/examTypeConfig";
 import {
   downloadExamQuestionBatchTemplate,
   uploadExamQuestionBatch,
   updateExamQuestionBatchRow,
   deleteExamQuestionBatchRow,
+  getExamQuestionBatchUpload,
   getStandaloneExaminationDetails,
   requestExaminationDetails,
   requestAssessmentDetails,
   adminGetMarkingTemplateById,
+  adminGetExaminationById,
   getExaminationById as getExamPaperConfig,
+  updateExaminationById as updateExamPaperConfig,
 } from "../../../services";
 import {
   FiChevronDown,
@@ -46,9 +52,17 @@ import {
   buildReviewLink,
   contextLabel,
   getUploadContext,
+  normalizeQuestionType,
   normalizeStagedRow,
   normalizeStagedRows,
 } from "./questionRowUtils";
+
+// A marking template's questionQuantity/markDistribution keys are whatever
+// casing the backend uses (snake_case, e.g. "true_false") — remap to this
+// codebase's internal PascalCase question types so they line up with a
+// staged row's own (already-normalized) `questionType`.
+const normalizeTypeKeys = (obj) =>
+  Object.fromEntries(Object.entries(obj || {}).map(([k, v]) => [normalizeQuestionType(k), v]));
 
 const COLUMNS = [
   { col: "question_text", required: "Required", applies: "All", desc: "Full question statement — must not be empty" },
@@ -142,6 +156,8 @@ const BatchUploadPage = () => {
   const history = useHistory();
   const toast = useToast();
   const context = getUploadContext(useQueryParams());
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
 
   const [defaultDifficulty, setDefaultDifficulty] = useState("");
   const [file, setFile] = useState(null);
@@ -173,7 +189,7 @@ const BatchUploadPage = () => {
   const [overallLimit, setOverallLimit] = useState(null);
 
   useEffect(() => {
-    if (!context.examinationId && !context.assessmentId) return;
+    if (!context.createTarget && !context.examinationId && !context.assessmentId) return;
     let cancelled = false;
 
     // Fetches the target's own record (whichever of the three flows this
@@ -181,6 +197,25 @@ const BatchUploadPage = () => {
     // read sections from the separate paper-config endpoint, a plain
     // Assessment carries them directly on its own record.
     const loadRecord = async () => {
+      // Nothing real exists yet — read straight from the still-pending
+      // details instead of fetching anything (there's nothing to fetch).
+      // `pendingCreate.body.examType` is already the API value
+      // ("sectioned"/"unsectioned"/"hybrid"), matching what the other two
+      // branches below normalize `record.examType` to.
+      if (context.createTarget) {
+        if (!pendingCreate?.body) return { record: null, getSections: () => Promise.resolve([]) };
+        const { body } = pendingCreate;
+        return {
+          record: {
+            examType: body.examType,
+            questionQuantity: body.questionQuantity,
+            templateId: body.markingTemplateId,
+            questionCount: body.amountOfQuestions,
+            questions: [],
+          },
+          getSections: () => Promise.resolve(pendingCreate.paperConfigBody?.configuredSections || []),
+        };
+      }
       if (context.standalone) {
         const { examination } = await getStandaloneExaminationDetails(context.examinationId, true);
         return {
@@ -246,14 +281,23 @@ const BatchUploadPage = () => {
         }
 
         if (!context.section && (record.examType === "unsectioned" || record.examType === "hybrid")) {
-          const quantity = record.questionQuantity || {};
+          // The marking template's own questionQuantity/markDistribution
+          // keys are whatever casing the backend uses (confirmed lowercase
+          // snake_case, e.g. "mcq"/"true_false") — completely different from
+          // this codebase's internal PascalCase question types ("MCQ"/
+          // "TrueFalse"), which is what a staged row's own `questionType`
+          // is normalized to. Without this, `supportedTypes.includes(...)`/
+          // `quantity[row.questionType]` never match anything, so nothing
+          // ever gets restricted — confirmed by a real test (a template
+          // configured for "mcq" only still let a TrueFalse row through).
+          const quantity = normalizeTypeKeys(record.questionQuantity);
           const supportedTypes = Object.keys(quantity);
           if (supportedTypes.length === 0) return;
 
           let markDistribution = {};
           if (record.templateId) {
             const { template } = await adminGetMarkingTemplateById(record.templateId).catch(() => ({}));
-            markDistribution = template?.markDistribution || {};
+            markDistribution = normalizeTypeKeys(template?.markDistribution);
           }
           if (cancelled) return;
 
@@ -270,7 +314,7 @@ const BatchUploadPage = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [context.standalone, context.examinationId, context.assessmentId, context.section]);
+  }, [context.createTarget, context.standalone, context.examinationId, context.assessmentId, context.section]);
 
   const handleDownloadTemplate = async () => {
     setDownloading(true);
@@ -324,20 +368,103 @@ const BatchUploadPage = () => {
   const handleSubmit = async () => {
     if (!file) return;
 
+    if (context.createTarget && !pendingCreate?.body) {
+      toast({
+        title: "The exam/assessment details were lost — please go back and fill in Overview/Template again.",
+        status: "error",
+        duration: 6000,
+        isClosable: true,
+      });
+      return;
+    }
+
     setUploading(true);
     try {
+      const { body, paperConfigBody, title: pendingTitle, kind } = pendingCreate ?? {};
       const res = await uploadExamQuestionBatch({
         file,
-        courseId: context.courseId,
-        examinationId: context.examinationId,
-        assessmentId: context.assessmentId,
         mediaZip,
         defaultDifficulty: defaultDifficulty || undefined,
         section: context.section,
+        ...(context.createTarget
+          ? {
+              createTargetType: kind === "Assessment" ? "assessment" : "examination",
+              title: body.title ?? pendingTitle,
+              courseId: body.courseId,
+              moduleId: body.moduleId,
+              duration: body.duration,
+              startTime: body.startTime,
+              endTime: body.endTime,
+              examType: body.examType,
+              sections: toBatchUploadSections(paperConfigBody?.configuredSections || []),
+              totalMarks: body.totalMarks,
+              markingTemplateId: body.markingTemplateId,
+            }
+          : {
+              courseId: context.courseId,
+              examinationId: context.examinationId,
+              assessmentId: context.assessmentId,
+            }),
       });
       const raw = res?.data ?? res;
       const uploadId = raw.uploadId ?? raw.id;
       let rows = normalizeStagedRows(raw.rows);
+
+      // The upload call above just created the real record (createTargetType)
+      // — everything from here on (review, confirm, the listing link) needs
+      // to operate on it directly, not the pending state that's now stale.
+      // Confirmed with backend: the bare upload record (getExamQuestionBatchUpload,
+      // GET /{uploadId} — not /report, not the upload response itself, both
+      // of which carry no id for the newly-created record at all) is what
+      // resolves to assessmentId/examinationId once created.
+      let effectiveContext = context;
+      if (context.createTarget) {
+        const isAssessment = kind === "Assessment";
+        const upload = await getExamQuestionBatchUpload(uploadId).catch(() => null);
+        const uploadData = upload?.data ?? upload;
+        let realId = isAssessment ? uploadData?.assessmentId : uploadData?.examinationId;
+        // Fallback for Course Exam only, in case the upload record doesn't
+        // resolve examinationId either — same admin examination-lookup
+        // CreateModuleExaminationPage.jsx already relies on for its own
+        // edit-mode fetch, GET /v1/examination/admin/{courseId}.
+        if (!realId && !isAssessment) {
+          realId = await adminGetExaminationById(body.courseId)
+            .then(({ examination }) => examination?.id)
+            .catch(() => undefined);
+        }
+        effectiveContext = {
+          courseId: context.courseId,
+          examinationId: isAssessment ? undefined : realId,
+          assessmentId: isAssessment ? realId : undefined,
+          standalone: false,
+          section: context.section,
+        };
+        if (realId) markNeedsApprovalSubmission(isAssessment ? "assessment" : "examination", realId);
+
+        // createTargetType only creates the bare examination itself (title/
+        // duration/dates/examType/sections-for-marks-validation) — it has no
+        // fields for navigationMode/randomization/uiSettings/
+        // configuredSections at all, so those still need the same follow-up
+        // paper-config PUT the old create-then-navigate flow used to make
+        // right after creating (`performCreateParent`) — otherwise a
+        // sectioned exam ends up with no section info for the Question
+        // Listing page to group by. Course Exam only, matching that same
+        // existing scoping (course-level "Exam" has no paper-config channel
+        // wired up at all).
+        if (kind === "ModuleExam" && realId && paperConfigBody) {
+          await updateExamPaperConfig(realId, paperConfigBody).catch((err) => {
+            toast({
+              title: "Sections were created but couldn't be saved to the exam's paper config — the Question Listing page won't group by section.",
+              description: err?.response?.data?.message || err?.message,
+              status: "warning",
+              duration: 8000,
+              isClosable: true,
+            });
+          });
+        }
+
+        clearPendingCreate();
+      }
 
       // Belt-and-suspenders alongside the `section` sent with the upload
       // above (in case the parser doesn't apply it itself) — explicitly tag
@@ -365,7 +492,7 @@ const BatchUploadPage = () => {
           rows = rows.slice(0, remaining);
           await Promise.all(overflow.map((row) => deleteExamQuestionBatchRow(uploadId, row.rowId).catch(() => {})));
           toast({
-            title: `${overflow.length} question${overflow.length === 1 ? "" : "s"} skipped — already at the ${overallLimit.amount} question limit configured for this ${contextLabel(context).toLowerCase()}`,
+            title: `${overflow.length} question${overflow.length === 1 ? "" : "s"} skipped — already at the ${overallLimit.amount} question limit configured for this ${contextLabel(effectiveContext).toLowerCase()}`,
             status: "warning",
             duration: 6000,
             isClosable: true,
@@ -435,7 +562,7 @@ const BatchUploadPage = () => {
       }
 
       toast({ title: "Upload processed — review the staged questions below", status: "success", duration: 3000, isClosable: true });
-      history.push(buildReviewLink(uploadId, context), { rows });
+      history.push(buildReviewLink(uploadId, effectiveContext), { rows });
     } catch (err) {
       const status = err?.response?.status;
       const msg = err?.response?.data?.message || "";
@@ -459,7 +586,17 @@ const BatchUploadPage = () => {
         <Breadcrumb
           item2={
             <BreadcrumbItem>
-              <Link href={buildQuestionListingLink(context)}>{contextLabel(context)} Questions</Link>
+              {/* Nothing real exists yet in the createTarget flow — there's
+                  no question-listing page to link to, so this just goes
+                  back to wherever "Upload & Batch Import Questions" was
+                  clicked from instead. */}
+              {context.createTarget ? (
+                <Text as="button" type="button" onClick={() => history.goBack()} color="#6b006b" fontWeight="600">
+                  Back
+                </Text>
+              ) : (
+                <Link href={buildQuestionListingLink(context)}>{contextLabel(context)} Questions</Link>
+              )}
             </BreadcrumbItem>
           }
           item3={

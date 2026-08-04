@@ -375,6 +375,13 @@ const TemplateStandalone = () => {
             }
             if (examType !== "with_sections" && !templateId)
                 newErrors.templateId = "Please select a marking template";
+            // Backend confirmed: a section with a blank Name fails the same
+            // way an empty sections array does ("sections must be an array
+            // of 1-10 section objects with at least a section_name/name") —
+            // catch it here instead of letting a partially-filled section
+            // reach the backend at all.
+            if ((examType === "with_sections" || examType === "hybrid") && sections.some((s) => !s.section_name?.trim()))
+                newErrors.sections = "Every section needs a Name before continuing";
             setFieldErrors(newErrors);
             if (Object.keys(newErrors).length > 0) return;
 
@@ -423,14 +430,21 @@ const TemplateStandalone = () => {
                         // field name is rejected outright) and NOT via the
                         // separate paper-config PUT below (too late for the
                         // backend's totalMarks-vs-sections validation, which
-                        // runs at creation time). Same rule as
+                        // runs at creation time). Confirmed by a second real
+                        // backend test that this applies to hybrid's sections
+                        // too, not just a fully sectioned exam — sending them
+                        // via `configuredSections` on the paper-config PUT
+                        // instead (as this file used to for hybrid) gets
+                        // rejected with the exact same "sections must be an
+                        // array of 1-10 section objects" error, even with a
+                        // valid, non-empty section. Same rule as
                         // `configuredSections` below applies here too: the
                         // backend rejects an empty array, so only send the
                         // key when there's actually at least one section
                         // (handleNext's validation above already blocks
                         // "with sections" from reaching here with zero, but
                         // this stays consistent/defensive either way).
-                        ...(isSectioned && sections.length > 0 && {
+                        ...((isSectioned || examType === "hybrid") && sections.length > 0 && {
                             sections: sections.map((s) => ({
                                 section_name: s.section_name,
                                 weightage: Number(s.total_marks) || 0,
@@ -550,6 +564,11 @@ const TemplateStandalone = () => {
                                 <Heading as="h3" size="md" marginTop="8px" marginBottom="16px" color="#1A202C">
                                     Sections
                                 </Heading>
+                                {fieldErrors.sections && (
+                                    <Text fontSize="sm" color="red.500" mb={3}>
+                                        {fieldErrors.sections}
+                                    </Text>
+                                )}
                                 {sections.length === 0 && (
                                     <Text fontSize="sm" color="gray.500" mb={3}>
                                         No sections added yet. Sections let you group questions and optionally cap time per group.
