@@ -480,6 +480,24 @@ const BatchUploadPage = () => {
                   .catch(() => row),
           ),
         );
+      } else if (rows.length > 0) {
+        // No section was selected for this upload (an unsectioned exam, or
+        // hybrid's "Standalone Questions" pool) — a row's own "section"
+        // column in the uploaded file has nothing to do with our Exam Type
+        // sections. Confirmed via a real bug report: leaving it in place got
+        // misread by the Question Listing page as real section structure.
+        // Best-effort (unconfirmed whether the backend accepts `section: ""`
+        // to actually clear the field) — a failure here just leaves the
+        // stray value in place, same as before this existed.
+        rows = await Promise.all(
+          rows.map((row) =>
+            !row.section
+              ? row
+              : updateExamQuestionBatchRow(uploadId, row.rowId, { section: "" })
+                  .then((r) => normalizeStagedRow({ ...(r?.data ?? r), rowId: row.rowId }))
+                  .catch(() => row),
+          ),
+        );
       }
 
       // Same overall Number of Questions cap the manual "Add Question" form
