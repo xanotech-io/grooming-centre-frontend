@@ -69,8 +69,13 @@ export const uploadExamQuestionBatch = async ({
     // reconstructed into a real array on their end.
     if (Array.isArray(sections) && sections.length > 0) {
       formData.append("sections", JSON.stringify(sections));
-      if (totalMarks != null) formData.append("totalMarks", totalMarks);
     }
+    // Confirmed via a real test: totalMarks is validated against the
+    // marking template's own computed sum for "unsectioned" too, not just
+    // "sectioned" — the documented shape only mentioned it for the sectioned
+    // case, but omitting it here made the backend compare against
+    // `undefined`. Send it whenever it's known, regardless of examType.
+    if (totalMarks != null) formData.append("totalMarks", totalMarks);
     if (markingTemplateId) formData.append("markingTemplateId", markingTemplateId);
   } else {
     if (courseId) formData.append("courseId", courseId);
