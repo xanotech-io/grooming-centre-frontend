@@ -5,7 +5,6 @@ import {
   Alert,
   AlertIcon,
   Checkbox,
-  IconButton,
   BreadcrumbItem,
 } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
@@ -13,14 +12,12 @@ import { useForm } from "react-hook-form";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { Switch } from "@chakra-ui/switch";
 import { Select as ChakraSelect } from "@chakra-ui/select";
-import { FiTrash2 } from "react-icons/fi";
 import {
   Breadcrumb,
   Button,
   DateTimePicker,
   Input,
   Link,
-  Select,
   Text,
 } from "../../../../../components";
 import {
@@ -30,7 +27,6 @@ import {
 import { AdminMainAreaWrapper } from "../../../../../layouts";
 import {
   adminGetExaminationById,
-  adminGetMarkingTemplates,
   getExaminationById as getExamPaperConfig,
 } from "../../../../../services";
 import { capitalizeFirstLetter, formatDateToISO } from "../../../../../utils";
@@ -65,103 +61,6 @@ const SectionCard = ({ title, children }) => (
       {children}
     </Box>
   </Box>
-);
-
-const EMPTY_SECTION = {
-  section_name: "",
-  question_type: "",
-  marking_type: "",
-  total_marks: null,
-};
-
-// Kept identical to ExamPaperConfigPage.jsx's — QuestionsPage.jsx enforces
-// these three fields against whichever section a question is saved under.
-const QUESTION_TYPE_LOCK_OPTIONS = [
-  { label: "All", value: "" },
-  { label: "MCQ", value: "MCQ" },
-  { label: "True / False", value: "TrueFalse" },
-  { label: "Fill in the Blank", value: "FillBlank" },
-  { label: "Matching", value: "Matching" },
-  { label: "Short Answer", value: "ShortAnswer" },
-  { label: "Essay", value: "Essay" },
-];
-
-const MARKING_TYPE_LOCK_OPTIONS = [
-  { label: "Any marking type", value: "" },
-  { label: "Automatic", value: "automatic" },
-  { label: "Manual", value: "manual" },
-  { label: "Hybrid", value: "hybrid" },
-];
-
-const SectionRow = ({ section, idx, onChange, onRemove }) => (
-  <Flex gap={3} alignItems="flex-start" mb={4} flexWrap="wrap">
-    <Box flex="0 0 90px" minW="90px">
-      <Input
-        id={`section-${idx}-sequence`}
-        label="Sequence"
-        type="number"
-        value={idx + 1}
-        isReadOnly
-        isDisabled
-      />
-    </Box>
-    <Box flex={2} minW="160px">
-      <Input
-        id={`section-${idx}-name`}
-        label="Name"
-        placeholder="Section name e.g. Section A"
-        value={section.section_name}
-        onChange={(e) => onChange(idx, "section_name", e.target.value)}
-      />
-    </Box>
-    <Box flex={1} minW="150px">
-      <Select
-        id={`section-${idx}-question-type`}
-        label="Question Type"
-        noEmptyOption
-        value={section.question_type ?? ""}
-        onChange={(e) => onChange(idx, "question_type", e.target.value)}
-        options={QUESTION_TYPE_LOCK_OPTIONS}
-      />
-    </Box>
-    <Box flex={1} minW="150px">
-      <Select
-        id={`section-${idx}-marking-type`}
-        label="Marking Type"
-        noEmptyOption
-        value={section.marking_type ?? ""}
-        onChange={(e) => onChange(idx, "marking_type", e.target.value)}
-        options={MARKING_TYPE_LOCK_OPTIONS}
-      />
-    </Box>
-    <Box flex={1} minW="120px">
-      <Input
-        id={`section-${idx}-weightage`}
-        label="Weightage"
-        type="number"
-        min={0}
-        placeholder="e.g. 20"
-        value={section.total_marks ?? ""}
-        onChange={(e) =>
-          onChange(
-            idx,
-            "total_marks",
-            e.target.value ? Number(e.target.value) : null,
-          )
-        }
-      />
-    </Box>
-    <IconButton
-      aria-label="Remove section"
-      icon={<FiTrash2 size={14} />}
-      size="sm"
-      variant="ghost"
-      colorScheme="red"
-      onClick={() => onRemove(idx)}
-      alignSelf="center"
-      mt={6}
-    />
-  </Flex>
 );
 
 const BoolRow = ({ label, description, checked, onChange }) => (
@@ -205,18 +104,23 @@ const CreateModuleExaminationPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [markingTemplates, setMarkingTemplates] = useState([]);
-  const [markingTemplateId, setMarkingTemplateId] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [addToBank, setAddToBank] = useState(false);
   const [loadingExam, setLoadingExam] = useState(false);
 
-  // Sections
-  const [sections, setSections] = useState([]);
-  const addSection = () => setSections((p) => [...p, { ...EMPTY_SECTION }]);
-  const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
-  const updateSection = (i, field, value) =>
-    setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
+  // Number of Questions / Total Marks / Marking Template / Sections are no
+  // longer edited on this shell — they moved to the Template / Marking
+  // Scheme step (TemplatePage.jsx) that "Next" now leads to, mirroring
+  // Standalone Exam's own Overview → Template → Questions wizard. In edit
+  // mode this page still fetches the exam's current values for these
+  // fields (below) purely to carry them through unchanged into
+  // `pendingEdit`, so the Template step has something correct to restore
+  // from — it never renders or edits them itself.
+  const [fetchedMarkingTemplateId, setFetchedMarkingTemplateId] = useState("");
+  const [fetchedExamType, setFetchedExamType] = useState("");
+  const [fetchedAmountOfQuestions, setFetchedAmountOfQuestions] = useState(null);
+  const [fetchedTotalMarks, setFetchedTotalMarks] = useState(null);
+  const [fetchedConfiguredSections, setFetchedConfiguredSections] = useState([]);
 
   // Navigation
   const [navigationMode, setNavigationMode] = useState("free");
@@ -233,11 +137,6 @@ const CreateModuleExaminationPage = () => {
     font_size: 16,
     font_family: "default",
   });
-  useEffect(() => {
-    adminGetMarkingTemplates()
-      .then(({ templates }) => setMarkingTemplates(templates))
-      .catch(() => {});
-  }, []);
 
   const {
     register,
@@ -260,15 +159,16 @@ const CreateModuleExaminationPage = () => {
       .then(([{ examination: exam }, paperConfigRes]) => {
         setValue("title", exam.title);
         setValue("duration", exam.duration);
-        setValue("amountOfQuestions", exam.amountOfQuestions);
-        setValue("totalMarks", exam.totalMarks);
         if (exam.startTime) startTimeManager.handleChange(new Date(exam.startTime));
         if (exam.endTime) endTimeManager.handleChange(new Date(exam.endTime));
-        if (exam.markingTemplateId) setMarkingTemplateId(exam.markingTemplateId);
+        if (exam.markingTemplateId) setFetchedMarkingTemplateId(exam.markingTemplateId);
+        if (exam.examType) setFetchedExamType(exam.examType);
+        if (exam.amountOfQuestions != null) setFetchedAmountOfQuestions(exam.amountOfQuestions);
+        if (exam.totalMarks != null) setFetchedTotalMarks(exam.totalMarks);
 
         const cfg = paperConfigRes?.data;
         if (cfg) {
-          if (Array.isArray(cfg.configuredSections)) setSections(cfg.configuredSections);
+          if (Array.isArray(cfg.configuredSections)) setFetchedConfiguredSections(cfg.configuredSections);
           if (cfg.navigationMode) setNavigationMode(cfg.navigationMode);
           if (cfg.randomization) setRandomization(cfg.randomization);
           if (cfg.uiSettings) setUiSettings(cfg.uiSettings);
@@ -286,42 +186,37 @@ const CreateModuleExaminationPage = () => {
       .finally(() => setLoadingExam(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, examinationId]);
+
   const onSubmit = async (data) => {
     try {
       const startTime =
         startTimeManager.handleGetValueAndValidate("Start Time");
       const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
-      if (!markingTemplateId)
-        throw new Error(
-          "A marking template must be selected before saving an examination.",
-        );
-
       const body = {
         title: data.title,
         duration: Number(data.duration),
-        amountOfQuestions: Number(data.amountOfQuestions),
-        totalMarks: Number(data.totalMarks),
         startTime: formatDateToISO(startTime),
         endTime: formatDateToISO(endTime),
         courseId,
         moduleId,
-        markingTemplateId,
         navigationMode,
         randomizationConfig: randomization,
         uiSettings: { ...uiSettings, font_size: Number(uiSettings.font_size) },
+        // Carried through unchanged from the fetched record — this page no
+        // longer edits these; the Template / Marking Scheme step (next)
+        // either keeps them as-is or overwrites them with fresh values.
+        ...(isEditMode && {
+          markingTemplateId: fetchedMarkingTemplateId || undefined,
+          ...(fetchedAmountOfQuestions != null && { amountOfQuestions: fetchedAmountOfQuestions }),
+          ...(fetchedTotalMarks != null && { totalMarks: fetchedTotalMarks }),
+          ...(fetchedExamType && { examType: fetchedExamType }),
+        }),
       };
 
       const paperConfigBody = {
         examType: "examination",
-        configuredSections: sections.map((s) => ({
-          section_name: s.section_name,
-          questions_count: Number(s.questions_count) || 0,
-          time_limit: s.time_limit ? Number(s.time_limit) : null,
-          question_type: s.question_type || "",
-          marking_type: s.marking_type || "",
-          total_marks: s.total_marks ? Number(s.total_marks) : null,
-        })),
+        configuredSections: fetchedConfiguredSections,
         navigationMode,
         timeLimitMinutes: Number(data.duration) || 0,
         randomization,
@@ -351,7 +246,7 @@ const CreateModuleExaminationPage = () => {
               : undefined,
         });
         push(
-          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examinationId}&editSubmit=1&moduleId=${moduleId}`,
+          `/admin/courses/${courseId}/assessment/${courseId}/template?examination=${examinationId}&editSubmit=1&moduleId=${moduleId}`,
         );
       } else {
         // Nothing is created yet — hold the details in memory and create
@@ -361,7 +256,6 @@ const CreateModuleExaminationPage = () => {
           kind: "ModuleExam",
           body,
           paperConfigBody,
-          markingTemplateId,
           addToBank,
           title: data.title,
           fromBankQuestionIds: bankQuestionIdsRef.current,
@@ -371,7 +265,7 @@ const CreateModuleExaminationPage = () => {
           questions: pendingCreate?.questions,
         });
         push(
-          `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=new&submitForApproval=1&moduleId=${moduleId}`,
+          `/admin/courses/${courseId}/assessment/${courseId}/template?examination=new&submitForApproval=1&moduleId=${moduleId}`,
         );
       }
     } catch (error) {
@@ -430,32 +324,6 @@ const CreateModuleExaminationPage = () => {
                 })}
               />
             </Box>
-            <Box flex={1}>
-              <Input
-                label="Number of Questions"
-                type="number"
-                placeholder="e.g. 20"
-                isRequired
-                error={errors.amountOfQuestions?.message}
-                {...register("amountOfQuestions", {
-                  required: "Number of questions is required",
-                  min: { value: 1, message: "Must have at least 1 question" },
-                })}
-              />
-            </Box>
-            <Box flex={1}>
-              <Input
-                label="Total Marks"
-                type="number"
-                placeholder="e.g. 100"
-                isRequired
-                error={errors.totalMarks?.message}
-                {...register("totalMarks", {
-                  required: "Total marks is required",
-                  min: { value: 1, message: "Must be at least 1 mark" },
-                })}
-              />
-            </Box>
           </Flex>
 
           <DateTimePicker
@@ -473,50 +341,6 @@ const CreateModuleExaminationPage = () => {
             onChange={endTimeManager.handleChange}
             mb={6}
           />
-
-          <Select
-            label="Marking Template"
-            placeholder="Select a marking template"
-            isRequired
-            isDisabled={isEditMode}
-            value={markingTemplateId}
-            onChange={(e) => setMarkingTemplateId(e.target.value)}
-            options={markingTemplates.map((t) => ({
-              label: t.markingTemplateName,
-              value: t.id,
-            }))}
-          />
-          {isEditMode && (
-            <Text fontSize="xs" color="gray.500" mt={2}>
-              The template can&apos;t be changed here once an exam has been
-              created — go to the{" "}
-              <Box
-                as="span"
-                color="primary.base"
-                fontWeight="600"
-                cursor="pointer"
-                onClick={() => push("/admin/marking-templates")}
-              >
-                Exam Template Library
-              </Box>{" "}
-              to customize it instead.
-            </Text>
-          )}
-        </SectionCard>
-
-        {/* ── Sections ── */}
-        <SectionCard title="Sections">
-          {sections.length === 0 && (
-            <Text fontSize="sm" color="gray.500" mb={3}>
-              No sections added yet. Sections let you group questions and optionally cap time per group.
-            </Text>
-          )}
-          {sections.map((s, i) => (
-            <SectionRow key={i} section={s} idx={i} onChange={updateSection} onRemove={removeSection} />
-          ))}
-          <Button secondary type="button" onClick={addSection}>
-            + Add Section
-          </Button>
         </SectionCard>
 
         {/* ── Navigation & Randomization ── */}
@@ -638,7 +462,7 @@ const CreateModuleExaminationPage = () => {
             Cancel
           </Button>
           <Button type="submit" isLoading={isSubmitting || loadingExam} isDisabled={isPublished}>
-            Next
+            Next: Template
           </Button>
         </Flex>
       </Box>

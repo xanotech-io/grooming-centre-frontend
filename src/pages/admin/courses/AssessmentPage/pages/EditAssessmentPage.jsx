@@ -36,6 +36,17 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
       ? true
       : false;
 
+  // Number of Questions, Total Marks, and Marking Template are no longer
+  // collected on this shell for a plain Assessment — they moved to the
+  // Template / Marking Scheme step (TemplatePage.jsx) that "Next" now leads
+  // to, mirroring Standalone Exam's own Overview → Template → Questions
+  // wizard. The isStandaloneExamination (dead/unreachable) and isExamination
+  // ("Exam" kind — in practice also unreachable here, since OverviewPage.jsx
+  // routes any real `examination` id to the read-only ExaminationOverview
+  // instead) paths are untouched — they still collect amountOfQuestions
+  // here exactly as they always have.
+  const supportsSectionAuthoring = !isStandaloneExamination && !isExamination;
+
   const [standaloneExamType, setStandaloneExamType] = useState('departments');
   const [selectedIDs, setSelectedIDs] = useState([]);
   const {
@@ -91,13 +102,13 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentOrExam]);
 
-  // Init `Number of Questions` value
+  // Init `Number of Questions` value — only the dead/legacy paths still use
+  // this field on this shell.
   useEffect(() => {
-    if (assessmentOrExam) {
-      setValue('amountOfQuestions', assessmentOrExam?.questionCount);
-    }
+    if (!assessmentOrExam || supportsSectionAuthoring) return;
+    setValue('amountOfQuestions', assessmentOrExam?.questionCount);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessmentOrExam]);
+  }, [assessmentOrExam, supportsSectionAuthoring]);
 
   // const { handleDelete } = useCache();
 
@@ -116,6 +127,23 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
         courseId,
         startTime: formatDateToISO(startTime),
         endTime: formatDateToISO(endTime),
+        ...(!supportsSectionAuthoring && {
+          amountOfQuestions: Number(data.amountOfQuestions),
+        }),
+        // Carried through unchanged from the already-fetched record — this
+        // page no longer edits these; the Template / Marking Scheme step
+        // (next) either keeps them as-is or overwrites them with fresh
+        // values.
+        ...(supportsSectionAuthoring && assessmentOrExam && {
+          ...(assessmentOrExam.markingTemplateId && { markingTemplateId: assessmentOrExam.markingTemplateId }),
+          ...(assessmentOrExam.totalMarks != null && { totalMarks: assessmentOrExam.totalMarks }),
+          ...(assessmentOrExam.questionCount != null && { amountOfQuestions: assessmentOrExam.questionCount }),
+          ...(assessmentOrExam.examType && { examType: assessmentOrExam.examType }),
+          ...(assessmentOrExam.questionQuantity && { questionQuantity: assessmentOrExam.questionQuantity }),
+          ...(Array.isArray(assessmentOrExam.sections) && assessmentOrExam.sections.length > 0 && {
+            sections: assessmentOrExam.sections,
+          }),
+        }),
       };
 
       isStandaloneExamination && Reflect.deleteProperty(data, 'courseId');
@@ -148,14 +176,26 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
         description: isExamination
           ? `Exam: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`
           : `Assessment: ${data.title} — ${data.amountOfQuestions} questions, ${data.duration} mins`,
+        // Local-only carrier for the Template step's restore-on-mount (and
+        // the Questions step's section-type-lock restriction) — never sent
+        // over the network itself; `body.sections` above is what's actually
+        // persisted.
+        ...(supportsSectionAuthoring && Array.isArray(assessmentOrExam?.sections) && assessmentOrExam.sections.length > 0 && {
+          paperConfigBody: { configuredSections: assessmentOrExam.sections },
+        }),
       });
 
       const moduleQuery = moduleId ? `&moduleId=${moduleId}` : '';
+      // isStandaloneExamination is dead/unreachable code (kept exactly as it
+      // always was — still pushes straight to Questions). The plain
+      // Assessment kind now goes through Template first; isExamination is
+      // in practice unreachable via this page (see supportsSectionAuthoring
+      // comment above) but its original target is preserved regardless.
       const questionsRoute = isStandaloneExamination
         ? `/admin/standalone-exams/questions/?examination=${isExamination}&editSubmit=1`
         : isExamination
         ? `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${isExamination}&editSubmit=1${moduleQuery}`
-        : `/admin/courses/${courseId}/assessment/${assessmentId}/questions/new?editSubmit=1${moduleQuery}`;
+        : `/admin/courses/${courseId}/assessment/${assessmentId}/template?editSubmit=1${moduleQuery}`;
       push(questionsRoute);
     } catch (error) {
       toast({
@@ -375,18 +415,19 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
                 })}
               />
             </GridItem>
-            <GridItem>
-              <Input
-                label="Number of Questions"
-                type="number"
-                id="amountOfQuestions"
-                placeholder="Enter number of questions"
-                error={errors.amountOfQuestions?.message}
-                {...register('amountOfQuestions', {
-                  required: 'Please enter number of questions',
-                })}
-              />
-            </GridItem>
+
+            {!supportsSectionAuthoring && (
+              <GridItem>
+                <Input
+                  label="Number of Questions"
+                  type="number"
+                  id="amountOfQuestions"
+                  placeholder="Enter number of questions"
+                  error={errors.amountOfQuestions?.message}
+                  {...register('amountOfQuestions', { required: 'Please enter number of questions' })}
+                />
+              </GridItem>
+            )}
           </Grid>
         </Box>
         <Flex paddingY={10} marginX={6} justifyContent="space-between">
@@ -404,7 +445,7 @@ const EditAssessmentPage = ({ users, assessment: assessmentOrExam }) => {
             loadingText="Saving"
             type="submit"
           >
-            Next
+            {supportsSectionAuthoring ? 'Next: Template' : 'Next'}
           </Button>
         </Flex>
       </Box>

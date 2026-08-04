@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   BreadcrumbItem,
@@ -23,9 +23,22 @@ import {
 import { Breadcrumb, Button, Heading, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts";
 import { useQueryParams } from "../../../hooks";
+import useAssessmentStore from "../../../store/assessmentStore";
+import { markNeedsApprovalSubmission } from "../../../utils";
+import { toBatchUploadSections } from "../examSectionBuilder/examTypeConfig";
 import {
   downloadExamQuestionBatchTemplate,
   uploadExamQuestionBatch,
+  updateExamQuestionBatchRow,
+  deleteExamQuestionBatchRow,
+  getExamQuestionBatchUpload,
+  getStandaloneExaminationDetails,
+  requestExaminationDetails,
+  requestAssessmentDetails,
+  adminGetMarkingTemplateById,
+  adminGetExaminationById,
+  getExaminationById as getExamPaperConfig,
+  updateExaminationById as updateExamPaperConfig,
 } from "../../../services";
 import {
   FiChevronDown,
@@ -39,8 +52,17 @@ import {
   buildReviewLink,
   contextLabel,
   getUploadContext,
+  normalizeQuestionType,
+  normalizeStagedRow,
   normalizeStagedRows,
 } from "./questionRowUtils";
+
+// A marking template's questionQuantity/markDistribution keys are whatever
+// casing the backend uses (snake_case, e.g. "true_false") — remap to this
+// codebase's internal PascalCase question types so they line up with a
+// staged row's own (already-normalized) `questionType`.
+const normalizeTypeKeys = (obj) =>
+  Object.fromEntries(Object.entries(obj || {}).map(([k, v]) => [normalizeQuestionType(k), v]));
 
 const COLUMNS = [
   { col: "question_text", required: "Required", applies: "All", desc: "Full question statement — must not be empty" },
@@ -134,6 +156,8 @@ const BatchUploadPage = () => {
   const history = useHistory();
   const toast = useToast();
   const context = getUploadContext(useQueryParams());
+  const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
+  const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
 
   const [defaultDifficulty, setDefaultDifficulty] = useState("");
   const [file, setFile] = useState(null);
@@ -141,6 +165,156 @@ const BatchUploadPage = () => {
   const [uploading, setUploading] = useState(false);
   const [showColumnGuide, setShowColumnGuide] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  // The exam's own question-type/Quantity/marks rules — same ones the
+  // manual "Add Question" form enforces (QuestionsStandalone.jsx) — so a
+  // bulk-uploaded file can't smuggle in a type the exam wasn't configured
+  // for, or questions carrying the wrong marks. null while loading/not
+  // applicable. Two mutually exclusive shapes, matching whichever half of
+  // the exam this upload targets:
+  //   - {mode: "section", allowedTypes, sectionCap, markPerQuestion, usedCounts}
+  //     — a Section tab was active (a "with sections" exam, or hybrid's
+  //     sectioned half): governed by that section's own question_types/
+  //     question_count from the Template/Marking Scheme step.
+  //   - {mode: "quantity", supportedTypes, quantity, markDistribution, usedCounts}
+  //     — no section active ("without sections", or hybrid's "Standalone
+  //     Questions" pool): governed by the marking template's per-type
+  //     Quantity/markDistribution.
+  const [typeRestriction, setTypeRestriction] = useState(null);
+  // The overall Number of Questions the exam/assessment was configured for
+  // — same cap the manual "Add Question" form enforces (amountOfQuestions/
+  // remainingQuestionSlots in QuestionsPage.jsx/QuestionsStandalone.jsx).
+  // Applies regardless of section/Quantity mode, and even to an exam with
+  // no Exam Type at all — every question created here still counts against
+  // it. null means no configured cap.
+  const [overallLimit, setOverallLimit] = useState(null);
+
+  useEffect(() => {
+    if (!context.createTarget && !context.examinationId && !context.assessmentId) return;
+    let cancelled = false;
+
+    // Fetches the target's own record (whichever of the three flows this
+    // is) plus the section-list fetcher for it — Standalone/Course Exam
+    // read sections from the separate paper-config endpoint, a plain
+    // Assessment carries them directly on its own record.
+    const loadRecord = async () => {
+      // Nothing real exists yet — read straight from the still-pending
+      // details instead of fetching anything (there's nothing to fetch).
+      // `pendingCreate.body.examType` is already the API value
+      // ("sectioned"/"unsectioned"/"hybrid"), matching what the other two
+      // branches below normalize `record.examType` to.
+      if (context.createTarget) {
+        if (!pendingCreate?.body) return { record: null, getSections: () => Promise.resolve([]) };
+        const { body } = pendingCreate;
+        return {
+          record: {
+            examType: body.examType,
+            questionQuantity: body.questionQuantity,
+            templateId: body.markingTemplateId,
+            questionCount: body.amountOfQuestions,
+            questions: [],
+          },
+          getSections: () => Promise.resolve(pendingCreate.paperConfigBody?.configuredSections || []),
+        };
+      }
+      if (context.standalone) {
+        const { examination } = await getStandaloneExaminationDetails(context.examinationId, true);
+        return {
+          record: examination,
+          getSections: () =>
+            getExamPaperConfig(context.examinationId, "standalone_examination")
+              .then((res) => res?.data?.configuredSections || [])
+              .catch(() => []),
+        };
+      }
+      if (context.examinationId) {
+        const { examination } = await requestExaminationDetails(context.examinationId, true);
+        return {
+          record: examination,
+          getSections: () =>
+            getExamPaperConfig(context.examinationId, "examination")
+              .then((res) => res?.data?.configuredSections || [])
+              .catch(() => []),
+        };
+      }
+      const { assessment } = await requestAssessmentDetails(context.assessmentId, true);
+      return {
+        // Assessment's own field for this is `markingTemplateId`, not
+        // `templateId` — normalized here so the rest of this effect can
+        // treat all three flows identically.
+        record: { ...assessment, templateId: assessment.markingTemplateId },
+        getSections: () => Promise.resolve(assessment.sections || []),
+      };
+    };
+
+    loadRecord()
+      .then(async ({ record, getSections }) => {
+        if (cancelled || !record) return;
+
+        if (record.questionCount) {
+          setOverallLimit({
+            amount: Number(record.questionCount),
+            existingTotal: (record.questions || []).length,
+          });
+        }
+
+        if (context.section && (record.examType === "sectioned" || record.examType === "hybrid")) {
+          const configured = await getSections();
+          const section = configured.find((s) => s.section_name === context.section);
+          if (!section || cancelled) return;
+          // Course Exam/Assessment's own sections use `questions_count`
+          // (see examSectionBuilder/examTypeConfig.js); Standalone's use
+          // `question_count` — accept either.
+          const sectionCount = Number(section.questions_count ?? section.question_count) || 0;
+          const usedInSection = (record.questions || []).filter((q) => q.section === context.section).length;
+          setTypeRestriction({
+            mode: "section",
+            allowedTypes: Array.isArray(section.question_types) && section.question_types.length ? section.question_types : null,
+            sectionCap: sectionCount || null,
+            // Sections have no per-question mark of their own, only a total
+            // weightage split across their Question Count — inferred, not
+            // independently backend-confirmed like the unsectioned per-type
+            // mark below was.
+            markPerQuestion: sectionCount ? (Number(section.total_marks) || 0) / sectionCount : null,
+            usedInSection,
+          });
+          return;
+        }
+
+        if (!context.section && (record.examType === "unsectioned" || record.examType === "hybrid")) {
+          // The marking template's own questionQuantity/markDistribution
+          // keys are whatever casing the backend uses (confirmed lowercase
+          // snake_case, e.g. "mcq"/"true_false") — completely different from
+          // this codebase's internal PascalCase question types ("MCQ"/
+          // "TrueFalse"), which is what a staged row's own `questionType`
+          // is normalized to. Without this, `supportedTypes.includes(...)`/
+          // `quantity[row.questionType]` never match anything, so nothing
+          // ever gets restricted — confirmed by a real test (a template
+          // configured for "mcq" only still let a TrueFalse row through).
+          const quantity = normalizeTypeKeys(record.questionQuantity);
+          const supportedTypes = Object.keys(quantity);
+          if (supportedTypes.length === 0) return;
+
+          let markDistribution = {};
+          if (record.templateId) {
+            const { template } = await adminGetMarkingTemplateById(record.templateId).catch(() => ({}));
+            markDistribution = normalizeTypeKeys(template?.markDistribution);
+          }
+          if (cancelled) return;
+
+          const usedCounts = (record.questions || []).reduce((acc, q) => {
+            if (q.section) return acc;
+            if (q.questionType) acc[q.questionType] = (acc[q.questionType] || 0) + 1;
+            return acc;
+          }, {});
+          setTypeRestriction({ mode: "quantity", supportedTypes, quantity, markDistribution, usedCounts });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [context.createTarget, context.standalone, context.examinationId, context.assessmentId, context.section]);
 
   const handleDownloadTemplate = async () => {
     setDownloading(true);
@@ -194,22 +368,201 @@ const BatchUploadPage = () => {
   const handleSubmit = async () => {
     if (!file) return;
 
+    if (context.createTarget && !pendingCreate?.body) {
+      toast({
+        title: "The exam/assessment details were lost — please go back and fill in Overview/Template again.",
+        status: "error",
+        duration: 6000,
+        isClosable: true,
+      });
+      return;
+    }
+
     setUploading(true);
     try {
+      const { body, paperConfigBody, title: pendingTitle, kind } = pendingCreate ?? {};
       const res = await uploadExamQuestionBatch({
         file,
-        courseId: context.courseId,
-        examinationId: context.examinationId,
-        assessmentId: context.assessmentId,
         mediaZip,
         defaultDifficulty: defaultDifficulty || undefined,
+        section: context.section,
+        ...(context.createTarget
+          ? {
+              createTargetType: kind === "Assessment" ? "assessment" : "examination",
+              title: body.title ?? pendingTitle,
+              courseId: body.courseId,
+              moduleId: body.moduleId,
+              duration: body.duration,
+              startTime: body.startTime,
+              endTime: body.endTime,
+              examType: body.examType,
+              sections: toBatchUploadSections(paperConfigBody?.configuredSections || []),
+              totalMarks: body.totalMarks,
+              markingTemplateId: body.markingTemplateId,
+            }
+          : {
+              courseId: context.courseId,
+              examinationId: context.examinationId,
+              assessmentId: context.assessmentId,
+            }),
       });
       const raw = res?.data ?? res;
       const uploadId = raw.uploadId ?? raw.id;
-      const rows = normalizeStagedRows(raw.rows);
+      let rows = normalizeStagedRows(raw.rows);
+
+      // The upload call above just created the real record (createTargetType)
+      // — everything from here on (review, confirm, the listing link) needs
+      // to operate on it directly, not the pending state that's now stale.
+      // Confirmed with backend: the bare upload record (getExamQuestionBatchUpload,
+      // GET /{uploadId} — not /report, not the upload response itself, both
+      // of which carry no id for the newly-created record at all) is what
+      // resolves to assessmentId/examinationId once created.
+      let effectiveContext = context;
+      if (context.createTarget) {
+        const isAssessment = kind === "Assessment";
+        const upload = await getExamQuestionBatchUpload(uploadId).catch(() => null);
+        const uploadData = upload?.data ?? upload;
+        let realId = isAssessment ? uploadData?.assessmentId : uploadData?.examinationId;
+        // Fallback for Course Exam only, in case the upload record doesn't
+        // resolve examinationId either — same admin examination-lookup
+        // CreateModuleExaminationPage.jsx already relies on for its own
+        // edit-mode fetch, GET /v1/examination/admin/{courseId}.
+        if (!realId && !isAssessment) {
+          realId = await adminGetExaminationById(body.courseId)
+            .then(({ examination }) => examination?.id)
+            .catch(() => undefined);
+        }
+        effectiveContext = {
+          courseId: context.courseId,
+          examinationId: isAssessment ? undefined : realId,
+          assessmentId: isAssessment ? realId : undefined,
+          standalone: false,
+          section: context.section,
+        };
+        if (realId) markNeedsApprovalSubmission(isAssessment ? "assessment" : "examination", realId);
+
+        // createTargetType only creates the bare examination itself (title/
+        // duration/dates/examType/sections-for-marks-validation) — it has no
+        // fields for navigationMode/randomization/uiSettings/
+        // configuredSections at all, so those still need the same follow-up
+        // paper-config PUT the old create-then-navigate flow used to make
+        // right after creating (`performCreateParent`) — otherwise a
+        // sectioned exam ends up with no section info for the Question
+        // Listing page to group by. Course Exam only, matching that same
+        // existing scoping (course-level "Exam" has no paper-config channel
+        // wired up at all).
+        if (kind === "ModuleExam" && realId && paperConfigBody) {
+          await updateExamPaperConfig(realId, paperConfigBody).catch((err) => {
+            toast({
+              title: "Sections were created but couldn't be saved to the exam's paper config — the Question Listing page won't group by section.",
+              description: err?.response?.data?.message || err?.message,
+              status: "warning",
+              duration: 8000,
+              isClosable: true,
+            });
+          });
+        }
+
+        clearPendingCreate();
+      }
+
+      // Belt-and-suspenders alongside the `section` sent with the upload
+      // above (in case the parser doesn't apply it itself) — explicitly tag
+      // every staged row with the section this upload was launched for,
+      // best-effort so a row-level hiccup doesn't block the whole import.
+      if (context.section && rows.length > 0) {
+        rows = await Promise.all(
+          rows.map((row) =>
+            row.section === context.section
+              ? row
+              : updateExamQuestionBatchRow(uploadId, row.rowId, { section: context.section })
+                  .then((r) => normalizeStagedRow({ ...(r?.data ?? r), rowId: row.rowId }))
+                  .catch(() => row),
+          ),
+        );
+      }
+
+      // Same overall Number of Questions cap the manual "Add Question" form
+      // enforces — applied before the type/Quantity rules below so those
+      // never see rows that were already cut for being over the total.
+      if (overallLimit && rows.length > 0) {
+        const remaining = Math.max(0, overallLimit.amount - overallLimit.existingTotal);
+        if (rows.length > remaining) {
+          const overflow = rows.slice(remaining);
+          rows = rows.slice(0, remaining);
+          await Promise.all(overflow.map((row) => deleteExamQuestionBatchRow(uploadId, row.rowId).catch(() => {})));
+          toast({
+            title: `${overflow.length} question${overflow.length === 1 ? "" : "s"} skipped — already at the ${overallLimit.amount} question limit configured for this ${contextLabel(effectiveContext).toLowerCase()}`,
+            status: "warning",
+            duration: 6000,
+            isClosable: true,
+          });
+        }
+      }
+
+      // Same rule the manual "Add Question" form enforces: a type this
+      // upload's target (a section, or the marking template's Quantity
+      // table) wasn't configured for, or one that's already used up its
+      // cap, gets skipped (removed from the staged batch entirely) rather
+      // than silently imported — and every kept row's marks are corrected
+      // to match, since the file's own `marks` column (defaults to 1) is
+      // what caused the exam's declared Total Marks to stop matching what
+      // was actually created.
+      if (typeRestriction && rows.length > 0) {
+        const kept = [];
+        let skipped = 0;
+
+        const applyMark = async (row, correctMark) => {
+          if (correctMark == null || Number(row.marks) === Number(correctMark)) return row;
+          return updateExamQuestionBatchRow(uploadId, row.rowId, { marks: Number(correctMark) })
+            .then((r) => normalizeStagedRow({ ...(r?.data ?? r), rowId: row.rowId }))
+            .catch(() => row);
+        };
+
+        if (typeRestriction.mode === "section") {
+          let usedInSection = typeRestriction.usedInSection;
+          for (const row of rows) {
+            const notSupported = typeRestriction.allowedTypes && !typeRestriction.allowedTypes.includes(row.questionType);
+            const atCapacity = typeRestriction.sectionCap != null && usedInSection >= typeRestriction.sectionCap;
+            if (notSupported || atCapacity) {
+              skipped += 1;
+              await deleteExamQuestionBatchRow(uploadId, row.rowId).catch(() => {});
+              continue;
+            }
+            usedInSection += 1;
+            kept.push(await applyMark(row, typeRestriction.markPerQuestion));
+          }
+        } else {
+          const runningCounts = { ...typeRestriction.usedCounts };
+          for (const row of rows) {
+            const notSupported = !typeRestriction.supportedTypes.includes(row.questionType);
+            const quota = Number(typeRestriction.quantity[row.questionType]) || 0;
+            const atCapacity = !notSupported && (runningCounts[row.questionType] || 0) >= quota;
+            if (notSupported || atCapacity) {
+              skipped += 1;
+              await deleteExamQuestionBatchRow(uploadId, row.rowId).catch(() => {});
+              continue;
+            }
+            runningCounts[row.questionType] = (runningCounts[row.questionType] || 0) + 1;
+            kept.push(await applyMark(row, typeRestriction.markDistribution[row.questionType]));
+          }
+        }
+
+        rows = kept;
+        if (skipped) {
+          toast({
+            title: `${skipped} question${skipped === 1 ? "" : "s"} skipped — not an allowed question type for this ${
+              typeRestriction.mode === "section" ? "section" : "exam"
+            }, or already at its configured limit`,
+            status: "warning",
+            duration: 6000,
+            isClosable: true,
+          });
+        }
+      }
 
       toast({ title: "Upload processed — review the staged questions below", status: "success", duration: 3000, isClosable: true });
-      history.push(buildReviewLink(uploadId, context), { rows });
+      history.push(buildReviewLink(uploadId, effectiveContext), { rows });
     } catch (err) {
       const status = err?.response?.status;
       const msg = err?.response?.data?.message || "";
@@ -233,7 +586,17 @@ const BatchUploadPage = () => {
         <Breadcrumb
           item2={
             <BreadcrumbItem>
-              <Link href={buildQuestionListingLink(context)}>{contextLabel(context)} Questions</Link>
+              {/* Nothing real exists yet in the createTarget flow — there's
+                  no question-listing page to link to, so this just goes
+                  back to wherever "Upload & Batch Import Questions" was
+                  clicked from instead. */}
+              {context.createTarget ? (
+                <Text as="button" type="button" onClick={() => history.goBack()} color="#6b006b" fontWeight="600">
+                  Back
+                </Text>
+              ) : (
+                <Link href={buildQuestionListingLink(context)}>{contextLabel(context)} Questions</Link>
+              )}
             </BreadcrumbItem>
           }
           item3={
@@ -247,6 +610,14 @@ const BatchUploadPage = () => {
           <Heading fontSize="20px" fontWeight="600">Batch Upload {contextLabel(context)} Questions</Heading>
           <Button secondary size="sm" onClick={() => history.goBack()}>← Back</Button>
         </Flex>
+
+        {context.section && (
+          <Box bg="#F0E6FF" border="1px solid #D6BCFA" borderRadius="8px" p="12px" mb="20px">
+            <Text fontSize="13px" color="#553C9A">
+              Every question in this file will be added to <Text as="span" fontWeight="700">Section: {context.section}</Text>.
+            </Text>
+          </Box>
+        )}
 
         <Flex direction="column" gap="20px">
         {/* Step 1: Download Template */}

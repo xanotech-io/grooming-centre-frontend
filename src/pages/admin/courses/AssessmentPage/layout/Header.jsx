@@ -35,6 +35,19 @@ const links = [
   },
   {
     matcher: (courseId, assessmentId) =>
+      `/admin/courses/${courseId}/assessment/${assessmentId}/template`,
+    // Unlike Overview, Course Exam has no dedicated Template page of its
+    // own — TemplatePage.jsx is shared by both Course Exam and Assessment,
+    // so this tab always points here, no special-casing needed.
+    href: (courseId, assessmentId, examinationId, moduleId) =>
+      `/admin/courses/${courseId}/assessment/${assessmentId}/template${buildQuery(
+        examinationId,
+        moduleId
+      )}`,
+    text: "Template / Marking Scheme",
+  },
+  {
+    matcher: (courseId, assessmentId) =>
       `courses/${courseId}/assessment/${assessmentId}/questions`,
     href: (courseId, assessmentId, examinationId, moduleId) =>
       `/admin/courses/${courseId}/assessment/${assessmentId}/questions/new${buildQuery(

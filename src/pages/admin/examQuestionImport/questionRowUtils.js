@@ -126,6 +126,17 @@ export const getUploadContext = (query) => ({
   assessmentId: query.get("assessmentId") || undefined,
   examinationId: query.get("examinationId") || undefined,
   standalone: query.get("standalone") === "true",
+  // Which section (of a "with sections"/hybrid exam) this batch belongs to —
+  // set when the upload was launched from a specific Section tab on the
+  // Questions page, so every row in the file lands in that section instead
+  // of the exam's unsectioned pool.
+  section: query.get("section") || undefined,
+  // Nothing real exists yet — BatchUploadPage.jsx reads the still-pending
+  // details straight from the store (pendingCreate) and creates the real
+  // Course Exam/course-level Exam/Assessment as part of the upload call
+  // itself (the batch-import endpoint's `createTargetType` field), instead
+  // of a separate quick-create step first.
+  createTarget: query.get("createTarget") === "true",
 });
 
 const contextToParams = (context) => {
@@ -134,6 +145,8 @@ const contextToParams = (context) => {
   if (context.assessmentId) params.set("assessmentId", context.assessmentId);
   if (context.examinationId) params.set("examinationId", context.examinationId);
   if (context.standalone) params.set("standalone", "true");
+  if (context.section) params.set("section", context.section);
+  if (context.createTarget) params.set("createTarget", "true");
   return params;
 };
 
