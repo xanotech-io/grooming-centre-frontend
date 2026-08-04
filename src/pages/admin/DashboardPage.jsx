@@ -1,5 +1,5 @@
 import { Box, Center, Flex, Grid, GridItem } from "@chakra-ui/layout";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Doughnut } from "react-chartjs-2";
 import { FiUsers } from "react-icons/fi";
 import { GiBookshelf, GiSpellBook } from "react-icons/gi";
@@ -14,13 +14,13 @@ import {
 } from "../../components";
 import { useFetchAndCache } from "../../hooks";
 import { AdminMainAreaWrapper } from "../../layouts";
-import { adminGetDashboardStats } from "../../services";
+import { adminExportDashboard, adminGetDashboardStats } from "../../services";
 import Carousel from "react-elastic-carousel";
 import { MdVideoLibrary } from "react-icons/md";
 import { FaRegFileAudio } from "react-icons/fa";
 import { SkeletonCircle } from "@chakra-ui/skeleton";
 import colors from "../../theme/colors";
-import { utils, writeFile } from "xlsx";
+import { useToast } from "@chakra-ui/react";
 
 const useDashboardStats = () => {
   const { resource: stats, handleFetchResource } = useFetchAndCache();
@@ -41,6 +41,8 @@ const useDashboardStats = () => {
 
 const DashboardPage = () => {
   const { stats } = useDashboardStats();
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
 
   const departmentName = stats.data?.usersByDepartment.map(
     (department) => department.name
@@ -111,48 +113,29 @@ const DashboardPage = () => {
     },
   };
 
-  const handleGetData = () => {
-    const wb = utils.book_new();
-    const ws = utils.json_to_sheet([
-      {
-        column1: "No of Courses",
-        column2: stats.data?.courses?.length,
-      },
-      {
-        column1: "No of Users",
-        column2: stats.data?.users.length,
-      },
-      {
-        column1: "Published Courses",
-        column2: published?.length,
-      },
-      {
-        column1: "",
-        column2: "",
-      },
-      {
-        column1: "DEPARTMENTS",
-        column2: "",
-      },
-      ...departmentName?.map((dept, i) => ({
-        column1: dept,
-        column2: departmentUsers[i],
-      })),
-      {
-        column1: "",
-        column2: "",
-      },
-      {
-        column1: "ROLES",
-        column2: "",
-      },
-      ...roleName?.map((dept, i) => ({
-        column1: dept,
-        column2: roleUsers[i],
-      })),
-    ]);
-    utils.book_append_sheet(wb, ws, "Orders");
-    writeFile(wb, "DashboardData.xlsx");
+  const handleExportDashboard = async () => {
+    setExporting(true);
+    try {
+      const blob = await adminExportDashboard({
+        dashboardType: "academic",
+        exportFormat: "Excel",
+        filters: {},
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "dashboard-academic.excel";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast({
+        description: err?.response?.data?.message || "Export failed.",
+        status: "error",
+        position: "top",
+      });
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -161,7 +144,9 @@ const DashboardPage = () => {
       marginRight={{ lg: "5", md: "5", sm: "5" }}
     >
       <Box marginTop="20px" display="flex" justifyContent="flex-end">
-        <Button onClick={() => handleGetData()}>Export Dashboard</Button>
+        <Button onClick={handleExportDashboard} isLoading={exporting}>
+          Export Dashboard
+        </Button>
       </Box>
 
       <Grid

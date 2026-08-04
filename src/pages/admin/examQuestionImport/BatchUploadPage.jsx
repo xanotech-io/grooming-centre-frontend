@@ -24,7 +24,7 @@ import { Breadcrumb, Button, Heading, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts";
 import { useQueryParams } from "../../../hooks";
 import useAssessmentStore from "../../../store/assessmentStore";
-import { markNeedsApprovalSubmission } from "../../../utils";
+import { appendFormData, getExamMeta, markExamMeta, markNeedsApprovalSubmission } from "../../../utils";
 import { toBatchUploadSections } from "../examSectionBuilder/examTypeConfig";
 import {
   downloadExamQuestionBatchTemplate,
@@ -37,6 +37,8 @@ import {
   requestAssessmentDetails,
   adminGetMarkingTemplateById,
   adminGetExaminationById,
+  adminCreateExaminationQuestion,
+  adminCreateAssessmentQuestion,
   getExaminationById as getExamPaperConfig,
   updateExaminationById as updateExamPaperConfig,
 } from "../../../services";
@@ -63,6 +65,18 @@ import {
 // staged row's own (already-normalized) `questionType`.
 const normalizeTypeKeys = (obj) =>
   Object.fromEntries(Object.entries(obj || {}).map(([k, v]) => [normalizeQuestionType(k), v]));
+
+// The cached examType/questionQuantity was written keyed by exact kind
+// ("StandaloneExam"/"ModuleExam"/"Exam"/"Assessment") — this context object
+// doesn't carry moduleId to disambiguate ModuleExam vs Exam, so try every
+// candidate kind for this flow and use whichever one actually has data.
+const getCachedExamMeta = (candidates, id) => {
+  for (const kind of candidates) {
+    const meta = getExamMeta(kind, id);
+    if (meta) return meta;
+  }
+  return null;
+};
 
 const COLUMNS = [
   { col: "question_text", required: "Required", applies: "All", desc: "Full question statement — must not be empty" },
@@ -158,6 +172,7 @@ const BatchUploadPage = () => {
   const context = getUploadContext(useQueryParams());
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
   const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
+  const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
 
   const [defaultDifficulty, setDefaultDifficulty] = useState("");
   const [file, setFile] = useState(null);
@@ -216,10 +231,22 @@ const BatchUploadPage = () => {
           getSections: () => Promise.resolve(pendingCreate.paperConfigBody?.configuredSections || []),
         };
       }
+      // Confirmed via a real GET /v1/assessment/admin/:id response: the
+      // backend doesn't reliably return examType/questionQuantity once a
+      // record is real — fall back to whatever markExamMeta cached for it
+      // at creation/edit time (same fallback QuestionsPage.jsx's own
+      // getRealExamMeta uses) so this restriction still applies to a bulk
+      // upload aimed at an already-real exam/assessment.
       if (context.standalone) {
         const { examination } = await getStandaloneExaminationDetails(context.examinationId, true);
+        const cached = getCachedExamMeta(["StandaloneExam"], context.examinationId);
         return {
-          record: examination,
+          record: {
+            ...examination,
+            examType: examination.examType ?? cached?.examType,
+            questionQuantity: examination.questionQuantity ?? cached?.questionQuantity,
+            templateId: examination.templateId ?? cached?.markingTemplateId,
+          },
           getSections: () =>
             getExamPaperConfig(context.examinationId, "standalone_examination")
               .then((res) => res?.data?.configuredSections || [])
@@ -228,8 +255,14 @@ const BatchUploadPage = () => {
       }
       if (context.examinationId) {
         const { examination } = await requestExaminationDetails(context.examinationId, true);
+        const cached = getCachedExamMeta(["ModuleExam", "Exam"], context.examinationId);
         return {
-          record: examination,
+          record: {
+            ...examination,
+            examType: examination.examType ?? cached?.examType,
+            questionQuantity: examination.questionQuantity ?? cached?.questionQuantity,
+            templateId: examination.templateId ?? cached?.markingTemplateId,
+          },
           getSections: () =>
             getExamPaperConfig(context.examinationId, "examination")
               .then((res) => res?.data?.configuredSections || [])
@@ -237,11 +270,17 @@ const BatchUploadPage = () => {
         };
       }
       const { assessment } = await requestAssessmentDetails(context.assessmentId, true);
+      const cached = getCachedExamMeta(["Assessment"], context.assessmentId);
       return {
-        // Assessment's own field for this is `markingTemplateId`, not
-        // `templateId` — normalized here so the rest of this effect can
-        // treat all three flows identically.
-        record: { ...assessment, templateId: assessment.markingTemplateId },
+        record: {
+          ...assessment,
+          examType: assessment.examType ?? cached?.examType,
+          questionQuantity: assessment.questionQuantity ?? cached?.questionQuantity,
+          // Assessment's own field for this is `markingTemplateId`, not
+          // `templateId` — normalized here so the rest of this effect can
+          // treat all three flows identically.
+          templateId: assessment.markingTemplateId ?? cached?.markingTemplateId,
+        },
         getSections: () => Promise.resolve(assessment.sections || []),
       };
     };
@@ -440,6 +479,19 @@ const BatchUploadPage = () => {
           section: context.section,
         };
         if (realId) markNeedsApprovalSubmission(isAssessment ? "assessment" : "examination", realId);
+        // Same cache QuestionsPage.jsx's performCreateParent writes for the
+        // regular (non-bulk-upload) create flow — confirmed the backend
+        // doesn't reliably return examType/questionQuantity once real, so
+        // without this a hybrid/sectioned exam created via bulk upload would
+        // lose its section tabs/type restriction the moment this page
+        // clears pendingCreate below.
+        if (realId) {
+          markExamMeta(kind, realId, {
+            examType: body.examType,
+            questionQuantity: body.questionQuantity,
+            markingTemplateId: body.markingTemplateId,
+          });
+        }
 
         // createTargetType only creates the bare examination itself (title/
         // duration/dates/examType/sections-for-marks-validation) — it has no
@@ -463,6 +515,48 @@ const BatchUploadPage = () => {
           });
         }
 
+        // Any questions already queued (via the Question Bank picker or
+        // manual entry, e.g. hybrid's standalone half) before this upload —
+        // createTargetType only creates the shell plus this file's own
+        // rows, so those still need creating for real against the same
+        // parent, the same way "Create and Submit" already does via
+        // handlePendingWorkflowCreate in QuestionsPage.jsx. Confirmed via a
+        // real bug report: skipping this silently dropped every previously-
+        // queued question the moment clearPendingCreate() ran below —
+        // "5 standalone questions queued, 1 batch-uploaded, only 1 survived."
+        if (realId) {
+          const failedQueued = [];
+          for (const queued of pendingCreate?.questions || []) {
+            try {
+              const data = {
+                ...queued.data,
+                ...(isAssessment ? { assessmentId: realId } : { examinationId: realId }),
+              };
+              if (isAssessment) await adminCreateAssessmentQuestion(appendFormData(data));
+              else await adminCreateExaminationQuestion(appendFormData(data));
+            } catch {
+              failedQueued.push(queued);
+            }
+          }
+          if (failedQueued.length) {
+            toast({
+              title: `${failedQueued.length} previously queued question${failedQueued.length === 1 ? "" : "s"} couldn't be created`,
+              description: 'They\'re still saved — open this exam/assessment and use "Add more questions" to retry them.',
+              status: "warning",
+              duration: 10000,
+              isClosable: true,
+            });
+            setPendingEdit({
+              kind,
+              contentId: realId,
+              title: pendingCreate?.title,
+              requestType: isAssessment ? "CourseAssessment" : "CourseExam",
+              courseId: context.courseId,
+              questions: failedQueued,
+            });
+          }
+        }
+
         clearPendingCreate();
       }
 
@@ -476,6 +570,24 @@ const BatchUploadPage = () => {
             row.section === context.section
               ? row
               : updateExamQuestionBatchRow(uploadId, row.rowId, { section: context.section })
+                  .then((r) => normalizeStagedRow({ ...(r?.data ?? r), rowId: row.rowId }))
+                  .catch(() => row),
+          ),
+        );
+      } else if (rows.length > 0) {
+        // No section was selected for this upload (an unsectioned exam, or
+        // hybrid's "Standalone Questions" pool) — a row's own "section"
+        // column in the uploaded file has nothing to do with our Exam Type
+        // sections. Confirmed via a real bug report: leaving it in place got
+        // misread by the Question Listing page as real section structure.
+        // Best-effort (unconfirmed whether the backend accepts `section: ""`
+        // to actually clear the field) — a failure here just leaves the
+        // stray value in place, same as before this existed.
+        rows = await Promise.all(
+          rows.map((row) =>
+            !row.section
+              ? row
+              : updateExamQuestionBatchRow(uploadId, row.rowId, { section: "" })
                   .then((r) => normalizeStagedRow({ ...(r?.data ?? r), rowId: row.rowId }))
                   .catch(() => row),
           ),

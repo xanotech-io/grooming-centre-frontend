@@ -76,7 +76,9 @@ import {
   capitalizeFirstLetter,
   capitalizeWords,
   clearNeedsApprovalSubmission,
+  getExamMeta,
   isAutoAddToBank,
+  markExamMeta,
   markNeedsApprovalSubmission,
   needsApprovalSubmission,
   setAutoAddToBank,
@@ -320,6 +322,44 @@ const getSectionMarks = (cfg) => {
 const queuedQuestionType = (q) =>
   q.formSnapshot?.questionType ?? q.bank?.questionType ?? q.data?.questionType ?? null;
 
+// Same two shapes queuedQuestionType reads from — a queued item never
+// carries `.section` on its `bank` sub-object, only formSnapshot/data.
+const queuedQuestionSection = (q) => q.formSnapshot?.section ?? q.data?.section ?? null;
+
+// "ModuleExam"/"Exam"/"Assessment" — matches pendingCreate/pendingEdit.kind
+// values exactly, so the same key reads back whatever markExamMeta wrote at
+// creation/edit time. isStandaloneExamination is dead/unreachable in this
+// file (Standalone has its own QuestionsStandalone.jsx), so it's not one of
+// the cases here.
+const realExamKind = (isExamination, moduleId) =>
+  isExamination ? (moduleId ? "ModuleExam" : "Exam") : "Assessment";
+
+// The fetched record's own examType/questionQuantity, falling back to
+// whatever markExamMeta cached at creation/edit time — confirmed via a real
+// GET /v1/assessment/admin/:id response that the backend doesn't reliably
+// return these once an exam/assessment is real, which otherwise makes the
+// whole Exam Type feature (section tabs, per-type Quantity restriction) go
+// dark the moment it stops being pending.
+const getRealExamMeta = (assessment, isExamination, moduleId) => {
+  const cached = getExamMeta(realExamKind(isExamination, moduleId), assessment?.id);
+  return {
+    examType: assessment?.examType ?? cached?.examType ?? null,
+    questionQuantity: assessment?.questionQuantity ?? cached?.questionQuantity ?? null,
+  };
+};
+
+// Writes the getRealExamMeta cache the moment a pending exam/assessment
+// becomes real (create or edit) — StandaloneExam excluded, it's dead/
+// unreachable code in this file (own QuestionsStandalone.jsx handles it).
+const cacheExamMetaFromBody = (kind, id, body) => {
+  if (kind === "StandaloneExam" || !body) return;
+  markExamMeta(kind, id, {
+    examType: body.examType,
+    questionQuantity: body.questionQuantity,
+    markingTemplateId: body.markingTemplateId,
+  });
+};
+
 // "Exam without sections" and hybrid's non-sectioned questions both draw
 // from the same Quantity-per-type/marking-template restriction set up on
 // the Overview form's Exam Type step — once the queue already has that
@@ -470,7 +510,9 @@ const QuestionsPage = () => {
   const [selectedSectionId, setSelectedSectionId] = useState(pendingSectionId || "");
   const queuedSource = isPendingCreation ? pendingCreate : isPendingEditSubmit ? pendingEdit : null;
   const isPending = isPendingCreation || isPendingEditSubmit;
-  const examTypeForBatchUpload = isPending ? queuedSource?.body?.examType : assessmentManager.assessment?.examType;
+  const examTypeForBatchUpload = isPending
+    ? queuedSource?.body?.examType
+    : getRealExamMeta(assessmentManager.assessment, isExamination, moduleId).examType;
   const isSectionedExam = examTypeForBatchUpload === "sectioned" || examTypeForBatchUpload === "hybrid";
 
   // Used for an already-real exam/assessment ("Add more questions") — the
@@ -1177,7 +1219,8 @@ const CreateQuestionPage = ({
   // instead (unrestricted for one with no Exam Type at all — e.g. it
   // predates this feature).
   const isPending = isPendingCreation || isPendingEditSubmit;
-  const realExamType = assessmentManager.assessment?.examType;
+  const realExamMeta = getRealExamMeta(assessmentManager.assessment, isExamination, moduleId);
+  const realExamType = realExamMeta.examType;
   const examTypeForTabs = isPending ? queuedSource?.body?.examType : realExamType;
   const isHybridExam = examTypeForTabs === "hybrid";
   // Hybrid gets one extra tab ("" — Standalone Questions) alongside its real
@@ -1196,9 +1239,26 @@ const CreateQuestionPage = ({
   const allowedQuestionTypes = getAllowedQuestionTypes(selectedSectionConfig);
   const allowedMarkingTypes = getAllowedMarkingTypes(selectedSectionConfig);
   const sectionMarks = getSectionMarks(selectedSectionConfig);
-  const existingSectionQuestionCount = (
-    assessmentManager.assessment?.questions || []
-  ).filter((q) => q.section === selectedSectionId).length;
+  // Real questions already saved plus whatever's already queued for this
+  // same section while still pending — without the queued half, a section's
+  // cap never actually engages before the exam/assessment is created (real
+  // questions don't exist yet), so nothing here or in the submit-time guard
+  // below would ever catch it.
+  const sectionQuestionCount = (name) => {
+    const real = (assessmentManager.assessment?.questions || []).filter((q) => q.section === name).length;
+    const queued = isPending
+      ? (queuedSource?.questions || []).reduce((count, q, i) => {
+          if (isEditingQueued && i === queuedIndex) return count;
+          return queuedQuestionSection(q) === name ? count + 1 : count;
+        }, 0)
+      : 0;
+    return real + queued;
+  };
+  const isSectionFull = (name) => {
+    const cap = sectionConfigMap[name]?.questionsCount;
+    return !!cap && sectionQuestionCount(name) >= cap;
+  };
+  const existingSectionQuestionCount = sectionQuestionCount(selectedSectionId);
   const sectionAtCapacity =
     !isEditMode &&
     !!selectedSectionConfig?.questionsCount &&
@@ -1221,7 +1281,7 @@ const CreateQuestionPage = ({
     pendingSource: queuedSource,
     isPending,
     realExamType,
-    realQuestionQuantity: assessmentManager.assessment?.questionQuantity,
+    realQuestionQuantity: realExamMeta.questionQuantity,
     realQuestions: assessmentManager.assessment?.questions,
     editingQuestionId: isEditMode ? question?.id : undefined,
     selectedSectionId,
@@ -1246,6 +1306,20 @@ const CreateQuestionPage = ({
     if (!isSectionedExam || isHybridExam || selectedSectionId || question || activeSections.length === 0) return;
     setSelectedSectionId(activeSections[0]);
   }, [isSectionedExam, isHybridExam, selectedSectionId, question, activeSections, setSelectedSectionId]);
+
+  // Once the active section fills up (from a previous save, a bulk bank-add,
+  // or simply reopening a blank form after the last one queued), move on to
+  // the next section with room instead of leaving the admin stuck on one
+  // that submit will just reject anyway. Skipped while editing an existing/
+  // queued question (that slot already IS one of the section's counted
+  // questions, so it never reads as "full" for itself) and for hybrid's "" —
+  // that pool has its own per-type Quantity cap, not a single section count.
+  useEffect(() => {
+    if (!isSectionedExam || isEditMode || isEditingQueued || question || !selectedSectionId || !sectionAtCapacity) return;
+    const next = activeSections.find((name) => name && name !== selectedSectionId && !isSectionFull(name));
+    if (next) setSelectedSectionId(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSectionedExam, isEditMode, isEditingQueued, question, selectedSectionId, sectionAtCapacity, activeSections]);
 
   // Snap to a section's locked type/marking type as soon as it's picked —
   // covers arriving via a section's "Add Question" link and switching
@@ -1748,6 +1822,7 @@ const CreateQuestionPage = ({
       }
       if (parentAddToBank) setAutoAddToBank("examination", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+      cacheExamMetaFromBody(kind, examination.id, finalBody);
       return { id: examination.id };
     }
 
@@ -1769,6 +1844,7 @@ const CreateQuestionPage = ({
       resourceType: "Assessment",
       remarks: `Created assessment "${finalBody.title}"`,
     }).catch(() => {});
+    cacheExamMetaFromBody(kind, assessment.id, finalBody);
     return { id: assessment.id };
   };
 
@@ -1790,11 +1866,13 @@ const CreateQuestionPage = ({
     if (kind === "ModuleExam" || kind === "Exam") {
       await adminEditExamination(contentId, finalBody);
       if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      cacheExamMetaFromBody(kind, contentId, finalBody);
       return { id: contentId };
     }
 
     // "Assessment" — same edit endpoint either way
     await adminEditAssessment(contentId, finalBody);
+    cacheExamMetaFromBody(kind, contentId, finalBody);
     return { id: contentId };
   };
 
@@ -3377,6 +3455,7 @@ const QuestionListingPage = ({
   // Same Exam-Type-driven per-type Quantity cap as CreateQuestionPage (see
   // buildTypeQuotaState above) — no section is ever selected from this
   // page, so a hybrid exam's standalone-quantity pool always applies here.
+  const realExamMeta = getRealExamMeta(assessment, isExamination, moduleId);
   const {
     usingTemplateTypeRestriction,
     templateSupportedTypes,
@@ -3385,8 +3464,8 @@ const QuestionListingPage = ({
   } = buildTypeQuotaState({
     pendingSource: isPendingCreation ? pendingCreate : isPendingEditSubmit ? pendingEdit : null,
     isPending: isPendingCreation || isPendingEditSubmit,
-    realExamType: assessment?.examType,
-    realQuestionQuantity: assessment?.questionQuantity,
+    realExamType: realExamMeta.examType,
+    realQuestionQuantity: realExamMeta.questionQuantity,
     realQuestions: assessment?.questions,
     selectedSectionId: undefined,
     isEditingQueued: false,
@@ -3520,6 +3599,7 @@ const QuestionListingPage = ({
       }
       if (parentAddToBank) setAutoAddToBank("examination", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+      cacheExamMetaFromBody(kind, examination.id, body);
       return { id: examination.id };
     }
 
@@ -3532,6 +3612,7 @@ const QuestionListingPage = ({
     const { assessment: created } = await adminCreateAssessment(body);
     setAssessment(created);
     if (parentAddToBank) setAutoAddToBank("assessment", created.id);
+    cacheExamMetaFromBody(kind, created.id, body);
     return { id: created.id };
   };
 
@@ -3547,10 +3628,12 @@ const QuestionListingPage = ({
     if (kind === "ModuleExam" || kind === "Exam") {
       await adminEditExamination(contentId, body);
       if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      cacheExamMetaFromBody(kind, contentId, body);
       return { id: contentId };
     }
 
     await adminEditAssessment(contentId, body);
+    cacheExamMetaFromBody(kind, contentId, body);
     return { id: contentId };
   };
 
@@ -3640,9 +3723,20 @@ const QuestionListingPage = ({
   // below can still group by section without that formal definition (locks/
   // caps/weightage from `sectionConfigMap` are simply unavailable in this
   // fallback case — nothing here can restore data the backend never sent).
+  // Gated on the assessment actually being sectioned/hybrid — confirmed via
+  // a real bug report: an UNsectioned assessment's bulk-uploaded questions
+  // can still carry a stray `section` value left over from the uploaded
+  // file's own "section" column (that column has nothing to do with our
+  // Exam Type sections at all), and without this gate those got misread as
+  // real section structure and grouped as if they were.
+  const isActuallySectioned = isExamination
+    ? definedSectionNames.length > 0
+    : realExamMeta.examType === "sectioned" || realExamMeta.examType === "hybrid";
   const sectionNames = definedSectionNames.length
     ? definedSectionNames
-    : [...new Set(questions.map((q) => q.section).filter(Boolean))];
+    : isActuallySectioned
+      ? [...new Set(questions.map((q) => q.section).filter(Boolean))]
+      : [];
   // Same lock/weightage/count-cap lookup CreateQuestionPage uses — lets this
   // page show each section's "x/N questions" limit for visibility.
   const sectionConfigMap = buildSectionConfigMap(rawSections, "exam");
@@ -3655,13 +3749,25 @@ const QuestionListingPage = ({
 
   const questionsIsEmpty = !isLoading && !error && !questions.length && !queuedQuestions.length;
 
+  // Confirmed via a real bug report: this used to omit submitForApproval/
+  // editSubmit/moduleId entirely — fine for an already-real exam/assessment
+  // (nothing pending to carry), but for a still-pending one it silently
+  // dropped the very query params CreateQuestionPage reads to know
+  // `isPendingCreation`/`isPendingEditSubmit` are true at all. Landing there
+  // without them made it treat "new" as if it were a real (nonexistent)
+  // assessmentId — no pendingCreate to read from, no section tabs, no
+  // Exam-Type restrictions, nothing. Same params getEditQueuedQuestionLink
+  // below already sets correctly for its own link.
   const buildAddLink = (sectionName) => {
     const base = `/admin/courses/${courseId}/assessment/${assessmentId}/questions/new`;
-    const parts = [
-      isExamination && `examination=${isExamination}`,
-      sectionName && `section=${encodeURIComponent(sectionName)}`,
-    ].filter(Boolean);
-    return parts.length ? `${base}?${parts.join("&")}` : base;
+    const params = new URLSearchParams();
+    if (isPendingCreation) params.set("submitForApproval", "1");
+    if (isPendingEditSubmit) params.set("editSubmit", "1");
+    if (isExamination) params.set("examination", isExamination);
+    if (moduleId) params.set("moduleId", moduleId);
+    if (sectionName) params.set("section", sectionName);
+    const query = params.toString();
+    return query ? `${base}?${query}` : base;
   };
 
   const handleAssign = async (question, sectionName) => {
