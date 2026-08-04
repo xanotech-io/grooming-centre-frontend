@@ -3577,6 +3577,31 @@ const QuestionListingPage = ({
     toast({ description: "Queued question removed", position: "top", status: "success" });
   };
 
+  // A bulk "Question Bank" add from this page has no active section to
+  // inherit (see bankQueueCtx below) — for a sectioned/hybrid exam that
+  // leaves the queued item with no `.section` at all, which the backend
+  // rejects on submit ("none is under section"). Lets the admin assign one
+  // after the fact, same shapes queuedQuestionSection reads from.
+  const handleAssignQueuedSection = (index, sectionName) => {
+    const source = isPendingCreation ? pendingCreate : pendingEdit;
+    const updatedQuestions = (source.questions || []).map((q, i) =>
+      i === index
+        ? {
+            ...q,
+            data: { ...q.data, section: sectionName || undefined },
+            ...(q.formSnapshot && {
+              formSnapshot: { ...q.formSnapshot, section: sectionName || undefined },
+            }),
+          }
+        : q,
+    );
+    if (isPendingCreation) {
+      setPendingCreate({ ...pendingCreate, questions: updatedQuestions });
+    } else {
+      setPendingEdit({ ...pendingEdit, questions: updatedQuestions });
+    }
+  };
+
   // ── Creates (or applies the held-back edit to) the exam/assessment and
   // saves every queued question, all gated behind the approval modal's
   // supervisor pick — same split as CreateQuestionPage's "Create and
@@ -3663,6 +3688,14 @@ const QuestionListingPage = ({
   };
 
   const handleOpenCreateAndSubmit = () => {
+    if (sectionNames.length > 0 && queuedQuestions.some((q) => !queuedQuestionSection(q))) {
+      toast({
+        description: "Assign every queued question to a section before submitting.",
+        position: "top",
+        status: "error",
+      });
+      return;
+    }
     if (isPendingCreation) {
       const requestType =
         pendingCreate.kind === "StandaloneExam"
@@ -3709,11 +3742,28 @@ const QuestionListingPage = ({
   // exam's own `configuredSections`; plain Assessments in the assessment's
   // own `sections` field. Either way, every question just carries the
   // section's name in its real `section` field.
-  const rawSections = isExamination
-    ? configuredSections
-    : Array.isArray(assessment?.sections)
-      ? assessment.sections
-      : [];
+  // While the parent is still pending (nothing real to fetch yet),
+  // `configuredSections`/`assessment.sections` are always empty — the only
+  // place the sections the admin actually configured exist is
+  // pendingCreate/pendingEdit.paperConfigBody.configuredSections (set by
+  // TemplatePage.jsx for every kind, real-network-send or not). Confirmed
+  // via a real bug report: without this, a still-pending sectioned exam
+  // rendered as if it had no sections at all, so a bulk Question Bank add
+  // had nothing to tag questions with, and submit failed backend-side with
+  // "none is under section".
+  const pendingSections = isPendingCreation
+    ? pendingCreate?.paperConfigBody?.configuredSections
+    : isPendingEditSubmit
+      ? pendingEdit?.paperConfigBody?.configuredSections
+      : null;
+  const rawSections =
+    Array.isArray(pendingSections) && pendingSections.length > 0
+      ? pendingSections
+      : isExamination
+        ? configuredSections
+        : Array.isArray(assessment?.sections)
+          ? assessment.sections
+          : [];
   const definedSectionNames = rawSections.map((s) => s.section_name).filter(Boolean);
   // Confirmed via a real GET /v1/assessment/admin/:id response: a plain
   // Assessment's own record carries no `sections` field at all, even for
@@ -3729,9 +3779,12 @@ const QuestionListingPage = ({
   // file's own "section" column (that column has nothing to do with our
   // Exam Type sections at all), and without this gate those got misread as
   // real section structure and grouped as if they were.
-  const isActuallySectioned = isExamination
-    ? definedSectionNames.length > 0
-    : realExamMeta.examType === "sectioned" || realExamMeta.examType === "hybrid";
+  const isActuallySectioned =
+    definedSectionNames.length > 0
+      ? true
+      : isExamination
+        ? false
+        : realExamMeta.examType === "sectioned" || realExamMeta.examType === "hybrid";
   const sectionNames = definedSectionNames.length
     ? definedSectionNames
     : isActuallySectioned
@@ -3971,6 +4024,13 @@ const QuestionListingPage = ({
             </Heading>
           </Flex>
 
+          {sectionNames.length > 0 && (
+            <Text color="orange.600" fontSize="sm" mb={3}>
+              This {isExamination ? "exam" : "assessment"} uses sections — assign every queued
+              question below to a section before submitting.
+            </Text>
+          )}
+
           {queuedQuestions.map((q, index) => (
             <Flex key={`queued-${index}`} alignItems="center" gap={2} marginBottom={4}>
               <Link
@@ -3999,6 +4059,24 @@ const QuestionListingPage = ({
                   </Text>
                 </Box>
               </Link>
+              {sectionNames.length > 0 && (
+                <ChakraSelect
+                  size="sm"
+                  width="220px"
+                  flexShrink={0}
+                  borderColor={queuedQuestionSection(q) ? undefined : "orange.400"}
+                  value={queuedQuestionSection(q) || ""}
+                  onChange={(e) => handleAssignQueuedSection(index, e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="">Assign a section…</option>
+                  {sectionNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </ChakraSelect>
+              )}
               <Button
                 ghost
                 type="button"

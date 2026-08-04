@@ -5,15 +5,19 @@ import { useToast } from "@chakra-ui/toast";
 import { useEffect, useRef, useState } from "react";
 import { FaUpload, FaExternalLinkAlt, FaCheckCircle } from "react-icons/fa";
 import Icon from "@chakra-ui/icon";
-import { Button, Heading, Spinner, Text } from "../../../../components";
-import { getProjectById, getProjectSubmissions, submitProjectFile } from "../../../../services";
+import { Button, Heading, Spinner, Text, AnnotatableText } from "../../../../components";
+import { getProjectById, getProjectSubmissions, submitProjectFile, buildThreadKey, markViewed, getUnreadCount } from "../../../../services";
 import { capitalizeFirstLetter } from "../../../../utils";
+import { useApp } from "../../../../contexts";
 import dayjs from "dayjs";
 
 const ProjectSubmissionPage = ({ sidebarLinks }) => {
   const { project_id } = useParams();
   const toast = useToast();
   const fileInputRef = useRef(null);
+  const {
+    state: { user: viewer },
+  } = useApp();
 
   const [project, setProject] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,6 +26,7 @@ const ProjectSubmissionPage = ({ sidebarLinks }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submission, setSubmission] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const fetch = async () => {
@@ -44,6 +49,14 @@ const ProjectSubmissionPage = ({ sidebarLinks }) => {
     };
     fetch();
   }, [project_id]);
+
+  useEffect(() => {
+    if (submission && viewer?.id) {
+      const key = buildThreadKey("project", project_id, viewer.id);
+      setUnreadCount(getUnreadCount(key, viewer.id));
+      markViewed(key, viewer.id);
+    }
+  }, [submission, viewer?.id, project_id]);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -94,6 +107,14 @@ const ProjectSubmissionPage = ({ sidebarLinks }) => {
   return (
     <Box flex={1} overflowY="auto" px={{ base: 4, md: 10 }} py={8} backgroundColor="gray.50">
       <Box maxWidth="800px" marginX="auto">
+        {unreadCount > 0 && (
+          <Box backgroundColor="purple.50" border="1px" borderColor="purple.200" borderRadius="md" p={3} mb={4}>
+            <Text bold color="purple.700" fontSize="sm">
+              You have {unreadCount} new comment{unreadCount !== 1 ? "s" : ""} from your instructor.
+            </Text>
+          </Box>
+        )}
+
         {/* Header */}
         <Flex justifyContent="space-between" alignItems="flex-start" mb={6}>
           <Box>
@@ -188,6 +209,23 @@ const ProjectSubmissionPage = ({ sidebarLinks }) => {
                 >
                   View Submitted File
                 </Button>
+              )}
+
+              {viewer?.id && (
+                <Box borderTop="1px" borderColor="gray.200" pt={4}>
+                  <Text bold mb={2} color="gray.600">
+                    Instructor Comments
+                  </Text>
+                  <AnnotatableText
+                    submissionId={buildThreadKey("project", project_id, viewer.id)}
+                    questionId={null}
+                    questionLabel={null}
+                    text={null}
+                    viewerId={viewer.id}
+                    viewerName={`${viewer.firstName ?? ""} ${viewer.lastName ?? ""}`.trim()}
+                    viewerRole="student"
+                  />
+                </Box>
               )}
             </Stack>
           ) : (

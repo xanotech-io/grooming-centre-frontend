@@ -1,4 +1,5 @@
 export * from "./http/http";
+export * from "./submissionComments/store";
 export * from "./http/endpoints/auth";
 export * from "./http/endpoints/chat";
 export * from "./http/endpoints/assessment";
