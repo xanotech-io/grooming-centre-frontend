@@ -153,11 +153,14 @@ const toApiCreateBody = (body) => {
 // convenience (question_types/marking_type detail for this file's own
 // sectionQuestionTypes feature) confirmed to be rejected outright
 // ("configuredSections is not allowed") by the backend, so it must never
-// reach the paper-config PUT for a sectioned exam. Hybrid/non-sectioned
-// exams still send it there as before — only creation itself is confirmed
-// to reject it, and hybrid has no other place to put its sections.
+// reach the paper-config PUT for a sectioned exam. Confirmed by a second
+// real backend test that hybrid's sections get the exact same rejection —
+// they go on the create body too (TemplateStandalone.jsx), so
+// `configuredSections` must be stripped here for hybrid as well.
+// "Without sections" exams have no sections at all, so this key is simply
+// never populated for them in the first place.
 const toApiPaperConfigBody = (body, paperConfigBody) =>
-  body?.examType === "with_sections"
+  body?.examType === "with_sections" || body?.examType === "hybrid"
     ? { ...paperConfigBody, configuredSections: undefined }
     : paperConfigBody;
 
@@ -821,6 +824,13 @@ const CreateQuestionPage = ({
   const goToAddAnotherQuestion = (realParentId) => {
     clearPendingCreate();
     clearPendingEdit();
+    // This stays on the same CreateQuestionPage instance (only the query
+    // string changes, via `push` below) — unlike goToQuestionListing, which
+    // switches to QuestionListingPage and unmounts this component entirely.
+    // Without clearing it, `createdSuccess` stayed set and the "Question
+    // added successfully!" screen's own early return kept re-showing itself
+    // instead of a fresh blank form.
+    setCreatedSuccess(null);
     push(buildRealQuestionRoute(realParentId, { listing: false }));
   };
 

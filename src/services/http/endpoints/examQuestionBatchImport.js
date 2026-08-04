@@ -17,12 +17,25 @@ export const uploadExamQuestionBatch = async ({
   mediaZip,
   defaultDifficulty,
   section,
+  // "Create a new assessment/exam and import questions into it in one
+  // step" — set only when nothing real exists yet (see
+  // QuestionsPage.jsx's handleBatchUploadClick). When present,
+  // examinationId/assessmentId must NOT be sent; the backend creates the
+  // target itself from the fields below and this call is what makes it
+  // real, same as the old quick-create-then-navigate flow used to.
+  createTargetType, // "assessment" | "examination"
+  title,
+  moduleId,
+  duration,
+  startTime,
+  endTime,
+  examType, // "sectioned" | "unsectioned" | "hybrid"
+  sections, // [{section_name, weightage, questionCount}] — sectioned/hybrid
+  totalMarks, // sum of section weightages — sectioned/hybrid
+  markingTemplateId, // unsectioned/hybrid
 }) => {
   const formData = new FormData();
   formData.append("file", file);
-  if (courseId) formData.append("courseId", courseId);
-  if (examinationId) formData.append("examinationId", examinationId);
-  if (assessmentId) formData.append("assessmentId", assessmentId);
   if (mediaZip) formData.append("mediaZip", mediaZip);
   if (defaultDifficulty) formData.append("defaultDifficulty", defaultDifficulty);
   // Every row in this file belongs to the same section — the template has
@@ -31,7 +44,50 @@ export const uploadExamQuestionBatch = async ({
   // lands correctly even if the parser itself ignores this field.
   if (section) formData.append("section", section);
 
+  if (createTargetType) {
+    formData.append("createTargetType", createTargetType);
+    formData.append("title", title);
+    if (courseId) formData.append("courseId", courseId);
+    if (moduleId) formData.append("moduleId", moduleId);
+    formData.append("duration", duration);
+    formData.append("startTime", startTime);
+    formData.append("endTime", endTime);
+    formData.append("examType", examType);
+    // The documented shape is a strict either/or ("if sectioned" / "if not
+    // sectioned"), but a hybrid exam genuinely needs both halves — send
+    // whichever of these two actually has data instead of hard-branching on
+    // examType, so "sectioned" gets sections+totalMarks, "unsectioned" gets
+    // markingTemplateId, and "hybrid" gets both.
+    //
+    // Confirmed with backend: `sections` (and `questionQuantity`, on the
+    // handlers that take one) is sent as a single JSON.stringify'd string
+    // field — parsed server-side via their existing parseJsonField utility,
+    // the same convention already used for options/acceptVariants/pairs on
+    // question creation. Bracket-indexed keys (sections[0][name], ...) were
+    // tried first and don't work here — express-fileupload has
+    // parseNested:false, so multipart bracket notation is never
+    // reconstructed into a real array on their end.
+    if (Array.isArray(sections) && sections.length > 0) {
+      formData.append("sections", JSON.stringify(sections));
+      if (totalMarks != null) formData.append("totalMarks", totalMarks);
+    }
+    if (markingTemplateId) formData.append("markingTemplateId", markingTemplateId);
+  } else {
+    if (courseId) formData.append("courseId", courseId);
+    if (examinationId) formData.append("examinationId", examinationId);
+    if (assessmentId) formData.append("assessmentId", assessmentId);
+  }
+
   const { data } = await http.post(`${BASE}/upload`, formData);
+  return data;
+};
+
+// Confirmed with backend: the bare upload record (not /report, not /rows)
+// is what actually carries the resolved assessmentId/examinationId for a
+// createTargetType-created record — this is how BatchUploadPage.jsx finds
+// out what got created.
+export const getExamQuestionBatchUpload = async (uploadId) => {
+  const { data } = await http.get(`${BASE}/${uploadId}`);
   return data;
 };
 

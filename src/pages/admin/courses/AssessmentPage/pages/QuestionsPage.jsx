@@ -484,51 +484,49 @@ const QuestionsPage = () => {
     section: isSectionedExam ? selectedSectionId || undefined : undefined,
   });
 
-  // The batch-upload endpoint requires a real assessment/examination UUID —
-  // it never accepts the "new" placeholder. While pending creation, clicking
-  // "Upload & Batch Import Questions" creates the parent record first (same
-  // create call `performCreateParent` uses below) and only then navigates,
-  // so the batch-upload page always receives a real id.
+  // Course Exam, course-level Exam, and plain Assessment create their real
+  // record as part of the upload call itself (BatchUploadPage.jsx, via the
+  // batch-import endpoint's `createTargetType` field) — no separate
+  // quick-create step first, so this just navigates straight there with
+  // nothing created yet; `pendingCreate` stays exactly as it is
+  // (BatchUploadPage.jsx reads it directly from the store) so "Add more
+  // questions" and every other pending-state guard on this page still work
+  // normally if the admin backs out before uploading anything. Standalone
+  // Exam isn't covered by createTargetType (the backend only supports
+  // "assessment"/"examination") — kept on the old quick-create-then-
+  // navigate path, though this kind is dead/unreachable code in this file
+  // regardless (Standalone has its own QuestionsStandalone.jsx).
   const handleBatchUploadClick = async () => {
     if (!pendingCreate) return;
+    if (pendingCreate.kind !== "StandaloneExam") {
+      push(
+        buildBatchUploadLink({
+          courseId,
+          standalone: false,
+          createTarget: true,
+          section: isSectionedExam ? selectedSectionId || undefined : undefined,
+        }),
+      );
+      return;
+    }
+
     setCreatingForUpload(true);
     try {
-      const { kind, body: finalBody, paperConfigBody, addToBank: parentAddToBank } = pendingCreate;
-      let realParentId;
-
-      if (kind === "ModuleExam" || kind === "Exam") {
-        const { examination } = await adminCreateExamination(finalBody);
-        if (kind === "ModuleExam") {
-          await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
-        }
-        if (parentAddToBank) setAutoAddToBank("examination", examination.id);
-        setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
-        realParentId = examination.id;
-      } else if (kind === "StandaloneExam") {
-        const { examination } = await adminCreateStandaloneExamination(finalBody);
-        setAssessment(examination);
-        realParentId = examination.id;
-      } else {
-        const { assessment } = await adminCreateAssessment(finalBody);
-        setAssessment(assessment);
-        if (parentAddToBank) setAutoAddToBank("assessment", assessment.id);
-        realParentId = assessment.id;
-      }
+      const { body: finalBody } = pendingCreate;
+      const { examination } = await adminCreateStandaloneExamination(finalBody);
+      setAssessment(examination);
+      const realParentId = examination.id;
 
       // This was created without going through the approval modal — flag it
       // so the question listing page (`QuestionListingPage` below) can offer
       // a one-time "Submit for Approval" action once the import is done.
-      markNeedsApprovalSubmission(
-        isStandaloneExamination ? "standalone" : isExamination ? "examination" : "assessment",
-        realParentId,
-      );
+      markNeedsApprovalSubmission("standalone", realParentId);
 
       push(
         buildBatchUploadLink({
           courseId,
-          assessmentId: isExamination ? undefined : realParentId,
-          examinationId: isExamination ? realParentId : undefined,
-          standalone: isStandaloneExamination,
+          examinationId: realParentId,
+          standalone: true,
           section: isSectionedExam ? selectedSectionId || undefined : undefined,
         }),
       );
@@ -1065,6 +1063,13 @@ const CreateQuestionPage = ({
   const goToAddAnotherQuestion = (realParentId) => {
     clearPendingCreate();
     clearPendingEdit();
+    // This stays on the same CreateQuestionPage instance (only the query
+    // string changes, via `push` below) — unlike goToQuestionListing, which
+    // switches to QuestionListingPage and unmounts this component entirely.
+    // Without clearing it, `createdSuccess` stayed set and the "Question
+    // added successfully!" screen's own early return kept re-showing itself
+    // instead of a fresh blank form.
+    setCreatedSuccess(null);
     push(buildRealQuestionRoute(realParentId, { listing: false }));
   };
 
@@ -3203,25 +3208,6 @@ const CreateQuestionPage = ({
   );
 };
 
-// Persists a section list to whichever record actually owns it: an
-// Examination/Standalone Examination's `configuredSections`, or a plain
-// Assessment's own `sections` field.
-const saveSectionsList = (
-  next,
-  { isExamination, isStandaloneExamination, assessmentId },
-) => {
-  if (isExamination) {
-    const examType = isStandaloneExamination
-      ? "standalone_examination"
-      : "examination";
-    return updateExamPaperConfig(isExamination, {
-      examType,
-      configuredSections: next,
-    });
-  }
-  return adminEditAssessment(assessmentId, { sections: next });
-};
-
 // Rebuilds a full edit-question payload (mirroring onSubmit's edit-mode
 // branches above) from a question's already-fetched, stored data rather
 // than live form state — so section (re)assignment from the Listing page
@@ -3645,7 +3631,18 @@ const QuestionListingPage = ({
     : Array.isArray(assessment?.sections)
       ? assessment.sections
       : [];
-  const sectionNames = rawSections.map((s) => s.section_name).filter(Boolean);
+  const definedSectionNames = rawSections.map((s) => s.section_name).filter(Boolean);
+  // Confirmed via a real GET /v1/assessment/admin/:id response: a plain
+  // Assessment's own record carries no `sections` field at all, even for
+  // one created sectioned — only each question's own `section` string
+  // survives. Fall back to deriving the section list from whichever names
+  // actually show up on the questions, in first-seen order, so the listing
+  // below can still group by section without that formal definition (locks/
+  // caps/weightage from `sectionConfigMap` are simply unavailable in this
+  // fallback case — nothing here can restore data the backend never sent).
+  const sectionNames = definedSectionNames.length
+    ? definedSectionNames
+    : [...new Set(questions.map((q) => q.section).filter(Boolean))];
   // Same lock/weightage/count-cap lookup CreateQuestionPage uses — lets this
   // page show each section's "x/N questions" limit for visibility.
   const sectionConfigMap = buildSectionConfigMap(rawSections, "exam");
@@ -3654,11 +3651,6 @@ const QuestionListingPage = ({
       .getElementById(`section-${name}`)
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  const [editingSection, setEditingSection] = useState(null);
-  const [titleInput, setTitleInput] = useState("");
-  const [showNewSection, setShowNewSection] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [savingSections, setSavingSections] = useState(false);
   const [reassigningId, setReassigningId] = useState(null);
 
   const questionsIsEmpty = !isLoading && !error && !questions.length && !queuedQuestions.length;
@@ -3670,77 +3662,6 @@ const QuestionListingPage = ({
       sectionName && `section=${encodeURIComponent(sectionName)}`,
     ].filter(Boolean);
     return parts.length ? `${base}?${parts.join("&")}` : base;
-  };
-
-  const saveConfiguredSections = async (next) => {
-    setSavingSections(true);
-    try {
-      await saveSectionsList(next, {
-        isExamination,
-        isStandaloneExamination,
-        assessmentId,
-      });
-      if (isExamination) setConfiguredSections(next);
-      else handleFetch(true);
-      return true;
-    } catch (err) {
-      toast({
-        description:
-          err?.response?.data?.message || "Failed to save sections",
-        position: "top",
-        status: "error",
-      });
-      return false;
-    } finally {
-      setSavingSections(false);
-    }
-  };
-
-  const handleAddSection = async () => {
-    const title = newTitle.trim();
-    if (!title) return;
-    const next = [
-      ...rawSections,
-      { section_name: title, questions_count: 1, time_limit: null },
-    ];
-    if (await saveConfiguredSections(next)) {
-      setNewTitle("");
-      setShowNewSection(false);
-    }
-  };
-
-  const handleRename = async (oldName) => {
-    const title = titleInput.trim();
-    if (!title || title === oldName) {
-      setEditingSection(null);
-      return;
-    }
-    const next = rawSections.map((s) =>
-      s.section_name === oldName ? { ...s, section_name: title } : s,
-    );
-    const saved = await saveConfiguredSections(next);
-    if (saved) {
-      // Section identity is the name string end-to-end, so a rename has to
-      // follow through to every question already tagged with the old name.
-      const affected = questions.filter((q) => q.section === oldName);
-      if (affected.length) {
-        await Promise.all(
-          affected.map((q) =>
-            persistQuestionSection(q, title, {
-              isExamination,
-              isStandaloneExamination,
-            }),
-          ),
-        );
-        handleFetch(true);
-      }
-    }
-    setEditingSection(null);
-  };
-
-  const handleRemoveSection = (name) => {
-    const next = rawSections.filter((s) => s.section_name !== name);
-    saveConfiguredSections(next);
   };
 
   const handleAssign = async (question, sectionName) => {
@@ -3826,79 +3747,21 @@ const QuestionListingPage = ({
               py={3}
               backgroundColor="primary.base"
             >
-              {editingSection === name ? (
-                <Flex gap={2} flex={1} alignItems="center">
-                  <input
-                    autoFocus
-                    value={titleInput}
-                    onChange={(e) => setTitleInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleRename(name);
-                      if (e.key === "Escape") setEditingSection(null);
-                    }}
-                    style={{
-                      flex: 1,
-                      border: "1px solid #ccc",
-                      borderRadius: 4,
-                      padding: "4px 10px",
-                      fontSize: 14,
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    disabled={savingSections}
-                    onClick={() => handleRename(name)}
+              <Heading fontSize="heading.h5" color="white" flex={1}>
+                Section {si + 1}: {name}
+                {!!sectionCap && (
+                  <Text
+                    as="span"
+                    fontSize="xs"
+                    fontWeight="normal"
+                    color="whiteAlpha.800"
+                    ml={2}
                   >
-                    Save
-                  </Button>
-                  <Button
-                    size="sm"
-                    ghost
-                    onClick={() => setEditingSection(null)}
-                  >
-                    Cancel
-                  </Button>
-                </Flex>
-              ) : (
-                <>
-                  <Heading fontSize="heading.h5" color="white" flex={1}>
-                    Section {si + 1}: {name}
-                    {!!sectionCap && (
-                      <Text
-                        as="span"
-                        fontSize="xs"
-                        fontWeight="normal"
-                        color="whiteAlpha.800"
-                        ml={2}
-                      >
-                        ({sectionQs.length}/{sectionCap}
-                        {sectionQs.length >= sectionCap ? " — full" : ""})
-                      </Text>
-                    )}
-                  </Heading>
-                  <Button
-                    size="xs"
-                    ghost
-                    disabled={savingSections}
-                    onClick={() => {
-                      setEditingSection(name);
-                      setTitleInput(name);
-                    }}
-                    color="white"
-                  >
-                    Rename
-                  </Button>
-                  <Button
-                    size="xs"
-                    ghost
-                    disabled={savingSections}
-                    onClick={() => handleRemoveSection(name)}
-                    color="red.200"
-                  >
-                    Delete
-                  </Button>
-                </>
-              )}
+                    ({sectionQs.length}/{sectionCap}
+                    {sectionQs.length >= sectionCap ? " — full" : ""})
+                  </Text>
+                )}
+              </Heading>
             </Flex>
 
             {/* Section questions */}
@@ -4062,46 +3925,6 @@ const QuestionListingPage = ({
           onSuccess={handlePendingWorkflowSuccess}
         />
       )}
-
-      {/* ── Add Section ── */}
-      <Box paddingTop={5} borderTop="1px" borderColor="gray.200" marginTop={4}>
-        {showNewSection ? (
-          <Flex gap={3} alignItems="flex-end">
-            <Box flex={1}>
-              <Input
-                label="Section Title"
-                placeholder='e.g. "Section A – General Knowledge"'
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddSection();
-                }}
-              />
-            </Box>
-            <Button
-              onClick={handleAddSection}
-              disabled={!newTitle.trim() || savingSections}
-              mb={2}
-            >
-              Add Section
-            </Button>
-            <Button
-              ghost
-              onClick={() => {
-                setShowNewSection(false);
-                setNewTitle("");
-              }}
-              mb={2}
-            >
-              Cancel
-            </Button>
-          </Flex>
-        ) : (
-          <Button ghost onClick={() => setShowNewSection(true)}>
-            + Add Section
-          </Button>
-        )}
-      </Box>
 
       <SelectBankQuestionsModal
         isOpen={isBankPickerOpen}

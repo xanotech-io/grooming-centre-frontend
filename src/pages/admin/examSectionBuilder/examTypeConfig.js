@@ -82,6 +82,36 @@ export const normalizeSectionsForConfig = (sections) =>
     };
   });
 
+// The plain create/edit-assessment (and create/edit-examination) endpoint's
+// own `sections` field expects a different, minimal shape than the
+// paper-config channel's `configuredSections` above — confirmed by a real
+// backend test (assessment/create rejected `normalizeSectionsForConfig`'s
+// shape with "sections must be an array of 1-10 section objects with at
+// least a section_name/name"). Sent as a real JSON array in a plain JSON
+// request body (axios/application-json) — not multipart, see
+// toBatchUploadSections below for that case.
+export const toCreateBodySections = (sections) =>
+  sections.map((s) => ({
+    name: s.section_name,
+    questionCount: Number(s.questions_count) || 0,
+    weightage: Number(s.total_marks) || 0,
+  }));
+
+// The batch-import endpoint's own createTargetType `sections` field is a
+// THIRD shape again — {section_name, weightage, questionCount} — confirmed
+// with backend, and must be sent as a single JSON.stringify'd string field
+// (not bracket-notation form fields: express-fileupload has
+// parseNested:false, so multipart bracket notation is never reconstructed
+// into a real array server-side; a JSON string is parsed via their existing
+// parseJsonField utility instead, the same convention already used for
+// options/acceptVariants/pairs on question creation).
+export const toBatchUploadSections = (sections) =>
+  sections.map((s) => ({
+    section_name: s.section_name,
+    weightage: Number(s.total_marks) || 0,
+    questionCount: Number(s.questions_count) || 0,
+  }));
+
 // Inverse of the above — for hydrating a section that may only ever have
 // had the legacy single `question_type` set (authored via
 // ExamPaperConfigPage.jsx's older UI, or the Question Listing page's
