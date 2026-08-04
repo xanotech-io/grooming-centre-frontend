@@ -139,6 +139,7 @@ function ExamQuestionBankListPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [useQuestionId, setUseQuestionId] = useState(null);
   const [useQuestionCourseId, setUseQuestionCourseId] = useState("");
+  const [useQuestionModuleId, setUseQuestionModuleId] = useState("");
 
   const [courseNames, setCourseNames] = useState({});
   const [moduleNames, setModuleNames] = useState({});
@@ -454,6 +455,7 @@ function ExamQuestionBankListPage() {
                         onClick={() => {
                           setUseQuestionId(q.id);
                           setUseQuestionCourseId(q.courseId || "");
+                          setUseQuestionModuleId(q.moduleId || "");
                           onUseQuestionOpen();
                         }}
                       >
@@ -495,6 +497,7 @@ function ExamQuestionBankListPage() {
                               onClick={() => {
                                 setUseQuestionId(q.id);
                                 setUseQuestionCourseId(q.courseId || "");
+                                setUseQuestionModuleId(q.moduleId || "");
                                 onUseQuestionOpen();
                               }}
                             >
@@ -534,6 +537,7 @@ function ExamQuestionBankListPage() {
         onClose={onUseQuestionClose}
         questionIds={useQuestionId ? [useQuestionId] : []}
         initialCourseId={useQuestionCourseId}
+        initialModuleId={useQuestionModuleId}
       />
       <UseBankQuestionModal
         isOpen={isCreateExamOpen}
