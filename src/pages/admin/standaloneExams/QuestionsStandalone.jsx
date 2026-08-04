@@ -68,7 +68,9 @@ import {
   capitalizeFirstLetter,
   capitalizeWords,
   clearNeedsApprovalSubmission,
+  getExamMeta,
   isAutoAddToBank,
+  markExamMeta,
   markNeedsApprovalSubmission,
   needsApprovalSubmission,
   setAutoAddToBank,
@@ -163,6 +165,30 @@ const toApiPaperConfigBody = (body, paperConfigBody) =>
   body?.examType === "with_sections" || body?.examType === "hybrid"
     ? { ...paperConfigBody, configuredSections: undefined }
     : paperConfigBody;
+
+// Same fallback QuestionsPage.jsx's own getRealExamMeta uses for Course
+// Exam/Assessment — the fetched record's own examType/questionQuantity,
+// falling back to whatever markExamMeta cached at creation/edit time, in
+// case this exam's own GET response doesn't reliably return them once real
+// either. `examType` here is always the backend's API value ("sectioned"/
+// "unsectioned"/"hybrid") to match what `assessment?.examType` itself would
+// be — cacheExamMetaFromBody below is what translates this file's own
+// internal value ("with_sections"/...) into that before writing it.
+const getRealExamMeta = (assessment) => {
+  const cached = getExamMeta("StandaloneExam", assessment?.id);
+  return {
+    examType: assessment?.examType ?? cached?.examType ?? null,
+    questionQuantity: assessment?.questionQuantity ?? cached?.questionQuantity ?? null,
+  };
+};
+
+const cacheExamMetaFromBody = (id, body) => {
+  if (!body) return;
+  markExamMeta("StandaloneExam", id, {
+    examType: EXAM_TYPE_TO_API[body.examType] ?? body.examType,
+    questionQuantity: body.standaloneQuestionCounts,
+  });
+};
 
 // A queued item's own explicit `questionType` covers FillBlank/Matching/
 // ShortAnswer/Essay; MCQ/TrueFalse never set one (they carry `options`
@@ -288,14 +314,14 @@ const QuestionsStandalone = () => {
   // shortcut) — without this, the tabs only ever appeared during the
   // pending-creation window and silently reverted to the older bare
   // Section dropdown the moment the exam became real.
+  const realExamMeta = getRealExamMeta(assessmentManager.assessment);
   const isSectionedExam =
     (isPendingCreation &&
       (pendingCreate?.body?.examType === "with_sections" ||
         pendingCreate?.body?.examType === "hybrid")) ||
     (!isPendingCreation &&
       !!isExamination &&
-      (assessmentManager.assessment?.examType === "sectioned" ||
-        assessmentManager.assessment?.examType === "hybrid"));
+      (realExamMeta.examType === "sectioned" || realExamMeta.examType === "hybrid"));
 
   // Lifted up from CreateQuestionPage (instead of that component owning its
   // own local state) so the "Upload & Batch Import Questions" button here —
@@ -332,6 +358,7 @@ const QuestionsStandalone = () => {
       // flag it so the question listing page offers a one-time "Submit for
       // Approval" action once the import is done.
       markNeedsApprovalSubmission("standalone", examination.id);
+      cacheExamMetaFromBody(examination.id, body);
 
       push(
         buildBatchUploadLink({
@@ -924,6 +951,7 @@ const CreateQuestionPage = ({
     await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody));
     if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
     setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+    cacheExamMetaFromBody(examination.id, body);
     return { id: examination.id };
   };
 
@@ -942,6 +970,7 @@ const CreateQuestionPage = ({
     const editBody = body?.examType === "hybrid" ? { ...body, totalMarks: undefined } : body;
     await adminEditStandaloneExamination(contentId, editBody);
     if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+    cacheExamMetaFromBody(contentId, body);
     return { id: contentId };
   };
 
@@ -980,12 +1009,13 @@ const CreateQuestionPage = ({
   // already-created questions once it exists, so the cap keeps applying
   // past the point the exam becomes real (e.g. via the batch-upload
   // shortcut) instead of silently switching off.
+  const realExamMeta = getRealExamMeta(assessmentManager.assessment);
   const isHybridExam = isPendingCreation
     ? pendingCreate?.body?.examType === "hybrid"
-    : !!isExamination && assessmentManager.assessment?.examType === "hybrid";
+    : !!isExamination && realExamMeta.examType === "hybrid";
   const isUnsectionedExam = isPendingCreation
     ? pendingCreate?.body?.examType === "without_sections"
-    : !!isExamination && assessmentManager.assessment?.examType === "unsectioned";
+    : !!isExamination && realExamMeta.examType === "unsectioned";
   // Hybrid only applies the template restriction while on the "Standalone
   // Questions" tab (no section selected) — a section's own checkbox list
   // (allowedTypesForSection above) governs question types once a section
@@ -994,7 +1024,7 @@ const CreateQuestionPage = ({
     isUnsectionedExam || (isHybridExam && !selectedSectionId);
   const standaloneQuestionCounts = isPendingCreation
     ? pendingCreate?.body?.standaloneQuestionCounts || {}
-    : assessmentManager.assessment?.questionQuantity || {};
+    : realExamMeta.questionQuantity || {};
   // The Template/Marking Scheme step seeds a key for every question type the
   // selected marking template actually supports (even ones left at 0) — a
   // type absent here isn't offered by the template at all, so it's disabled
@@ -2834,6 +2864,7 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
     await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody));
     if (parentAddToBank) setAutoAddToBank("standalone", examination.id);
     setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
+    cacheExamMetaFromBody(examination.id, body);
     return { id: examination.id };
   };
 
@@ -2846,6 +2877,7 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
     const editBody = body?.examType === "hybrid" ? { ...body, totalMarks: undefined } : body;
     await adminEditStandaloneExamination(contentId, editBody);
     if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+    cacheExamMetaFromBody(contentId, body);
     return { id: contentId };
   };
 
