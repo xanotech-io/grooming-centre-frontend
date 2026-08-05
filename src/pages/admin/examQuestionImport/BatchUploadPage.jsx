@@ -174,6 +174,19 @@ const BatchUploadPage = () => {
   const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
   const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
 
+  // contextLabel(context) only ever resolves via `examinationId`/`standalone`
+  // on `context` — but the createTarget flow (nothing real exists yet) never
+  // carries an `examinationId` at all, for ANY kind, so it always fell back
+  // to "Assessment" even for a Course Exam/course-level Exam. Read the
+  // actual kind straight from `pendingCreate` for this pre-creation case.
+  const displayLabel = context.createTarget
+    ? pendingCreate?.kind === "Assessment"
+      ? "Assessment"
+      : pendingCreate?.kind === "StandaloneExam"
+        ? "Standalone Examination"
+        : "Examination"
+    : contextLabel(context);
+
   const [defaultDifficulty, setDefaultDifficulty] = useState("");
   const [file, setFile] = useState(null);
   const [mediaZip, setMediaZip] = useState(null);
@@ -475,6 +488,11 @@ const BatchUploadPage = () => {
           courseId: context.courseId,
           examinationId: isAssessment ? undefined : realId,
           assessmentId: isAssessment ? realId : undefined,
+          // Sourced from the pending body (not `context`, which never
+          // carried it either) — needed downstream so the final
+          // questions-listing redirect can tell "ModuleExam" apart from a
+          // plain course-level "Exam" (see getUploadContext's own comment).
+          moduleId: isAssessment ? undefined : body.moduleId,
           standalone: false,
           section: context.section,
         };
@@ -719,7 +737,7 @@ const BatchUploadPage = () => {
         />
 
         <Flex alignItems="center" justifyContent="space-between" mt="20px" mb="20px" flexWrap="wrap" gap="12px">
-          <Heading fontSize="20px" fontWeight="600">Batch Upload {contextLabel(context)} Questions</Heading>
+          <Heading fontSize="20px" fontWeight="600">Batch Upload {displayLabel} Questions</Heading>
           <Button secondary size="sm" onClick={() => history.goBack()}>← Back</Button>
         </Flex>
 
