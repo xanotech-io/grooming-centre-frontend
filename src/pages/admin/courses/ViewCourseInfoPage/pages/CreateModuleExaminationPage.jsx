@@ -93,6 +93,7 @@ const CreateModuleExaminationPage = () => {
   const pendingEdit = useAssessmentStore((s) => s.pendingEdit);
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
   const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
+  const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
   const fromBankQuestionIds = useAssessmentStore((s) => s.fromBankQuestionIds);
   const clearFromBankQuestionIds = useAssessmentStore((s) => s.clearFromBankQuestionIds);
   // Captured once on mount: whatever the Question Bank's "use in a new exam"
@@ -101,6 +102,20 @@ const CreateModuleExaminationPage = () => {
   const bankQuestionIdsRef = useRef(fromBankQuestionIds);
   useEffect(() => {
     if (fromBankQuestionIds?.length) clearFromBankQuestionIds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // `pendingCreate` persists indefinitely (localStorage) and this page's own
+  // onSubmit carries forward `pendingCreate?.questions` unchanged (below) —
+  // without this, any exam abandoned mid-creation leaves its title/sections/
+  // queued questions sitting around forever, silently resurfacing (already
+  // pre-filled/pre-loaded questions) the next time this page is visited
+  // fresh to create a genuinely new exam. Cleared unconditionally on every
+  // create-mode mount — the one accepted trade-off is that using the
+  // Header's "Overview" tab to go back mid-flow also wipes the in-progress
+  // draft, since there's no way to tell the two cases apart.
+  useEffect(() => {
+    if (!isEditMode) clearPendingCreate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

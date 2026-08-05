@@ -522,6 +522,7 @@ const QuestionsPage = () => {
     courseId,
     assessmentId,
     examinationId: isExamination || undefined,
+    moduleId: moduleId || undefined,
     standalone: isStandaloneExamination,
     section: isSectionedExam ? selectedSectionId || undefined : undefined,
   });
@@ -544,6 +545,7 @@ const QuestionsPage = () => {
       push(
         buildBatchUploadLink({
           courseId,
+          moduleId: moduleId || undefined,
           standalone: false,
           createTarget: true,
           section: isSectionedExam ? selectedSectionId || undefined : undefined,
@@ -3580,27 +3582,10 @@ const QuestionListingPage = ({
   // A bulk "Question Bank" add from this page has no active section to
   // inherit (see bankQueueCtx below) — for a sectioned/hybrid exam that
   // leaves the queued item with no `.section` at all, which the backend
-  // rejects on submit ("none is under section"). Lets the admin assign one
-  // after the fact, same shapes queuedQuestionSection reads from.
-  const handleAssignQueuedSection = (index, sectionName) => {
-    const source = isPendingCreation ? pendingCreate : pendingEdit;
-    const updatedQuestions = (source.questions || []).map((q, i) =>
-      i === index
-        ? {
-            ...q,
-            data: { ...q.data, section: sectionName || undefined },
-            ...(q.formSnapshot && {
-              formSnapshot: { ...q.formSnapshot, section: sectionName || undefined },
-            }),
-          }
-        : q,
-    );
-    if (isPendingCreation) {
-      setPendingCreate({ ...pendingCreate, questions: updatedQuestions });
-    } else {
-      setPendingEdit({ ...pendingEdit, questions: updatedQuestions });
-    }
-  };
+  // rejects on submit ("none is under section"). No inline picker for this
+  // anymore (removed per request) — the admin assigns one by opening the
+  // queued item itself (getEditQueuedQuestionLink), whose form has the same
+  // section tabs a fresh question does.
 
   // ── Creates (or applies the held-back edit to) the exam/assessment and
   // saves every queued question, all gated behind the approval modal's
@@ -3793,10 +3778,6 @@ const QuestionListingPage = ({
   // Same lock/weightage/count-cap lookup CreateQuestionPage uses — lets this
   // page show each section's "x/N questions" limit for visibility.
   const sectionConfigMap = buildSectionConfigMap(rawSections, "exam");
-  const scrollToSection = (name) =>
-    document
-      .getElementById(`section-${name}`)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const [reassigningId, setReassigningId] = useState(null);
 
@@ -3844,6 +3825,55 @@ const QuestionListingPage = ({
   };
 
   const unassigned = questions.filter((q) => !q.section);
+  // Queued (not-yet-created) questions used to render in their own flat list
+  // below every section box, regardless of which section they were already
+  // tagged with — indistinguishable from an unsectioned exam's queue. Group
+  // them by their assigned section instead, same as the real, already-saved
+  // questions above them, so a section box shows the whole picture (created
+  // + queued) together. Preserve each item's original queue index (not its
+  // position within this filtered group) since handleRemoveQueuedQuestion/
+  // getEditQueuedQuestionLink both key off it.
+  const queuedWithIndex = queuedQuestions.map((q, index) => ({ q, index }));
+  const unassignedQueued = queuedWithIndex.filter(({ q }) => !queuedQuestionSection(q));
+
+  const renderQueuedTile = ({ q, index }) => (
+    <Flex key={`queued-${index}`} alignItems="center" gap={2} marginBottom={4}>
+      <Link
+        style={{ flex: 1 }}
+        href={getEditQueuedQuestionLink(
+          courseId,
+          assessmentId,
+          isExamination,
+          moduleId,
+          index,
+          isPendingCreation ? "submitForApproval" : "editSubmit",
+        )}
+      >
+        <Box
+          padding={4}
+          backgroundColor="gray.50"
+          borderRadius="md"
+          cursor="pointer"
+          _hover={{ backgroundColor: "gray.100" }}
+        >
+          <Text bold mb={1}>
+            {questions.length + index + 1}. {capitalizeWords(q.bank?.questionType || "")}
+          </Text>
+          <Text color="gray.600">
+            {q.bank?.questionPlainText || "(no preview available)"}
+          </Text>
+        </Box>
+      </Link>
+      <Button
+        ghost
+        type="button"
+        onClick={() => handleRemoveQueuedQuestion(index)}
+        aria-label="Remove question"
+      >
+        Remove
+      </Button>
+    </Flex>
+  );
 
   return (
     <Box padding={6} width="70%">
@@ -3868,25 +3898,11 @@ const QuestionListingPage = ({
         </PageLoaderLayout>
       )}
 
-      {/* ── Section quick-nav ── */}
-      {sectionNames.length > 1 && (
-        <Flex gap={2} flexWrap="wrap" mb={6}>
-          {sectionNames.map((name, si) => (
-            <Button
-              key={name}
-              size="xs"
-              ghost
-              onClick={() => scrollToSection(name)}
-            >
-              {si + 1}. {name}
-            </Button>
-          ))}
-        </Flex>
-      )}
-
       {/* ── Sections ── */}
       {sectionNames.map((name, si) => {
         const sectionQs = questions.filter((q) => q.section === name);
+        const sectionQueued = queuedWithIndex.filter(({ q }) => queuedQuestionSection(q) === name);
+        const sectionTotal = sectionQs.length + sectionQueued.length;
         const sectionCap = sectionConfigMap[name]?.questionsCount;
         return (
           <Box
@@ -3916,8 +3932,8 @@ const QuestionListingPage = ({
                     color="whiteAlpha.800"
                     ml={2}
                   >
-                    ({sectionQs.length}/{sectionCap}
-                    {sectionQs.length >= sectionCap ? " — full" : ""})
+                    ({sectionTotal}/{sectionCap}
+                    {sectionTotal >= sectionCap ? " — full" : ""})
                   </Text>
                 )}
               </Heading>
@@ -3925,7 +3941,7 @@ const QuestionListingPage = ({
 
             {/* Section questions */}
             <Box px={5} pt={4} pb={2}>
-              {sectionQs.length === 0 && (
+              {sectionTotal === 0 && (
                 <Box
                   padding={4}
                   backgroundColor="gray.50"
@@ -3953,6 +3969,7 @@ const QuestionListingPage = ({
                   onUnassign={() => handleAssign(q, undefined)}
                 />
               ))}
+              {sectionQueued.map(renderQueuedTile)}
               <Box pb={4}>
                 <Button link={buildAddLink(name)} size="sm" ghost>
                   + Add Question to this Section
@@ -3963,8 +3980,11 @@ const QuestionListingPage = ({
         );
       })}
 
-      {/* ── Unassigned / no-section questions ── */}
-      {(unassigned.length > 0 || sectionNames.length === 0) && (
+      {/* ── Unassigned / no-section questions — also where a queued question
+          lands until it's given a section (sectioned/hybrid exams require
+          one before submitting; an unsectioned exam's queue lives here
+          permanently, same as its real questions). ── */}
+      {(unassigned.length > 0 || unassignedQueued.length > 0 || sectionNames.length === 0) && (
         <Box marginBottom={8}>
           {sectionNames.length > 0 && (
             <Flex
@@ -3978,6 +3998,13 @@ const QuestionListingPage = ({
                 Unassigned Questions
               </Heading>
             </Flex>
+          )}
+
+          {sectionNames.length > 0 && unassignedQueued.length > 0 && (
+            <Text color="orange.600" fontSize="sm" mb={3}>
+              This {isExamination ? "exam" : "assessment"} uses sections — assign every queued
+              question below to a section before submitting.
+            </Text>
           )}
 
           {unassigned.map((q, index) => (
@@ -3995,6 +4022,7 @@ const QuestionListingPage = ({
               onUnassign={() => handleAssign(q, undefined)}
             />
           ))}
+          {unassignedQueued.map(renderQueuedTile)}
 
           <Box paddingTop={4}>
             {remainingQuestionSlots === 0 ? (
@@ -4006,93 +4034,11 @@ const QuestionListingPage = ({
         </Box>
       )}
 
-      {/* ── Queued questions — added via "Add more questions" but not yet
-          created. No real id/section exists for these until the whole batch
-          is saved on submit, so they link to an edit-in-place view keyed by
-          their queue index instead of a real question id. ── */}
-      {queuedQuestions.length > 0 && (
+      {(isPendingCreation || isPendingEditSubmit) && queuedQuestions.length > 0 && (
         <Box marginBottom={8}>
-          <Flex
-            alignItems="center"
-            mb={4}
-            pb={2}
-            borderBottom="1px"
-            borderColor="gray.300"
-          >
-            <Heading fontSize="heading.h5" color="gray.500">
-              Queued Questions (not yet created)
-            </Heading>
-          </Flex>
-
-          {sectionNames.length > 0 && (
-            <Text color="orange.600" fontSize="sm" mb={3}>
-              This {isExamination ? "exam" : "assessment"} uses sections — assign every queued
-              question below to a section before submitting.
-            </Text>
-          )}
-
-          {queuedQuestions.map((q, index) => (
-            <Flex key={`queued-${index}`} alignItems="center" gap={2} marginBottom={4}>
-              <Link
-                style={{ flex: 1 }}
-                href={getEditQueuedQuestionLink(
-                  courseId,
-                  assessmentId,
-                  isExamination,
-                  moduleId,
-                  index,
-                  isPendingCreation ? "submitForApproval" : "editSubmit",
-                )}
-              >
-                <Box
-                  padding={4}
-                  backgroundColor="gray.50"
-                  borderRadius="md"
-                  cursor="pointer"
-                  _hover={{ backgroundColor: "gray.100" }}
-                >
-                  <Text bold mb={1}>
-                    {questions.length + index + 1}. {capitalizeWords(q.bank?.questionType || "")}
-                  </Text>
-                  <Text color="gray.600">
-                    {q.bank?.questionPlainText || "(no preview available)"}
-                  </Text>
-                </Box>
-              </Link>
-              {sectionNames.length > 0 && (
-                <ChakraSelect
-                  size="sm"
-                  width="220px"
-                  flexShrink={0}
-                  borderColor={queuedQuestionSection(q) ? undefined : "orange.400"}
-                  value={queuedQuestionSection(q) || ""}
-                  onChange={(e) => handleAssignQueuedSection(index, e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="">Assign a section…</option>
-                  {sectionNames.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </ChakraSelect>
-              )}
-              <Button
-                ghost
-                type="button"
-                onClick={() => handleRemoveQueuedQuestion(index)}
-                aria-label="Remove question"
-              >
-                Remove
-              </Button>
-            </Flex>
-          ))}
-
-          {(isPendingCreation || isPendingEditSubmit) && (
-            <Button ghost onClick={handleOpenCreateAndSubmit}>
-              {isPendingCreation ? "Create and Submit" : "Update and Submit"}
-            </Button>
-          )}
+          <Button ghost onClick={handleOpenCreateAndSubmit}>
+            {isPendingCreation ? "Create and Submit" : "Update and Submit"}
+          </Button>
         </Box>
       )}
 

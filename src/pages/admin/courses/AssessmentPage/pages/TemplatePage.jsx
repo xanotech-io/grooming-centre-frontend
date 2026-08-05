@@ -202,17 +202,23 @@ const TemplatePage = () => {
       ...((examType === "hybrid" || examType === "without_sections") && {
         questionQuantity: seedQuantityCounts(quantityTypes, questionQuantities),
       }),
-      // Course Exam and course-level Exam both go through the same
-      // create/edit-examination endpoint as each other — sections persist
-      // via paperConfigBody/updateExamPaperConfig for Course Exam only (see
-      // below); Exam has no section-persistence channel wired up at all
-      // (out of scope for now — see the Assessment Overview comment for
-      // why). Only a plain Assessment sends sections directly on its body —
-      // confirmed via a real backend test that this needs the minimal
-      // {name, questionCount, weightage} shape (toCreateBodySections), not
+      // Every create/edit-examination-family endpoint (Assessment, and
+      // ModuleExam/Exam which share adminCreateExamination — see
+      // performCreateParent in QuestionsPage.jsx) needs its sections sent
+      // directly on the create body — confirmed via a real backend test for
+      // Assessment that this needs the minimal {name, questionCount,
+      // weightage} shape (toCreateBodySections), not
       // normalizeSectionsForConfig's paper-config-oriented shape, which the
       // backend rejected outright even with a valid, non-empty array.
-      ...(kind === "Assessment" && sectionsEnabled && sections.length > 0 && {
+      // ModuleExam/Exam previously left this off entirely (gated on
+      // `kind === "Assessment"`) — sections only went out via
+      // paperConfigBody/updateExamPaperConfig below, which isn't the channel
+      // this validation reads from. Confirmed via two separate real bug
+      // reports/network dumps: a sectioned Course Exam's create body had
+      // `examType: "sectioned"` and no `sections` key at all, and the
+      // backend rejected it with "sections must be an array of 1-10 section
+      // objects with at least a section_name/name" every time.
+      ...(sectionsEnabled && sections.length > 0 && {
         sections: toCreateBodySections(sections),
       }),
     };

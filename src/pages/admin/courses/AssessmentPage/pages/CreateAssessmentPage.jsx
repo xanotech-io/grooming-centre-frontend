@@ -57,6 +57,7 @@ const CreateAssessmentPage = ({ users }) => {
   const { push } = useHistory();
   const toast = useToast();
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
+  const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
   const fromBankQuestionIds = useAssessmentStore((s) => s.fromBankQuestionIds);
   const clearFromBankQuestionIds = useAssessmentStore((s) => s.clearFromBankQuestionIds);
   // Captured once on mount: whatever the Question Bank's "use in a new exam"
@@ -65,6 +66,19 @@ const CreateAssessmentPage = ({ users }) => {
   const bankQuestionIdsRef = useRef(fromBankQuestionIds);
   useEffect(() => {
     if (fromBankQuestionIds?.length) clearFromBankQuestionIds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // `pendingCreate` persists indefinitely (localStorage) and this page is
+  // create-only (no edit mode) — without this, an exam abandoned mid-
+  // creation leaves its title/questions sitting around forever and silently
+  // resurfaces (already pre-loaded questions) the next time this page is
+  // visited to create a genuinely new exam/assessment. Cleared
+  // unconditionally on every mount — the accepted trade-off is that using
+  // the Header's "Overview" tab to go back mid-flow also wipes the
+  // in-progress draft, since there's no way to tell the two cases apart.
+  useEffect(() => {
+    clearPendingCreate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [selectedIDs, setSelectedIDs] = useState([]);

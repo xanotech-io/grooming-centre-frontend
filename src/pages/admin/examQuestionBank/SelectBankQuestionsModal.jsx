@@ -45,6 +45,11 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd }) => {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [adding, setAdding] = useState(false);
+  // `adding` alone (React state) isn't enough to block a second `handleAdd`
+  // invocation that starts before the first render commits it — a
+  // synchronous ref closes that gap so a picked batch can never reach
+  // `onAdd` (and get queued) twice.
+  const addingRef = useRef(false);
 
   // Origin labels — the picker deliberately shows every question in the
   // bank regardless of the course/module currently being edited, so these
@@ -131,7 +136,8 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd }) => {
   };
 
   const handleAdd = async () => {
-    if (!selectedIds.length) return;
+    if (!selectedIds.length || addingRef.current) return;
+    addingRef.current = true;
     setAdding(true);
     try {
       const bankQuestions = await Promise.all(
@@ -142,6 +148,7 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd }) => {
     } catch {
       toast({ title: "Failed to load selected questions", status: "error", duration: 4000, isClosable: true });
     } finally {
+      addingRef.current = false;
       setAdding(false);
     }
   };

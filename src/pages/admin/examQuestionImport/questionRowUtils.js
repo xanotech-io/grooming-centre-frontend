@@ -125,6 +125,13 @@ export const getUploadContext = (query) => ({
   courseId: query.get("courseId") || undefined,
   assessmentId: query.get("assessmentId") || undefined,
   examinationId: query.get("examinationId") || undefined,
+  // Only meaningful for a Course Exam tied to a module ("ModuleExam" kind) —
+  // QuestionsPage.jsx's own realExamKind() reads this same param to tell
+  // "ModuleExam" apart from a plain course-level "Exam", and without it
+  // present on the final questions-listing redirect, a sectioned Course Exam
+  // gets misread as unsectioned (its configuredSections cache is keyed by
+  // "ModuleExam") and the listing collapses to a flat, ungrouped list.
+  moduleId: query.get("moduleId") || undefined,
   standalone: query.get("standalone") === "true",
   // Which section (of a "with sections"/hybrid exam) this batch belongs to —
   // set when the upload was launched from a specific Section tab on the
@@ -144,6 +151,7 @@ const contextToParams = (context) => {
   if (context.courseId) params.set("courseId", context.courseId);
   if (context.assessmentId) params.set("assessmentId", context.assessmentId);
   if (context.examinationId) params.set("examinationId", context.examinationId);
+  if (context.moduleId) params.set("moduleId", context.moduleId);
   if (context.standalone) params.set("standalone", "true");
   if (context.section) params.set("section", context.section);
   if (context.createTarget) params.set("createTarget", "true");
@@ -165,7 +173,8 @@ export const buildQuestionListingLink = (context) => {
   // QuestionsPage.jsx).
   const assessmentSegment = context.examinationId ? context.courseId : context.assessmentId;
   const base = `/admin/courses/${context.courseId}/assessment/${assessmentSegment}/questions/list?question-listing=true`;
-  return context.examinationId ? `${base}&examination=${context.examinationId}` : base;
+  const withExamination = context.examinationId ? `${base}&examination=${context.examinationId}` : base;
+  return context.moduleId ? `${withExamination}&moduleId=${context.moduleId}` : withExamination;
 };
 
 export const contextLabel = (context) =>
