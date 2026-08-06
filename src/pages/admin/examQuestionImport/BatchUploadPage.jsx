@@ -522,7 +522,21 @@ const BatchUploadPage = () => {
         // existing scoping (course-level "Exam" has no paper-config channel
         // wired up at all).
         if (kind === "ModuleExam" && realId && paperConfigBody) {
-          await updateExamPaperConfig(realId, paperConfigBody).catch((err) => {
+          // Confirmed via a real backend test (same rule
+          // QuestionsStandalone.jsx's own toApiPaperConfigBody already
+          // follows, and QuestionsPage.jsx's own updateExamPaperConfig calls
+          // now follow too): this PUT rejects `configuredSections` outright
+          // for a sectioned/hybrid exam — its own `sections` field on the
+          // create call above (toBatchUploadSections) is the only channel
+          // that accepts them, so it's already covered without this. Strip
+          // it here so the rest of this payload (navigationMode/
+          // randomization/uiSettings/timeLimitMinutes) still saves instead
+          // of the whole PUT failing over one rejected field.
+          const isSectionedOrHybrid = body.examType === "sectioned" || body.examType === "hybrid";
+          await updateExamPaperConfig(
+            realId,
+            isSectionedOrHybrid ? { ...paperConfigBody, configuredSections: undefined } : paperConfigBody,
+          ).catch((err) => {
             toast({
               title: "Sections were created but couldn't be saved to the exam's paper config — the Question Listing page won't group by section.",
               description: err?.response?.data?.message || err?.message,

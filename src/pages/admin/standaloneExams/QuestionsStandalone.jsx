@@ -502,7 +502,16 @@ const QuestionsStandalone = () => {
         .finally(() => setSectionsLoading(false));
 
     // Exam-level sections configured via "Configure Paper" take priority
-    // over the marking template's sections when both are present.
+    // over the marking template's sections when both are present. This PUT
+    // deliberately never persists `configuredSections` for a sectioned/
+    // hybrid exam (see toApiPaperConfigBody above — the backend rejects it
+    // there outright), so `configured` below is always empty for one on any
+    // visit past the same in-memory session that created it (storeSections
+    // above only covers that first visit — it isn't persisted). Fall back to
+    // the exam's own `sections` field (set at create time — TemplateStandalone.jsx's
+    // create body — and always echoed back on the real record) before ever
+    // reaching the marking-template lookup, which a sectioned/hybrid exam
+    // never has one of anyway (its own sections define marking instead).
     getExamPaperConfig(isExamination, "standalone_examination")
       .then((res) => {
         const configured = res?.data?.configuredSections;
@@ -524,9 +533,23 @@ const QuestionsStandalone = () => {
           setSectionsLoading(false);
           return;
         }
+        const ownSections = assessmentManager.assessment?.sections;
+        if (Array.isArray(ownSections) && ownSections.length > 0) {
+          setTemplateSections(ownSections.map((s) => s.section_name));
+          setSectionsLoading(false);
+          return;
+        }
         return fetchViaTemplate();
       })
-      .catch(() => fetchViaTemplate());
+      .catch(() => {
+        const ownSections = assessmentManager.assessment?.sections;
+        if (Array.isArray(ownSections) && ownSections.length > 0) {
+          setTemplateSections(ownSections.map((s) => s.section_name));
+          setSectionsLoading(false);
+          return;
+        }
+        return fetchViaTemplate();
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isExamination,
@@ -539,6 +562,7 @@ const QuestionsStandalone = () => {
     // Only these two derived values actually change what this effect does.
     pendingCreate?.paperConfigBody?.configuredSections,
     pendingCreate?.body?.templateId,
+    assessmentManager.assessment?.sections,
   ]);
 
   // Nothing was ever saved to the backend, so if the in-memory details-form
