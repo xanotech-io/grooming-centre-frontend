@@ -3742,7 +3742,11 @@ const QuestionListingPage = ({
   };
 
   const handleOpenCreateAndSubmit = () => {
-    if (sectionNames.length > 0 && queuedQuestions.some((q) => !queuedQuestionSection(q))) {
+    // Hybrid intentionally has a standalone (no-section) half alongside its
+    // sectioned half, so an unassigned queued question there is valid — only
+    // a plain sectioned exam/assessment requires every question to carry one.
+    const requiresQueuedSectionAssignment = sectionNames.length > 0 && realExamMeta.examType !== "hybrid";
+    if (requiresQueuedSectionAssignment && queuedQuestions.some((q) => !queuedQuestionSection(q))) {
       toast({
         description: "Assign every queued question to a section before submitting.",
         position: "top",
@@ -4050,9 +4054,10 @@ const QuestionListingPage = ({
       })}
 
       {/* ── Unassigned / no-section questions — also where a queued question
-          lands until it's given a section (sectioned/hybrid exams require
-          one before submitting; an unsectioned exam's queue lives here
-          permanently, same as its real questions). ── */}
+          lands until it's given a section (a plain sectioned exam requires
+          one before submitting; hybrid's standalone half and an unsectioned
+          exam's queue both live here permanently, same as their real
+          questions). ── */}
       {(unassigned.length > 0 || unassignedQueued.length > 0 || sectionNames.length === 0) && (
         <Box marginBottom={8}>
           {sectionNames.length > 0 && (
@@ -4069,7 +4074,7 @@ const QuestionListingPage = ({
             </Flex>
           )}
 
-          {sectionNames.length > 0 && unassignedQueued.length > 0 && (
+          {sectionNames.length > 0 && unassignedQueued.length > 0 && realExamMeta.examType !== "hybrid" && (
             <Text color="orange.600" fontSize="sm" mb={3}>
               This {isExamination ? "exam" : "assessment"} uses sections — assign every queued
               question below to a section before submitting.

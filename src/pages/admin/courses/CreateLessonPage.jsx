@@ -2,7 +2,9 @@
 import { useToast } from "@chakra-ui/toast";
 import { Flex, Grid, GridItem } from "@chakra-ui/layout";
 import { Route, useParams, useHistory } from "react-router-dom";
+import { FaSitemap } from "react-icons/fa";
 import {
+  Button,
   DateTimePicker,
   Input,
   RichText,
@@ -37,6 +39,7 @@ import {
   adminEditLesson,
   adminGetDepartmentSupervisors,
   adminGetAllDepartmentSupervisors,
+  adminSubmitWorkflow,
   auditTrailV2PostLog,
 } from "../../../services";
 import useViewLessonInfo from "./hooks/useViewLessonInfo";
@@ -62,7 +65,7 @@ const CreateLessonPage = () => {
   } = useForm();
 
   const {
-    state: { metadata },
+    state: { metadata, user },
     getOneMetadata,
   } = useApp();
   const file = watch("lessonTypeId");
@@ -282,7 +285,7 @@ const CreateLessonPage = () => {
   };
 
   // Handle form submission
-  const onSubmit = async (data) => {
+  const onSubmit = async (data, shouldSubmitForApproval = false) => {
     try {
       const startTime =
         startTimeManager.handleGetValueAndValidate("Start Time");
@@ -310,6 +313,23 @@ const CreateLessonPage = () => {
       const result = isEditMode
         ? await performEdit(body, data.title)
         : await performCreate(body, data.title);
+
+      if (isSuperAdmin && shouldSubmitForApproval) {
+        const { message } = await adminSubmitWorkflow({
+          request_type: "Lesson",
+          content_id: result?.id ?? lessonId,
+          content_title: data.title,
+          submitted_by: user?.id,
+          submission_date: new Date().toISOString(),
+        });
+        toast({
+          description: capitalizeFirstLetter(
+            message ?? "Submitted for approval successfully.",
+          ),
+          position: "top",
+          status: "success",
+        });
+      }
 
       const lessonIdForRoute = result?.id ?? lessonId;
       const nextRoute = isModuleScoped
@@ -503,6 +523,21 @@ const CreateLessonPage = () => {
                     required: "Please select a supervisor",
                   })}
                 />
+              </Box>
+            )}
+            {isSuperAdmin && (
+              <Box marginTop={"30px"}>
+                <Button
+                  type="button"
+                  secondary
+                  rightIcon={<FaSitemap />}
+                  isLoading={isSubmitting}
+                  onClick={handleSubmit((data) => onSubmit(data, true))}
+                >
+                  {isEditMode
+                    ? "Update Lesson & Submit for Approval"
+                    : "Add Lesson & Submit for Approval"}
+                </Button>
               </Box>
             )}
             {file && (
