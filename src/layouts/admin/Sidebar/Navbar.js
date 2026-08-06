@@ -13,7 +13,6 @@ import {
   Drawer,
   DrawerContent,
   DrawerOverlay,
-  Text,
   useDisclosure,
 } from "@chakra-ui/react";
 import { FiMenu } from "react-icons/fi";
@@ -67,53 +66,47 @@ export const SidebarContent = ({ onClose, ...rest }) => {
   });
   return (
     <Box
-      transition="2s ease"
       bg={useColorModeValue("white", "gray.900")}
       borderRight="1px"
-      borderRightColor={useColorModeValue("gray.200", "gray.700")}
+      borderRightColor={useColorModeValue("gray.100", "gray.700")}
       w={{ md: "270px", base: "full", lg: "270px" }}
       pos="fixed"
       h="full"
       zIndex="6"
       {...rest}
     >
-      <Flex h="20" alignItems="center" mx="8" justifyContent="space-between">
-        <Box
-          borderBottom="1px solid #EDF2F7"
-          display={{ base: "none", lg: "block", md: "block" }}
+      <Flex
+        h="16"
+        alignItems="center"
+        justifyContent="center"
+        paddingX={6}
+        borderBottom="1px"
+        borderBottomColor={useColorModeValue("gray.100", "gray.700")}
+        position="relative"
+      >
+        <Brand sm />
+        <CloseButton
           position="absolute"
-          w="full"
-          left="0px"
-          top="64px"
-        ></Box>
-        <Text fontSize="2xl" fontFamily="monospace" fontWeight="bold">
-          <Box marginLeft={{ lg: "70px", base: "0", md: "70px" }}>
-            <Brand sm textColor="white" />
-          </Box>
-        </Text>
-        <CloseButton display={{ base: "flex", md: "none" }} onClick={onClose} />
+          right={4}
+          display={{ base: "flex", md: "none" }}
+          onClick={onClose}
+        />
       </Flex>
       <Box
         as="div"
         w="full"
-        paddingRight={1}
         display="flex"
         flexDirection="column"
-        height="calc(100vh - 80px)"
+        height="calc(100vh - 64px)"
       >
-        {isSettingsPage ? (
-          <Box paddingTop={10} paddingX={5}>
-            <Heading fontSize="heading.h3" paddingBottom={2}>
-              Settings
-            </Heading>
-          </Box>
-        ) : (
-          <Box padding={0}>
+        {isSettingsPage && (
+          <Box paddingTop={6} paddingX={5} paddingBottom={1}>
+            <Heading fontSize="heading.h3">Settings</Heading>
           </Box>
         )}
 
-        <Box as="nav" padding={5} flex="1" overflowY="auto">
-          <Stack as="ul" spacing={2} listStyleType="none">
+        <Box as="nav" paddingX={3} paddingY={4} flex="1" overflowY="auto">
+          <Stack as="ul" spacing={1} listStyleType="none">
             {isSettingsPage
               ? isSuperAdmin
                 ? superAdminSettingsLinks.map((link) => (
@@ -127,7 +120,11 @@ export const SidebarContent = ({ onClose, ...rest }) => {
               ))}
           </Stack>
         </Box>
-        <Box padding={5} mt="auto">
+        <Box
+          padding={4}
+          borderTop="1px"
+          borderTopColor={useColorModeValue("gray.100", "gray.700")}
+        >
           <Button
             width="100%"
             onClick={handleLogout}
