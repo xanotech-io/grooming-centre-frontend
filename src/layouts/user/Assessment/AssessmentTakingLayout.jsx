@@ -20,6 +20,7 @@ import useTimerCountdown from "./hooks/useTimerCountdown";
 import { getEndTime, sortByIndexField, parseOptionIndex } from "../../../utils";
 import { http } from "../../../services/http/http";
 import { submitAssessmentMarking } from "../../../services";
+import { normalizeQuestionType } from "../../../pages/admin/examQuestionImport/questionRowUtils";
 
 const mapAssessment = (data) => {
   if (!data) return null;
@@ -40,7 +41,7 @@ const mapAssessment = (data) => {
     questions: questionArray.map((q, index) => {
       const opts = q.options ?? [];
       const inferredType = (() => {
-        if (q.questionType) return q.questionType;
+        if (q.questionType) return normalizeQuestionType(q.questionType);
         if (opts.length === 0) return "ShortAnswer";
         const names = opts.map((o) => (o?.name || "").toLowerCase());
         if (opts.length === 2 && names.includes("true") && names.includes("false")) return "TrueFalse";

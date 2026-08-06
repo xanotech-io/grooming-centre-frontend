@@ -1,5 +1,6 @@
 import { getEndTime, parseOptionIndex } from "../../../utils";
 import { http } from "../http";
+import { normalizeQuestionType } from "../../../pages/admin/examQuestionImport/questionRowUtils";
 
 /**
  * Endpoint to get `assessment-details`
@@ -34,7 +35,7 @@ export const requestAssessmentDetails = async (id, forAdmin) => {
       ? data?.assessmentQuestions?.map((q, index) => {
         const opts = q?.options ?? [];
         const inferredType = (() => {
-          if (q?.questionType) return q.questionType;
+          if (q?.questionType) return normalizeQuestionType(q.questionType);
           if (opts.length === 0) return "ShortAnswer";
           const names = opts.map((o) => (o?.name || "").toLowerCase());
           if (opts.length === 2 && names.includes("true") && names.includes("false")) return "TrueFalse";
