@@ -1018,7 +1018,7 @@ const TABS = [
   { key: "kpis",    label: "Report Overview",  icon: <FiDatabase size={14} /> },
   { key: "import",  label: "Import",     icon: <FiUpload size={14} /> },
   { key: "export",  label: "Export",     icon: <FiDownload size={14} /> },
-  { key: "extract", label: "Extract",    icon: <FiFilter size={14} /> },
+  
 ];
 
 const DataImportExportPage = () => {
@@ -1058,7 +1058,7 @@ const DataImportExportPage = () => {
       {activeTab === "kpis"    && <DashboardTab />}
       {activeTab === "import"  && <ImportTab />}
       {activeTab === "export"  && <ExportExtractTab operationType="export" />}
-      {activeTab === "extract" && <ExportExtractTab operationType="extraction" />}
+    
     </AdminMainAreaWrapper>
   );
 };
