@@ -1,18 +1,18 @@
 import { useState } from "react";
 
-const useAccordion = () => {
-  const [isOpen, setIsOpen] = useState(true);
-  const [isActive, setIsActive] = useState(false);
+const useAccordion = (initialOpen = false) => {
+  const [isOpen, setIsOpen] = useState(initialOpen);
 
   const handleToggle = () => {
     setIsOpen((prev) => !prev);
   };
 
+  const open = () => setIsOpen(true);
+
   return {
     isOpen,
-    isActive,
-    setIsActive,
     handleToggle,
+    open,
   };
 };
 
