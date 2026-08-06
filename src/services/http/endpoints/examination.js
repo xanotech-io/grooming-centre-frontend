@@ -19,12 +19,16 @@ export const requestExaminationDetails = async (id, forAdmin) => {
 
   const questionArray = raw.examinationQuestions ?? raw.questions ?? [];
 
-  // shuffle questions
-  for (let i = questionArray.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * i);
-    const temp = questionArray[i];
-    questionArray[i] = questionArray[j];
-    questionArray[j] = temp;
+  // Shuffle only for the student-facing take-exam view — an admin managing/
+  // reviewing questions needs a stable order (QuestionsPage.jsx's numbering,
+  // section grouping, etc. shouldn't reshuffle on every reload).
+  if (!forAdmin) {
+    for (let i = questionArray.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * i);
+      const temp = questionArray[i];
+      questionArray[i] = questionArray[j];
+      questionArray[j] = temp;
+    }
   }
 
   const examination = {
@@ -44,6 +48,15 @@ export const requestExaminationDetails = async (id, forAdmin) => {
     examType: raw.examType ?? null,
     questionQuantity: raw.questionQuantity ?? null,
     templateId: raw.templateId ?? raw.markingTemplateId ?? null,
+    // The exam's own configured sections ({section_name, weightage,
+    // questionCount}) — set at create/batch-upload time and always echoed
+    // back on the raw record, but never mapped through here before, so
+    // QuestionsPage.jsx's section-name derivation (which reads this field
+    // for a Course Exam) always saw an empty list. Every question below
+    // still carries its own `section` string regardless — without this, a
+    // sectioned/hybrid exam's questions matched no known section name and
+    // rendered nowhere at all (not grouped, not "unassigned" either).
+    sections: Array.isArray(raw.sections) ? raw.sections : [],
     questions: questionArray.map((q, index) => {
       const opts = q.options ?? [];
       const inferredType = (() => {

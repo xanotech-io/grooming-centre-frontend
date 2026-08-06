@@ -257,9 +257,13 @@ const buildSectionConfigMap = (sections, shape) => {
           }
         : {
             // `questions_count` is the canonical field name (matches
-            // ExamPaperConfigPage.jsx); `question_count` is accepted too
-            // for older/standalone-shaped section data.
-            questionsCount: Number(s.questions_count ?? s.question_count) || null,
+            // ExamPaperConfigPage.jsx); `question_count` is accepted too for
+            // older/standalone-shaped section data, and `questionCount`
+            // (camelCase, no config-detail fields at all) is the exam's own
+            // bare `sections` field shape — toBatchUploadSections'/
+            // toCreateBodySections' minimal {section_name/name, weightage,
+            // questionCount} sent at create time and echoed back as-is.
+            questionsCount: Number(s.questions_count ?? s.question_count ?? s.questionCount) || null,
             questionTypeLock: s.question_type || "",
             // The Sections builder's checkbox multi-select — falls back to
             // wrapping the legacy single `question_type` lock so sections
@@ -274,7 +278,7 @@ const buildSectionConfigMap = (sections, shape) => {
             typeCategory: "",
             markingTypeLock: s.marking_type || "",
             marksPerQuestion: null,
-            totalMarks: s.total_marks ? Number(s.total_marks) : null,
+            totalMarks: (s.total_marks ?? s.weightage) ? Number(s.total_marks ?? s.weightage) : null,
           };
   });
   return map;
@@ -333,6 +337,19 @@ const queuedQuestionSection = (q) => q.formSnapshot?.section ?? q.data?.section 
 // the cases here.
 const realExamKind = (isExamination, moduleId) =>
   isExamination ? (moduleId ? "ModuleExam" : "Exam") : "Assessment";
+
+// Confirmed via a real backend test (same rule QuestionsStandalone.jsx's own
+// toApiPaperConfigBody already follows): the paper-config PUT rejects
+// `configuredSections` outright for a sectioned/hybrid exam — its own
+// `sections` field on the CREATE body (TemplatePage.jsx/BatchUploadPage.jsx's
+// toBatchUploadSections) is the only channel that accepts them. `body.examType`
+// here is already the API value ("sectioned"/"hybrid"/"unsectioned") by the
+// time it reaches pendingCreate.body — TemplatePage.jsx remaps it at save
+// time, unlike Standalone which remaps later at its own API boundary.
+const toApiPaperConfigBody = (body, paperConfigBody) =>
+  body?.examType === "sectioned" || body?.examType === "hybrid"
+    ? { ...paperConfigBody, configuredSections: undefined }
+    : paperConfigBody;
 
 // The fetched record's own examType/questionQuantity, falling back to
 // whatever markExamMeta cached at creation/edit time — confirmed via a real
@@ -679,14 +696,42 @@ const QuestionsPage = () => {
         fetchViaTemplate(() => adminGetStandaloneExamTemplateId(isExamination)),
       );
     } else if (isExamination) {
-      fetchViaExamPaperConfig("examination", () =>
-        fetchViaTemplate(() =>
-          adminGetExaminationById(isExamination).then(
+      // paper-config's own `configuredSections` deliberately never gets
+      // saved for a sectioned/hybrid exam (the backend rejects it outright
+      // there — see toApiPaperConfigBody above), so this always falls
+      // through to here for one. The exam's own `sections` field (set at
+      // create time — TemplatePage.jsx/BatchUploadPage.jsx's
+      // toBatchUploadSections) is a real, always-available source of truth
+      // for it — same precedence a plain Assessment's own self-managed
+      // `sections` field already gets in the branch below — so check that
+      // before falling through to the marking-template lookup, which a
+      // sectioned/hybrid exam never has one of anyway (its own sections
+      // define marking instead).
+      fetchViaExamPaperConfig("examination", () => {
+        const ownSections = assessmentManager.assessment?.sections;
+        if (Array.isArray(ownSections) && ownSections.length > 0) {
+          // `configuredSections` (not just templateSections/sectionConfigMap
+          // above) — QuestionListingPage derives its own section grouping
+          // from this raw prop (see its `rawSections` computation), not from
+          // the two CreateQuestionPage-only values.
+          setConfiguredSections(ownSections);
+          setTemplateSections(ownSections.map((s) => s.section_name));
+          setSectionConfigMap(buildSectionConfigMap(ownSections, "exam"));
+          setSectionsLoading(false);
+          return;
+        }
+        return fetchViaTemplate(() =>
+          // This admin lookup is keyed by courseId, not the examination's own
+          // id (GET /v1/examination/admin/{courseId} — same convention
+          // BatchUploadPage.jsx's fallback already relies on) — a course has
+          // at most one examination, so the id in the URL must be the
+          // course's, never the target examination's.
+          adminGetExaminationById(courseId).then(
             ({ examination }) =>
               examination?.templateId ?? examination?.markingTemplateId ?? null,
           ),
-        ),
-      );
+        );
+      });
     } else {
       // Plain Assessments can self-manage sections the same way Examinations
       // do (added directly on the assessment record via the Listing page's
@@ -1167,6 +1212,17 @@ const CreateQuestionPage = ({
         : assessmentManager.assessment?.questions?.length || 0;
     const totalAfterSave = questionsBeforeThisSave + 1;
     const reachedLimit = amountOfQuestions && totalAfterSave >= amountOfQuestions;
+
+    // "Create and Submit" on an already-real exam/assessment just finished a
+    // supervisor-approval submission — that's a "review everything" action,
+    // not a "keep adding" one, so it always lands on the question listing
+    // regardless of how many question slots are still free (unlike a plain
+    // "Add Question" save below, which offers to add another).
+    if (justSubmittedForApprovalRef.current) {
+      justSubmittedForApprovalRef.current = false;
+      goToQuestionListing(realParentId);
+      return;
+    }
 
     if (amountOfQuestions > 1 && !reachedLimit) {
       // Everything has actually been created/saved for real by this point —
@@ -1807,6 +1863,14 @@ const CreateQuestionPage = ({
   // targeting the already-real assessment/exam as the content being
   // submitted.
   const submitForApprovalRef = useRef(false);
+  // `submitForApprovalRef` itself is reset to false as soon as its branch
+  // below is entered (before the approval modal even opens), so it can't
+  // still be checked once `onSuccess` fires later — this stays true across
+  // that gap so finishSaving knows the completed workflow was "Create and
+  // Submit" specifically, not a plain "Add Question" save, and should always
+  // land on the question listing ("See All") once done instead of finishSaving's
+  // usual "add another question?" interim screen.
+  const justSubmittedForApprovalRef = useRef(false);
 
   // Creates the exam/assessment that "Next" deferred, using the details
   // form values held in `pendingCreate`. Called from inside the approval
@@ -1820,7 +1884,7 @@ const CreateQuestionPage = ({
     if (kind === "ModuleExam" || kind === "Exam") {
       const { examination } = await adminCreateExamination(finalBody);
       if (kind === "ModuleExam") {
-        await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
+        await updateExamPaperConfig(examination.id, toApiPaperConfigBody(finalBody, paperConfigBody)).catch(() => {});
       }
       if (parentAddToBank) setAutoAddToBank("examination", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
@@ -1867,7 +1931,9 @@ const CreateQuestionPage = ({
 
     if (kind === "ModuleExam" || kind === "Exam") {
       await adminEditExamination(contentId, finalBody);
-      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      if (paperConfigBody) {
+        await updateExamPaperConfig(contentId, toApiPaperConfigBody(finalBody, paperConfigBody)).catch(() => {});
+      }
       cacheExamMetaFromBody(kind, contentId, finalBody);
       return { id: contentId };
     }
@@ -2526,6 +2592,7 @@ const CreateQuestionPage = ({
 
       if (submitForApprovalRef.current) {
         submitForApprovalRef.current = false;
+        justSubmittedForApprovalRef.current = true;
 
         const requestType = isStandaloneExamination
           ? "StandaloneExam"
@@ -3605,7 +3672,7 @@ const QuestionListingPage = ({
     if (kind === "ModuleExam" || kind === "Exam") {
       const { examination } = await adminCreateExamination(body);
       if (kind === "ModuleExam") {
-        await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
+        await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody)).catch(() => {});
       }
       if (parentAddToBank) setAutoAddToBank("examination", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
@@ -3637,7 +3704,9 @@ const QuestionListingPage = ({
 
     if (kind === "ModuleExam" || kind === "Exam") {
       await adminEditExamination(contentId, body);
-      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      if (paperConfigBody) {
+        await updateExamPaperConfig(contentId, toApiPaperConfigBody(body, paperConfigBody)).catch(() => {});
+      }
       cacheExamMetaFromBody(kind, contentId, body);
       return { id: contentId };
     }
