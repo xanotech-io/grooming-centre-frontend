@@ -145,10 +145,10 @@ const StudentProgressListingPage = () => {
         text: "Progress Report",
         link: (row) => `/admin/report/studentReport/${row.id}/progress`,
       },
-      {
-        text: "Training Report",
-        link: (row) => `/admin/report/studentReport/${row.id}/training-report`,
-      },
+      // {
+      //   text: "Training Report",
+      //   link: (row) => `/admin/report/studentReport/${row.id}/training-report`,
+      // },
     ],
     selection: false,
     pagination: false,
