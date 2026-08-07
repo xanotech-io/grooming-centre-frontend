@@ -42,3 +42,4 @@ export * from './WorkflowReviewSection';
 export * from './ScheduledReporting';
 export { default as TranscriptCertificateModal } from './Certificates/TranscriptCertificateModal';
 export * from './StudentReportingModule';
+export * from './ExamReviewResultCard/ExamReviewResultCard';

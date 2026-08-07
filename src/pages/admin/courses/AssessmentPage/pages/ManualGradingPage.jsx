@@ -247,6 +247,18 @@ const ManualGradingPage = () => {
     (q) => q.markingType === "manual" && grades[q.questionId]?.saved,
   ).length;
 
+  const totalScore = questions.reduce((sum, q) => {
+    if (q.markingType === "manual") {
+      const g = grades[q.questionId];
+      return sum + (g?.saved ? Number(g.score) || 0 : 0);
+    }
+    return sum + (Number(q.scoreAssigned) || 0);
+  }, 0);
+  const totalMaxScore = questions.reduce(
+    (sum, q) => sum + (Number(q.marks) || 0),
+    0,
+  );
+
   const updateGrade = (field, value) => {
     if (!currentQna) return;
     setGrades((prev) => ({
@@ -417,6 +429,21 @@ const ManualGradingPage = () => {
                 {sheet?.student?.email || ""}
               </Text>
             </Box>
+          </Flex>
+
+          <Flex alignItems="center" gap={2}>
+            <Text
+              fontSize="11px"
+              color="gray.400"
+              fontWeight="600"
+              textTransform="uppercase"
+              letterSpacing="wider"
+            >
+              Total
+            </Text>
+            <Text fontSize="14px" fontWeight="700" color="#1A202C">
+              {totalScore} / {totalMaxScore}
+            </Text>
           </Flex>
 
           <Flex alignItems="center" gap={3}>
@@ -742,6 +769,73 @@ const GradingPanelContent = ({
           This question is auto-graded. No manual scoring needed.
         </Text>
       </Box>
+    );
+  }
+
+  if (currentGrade.saved) {
+    return (
+      <>
+        <Flex alignItems="center" justifyContent="space-between" mb={4}>
+          <Text
+            fontSize="10px"
+            fontWeight="700"
+            color="gray.400"
+            textTransform="uppercase"
+            letterSpacing="wider"
+          >
+            Grade
+          </Text>
+          <Flex alignItems="center" gap={1}>
+            <FiCheck color="#38A169" size={11} />
+            <Text fontSize="11px" color="#38A169" fontWeight="600">
+              Graded
+            </Text>
+          </Flex>
+        </Flex>
+
+        <Box mb={4}>
+          <Text fontSize="sm" fontWeight="600" color="#1A202C" mb={1}>
+            Marks
+          </Text>
+          <Text fontSize="24px" fontWeight="700" color="#1A202C">
+            {currentGrade.score || 0}
+            {maxMarks != null && (
+              <Text as="span" fontSize="sm" color="gray.400" fontWeight="500">
+                {" "}
+                / {maxMarks}
+              </Text>
+            )}
+          </Text>
+        </Box>
+
+        <Box w="100%" h="1px" bg="#E2E8F0" mb={4} />
+
+        <Box mb={4}>
+          <Text fontSize="sm" fontWeight="600" color="#1A202C" mb={2}>
+            Feedback to student
+          </Text>
+          <Text
+            fontSize="13px"
+            color={currentGrade.remark ? "#1A202C" : "gray.400"}
+            fontStyle={currentGrade.remark ? "normal" : "italic"}
+            whiteSpace="pre-wrap"
+            lineHeight="1.6"
+          >
+            {currentGrade.remark || "No feedback given."}
+          </Text>
+        </Box>
+
+        <Box
+          p={3}
+          bg="#F0FFF4"
+          border="1px solid #9AE6B4"
+          borderRadius="6px"
+        >
+          <Text fontSize="11px" color="#276749">
+            This question has been graded and can no longer be edited.
+          </Text>
+        </Box>
+      </>
     );
   }
 

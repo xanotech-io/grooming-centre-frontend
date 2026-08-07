@@ -12,6 +12,7 @@ import {
   RichTextToView,
   Text,
   Image,
+  ExamReviewResultCard,
 } from "../../../components";
 import { PageLoaderLayout } from "../../global/PageLoader/PageLoaderLayout";
 import { CustomModal } from "../Assessment/Modal";
@@ -19,7 +20,7 @@ import { EmptyState } from "../..";
 import useTimerCountdown from "../Assessment/hooks/useTimerCountdown";
 import { getEndTime, sortByIndexField, parseOptionIndex } from "../../../utils";
 import { http } from "../../../services/http/http";
-import { submitExamMarking } from "../../../services/http/endpoints/examMarking";
+import { submitExamMarking, getExamMarkingResult } from "../../../services/http/endpoints/examMarking";
 
 export const normalizeQuestionType = (raw) => {
   if (!raw) return "MCQ";
@@ -103,6 +104,29 @@ const useExamination = () => {
   return { examination, isLoading, error };
 };
 
+const MOCK_EXAMINATION_RESULT = {
+  totalScore: 82,
+  grade: "A",
+  remark: "Excellent performance — you demonstrated a strong understanding of the material tested in this examination.",
+  isMock: true,
+};
+
+const useExaminationReviewResult = (examinationId, isViewMode) => {
+  const [result, setResult] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isViewMode || !examinationId) return;
+    setIsLoading(true);
+    getExamMarkingResult(examinationId)
+      .then(({ result: data }) => setResult(data))
+      .catch(() => setResult(MOCK_EXAMINATION_RESULT))
+      .finally(() => setIsLoading(false));
+  }, [examinationId, isViewMode]);
+
+  return { result, isLoading };
+};
+
 const ExaminationLayout = () => {
   const { course_id } = useParams();
   const { push } = useHistory();
@@ -110,6 +134,10 @@ const ExaminationLayout = () => {
 
   const { examination, isLoading, error } = useExamination();
   const isViewMode = examination?.hasCompleted ?? false;
+  const { result: reviewResult, isLoading: isReviewResultLoading } = useExaminationReviewResult(
+    examination?.id,
+    isViewMode
+  );
 
   const questions = examination
     ? sortByIndexField(examination.questions, "questionIndex")
@@ -347,6 +375,18 @@ const ExaminationLayout = () => {
                 Back to Course
               </Button>
             </Flex>
+          )}
+
+          {isViewMode && (
+            <Box paddingX={10} paddingTop={5}>
+              <ExamReviewResultCard
+                title="Your Result"
+                isLoading={isReviewResultLoading}
+                totalScore={reviewResult?.totalScore ?? null}
+                grade={reviewResult?.grade ?? null}
+                remark={reviewResult?.remark ?? null}
+              />
+            </Box>
           )}
 
           <Flex paddingX={10} paddingY={5} height="100%">

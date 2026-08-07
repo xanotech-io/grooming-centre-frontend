@@ -30,28 +30,28 @@ import {
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
-const Tab = ({ label, icon, active, onClick }) => (
-  <Flex
-    as="button"
-    alignItems="center"
-    gap="6px"
-    px="20px"
-    py="11px"
-    fontSize="13px"
-    fontWeight={active ? "600" : "400"}
-    color={active ? "#6b006b" : "gray.500"}
-    borderBottom={active ? "2px solid #6b006b" : "2px solid transparent"}
-    bg="transparent"
-    cursor="pointer"
-    onClick={onClick}
-    transition="all 0.15s"
-    _hover={{ color: "#6b006b" }}
-    whiteSpace="nowrap"
-  >
-    {icon}
-    {label}
-  </Flex>
-);
+// const Tab = ({ label, icon, active, onClick }) => (
+//   <Flex
+//     as="button"
+//     alignItems="center"
+//     gap="6px"
+//     px="20px"
+//     py="11px"
+//     fontSize="13px"
+//     fontWeight={active ? "600" : "400"}
+//     color={active ? "#6b006b" : "gray.500"}
+//     borderBottom={active ? "2px solid #6b006b" : "2px solid transparent"}
+//     bg="transparent"
+//     cursor="pointer"
+//     onClick={onClick}
+//     transition="all 0.15s"
+//     _hover={{ color: "#6b006b" }}
+//     whiteSpace="nowrap"
+//   >
+//     {icon}
+//     {label}
+//   </Flex>
+// );
 
 const statusStyle = (status) => {
   const s = String(status || "").toLowerCase();
@@ -266,7 +266,7 @@ const TrainingReportTab = ({ studentId }) => {
 const StudentTrainingReportPage = () => {
   const { studentId } = useParams();
   const history = useHistory();
-  const [activeTab, setActiveTab] = useState("progress");
+  // const [activeTab, setActiveTab] = useState("progress");
 
   return (
     <Box marginX="22px" marginY="20px">
@@ -287,12 +287,7 @@ const StudentTrainingReportPage = () => {
 
       {/* Tab bar */}
       <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" overflow="hidden">
-        <Flex borderBottom="1px solid #E2E8F0" px="8px" overflowX="auto">
-          <Tab label="Training Report" icon={<FiFileText size={13} />} active={activeTab === "report"} onClick={() => setActiveTab("report")} />
-        </Flex>
-
-      
-        {activeTab === "report" && <TrainingReportTab studentId={studentId} />}
+        <TrainingReportTab studentId={studentId} />
       </Box>
     </Box>
   );
