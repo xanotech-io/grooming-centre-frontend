@@ -30,6 +30,7 @@ const GradingPanel = ({ question, examId, studentId, onSaved }) => {
 
   const maxScore = question.maxScore ?? 0;
   const scoreNum = parseFloat(score);
+  const isLocked = saved && gradingStatus === "completed";
   const quickMarks = [
     { label: "0", value: 0 },
     { label: "Half", value: Math.floor(maxScore / 2) },
@@ -80,6 +81,66 @@ const GradingPanel = ({ question, examId, studentId, onSaved }) => {
       setSaving(false);
     }
   };
+
+  if (isLocked) {
+    return (
+      <>
+        <Flex alignItems="center" justifyContent="space-between" mb={4}>
+          <Text
+            fontSize="10px"
+            fontWeight="700"
+            color="gray.400"
+            textTransform="uppercase"
+            letterSpacing="wider"
+          >
+            Grade
+          </Text>
+          <Flex alignItems="center" gap={1}>
+            <FiCheck color="#38A169" size={11} />
+            <Text fontSize="11px" color="#38A169" fontWeight="600">
+              Graded
+            </Text>
+          </Flex>
+        </Flex>
+
+        <Box mb={4}>
+          <Text fontSize="sm" fontWeight="600" color="#1A202C" mb={1}>
+            Marks
+          </Text>
+          <Text fontSize="24px" fontWeight="700" color="#1A202C">
+            {score || 0}
+            <Text as="span" fontSize="sm" color="gray.400" fontWeight="500">
+              {" "}
+              / {maxScore}
+            </Text>
+          </Text>
+        </Box>
+
+        <Box w="100%" h="1px" bg="#E2E8F0" mb={4} />
+
+        <Box mb={4}>
+          <Text fontSize="sm" fontWeight="600" color="#1A202C" mb={2}>
+            Feedback to student
+          </Text>
+          <Text
+            fontSize="13px"
+            color={remark ? "#1A202C" : "gray.400"}
+            fontStyle={remark ? "normal" : "italic"}
+            whiteSpace="pre-wrap"
+            lineHeight="1.6"
+          >
+            {remark || "No feedback given."}
+          </Text>
+        </Box>
+
+        <Box p={3} bg="#F0FFF4" border="1px solid #9AE6B4" borderRadius="6px">
+          <Text fontSize="11px" color="#276749">
+            This question has been graded and can no longer be edited.
+          </Text>
+        </Box>
+      </>
+    );
+  }
 
   return (
     <>
@@ -281,6 +342,14 @@ const StandaloneStudentGradingPage = () => {
     (q) =>
       q.gradingStatus?.toLowerCase() !== "pending" && q.scoreAssigned != null,
   ).length;
+  const totalScore = questions.reduce(
+    (sum, q) => sum + (Number(q.scoreAssigned) || 0),
+    0,
+  );
+  const totalMaxScore = questions.reduce(
+    (sum, q) => sum + (Number(q.maxScore) || 0),
+    0,
+  );
 
   const handleSaved = () => setRefreshKey((k) => k + 1);
 
@@ -377,6 +446,21 @@ const StandaloneStudentGradingPage = () => {
                 )}
               </Flex>
             </Box>
+          </Flex>
+
+          <Flex alignItems="center" gap={2}>
+            <Text
+              fontSize="11px"
+              color="gray.400"
+              fontWeight="600"
+              textTransform="uppercase"
+              letterSpacing="wider"
+            >
+              Total
+            </Text>
+            <Text fontSize="14px" fontWeight="700" color="#1A202C">
+              {totalScore} / {totalMaxScore}
+            </Text>
           </Flex>
 
           <Flex alignItems="center" gap={3}>

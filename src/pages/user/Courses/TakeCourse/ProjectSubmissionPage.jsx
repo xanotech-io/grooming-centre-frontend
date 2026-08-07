@@ -5,8 +5,8 @@ import { useToast } from "@chakra-ui/toast";
 import { useEffect, useRef, useState } from "react";
 import { FaUpload, FaExternalLinkAlt, FaCheckCircle } from "react-icons/fa";
 import Icon from "@chakra-ui/icon";
-import { Button, Heading, Spinner, Text, AnnotatableText } from "../../../../components";
-import { getProjectById, getProjectSubmissions, submitProjectFile, buildThreadKey, markViewed, getUnreadCount } from "../../../../services";
+import { Button, Heading, Spinner, Text, AnnotatableText, ExamReviewResultCard } from "../../../../components";
+import { getProjectById, getProjectSubmissions, submitProjectFile, buildThreadKey, markViewed, getUnreadCount, getSubmissionReview } from "../../../../services";
 import { capitalizeFirstLetter } from "../../../../utils";
 import { useApp } from "../../../../contexts";
 import dayjs from "dayjs";
@@ -27,6 +27,8 @@ const ProjectSubmissionPage = ({ sidebarLinks }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submission, setSubmission] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [review, setReview] = useState(null);
+  const [isReviewLoading, setIsReviewLoading] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -57,6 +59,15 @@ const ProjectSubmissionPage = ({ sidebarLinks }) => {
       markViewed(key, viewer.id);
     }
   }, [submission, viewer?.id, project_id]);
+
+  useEffect(() => {
+    if (!submission?.id) return;
+    setIsReviewLoading(true);
+    getSubmissionReview(submission.id)
+      .then(({ review: data }) => setReview(data))
+      .catch(() => setReview(null))
+      .finally(() => setIsReviewLoading(false));
+  }, [submission?.id]);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -197,6 +208,16 @@ const ProjectSubmissionPage = ({ sidebarLinks }) => {
                   </Text>
                 </Box>
               </Flex>
+
+              <ExamReviewResultCard
+                title="Grade & Feedback"
+                isLoading={isReviewLoading}
+                totalScore={review?.grade ?? null}
+                scoreSuffix={project.maxGrade != null ? `/${project.maxGrade}` : "%"}
+                remark={review?.remarks ?? null}
+                emptyRemarkLabel="Your instructor hasn't graded this submission yet."
+                mb={0}
+              />
 
               {submission.submissionUrl && (
                 <Button

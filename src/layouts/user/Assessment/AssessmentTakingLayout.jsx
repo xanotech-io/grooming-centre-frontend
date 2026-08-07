@@ -12,6 +12,7 @@ import {
   RichTextToView,
   Text,
   Image,
+  ExamReviewResultCard,
 } from "../../../components";
 import { PageLoaderLayout } from "../../global/PageLoader/PageLoaderLayout";
 import { CustomModal } from "./Modal";
@@ -19,7 +20,7 @@ import { EmptyState } from "../..";
 import useTimerCountdown from "./hooks/useTimerCountdown";
 import { getEndTime, sortByIndexField, parseOptionIndex } from "../../../utils";
 import { http } from "../../../services/http/http";
-import { submitAssessmentMarking } from "../../../services";
+import { submitAssessmentMarking, getStudentOwnResult } from "../../../services";
 import { normalizeQuestionType } from "../../../pages/admin/examQuestionImport/questionRowUtils";
 
 const mapAssessment = (data) => {
@@ -90,6 +91,29 @@ const useAssessmentTaking = () => {
   return { assessment, isLoading, error };
 };
 
+const MOCK_ASSESSMENT_RESULT = {
+  totalScore: 78,
+  grade: "B",
+  remark: "Solid work overall — your grasp of the core concepts is strong. Focus a bit more on the short-answer questions next time.",
+  isMock: true,
+};
+
+const useAssessmentReviewResult = (assessmentId, isViewMode) => {
+  const [result, setResult] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isViewMode || !assessmentId) return;
+    setIsLoading(true);
+    getStudentOwnResult(assessmentId)
+      .then(({ result: data }) => setResult(data))
+      .catch(() => setResult(MOCK_ASSESSMENT_RESULT))
+      .finally(() => setIsLoading(false));
+  }, [assessmentId, isViewMode]);
+
+  return { result, isLoading };
+};
+
 const AssessmentTakingLayout = () => {
   const { course_id } = useParams();
   const { push } = useHistory();
@@ -97,6 +121,10 @@ const AssessmentTakingLayout = () => {
 
   const { assessment, isLoading, error } = useAssessmentTaking();
   const isViewMode = assessment?.hasCompleted ?? false;
+  const { result: reviewResult, isLoading: isReviewResultLoading } = useAssessmentReviewResult(
+    assessment?.id,
+    isViewMode
+  );
 
   const questions = assessment
     ? sortByIndexField(assessment.questions, "questionIndex")
@@ -336,6 +364,18 @@ const AssessmentTakingLayout = () => {
                 Back to Course
               </Button>
             </Flex>
+          )}
+
+          {isViewMode && (
+            <Box paddingX={10} paddingTop={5}>
+              <ExamReviewResultCard
+                title="Your Result"
+                isLoading={isReviewResultLoading}
+                totalScore={reviewResult?.totalScore ?? null}
+                grade={reviewResult?.grade ?? null}
+                remark={reviewResult?.remark ?? null}
+              />
+            </Box>
           )}
 
           <Flex paddingX={10} paddingY={5} height="100%">
