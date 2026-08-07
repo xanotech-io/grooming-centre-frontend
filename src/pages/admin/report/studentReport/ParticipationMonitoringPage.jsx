@@ -50,8 +50,18 @@ const ParticipationMonitoringPage = () => {
     try {
       const result = await adminGetParticipationMonitoringReport(params);
       const reportData = result?.data ?? {};
-      const rows = (reportData.data ?? []).map(mapToRow);
-      const total = reportData.total ?? rows.length;
+      let rows = (reportData.data ?? []).map(mapToRow);
+
+      const searchTerm = params.search?.toString().trim().toLowerCase();
+      if (searchTerm) {
+        rows = rows.filter(
+          (row) =>
+            row.studentName.toLowerCase().includes(searchTerm) ||
+            row.studentEmail.toLowerCase().includes(searchTerm),
+        );
+      }
+
+      const total = searchTerm ? rows.length : reportData.total ?? rows.length;
       const page = Number(params.page) || 1;
       const limit = Number(params.limit) || 50;
 

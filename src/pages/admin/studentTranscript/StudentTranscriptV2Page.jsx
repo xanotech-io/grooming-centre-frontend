@@ -51,7 +51,7 @@ import {
   StatNumber,
   StatHelpText,
 } from "@chakra-ui/react";
-import { FiRefreshCw, FiEye, FiCheck, FiRotateCcw, FiUpload, FiSearch, FiChevronDown, FiX, FiAward } from "react-icons/fi";
+import { FiRefreshCw, FiEye, FiCheck, FiRotateCcw, FiUpload, FiSearch, FiChevronDown, FiX } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { TranscriptCertificateModal } from "../../../components";
 import {
@@ -230,9 +230,11 @@ function TranscriptDetailDrawer({ isOpen, onClose, transcriptId, onReviewed }) {
 
   const { isOpen: isCertOpen, onOpen: onCertOpen, onClose: onCertClose } = useDisclosure();
   const [certRecord, setCertRecord] = useState(null);
+  const [certMode, setCertMode] = useState("view");
 
-  const openCertificate = (record) => {
+  const openCertificate = (record, mode = "view") => {
     setCertRecord(record);
+    setCertMode(mode);
     onCertOpen();
   };
 
@@ -435,17 +437,30 @@ function TranscriptDetailDrawer({ isOpen, onClose, transcriptId, onReviewed }) {
                             </Badge>
                           </Td>
                           <Td>
-                            <Tooltip label={hasCertificate ? "View certificate" : "Generate certificate"}>
-                              <Button
-                                size="xs"
-                                variant={hasCertificate ? "outline" : "solid"}
-                                colorScheme={hasCertificate ? "green" : "purple"}
-                                leftIcon={<FiAward />}
-                                onClick={() => openCertificate(rec)}
-                              >
-                                {hasCertificate ? "View" : "Generate"}
-                              </Button>
-                            </Tooltip>
+                            <HStack spacing={1}>
+                              {hasCertificate && (
+                                <Tooltip label="View certificate">
+                                  <Button
+                                    size="xs"
+                                    variant="outline"
+                                    colorScheme="green"
+                                    onClick={() => openCertificate(rec, "view")}
+                                  >
+                                    View
+                                  </Button>
+                                </Tooltip>
+                              )}
+                              <Tooltip label="Generate certificate">
+                                <Button
+                                  size="xs"
+                                  variant="solid"
+                                  colorScheme="purple"
+                                  onClick={() => openCertificate(rec, "generate")}
+                                >
+                                  Generate
+                                </Button>
+                              </Tooltip>
+                            </HStack>
                           </Td>
                           <Td fontSize="xs" color="gray.500">
                             {rec.completionDate ? new Date(rec.completionDate).toLocaleDateString() : "—"}
@@ -596,7 +611,7 @@ function TranscriptDetailDrawer({ isOpen, onClose, transcriptId, onReviewed }) {
         transcriptId={transcriptId}
         courseId={certRecord?.course?.id}
         courseTitle={certRecord?.course?.title}
-        hasCertificate={Boolean(certRecord?.certificateId ?? certRecord?.certificateIssued)}
+        mode={certMode}
         onGenerated={refreshTranscript}
       />
     </>

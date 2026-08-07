@@ -31,10 +31,10 @@ export const links = [
     links: [
       { href: "/admin/users?page=1&limit=10", text: "users" },
       { href: "/admin/departments?page=1&limit=10", text: "departments" },
-      { href: "/admin/role", text: "roles" },
+      // { href: "/admin/role", text: "roles" },
       { href: "/admin/custom-fields", text: "Custom Fields" },
       { href: "/admin/ip-policy", text: "IP Auth Policy" },
-      { href: "/admin/audit", text: "user audit" },
+      // { href: "/admin/audit", text: "user audit" },
     ],
   },
   {
@@ -109,10 +109,10 @@ export const links = [
         href: "/admin/report/archived",
         text: "Archived Reports",
       },
-      {
-        href: "/admin/report/instructorReport",
-        text: "Instructor Report",
-      },
+      // {
+      //   href: "/admin/report/instructorReport",
+      //   text: "Instructor Report",
+      // },
       {
         href: "/admin/report/instructor-performance",
         text: "Instructor Performance",

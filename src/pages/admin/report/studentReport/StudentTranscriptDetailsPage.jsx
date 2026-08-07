@@ -21,7 +21,7 @@ import {
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { Tag } from "@chakra-ui/tag";
 import Icon from "@chakra-ui/icon";
-import { FaGraduationCap, FaAward } from "react-icons/fa";
+import { FaGraduationCap } from "react-icons/fa";
 import { FiDownload } from "react-icons/fi";
 import {
   Breadcrumb,
@@ -200,12 +200,13 @@ const Field = ({ label, value }) => (
   </HStack>
 );
 
-const CourseRecordDetailModal = ({ isOpen, onClose, record, onViewCertificate }) => {
+const CourseRecordDetailModal = ({ isOpen, onClose, record, onViewCertificate, onGenerateCertificate }) => {
   if (!record) return null;
 
   const instructorName = record.instructor
     ? `${record.instructor.firstName ?? ""} ${record.instructor.lastName ?? ""}`.trim()
     : null;
+  const hasCertificate = Boolean(record.certificateId || record.certificateIssued);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg" scrollBehavior="inside" isCentered>
@@ -283,11 +284,18 @@ const CourseRecordDetailModal = ({ isOpen, onClose, record, onViewCertificate })
           <Button secondary onClick={onClose}>
             Close
           </Button>
+          {hasCertificate && (
+            <Button
+              secondary
+              onClick={() => onViewCertificate(record)}
+            >
+              View Certificate
+            </Button>
+          )}
           <Button
-            leftIcon={<FaAward />}
-            onClick={() => onViewCertificate(record)}
+            onClick={() => onGenerateCertificate(record)}
           >
-            {record.certificateId || record.certificateIssued ? "View Certificate" : "Generate Certificate"}
+            Generate Certificate
           </Button>
         </ModalFooter>
       </ModalContent>
@@ -312,6 +320,7 @@ const StudentTranscriptDetailsPage = () => {
   const [reviewDecision, setReviewDecision] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [certRecord, setCertRecord] = useState(null);
+  const [certMode, setCertMode] = useState("view");
   const [downloading, setDownloading] = useState(false);
   const printRef = useRef(null);
 
@@ -320,8 +329,9 @@ const StudentTranscriptDetailsPage = () => {
     recordModal.onOpen();
   };
 
-  const openCertificate = (record) => {
+  const openCertificate = (record, mode = "view") => {
     setCertRecord(record);
+    setCertMode(mode);
     recordModal.onClose();
   };
 
@@ -584,7 +594,7 @@ const StudentTranscriptDetailsPage = () => {
 
               <Box overflowX="auto">
                 <Grid
-                  templateColumns="1fr 160px 80px 60px 140px"
+                  templateColumns="1fr 160px 80px 60px 200px"
                   bg="gray.50"
                   borderBottom="1px"
                   borderColor="gray.200"
@@ -607,7 +617,7 @@ const StudentTranscriptDetailsPage = () => {
                   (transcript.courseRecords ?? []).map((record, idx) => (
                     <Grid
                       key={record.courseId ?? idx}
-                      templateColumns="1fr 160px 80px 60px 140px"
+                      templateColumns="1fr 160px 80px 60px 200px"
                       px={6}
                       py={4}
                       borderBottom="1px"
@@ -657,16 +667,26 @@ const StudentTranscriptDetailsPage = () => {
                       </Flex>
 
                       <Flex justify="center" align="center" gap={1}>
+                        {(record.certificateId || record.certificateIssued) && (
+                          <Button
+                            xs
+                            secondary
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openCertificate(record, "view");
+                            }}
+                          >
+                            View
+                          </Button>
+                        )}
                         <Button
                           xs
-                          secondary={Boolean(record.certificateId || record.certificateIssued)}
-                          leftIcon={<FaAward />}
                           onClick={(e) => {
                             e.stopPropagation();
-                            openCertificate(record);
+                            openCertificate(record, "generate");
                           }}
                         >
-                          {record.certificateId || record.certificateIssued ? "View" : "Generate"}
+                          Generate
                         </Button>
                       </Flex>
                     </Grid>
@@ -692,7 +712,8 @@ const StudentTranscriptDetailsPage = () => {
         isOpen={recordModal.isOpen}
         onClose={recordModal.onClose}
         record={selectedRecord}
-        onViewCertificate={openCertificate}
+        onViewCertificate={(record) => openCertificate(record, "view")}
+        onGenerateCertificate={(record) => openCertificate(record, "generate")}
       />
 
       <TranscriptCertificateModal
@@ -701,7 +722,7 @@ const StudentTranscriptDetailsPage = () => {
         transcriptId={transcriptId}
         courseId={certRecord?.courseId}
         courseTitle={certRecord?.course?.title}
-        hasCertificate={Boolean(certRecord?.certificateId ?? certRecord?.certificateIssued)}
+        mode={certMode}
         onGenerated={refreshTranscript}
       />
     </AdminMainAreaWrapper>

@@ -18,7 +18,7 @@ import {
   HStack,
   useToast,
 } from "@chakra-ui/react";
-import { FaCertificate, FaDownload, FaExternalLinkAlt } from "react-icons/fa";
+import { FaCertificate, FaDownload } from "react-icons/fa";
 import { Button } from "../Button/Button";
 import {
   getTranscriptCourseCertificate,
@@ -43,7 +43,7 @@ const TranscriptCertificateModal = ({
   transcriptId,
   courseId,
   courseTitle,
-  hasCertificate,
+  mode = "view",
   onGenerated,
 }) => {
   const toast = useToast();
@@ -56,9 +56,13 @@ const TranscriptCertificateModal = ({
   useEffect(() => {
     if (!isOpen || !transcriptId || !courseId) return;
     setCertificate(null);
-    setNotFound(!hasCertificate);
-    if (!hasCertificate) return;
 
+    if (mode === "generate") {
+      setNotFound(true);
+      return;
+    }
+
+    setNotFound(false);
     setLoading(true);
     getTranscriptCourseCertificate(transcriptId, courseId)
       .then((res) => setCertificate(extractCertificate(res)))
@@ -74,7 +78,7 @@ const TranscriptCertificateModal = ({
         }
       })
       .finally(() => setLoading(false));
-  }, [isOpen, transcriptId, courseId, hasCertificate, toast]);
+  }, [isOpen, transcriptId, courseId, mode, toast]);
 
   const handleDownload = async () => {
     const certificateId = certificate?.certificateId ?? certificate?.certificate_id;
@@ -116,7 +120,6 @@ const TranscriptCertificateModal = ({
   };
 
   const showGenerateForm = notFound;
-  const verificationLink = certificate?.verificationLink ?? certificate?.verification_link;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="md" isCentered>
@@ -188,23 +191,9 @@ const TranscriptCertificateModal = ({
               Generate Certificate
             </Button>
           ) : certificate ? (
-            <>
-              {verificationLink && (
-                <Button
-                  as="a"
-                  href={verificationLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  secondary
-                  leftIcon={<FaExternalLinkAlt />}
-                >
-                  Verify
-                </Button>
-              )}
-              <Button leftIcon={<FaDownload />} onClick={handleDownload}>
-                Download
-              </Button>
-            </>
+            <Button leftIcon={<FaDownload />} onClick={handleDownload}>
+              Download
+            </Button>
           ) : null}
         </ModalFooter>
       </ModalContent>

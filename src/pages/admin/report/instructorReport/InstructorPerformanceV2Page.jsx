@@ -585,10 +585,10 @@ const InstructorPerformanceV2Page = () => {
               <Th>Completion %</Th>
               <Th>Assess. Score</Th>
               <Th>Exam Score</Th>
-              <Th>Exam Score</Th>
+              <Th>Project Score</Th>
               <Th>Combined</Th>
               <Th>Grading Days</Th>
-              <Th>Rating</Th>
+             
             </Tr>
           </Thead>
           <Tbody>
@@ -630,11 +630,11 @@ const InstructorPerformanceV2Page = () => {
                   <Td>{fmt(row.average_project_score, "%")}</Td>
                   <Td fontWeight="semibold">{fmt(row.average_score, "%")}</Td>
                   <Td>{fmt(row.grading_timeliness_days, " days")}</Td>
-                  <Td>
+                  {/* <Td>
                     <Badge colorScheme={ratingColor(row.feedback_rating)}>
                       {fmt(row.feedback_rating, "/5")}
                     </Badge>
-                  </Td>
+                  </Td> */}
                 </Tr>
               ))
             )}
