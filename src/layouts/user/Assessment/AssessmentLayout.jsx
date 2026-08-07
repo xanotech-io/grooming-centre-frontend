@@ -40,7 +40,12 @@ const AssessmentLayout = () => {
     handleAnswerChange,
     nav,
   } = useAssessment();
-  console.log(assessment, "assessment");
+
+  const isSectionedExam = assessment?.examType === "sectioned" || assessment?.examType === "hybrid";
+  const sectionNames = assessment?.sections?.length
+    ? assessment.sections.map((s) => s.name)
+    : [...new Set((assessment?.questions ?? []).map((q) => q.section).filter(Boolean))];
+
   const renderSubHeading = (heading) => (
     <Box
       as="header"
@@ -131,6 +136,18 @@ const AssessmentLayout = () => {
                   paddingRight={5}
                   marginRight={5}
                 >
+                  {isSectionedExam && currentQuestion?.section && (
+                    <Text
+                      fontSize="xs"
+                      fontWeight="700"
+                      color="primary.base"
+                      textTransform="uppercase"
+                      letterSpacing="wide"
+                      marginBottom={1}
+                    >
+                      Section {sectionNames.indexOf(currentQuestion.section) + 1}: {currentQuestion.section}
+                    </Text>
+                  )}
                   {renderSubHeading(
                     `Question ${currentQuestion?.questionIndex + 1} of ${
                       assessment.questionCount
@@ -255,22 +272,85 @@ const AssessmentLayout = () => {
                       </HStack>
                     </Flex>
 
-                    <Grid templateColumns="repeat(5, 1fr)" gap={2}>
-                      {assessment?.questions?.map((question, index) => (
-                        <ButtonNavItem
-                          key={index}
-                          number={index + 1}
-                          isCurrent={
-                            currentQuestion?.questionIndex ===
-                            question.questionIndex
-                          }
-                          answered={selectedAnswers[question?.id]}
-                          onClick={() => {
-                            handleQuestionChange(question);
-                          }}
-                        />
-                      ))}
-                    </Grid>
+                    {isSectionedExam && sectionNames.length > 0 ? (
+                      <Stack spacing={4}>
+                        {sectionNames.map((name, si) => {
+                          const sectionQs = (assessment?.questions ?? []).filter(
+                            (q) => q.section === name
+                          );
+                          if (sectionQs.length === 0) return null;
+                          return (
+                            <Box key={name}>
+                              <Text as="level5" bold color="accent.3" marginBottom={2}>
+                                Section {si + 1}: {name}
+                              </Text>
+                              <Grid templateColumns="repeat(5, 1fr)" gap={2}>
+                                {sectionQs.map((question) => (
+                                  <ButtonNavItem
+                                    key={question.id}
+                                    number={question.questionIndex + 1}
+                                    isCurrent={
+                                      currentQuestion?.questionIndex ===
+                                      question.questionIndex
+                                    }
+                                    answered={selectedAnswers[question?.id]}
+                                    onClick={() => {
+                                      handleQuestionChange(question);
+                                    }}
+                                  />
+                                ))}
+                              </Grid>
+                            </Box>
+                          );
+                        })}
+                        {(() => {
+                          const unassigned = (assessment?.questions ?? []).filter(
+                            (q) => !q.section
+                          );
+                          if (unassigned.length === 0) return null;
+                          return (
+                            <Box>
+                              <Text as="level5" bold color="accent.3" marginBottom={2}>
+                                Unsectioned
+                              </Text>
+                              <Grid templateColumns="repeat(5, 1fr)" gap={2}>
+                                {unassigned.map((question) => (
+                                  <ButtonNavItem
+                                    key={question.id}
+                                    number={question.questionIndex + 1}
+                                    isCurrent={
+                                      currentQuestion?.questionIndex ===
+                                      question.questionIndex
+                                    }
+                                    answered={selectedAnswers[question?.id]}
+                                    onClick={() => {
+                                      handleQuestionChange(question);
+                                    }}
+                                  />
+                                ))}
+                              </Grid>
+                            </Box>
+                          );
+                        })()}
+                      </Stack>
+                    ) : (
+                      <Grid templateColumns="repeat(5, 1fr)" gap={2}>
+                        {assessment?.questions?.map((question, index) => (
+                          <ButtonNavItem
+                            key={index}
+                            number={index + 1}
+                            isCurrent={
+                              currentQuestion?.questionIndex ===
+                              question.questionIndex
+                            }
+                            answered={selectedAnswers[question?.id]}
+                            onClick={() => {
+                              handleQuestionChange(question);
+                            }}
+                          />
+                        ))}
+                      </Grid>
+                    )}
                   </Box>
                 </Box>
               </Flex>
