@@ -18,6 +18,12 @@ import {
 } from '../layouts';
 import { useApp } from '../contexts';
 import { useEffect } from 'react';
+import { useToast } from '@chakra-ui/react';
+import {
+  registerPushToken,
+  listenForForegroundMessages,
+} from '../services/pushNotifications';
+import useNotificationStore from '../store/notificationStore';
 
 function App() {
   return (
@@ -31,6 +37,8 @@ function App() {
 
 export const useAppConfig = () => {
   const appManager = useApp();
+  const toast = useToast();
+  const addNotification = useNotificationStore((state) => state.addNotification);
 
   const {
     fetchMetadata,
@@ -64,6 +72,32 @@ export const useAppConfig = () => {
         }, 1000);
     }
   }, [appManager.state.user]);
+
+  useEffect(() => {
+    if (!appManager.state.user) return;
+
+    registerPushToken().catch((err) => console.error(err));
+
+    const unsubscribe = listenForForegroundMessages((payload) => {
+      addNotification({
+        id: payload.messageId || `${Date.now()}-${Math.random()}`,
+        title: payload.notification?.title,
+        body: payload.notification?.body,
+        contentUrl: payload.data?.contentUrl,
+        receivedAt: Date.now(),
+      });
+
+      toast({
+        title: payload.notification?.title,
+        description: payload.notification?.body,
+        status: 'info',
+        isClosable: true,
+        duration: 6000,
+      });
+    });
+
+    return unsubscribe;
+  }, [appManager.state.user, toast, addNotification]);
 };
 
 function AppConfig() {

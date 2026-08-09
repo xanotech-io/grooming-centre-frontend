@@ -2,7 +2,7 @@ import React from "react";
 import { ButtonGroup, IconButton } from "@chakra-ui/button";
 import { Center } from "@chakra-ui/layout";
 import { HStack } from "@chakra-ui/layout";
-import { useDisclosure, Avatar, Text, VStack, Box } from "@chakra-ui/react";
+import { Avatar, Text, VStack, Box } from "@chakra-ui/react";
 import {
   Menu,
   MenuButton,
@@ -12,25 +12,18 @@ import {
 } from "@chakra-ui/menu";
 import { AiFillPlusCircle } from "react-icons/ai";
 import { FiSettings } from "react-icons/fi";
-import { MdNotificationsActive } from "react-icons/md";
 import { Link } from "react-router-dom";
-import { Button } from "../../../components";
-import { SlideShow } from "../../../components/SlideShow/SlideShow";
+import { Button, NotificationBell } from "../../../components";
 import { useApp } from "../../../contexts";
 
 export const Header = () => {
-  const { isOpen, onClose, onOpen } = useDisclosure();
   return (
     <div>
       <HStack spacing={{ base: "0", md: "6" }} h="65px">
         <ButtonGroup paddingEnd="18px">
           <QuickAccess />
 
-          <p onClick={onOpen}>
-            <Button asIcon ghost reversePrimaryColor largeSize>
-              <MdNotificationsActive />
-            </Button>
-          </p>
+          <NotificationBell />
 
           <Button
             link={`/admin/settings`}
@@ -47,7 +40,6 @@ export const Header = () => {
           </Box>
         </ButtonGroup>
       </HStack>
-      <SlideShow isOpen={isOpen} onClose={onClose} onOpen={onOpen} />
     </div>
   );
 };
