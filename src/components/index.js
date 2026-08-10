@@ -6,6 +6,7 @@ export * from './Cards/QuestionListCard';
 export * from './Cards/ReplyListCard';
 export * from './Cards/DashboardMetricCard';
 export * from './Form/Checkbox';
+export * from './Form/CustomFieldSlots';
 export * from './Form/DateTimePicker/DatePicker';
 export * from './Form/DateTimePicker/TimePicker';
 export * from './Form/DateTimePicker/DateTimePicker';

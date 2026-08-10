@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Route } from "react-router-dom";
 import {
   Box,
@@ -15,10 +15,10 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { Skeleton } from '@chakra-ui/skeleton';
-import { Text, Heading } from '../../../components';
+import { Text, Heading, CustomFieldSlots } from '../../../components';
 import { maxWidthStyles_userPages } from '../../../theme/breakpoints';
 import { useApp } from '../../../contexts';
-import { requestUpdateDetails } from '../../../services';
+import { requestUpdateDetails, getActiveCustomFieldSlots } from '../../../services';
 import { formatDistanceToNow } from 'date-fns';
 
 const ProfilePage = () => {
@@ -31,25 +31,45 @@ const ProfilePage = () => {
   const [professionalCertification, setProfessionalCertification] = useState(
     userData?.professionalCertification || ''
   );
+  const [customFieldDefs, setCustomFieldDefs] = useState([null, null]);
+  const [customFieldValues, setCustomFieldValues] = useState({
+    customFieldOne: userData?.customFieldOne || '',
+    customFieldTwo: userData?.customFieldTwo || '',
+  });
+
+  useEffect(() => {
+    getActiveCustomFieldSlots('user_profile')
+      .then(setCustomFieldDefs)
+      .catch(() => setCustomFieldDefs([null, null]));
+  }, []);
 
   console.log('ProfilePage - userData:', userData);
 
   const handleEditClick = () => {
     setIsEditing(true);
     setProfessionalCertification(userData?.professionalCertification || '');
+    setCustomFieldValues({
+      customFieldOne: userData?.customFieldOne || '',
+      customFieldTwo: userData?.customFieldTwo || '',
+    });
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
     setProfessionalCertification(userData?.professionalCertification || '');
+    setCustomFieldValues({
+      customFieldOne: userData?.customFieldOne || '',
+      customFieldTwo: userData?.customFieldTwo || '',
+    });
   };
 
   const handleSaveEdit = async () => {
     setIsLoading(true);
-    
+
     try {
       await requestUpdateDetails({
         professionalCertification: professionalCertification.trim(),
+        ...customFieldValues,
       });
       
       // Refresh user data after successful update
@@ -234,10 +254,31 @@ const ProfilePage = () => {
                     />
                   </Box>
                 ) : (
-                  <InfoField 
-                    label="Professional Certification" 
-                    value={userData?.professionalCertification || 'Not provided'} 
+                  <InfoField
+                    label="Professional Certification"
+                    value={userData?.professionalCertification || 'Not provided'}
                   />
+                )}
+                {isEditing ? (
+                  <CustomFieldSlots
+                    entity="user_profile"
+                    values={customFieldValues}
+                    onChange={(slot, value) =>
+                      setCustomFieldValues((current) => ({ ...current, [slot]: value }))
+                    }
+                    role="Self"
+                    isDisabled={isLoading}
+                  />
+                ) : (
+                  customFieldDefs
+                    .filter((field) => field && (field.visibility?.view || []).includes('Self'))
+                    .map((field) => (
+                      <InfoField
+                        key={field.slot}
+                        label={field.fieldName}
+                        value={userData?.[field.slot] || 'Not provided'}
+                      />
+                    ))
                 )}
                 <Box>
                   <Text fontSize="sm" fontWeight="medium" color="gray.700" mb={2}>
