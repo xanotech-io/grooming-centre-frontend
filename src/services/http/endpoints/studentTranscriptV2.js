@@ -40,10 +40,13 @@ export const getDepartmentTranscriptAnalytics = async (departmentId) => {
 /**
  * View the certificate issued for a student's course on their transcript.
  * GET /v1/student-transcript-v2/{transcriptId}/course/{courseId}/certificate
- * 404s if none has been issued yet.
+ * A course can have one issued certificate per type (Completion/Participation/Achievement);
+ * pass certificateType to pick which one. 404s if that type hasn't been issued yet.
  */
-export const getTranscriptCourseCertificate = async (transcriptId, courseId) => {
-  const { data } = await http.get(`${BASE}/${transcriptId}/course/${courseId}/certificate`);
+export const getTranscriptCourseCertificate = async (transcriptId, courseId, certificateType) => {
+  const { data } = await http.get(`${BASE}/${transcriptId}/course/${courseId}/certificate`, {
+    params: certificateType ? { certificateType } : undefined,
+  });
   return data;
 };
 

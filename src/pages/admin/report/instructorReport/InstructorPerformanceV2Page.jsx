@@ -409,7 +409,6 @@ const InstructorPerformanceV2Page = () => {
     return list.map((i) => ({
       id: i.id ?? i.instructor_id,
       label: i.name ?? `${i.firstName ?? ""} ${i.lastName ?? ""}`.trim() ?? i.instructor_name,
-      sublabel: i.email ?? i.instructor_email ?? null,
     }));
   }, []);
 
@@ -512,16 +511,8 @@ const InstructorPerformanceV2Page = () => {
         <DashboardMetricCard title="Avg Grading Days" value={loading ? "..." : summary?.average_grading_days != null ? `${summary.average_grading_days} days` : "—"} />
       </SimpleGrid>
 
-      {/* Search + Filter toggle row */}
-      <Flex gap={3} mb={4} alignItems="center">
-        <Box flex={1} maxW="340px">
-          <EntityCombobox
-            fetchFn={fetchInstructors}
-            value={filters.instructorId}
-            onSelect={(opt) => setFilters((p) => ({ ...p, instructorId: opt ? opt.id : "" }))}
-            placeholder="Search instructor..."
-          />
-        </Box>
+      {/* Filter toggle row */}
+      <Flex gap={3} mb={4} alignItems="center" justifyContent="flex-end">
         <Button
           size="sm"
           leftIcon={<FiFilter />}
@@ -539,6 +530,15 @@ const InstructorPerformanceV2Page = () => {
       {showFilters && (
         <Box bg="gray.50" border="1px" borderColor="gray.200" p={4} borderRadius="md" mb={4}>
           <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+            <FormControl>
+              <FormLabel fontSize="sm">Instructor</FormLabel>
+              <EntityCombobox
+                fetchFn={fetchInstructors}
+                value={filters.instructorId}
+                onSelect={(opt) => setFilters((p) => ({ ...p, instructorId: opt ? opt.id : "" }))}
+                placeholder="Search instructor..."
+              />
+            </FormControl>
             <FormControl>
               <FormLabel fontSize="sm">Start Date</FormLabel>
               <Input size="sm" type="date" value={filters.startDate} onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))} />

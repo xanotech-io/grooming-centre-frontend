@@ -1,5 +1,6 @@
 import { useCallback, useContext } from 'react';
 import { requestMyData, requestMetadata } from '../../services';
+import { unregisterPushToken } from '../../services/pushNotifications';
 import { AppContext } from './AppProvider';
 
 /**
@@ -82,6 +83,7 @@ export const useApp = () => {
   );
 
   const handleLogout = useCallback(() => {
+    unregisterPushToken().catch((err) => console.error(err));
     localStorage.removeItem('token');
     setState((prev) => ({ ...prev, user: null, token: null }));
   }, [setState]);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Route } from "react-router-dom";
 import {
   Box,
@@ -30,11 +30,6 @@ import {
   ModalCloseButton,
   useDisclosure,
   useToast,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
   SimpleGrid,
   Spinner,
   Tooltip,
@@ -48,7 +43,7 @@ import {
   CheckboxGroup,
   BreadcrumbItem,
 } from "@chakra-ui/react";
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiRefreshCw, FiChevronDown, FiX } from "react-icons/fi";
+import { FiPlus, FiEdit2, FiTrash2, FiRefreshCw } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { Breadcrumb, Link } from "../../../components";
 import {
@@ -57,9 +52,7 @@ import {
   createCustomField,
   updateCustomField,
   deleteCustomField,
-  getEntityFieldValues,
-  adminGetStudents,
-  adminGetCourseListing,
+  MAX_CUSTOM_FIELDS_PER_ENTITY,
 } from "../../../services";
 
 const MOCK_KPIS = {
@@ -88,6 +81,7 @@ const MOCK_KPIS = {
 const MOCK_FIELDS = [
   {
     id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    slot: "customFieldOne",
     fieldName: "Employee ID",
     fieldType: "text",
     entity: "user_profile",
@@ -102,6 +96,7 @@ const MOCK_FIELDS = [
   },
   {
     id: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    slot: "customFieldOne",
     fieldName: "Delivery Mode",
     fieldType: "dropdown",
     entity: "course",
@@ -116,6 +111,7 @@ const MOCK_FIELDS = [
   },
   {
     id: "c3d4e5f6-a7b8-9012-cdef-123456789012",
+    slot: "customFieldTwo",
     fieldName: "Years of Experience",
     fieldType: "number",
     entity: "user_profile",
@@ -129,21 +125,8 @@ const MOCK_FIELDS = [
     createdAt: "2026-05-03T09:10:00.000Z",
   },
   {
-    id: "d4e5f6a7-b8c9-0123-defa-234567890123",
-    fieldName: "Dietary Preference",
-    fieldType: "dropdown",
-    entity: "user_profile",
-    required: false,
-    defaultValue: null,
-    validationRules: null,
-    options: ["Vegetarian", "Vegan", "Non-Vegetarian", "Halal", "Kosher"],
-    visibility: { view: ["Self", "Admin"], edit: ["Self", "Admin"] },
-    helpText: "Dietary preference for catered events",
-    status: "active",
-    createdAt: "2026-05-04T09:15:00.000Z",
-  },
-  {
     id: "e5f6a7b8-c9d0-1234-efab-345678901234",
+    slot: "customFieldTwo",
     fieldName: "Course Accreditation",
     fieldType: "text",
     entity: "course",
@@ -156,24 +139,11 @@ const MOCK_FIELDS = [
     status: "inactive",
     createdAt: "2026-05-05T09:20:00.000Z",
   },
-  {
-    id: "f6a7b8c9-d0e1-2345-fabc-456789012345",
-    fieldName: "NDA Signed",
-    fieldType: "checkbox",
-    entity: "user_profile",
-    required: true,
-    defaultValue: "false",
-    validationRules: null,
-    options: null,
-    visibility: { view: ["Admin"], edit: ["Admin"] },
-    helpText: "Indicates whether the employee has signed the NDA",
-    status: "active",
-    createdAt: "2026-05-06T09:25:00.000Z",
-  },
 ];
 
-const FIELD_TYPES = ["text", "dropdown", "date", "number", "checkbox", "textarea"];
+const FIELD_TYPES = ["text", "textarea"];
 const ENTITY_TYPES = ["user_profile", "course"];
+const SLOT_LABELS = { customFieldOne: "Slot 1", customFieldTwo: "Slot 2" };
 const VISIBILITY_ROLES = ["Self", "Admin", "Instructor"];
 
 const EMPTY_FORM = {
@@ -219,7 +189,7 @@ function PaginationBar({ page, totalPages, onPage }) {
   );
 }
 
-function FieldFormModal({ isOpen, onClose, editField, onSaved }) {
+function FieldFormModal({ isOpen, onClose, editField, entityCounts, onSaved }) {
   const toast = useToast();
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -259,6 +229,15 @@ function FieldFormModal({ isOpen, onClose, editField, onSaved }) {
     }
     if (form.fieldType === "dropdown" && !form.options.trim()) {
       toast({ title: "Options are required for dropdown fields", status: "warning", duration: 3000 });
+      return;
+    }
+    if (!editField && (entityCounts?.[form.entity] || 0) >= MAX_CUSTOM_FIELDS_PER_ENTITY) {
+      toast({
+        title: `${form.entity} already has ${MAX_CUSTOM_FIELDS_PER_ENTITY} custom fields`,
+        description: "Delete or repurpose an existing field for this entity before adding another.",
+        status: "warning",
+        duration: 4000,
+      });
       return;
     }
 
@@ -303,10 +282,15 @@ function FieldFormModal({ isOpen, onClose, editField, onSaved }) {
       toast({ title: editField ? "Field updated" : "Field created", status: "success", duration: 3000 });
       onSaved();
       onClose();
-    } catch {
-      toast({ title: editField ? "Update failed" : "Create failed", status: "error", duration: 4000 });
-      onSaved();
-      onClose();
+    } catch (err) {
+      const isSlotConflict = err?.response?.status === 409;
+      toast({
+        title: isSlotConflict
+          ? `${form.entity} already has ${MAX_CUSTOM_FIELDS_PER_ENTITY} custom fields`
+          : editField ? "Update failed" : "Create failed",
+        status: "error",
+        duration: 4000,
+      });
     } finally {
       setSaving(false);
     }
@@ -339,7 +323,10 @@ function FieldFormModal({ isOpen, onClose, editField, onSaved }) {
                   onChange={(e) => setForm((f) => ({ ...f, fieldType: e.target.value }))}
                   isDisabled={!!editField}
                 >
-                  {FIELD_TYPES.map((t) => (
+                  {(editField && !FIELD_TYPES.includes(editField.fieldType)
+                    ? [...FIELD_TYPES, editField.fieldType]
+                    : FIELD_TYPES
+                  ).map((t) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </Select>
@@ -353,9 +340,14 @@ function FieldFormModal({ isOpen, onClose, editField, onSaved }) {
                   onChange={(e) => setForm((f) => ({ ...f, entity: e.target.value }))}
                   isDisabled={!!editField}
                 >
-                  {ENTITY_TYPES.map((e) => (
-                    <option key={e} value={e}>{e}</option>
-                  ))}
+                  {ENTITY_TYPES.map((e) => {
+                    const full = !editField && (entityCounts?.[e] || 0) >= MAX_CUSTOM_FIELDS_PER_ENTITY;
+                    return (
+                      <option key={e} value={e} disabled={full}>
+                        {e}{full ? ` (full — ${MAX_CUSTOM_FIELDS_PER_ENTITY}/${MAX_CUSTOM_FIELDS_PER_ENTITY})` : ""}
+                      </option>
+                    );
+                  })}
                 </Select>
               </FormControl>
             </SimpleGrid>
@@ -510,331 +502,6 @@ function FieldFormModal({ isOpen, onClose, editField, onSaved }) {
         </ModalFooter>
       </ModalContent>
     </Modal>
-  );
-}
-
-// Generic searchable combobox — fetches options via fetchFn(query)
-// Each option must have { id, label, sublabel? }
-function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
-  const [inputValue, setInputValue] = useState("");
-  const [options, setOptions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef(null);
-  const debounceRef = useRef(null);
-
-  const selectedOption = options.find((o) => o.id === value) ?? null;
-
-  const filtered = useMemo(() => {
-    if (!inputValue || selectedOption) return options;
-    const q = inputValue.toLowerCase();
-    return options.filter(
-      (o) =>
-        o.label.toLowerCase().includes(q) ||
-        (o.sublabel ?? "").toLowerCase().includes(q),
-    );
-  }, [options, inputValue, selectedOption]);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const doFetch = useCallback(
-    async (query) => {
-      setLoading(true);
-      try {
-        const results = await fetchFn(query);
-        setOptions(results);
-      } catch {
-        setOptions([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [fetchFn],
-  );
-
-  const handleInputChange = (e) => {
-    const val = e.target.value;
-    setInputValue(val);
-    if (value) onSelect(null);
-    setIsOpen(true);
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doFetch(val), 350);
-  };
-
-  const handleFocus = () => {
-    if (!selectedOption) {
-      setIsOpen(true);
-      if (options.length === 0) doFetch("");
-    }
-  };
-
-  const handleSelect = (opt) => {
-    onSelect(opt);
-    setInputValue("");
-    setIsOpen(false);
-  };
-
-  const handleClear = () => {
-    onSelect(null);
-    setInputValue("");
-    setOptions([]);
-    setIsOpen(false);
-  };
-
-  return (
-    <Box ref={containerRef} position="relative" flex="1" maxW="320px">
-      <Flex
-        border="1px solid"
-        borderColor="gray.200"
-        borderRadius="md"
-        alignItems="center"
-        px={2}
-        bg="white"
-        h="32px"
-        _focusWithin={{ borderColor: "blue.500", boxShadow: "0 0 0 1px #3182ce" }}
-      >
-        <Input
-          border="none"
-          px={0}
-          size="sm"
-          h="auto"
-          _focus={{ boxShadow: "none" }}
-          value={
-            selectedOption
-              ? `${selectedOption.label}${selectedOption.sublabel ? ` — ${selectedOption.sublabel}` : ""}`
-              : inputValue
-          }
-          onChange={handleInputChange}
-          onFocus={handleFocus}
-          placeholder={placeholder || "Search..."}
-          readOnly={!!selectedOption}
-        />
-        {loading && <Spinner size="xs" color="gray.400" mr={1} />}
-        {selectedOption ? (
-          <Box
-            as="button"
-            type="button"
-            onClick={handleClear}
-            color="gray.400"
-            _hover={{ color: "gray.600" }}
-            ml={1}
-            flexShrink={0}
-          >
-            <FiX size={12} />
-          </Box>
-        ) : (
-          <Box color="gray.400" ml={1} flexShrink={0}>
-            <FiChevronDown size={12} />
-          </Box>
-        )}
-      </Flex>
-
-      {isOpen && (
-        <Box
-          position="absolute"
-          top="calc(100% + 4px)"
-          left={0}
-          right={0}
-          bg="white"
-          border="1px solid #E2E8F0"
-          borderRadius="md"
-          boxShadow="md"
-          zIndex={1500}
-          maxH="220px"
-          overflowY="auto"
-        >
-          {loading && (
-            <Flex alignItems="center" gap={2} px={3} py={2}>
-              <Spinner size="xs" />
-              <Text fontSize="12px" color="gray.500">Loading...</Text>
-            </Flex>
-          )}
-          {!loading && filtered.length === 0 && (
-            <Text fontSize="12px" color="gray.500" px={3} py={2}>
-              No results found
-            </Text>
-          )}
-          {!loading &&
-            filtered.map((opt) => (
-              <Box
-                key={opt.id}
-                px={3}
-                py="6px"
-                cursor="pointer"
-                _hover={{ bg: "blue.50" }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleSelect(opt);
-                }}
-              >
-                <Text fontSize="13px" fontWeight="500">{opt.label}</Text>
-                {opt.sublabel && (
-                  <Text fontSize="11px" color="gray.500">{opt.sublabel}</Text>
-                )}
-              </Box>
-            ))}
-        </Box>
-      )}
-    </Box>
-  );
-}
-
-function EntityValuesLookup() {
-  const toast = useToast();
-  const [entityType, setEntityType] = useState("user_profile");
-  const [entityId, setEntityId] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-
-  const fetchStudentOptions = useCallback(async (search) => {
-    const res = await adminGetStudents({ search, page: 1, length: 50 });
-    return res.students.map((s) => ({
-      id: s.id,
-      label: `${s.firstName} ${s.lastName}`,
-      sublabel: s.email,
-    }));
-  }, []);
-
-  const fetchCourseOptions = useCallback(async (search) => {
-    const res = await adminGetCourseListing({ search, limit: 50 });
-    return res.courses.map((c) => ({
-      id: c.id,
-      label: c.title,
-      sublabel: c.displayId ?? null,
-    }));
-  }, []);
-
-  const handleEntityTypeChange = (e) => {
-    setEntityType(e.target.value);
-    setEntityId("");
-    setResult(null);
-  };
-
-  const handleLookup = async () => {
-    if (!entityId) {
-      toast({ title: "Please select an entity first", status: "warning", duration: 3000 });
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await getEntityFieldValues(entityType, entityId);
-      setResult(res?.data || res);
-    } catch {
-      toast({ title: "Lookup failed", status: "error", duration: 3000 });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Box>
-      <Text fontSize="sm" color="gray.600" mb={4}>
-        Select an entity type and choose a record to look up all stored custom field values.
-      </Text>
-      <Flex gap={3} mb={4} flexWrap="wrap" alignItems="flex-end">
-        <Select
-          size="sm"
-          value={entityType}
-          onChange={handleEntityTypeChange}
-          maxW="200px"
-        >
-          <option value="user_profile">User Profile</option>
-          <option value="course">Course</option>
-        </Select>
-        {entityType === "user_profile" ? (
-          <EntityCombobox
-            key="user_profile"
-            fetchFn={fetchStudentOptions}
-            value={entityId}
-            onSelect={(opt) => setEntityId(opt ? opt.id : "")}
-            placeholder="Search student by name or email..."
-          />
-        ) : (
-          <EntityCombobox
-            key="course"
-            fetchFn={fetchCourseOptions}
-            value={entityId}
-            onSelect={(opt) => setEntityId(opt ? opt.id : "")}
-            placeholder="Search course by title..."
-          />
-        )}
-        <Button
-          size="sm"
-          colorScheme="blue"
-          leftIcon={<FiSearch />}
-          onClick={handleLookup}
-          isLoading={loading}
-          isDisabled={!entityId}
-        >
-          Lookup
-        </Button>
-      </Flex>
-
-      {result && (
-        <Box>
-          <Flex gap={4} mb={3}>
-            <Text fontSize="xs" color="gray.500">
-              Entity: <strong>{result.entityType}</strong>
-            </Text>
-            <Text fontSize="xs" color="gray.500">
-              Total fields: <strong>{result.summary?.total_fields ?? 0}</strong>
-            </Text>
-            <Text fontSize="xs" color="gray.500">
-              Active: <strong>{result.summary?.active_fields ?? 0}</strong>
-            </Text>
-          </Flex>
-          <Table size="sm" variant="simple">
-            <Thead bg="gray.50">
-              <Tr>
-                <Th>Field Name</Th>
-                <Th>Type</Th>
-                <Th>Value</Th>
-                <Th>Status</Th>
-                <Th>Last Edited By</Th>
-                <Th>Updated At</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {(result.custom_fields || []).map((cf) => (
-                <Tr key={cf.id}>
-                  <Td fontWeight="medium">{cf.field?.fieldName || cf.fieldId}</Td>
-                  <Td>
-                    <Badge colorScheme="purple" variant="subtle">{cf.field?.fieldType}</Badge>
-                  </Td>
-                  <Td maxW="200px">
-                    <Text isTruncated title={cf.value}>
-                      {cf.value === null || cf.value === undefined ? <Text as="span" color="gray.400" fontStyle="italic">—</Text> : String(cf.value)}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Badge colorScheme={cf.field?.status === "active" ? "green" : "gray"}>
-                      {cf.field?.status}
-                    </Badge>
-                  </Td>
-                  <Td>
-                    {cf.editor ? `${cf.editor.firstName} ${cf.editor.lastName}` : "—"}
-                  </Td>
-                  <Td>{cf.updatedAt ? new Date(cf.updatedAt).toLocaleDateString() : "—"}</Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
-          {(result.custom_fields || []).length === 0 && (
-            <Text textAlign="center" py={6} color="gray.400" fontSize="sm">
-              No custom field values found for this entity
-            </Text>
-          )}
-        </Box>
-      )}
-    </Box>
   );
 }
 
@@ -1019,156 +686,147 @@ function CustomFieldsPage() {
           </Box>
         </SimpleGrid>
 
-        <Tabs variant="enclosed" colorScheme="blue">
-          <TabList>
-            <Tab fontSize="sm">Field Definitions</Tab>
-            <Tab fontSize="sm">Entity Values Lookup</Tab>
-          </TabList>
-          <TabPanels>
-            <TabPanel px={0} pt={4}>
-              <Flex gap={3} mb={4} flexWrap="wrap">
-                <Input
-                  size="sm"
-                  placeholder="Search fields..."
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                  maxW="240px"
-                />
-                <Select
-                  size="sm"
-                  value={entityFilter}
-                  onChange={(e) => { setEntityFilter(e.target.value); setPage(1); }}
-                  maxW="180px"
-                >
-                  <option value="">All Entities</option>
-                  <option value="user_profile">User Profile</option>
-                  <option value="course">Course</option>
-                </Select>
-                <Select
-                  size="sm"
-                  value={statusFilter}
-                  onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                  maxW="160px"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </Select>
-              </Flex>
+        <Flex gap={3} mb={4} flexWrap="wrap">
+          <Input
+            size="sm"
+            placeholder="Search fields..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            maxW="240px"
+          />
+          <Select
+            size="sm"
+            value={entityFilter}
+            onChange={(e) => { setEntityFilter(e.target.value); setPage(1); }}
+            maxW="180px"
+          >
+            <option value="">All Entities</option>
+            <option value="user_profile">User Profile</option>
+            <option value="course">Course</option>
+          </Select>
+          <Select
+            size="sm"
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            maxW="160px"
+          >
+            <option value="">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </Select>
+        </Flex>
 
-              {fieldsLoading ? (
-                <Flex justify="center" py={10}><Spinner /></Flex>
-              ) : (
-                <>
-                  <Box overflowX="auto" bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.100">
-                    <Table size="sm" variant="simple">
-                      <Thead bg="gray.50">
-                        <Tr>
-                          <Th>Field Name</Th>
-                          <Th>Type</Th>
-                          <Th>Entity</Th>
-                          <Th>Required</Th>
-                          <Th>Visibility (view)</Th>
-                          <Th>Status</Th>
-                          <Th>Created</Th>
-                          <Th>Actions</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {fields.map((f) => (
-                          <Tr key={f.id} _hover={{ bg: "gray.50" }}>
-                            <Td>
-                              <Text fontWeight="medium" fontSize="sm">{f.fieldName}</Text>
-                              {f.helpText && (
-                                <Text fontSize="xs" color="gray.400" isTruncated maxW="180px" title={f.helpText}>
-                                  {f.helpText}
-                                </Text>
-                              )}
-                            </Td>
-                            <Td>
-                              <Badge colorScheme="purple" variant="subtle">{f.fieldType}</Badge>
-                            </Td>
-                            <Td>
-                              <Badge colorScheme="blue" variant="subtle">{f.entity}</Badge>
-                            </Td>
-                            <Td>
-                              <Badge colorScheme={f.required ? "orange" : "gray"} variant="subtle">
-                                {f.required ? "Yes" : "No"}
-                              </Badge>
-                            </Td>
-                            <Td>
-                              <HStack spacing={1} flexWrap="wrap">
-                                {(f.visibility?.view || []).map((role) => (
-                                  <Tag key={role} size="sm" colorScheme="teal" variant="subtle">
-                                    <TagLabel>{role}</TagLabel>
-                                  </Tag>
-                                ))}
-                              </HStack>
-                            </Td>
-                            <Td>
-                              <Flex align="center" gap={2}>
-                                <Switch
-                                  size="sm"
-                                  isChecked={f.status === "active"}
-                                  onChange={() => handleToggleStatus(f)}
-                                  isDisabled={togglingId === f.id}
-                                />
-                                <Badge colorScheme={f.status === "active" ? "green" : "gray"}>
-                                  {f.status}
-                                </Badge>
-                              </Flex>
-                            </Td>
-                            <Td fontSize="xs" color="gray.500">
-                              {f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "—"}
-                            </Td>
-                            <Td>
-                              <HStack spacing={1}>
-                                <Tooltip label="Edit field">
-                                  <IconButton
-                                    size="xs"
-                                    variant="ghost"
-                                    colorScheme="blue"
-                                    icon={<FiEdit2 />}
-                                    onClick={() => openEdit(f)}
-                                  />
-                                </Tooltip>
-                                <Tooltip label="Delete field">
-                                  <IconButton
-                                    size="xs"
-                                    variant="ghost"
-                                    colorScheme="red"
-                                    icon={<FiTrash2 />}
-                                    onClick={() => handleDelete(f)}
-                                    isLoading={deletingId === f.id}
-                                  />
-                                </Tooltip>
-                              </HStack>
-                            </Td>
-                          </Tr>
-                        ))}
-                      </Tbody>
-                    </Table>
-                    {fields.length === 0 && (
-                      <Text textAlign="center" py={8} color="gray.400" fontSize="sm">
-                        No custom fields found
-                      </Text>
-                    )}
-                  </Box>
-                  <PaginationBar page={page} totalPages={totalPages} onPage={setPage} />
-                </>
+        {fieldsLoading ? (
+          <Flex justify="center" py={10}><Spinner /></Flex>
+        ) : (
+          <>
+            <Box overflowX="auto" bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.100">
+              <Table size="sm" variant="simple">
+                <Thead bg="gray.50">
+                  <Tr>
+                    <Th>Field Name</Th>
+                    <Th>Slot</Th>
+                    <Th>Type</Th>
+                    <Th>Entity</Th>
+                    <Th>Required</Th>
+                    <Th>Visibility (view)</Th>
+                    <Th>Status</Th>
+                    <Th>Created</Th>
+                    <Th>Actions</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {fields.map((f) => (
+                    <Tr key={f.id} _hover={{ bg: "gray.50" }}>
+                      <Td>
+                        <Text fontWeight="medium" fontSize="sm">{f.fieldName}</Text>
+                        {f.helpText && (
+                          <Text fontSize="xs" color="gray.400" isTruncated maxW="180px" title={f.helpText}>
+                            {f.helpText}
+                          </Text>
+                        )}
+                      </Td>
+                      <Td>
+                        <Badge colorScheme="gray" variant="outline">{SLOT_LABELS[f.slot] || f.slot}</Badge>
+                      </Td>
+                      <Td>
+                        <Badge colorScheme="purple" variant="subtle">{f.fieldType}</Badge>
+                      </Td>
+                      <Td>
+                        <Badge colorScheme="blue" variant="subtle">{f.entity}</Badge>
+                      </Td>
+                      <Td>
+                        <Badge colorScheme={f.required ? "orange" : "gray"} variant="subtle">
+                          {f.required ? "Yes" : "No"}
+                        </Badge>
+                      </Td>
+                      <Td>
+                        <HStack spacing={1} flexWrap="wrap">
+                          {(f.visibility?.view || []).map((role) => (
+                            <Tag key={role} size="sm" colorScheme="teal" variant="subtle">
+                              <TagLabel>{role}</TagLabel>
+                            </Tag>
+                          ))}
+                        </HStack>
+                      </Td>
+                      <Td>
+                        <Flex align="center" gap={2}>
+                          <Switch
+                            size="sm"
+                            isChecked={f.status === "active"}
+                            onChange={() => handleToggleStatus(f)}
+                            isDisabled={togglingId === f.id}
+                          />
+                          <Badge colorScheme={f.status === "active" ? "green" : "gray"}>
+                            {f.status}
+                          </Badge>
+                        </Flex>
+                      </Td>
+                      <Td fontSize="xs" color="gray.500">
+                        {f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "—"}
+                      </Td>
+                      <Td>
+                        <HStack spacing={1}>
+                          <Tooltip label="Edit field">
+                            <IconButton
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="blue"
+                              icon={<FiEdit2 />}
+                              onClick={() => openEdit(f)}
+                            />
+                          </Tooltip>
+                          <Tooltip label="Delete field">
+                            <IconButton
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="red"
+                              icon={<FiTrash2 />}
+                              onClick={() => handleDelete(f)}
+                              isLoading={deletingId === f.id}
+                            />
+                          </Tooltip>
+                        </HStack>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+              {fields.length === 0 && (
+                <Text textAlign="center" py={8} color="gray.400" fontSize="sm">
+                  No custom fields found
+                </Text>
               )}
-            </TabPanel>
-
-            <TabPanel px={0} pt={4}>
-              <EntityValuesLookup />
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
+            </Box>
+            <PaginationBar page={page} totalPages={totalPages} onPage={setPage} />
+          </>
+        )}
 
         <FieldFormModal
           isOpen={isFormOpen}
           onClose={onFormClose}
           editField={editField}
+          entityCounts={byEntityMap}
           onSaved={() => { fetchFields(); fetchKpis(); }}
         />
       </Box>

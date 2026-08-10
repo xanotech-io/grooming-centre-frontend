@@ -26,6 +26,7 @@
     "dayjs": "^1.10.7",
     "draft-js-export-html": "^1.4.1",
     "emoji-picker-react": "^3.5.0",
+    "firebase": "^12.17.1",
     "framer-motion": "^4.1.17",
     "html2canvas": "^1.4.1",
     "js-file-download": "^0.4.12",

@@ -13,6 +13,7 @@ import {
   Checkbox,
   Spinner,
   Heading,
+  CustomFieldSlots,
 } from "../../../components";
 import { CreatePageLayout } from "../../../layouts";
 import { BreadcrumbItem, Box } from "@chakra-ui/react";
@@ -41,6 +42,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
   const [prerequisiteLoading, setPrerequisiteLoading] = useState(true);
   const [supervisorsLoading, setSupervisorsLoading] = useState(true);
   const [useDefaultCertificate, setUseDefaultCertificate] = useState(true);
+  const [customFieldValues, setCustomFieldValues] = useState({});
   const toast = useToast();
   const {
     register,
@@ -94,6 +96,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
         supervisor_id: selectedSupervisorId,
         courseThumbnail,
         certificate,
+        ...customFieldValues,
       };
 
       const body = appendFormData(data);
@@ -233,6 +236,16 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
       descriptionManager.handleInitData(courseDetailsData.description);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseDetailsData]);
+
+  // set custom field slot values for edit
+  useEffect(() => {
+    if (courseDetailsData) {
+      setCustomFieldValues({
+        customFieldOne: courseDetailsData.customFieldOne ?? "",
+        customFieldTwo: courseDetailsData.customFieldTwo ?? "",
+      });
+    }
   }, [courseDetailsData]);
 
   const populateDepartmentOptions = (data, filterBody = () => true) => {
@@ -385,6 +398,24 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
             })}
             error={errors.timeline?.message}
           /> */}
+        </Box>
+        <Box
+          as="div"
+          display={{ lg: "grid", base: "flex", md: "flex" }}
+          flexDirection={{ base: "column", md: "column" }}
+          gridTemplateColumns="1fr 1fr"
+          gap={10}
+          marginBottom={10}
+        >
+          {/* Row 2c — Custom fields (admin-defined, max 2) */}
+          <CustomFieldSlots
+            entity="course"
+            values={customFieldValues}
+            onChange={(slot, value) =>
+              setCustomFieldValues((current) => ({ ...current, [slot]: value }))
+            }
+            role="Admin"
+          />
         </Box>
         {/* Row 3 */}
         <Grid marginBottom={10}>
