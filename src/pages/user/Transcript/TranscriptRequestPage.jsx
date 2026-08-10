@@ -283,7 +283,7 @@ const TranscriptRequestPage = () => {
           transcriptId={transcript.id}
           courseId={certRecord?.courseId}
           courseTitle={certRecord?.courseTitle}
-          hasCertificate
+          mode="view"
         />
       </Box>
     );

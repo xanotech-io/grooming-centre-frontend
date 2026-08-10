@@ -340,7 +340,12 @@ const StandaloneExamsStart = () => {
                       question={{
                         ...currentQuestion,
                         questionType: normalizeQuestionType(currentQuestion?.questionType),
-                        options: currentQuestion?.standAloneExaminationOption,
+                        options: currentQuestion?.standAloneExaminationOption?.map((opt) => ({
+                          id: opt.id,
+                          isAnswer: opt.isAnswer,
+                          name: opt.answer,
+                          optionIndex: opt.optionIndex,
+                        })),
                       }}
                       selectedAnswers={selectedAnswers}
                       onOptionSelect={handleOptionSelect}

@@ -15,18 +15,23 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import { FiExternalLink } from "react-icons/fi";
-import { Button, Text } from "../../../../components";
+import { Button, Text, AnnotatableText } from "../../../../components";
 import {
   getAnswerSheet,
   getSubmissionDetail,
   gradeSubmission,
+  markViewed,
+  buildThreadKey,
 } from "../../../../services";
 import {
   MOCK_ANSWER_SHEET,
   MOCK_SUBMISSIONS,
 } from "../../../../services/http/endpoints/submissionsReport";
 import { isSubmissionGraded, submissionStatusLabel } from "../../../../utils";
+import { useApp } from "../../../../contexts";
 import dayjs from "dayjs";
+
+const isEssayType = (q) => (q?.options?.length ?? 0) === 0;
 
 const fmtDateTime = (d) => (d ? dayjs(d).format("MMM D, YYYY h:mm A") : "—");
 
@@ -103,6 +108,9 @@ const AnswerDisplay = ({ q }) => {
 const SubmissionGradingModal = ({ submissionId, type, isOpen, onClose, onGraded }) => {
   const toast = useToast();
   const openedAtRef = useRef(null);
+  const {
+    state: { user: viewer },
+  } = useApp();
 
   const [loading, setLoading] = useState(false);
   const [submission, setSubmission] = useState(null);
@@ -134,6 +142,14 @@ const SubmissionGradingModal = ({ submissionId, type, isOpen, onClose, onGraded 
         setGrade(data?.grade ?? "");
         setRemarks(data?.remarks ?? "");
 
+        if (data && viewer?.id) {
+          const key =
+            type === "project"
+              ? buildThreadKey("project", data.projectId, data.studentId)
+              : buildThreadKey(type, data.assessmentId, data.studentId);
+          markViewed(key, viewer.id);
+        }
+
         if (data && (type === "assessment" || type === "exam")) {
           return getAnswerSheet(data.assessmentId, data.studentId)
             .then(({ sheet }) => setQuestions(sheet?.questions ?? []))
@@ -147,11 +163,18 @@ const SubmissionGradingModal = ({ submissionId, type, isOpen, onClose, onGraded 
         }
       })
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, submissionId, type]);
 
   const fullName = submission?.studentName || "—";
   const isProject = type === "project";
   const alreadyGraded = isSubmissionGraded(submission?.status);
+  const threadKey = submission
+    ? isProject
+      ? buildThreadKey("project", submission.projectId, submission.studentId)
+      : buildThreadKey(type, submission.assessmentId, submission.studentId)
+    : null;
+  const viewerName = `${viewer?.firstName ?? ""} ${viewer?.lastName ?? ""}`.trim();
 
   const handleSave = async () => {
     setSaving(true);
@@ -250,6 +273,7 @@ const SubmissionGradingModal = ({ submissionId, type, isOpen, onClose, onGraded 
                 </Grid>
 
                 {isProject ? (
+                  <>
                   <Box p={4} border="1px solid #E2E8F0" borderRadius="8px">
                     <Text
                       fontSize="10px"
@@ -281,6 +305,29 @@ const SubmissionGradingModal = ({ submissionId, type, isOpen, onClose, onGraded 
                       </Text>
                     )}
                   </Box>
+
+                  <Box mt={4} p={4} border="1px solid #E2E8F0" borderRadius="8px">
+                    <Text
+                      fontSize="10px"
+                      fontWeight="700"
+                      color="gray.400"
+                      textTransform="uppercase"
+                      letterSpacing="wider"
+                      mb={3}
+                    >
+                      Comments
+                    </Text>
+                    <AnnotatableText
+                      submissionId={threadKey}
+                      questionId={null}
+                      questionLabel={null}
+                      text={null}
+                      viewerId={viewer?.id}
+                      viewerName={viewerName}
+                      viewerRole="instructor"
+                    />
+                  </Box>
+                  </>
                 ) : questions.length === 0 ? (
                   <Text color="gray.500">No questions found for this submission.</Text>
                 ) : (
@@ -316,7 +363,19 @@ const SubmissionGradingModal = ({ submissionId, type, isOpen, onClose, onGraded 
                         >
                           Student&apos;s Answer
                         </Text>
-                        <AnswerDisplay q={q} />
+                        {isEssayType(q) && q.studentAnswer ? (
+                          <AnnotatableText
+                            submissionId={threadKey}
+                            questionId={q.questionId}
+                            questionLabel={`Q${idx + 1}`}
+                            text={q.studentAnswer}
+                            viewerId={viewer?.id}
+                            viewerName={viewerName}
+                            viewerRole="instructor"
+                          />
+                        ) : (
+                          <AnswerDisplay q={q} />
+                        )}
                       </Box>
                     </Box>
                   ))

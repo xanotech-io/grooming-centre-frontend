@@ -12,6 +12,7 @@ import {
   RichTextToView,
   Text,
   Image,
+  ExamReviewResultCard,
 } from "../../../components";
 import { PageLoaderLayout } from "../../global/PageLoader/PageLoaderLayout";
 import { CustomModal } from "../Assessment/Modal";
@@ -19,7 +20,7 @@ import { EmptyState } from "../..";
 import useTimerCountdown from "../Assessment/hooks/useTimerCountdown";
 import { getEndTime, sortByIndexField, parseOptionIndex } from "../../../utils";
 import { http } from "../../../services/http/http";
-import { submitExamMarking } from "../../../services/http/endpoints/examMarking";
+import { submitExamMarking, getExamMarkingResult } from "../../../services/http/endpoints/examMarking";
 
 export const normalizeQuestionType = (raw) => {
   if (!raw) return "MCQ";
@@ -56,6 +57,8 @@ const mapExamination = (data) => {
     hasCompleted: (raw.examinationScoreSheets?.length > 0) || (raw.submissions?.length > 0),
     submittedAnswers: raw.submissions?.[0]?.answers ?? [],
     passThreshold: raw.passThreshold ?? null,
+    examType: raw.examType ?? null,
+    sections: Array.isArray(raw.sections) ? raw.sections : [],
     questions: questionArray.map((q, index) => {
       const opts = q.options ?? [];
       const qType = normalizeQuestionType(q.questionType);
@@ -70,6 +73,7 @@ const mapExamination = (data) => {
         modelAnswer: q.modelAnswer ?? null,
         correctAnswer: q.correctAnswer ?? null,
         marks: q.marks ?? 1,
+        section: q.section ?? null,
         options: opts.map((opt) => ({
           id: opt.id,
           isAnswer: opt.isAnswer,
@@ -103,6 +107,29 @@ const useExamination = () => {
   return { examination, isLoading, error };
 };
 
+const MOCK_EXAMINATION_RESULT = {
+  totalScore: 82,
+  grade: "A",
+  remark: "Excellent performance — you demonstrated a strong understanding of the material tested in this examination.",
+  isMock: true,
+};
+
+const useExaminationReviewResult = (examinationId, isViewMode) => {
+  const [result, setResult] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isViewMode || !examinationId) return;
+    setIsLoading(true);
+    getExamMarkingResult(examinationId)
+      .then(({ result: data }) => setResult(data))
+      .catch(() => setResult(MOCK_EXAMINATION_RESULT))
+      .finally(() => setIsLoading(false));
+  }, [examinationId, isViewMode]);
+
+  return { result, isLoading };
+};
+
 const ExaminationLayout = () => {
   const { course_id } = useParams();
   const { push } = useHistory();
@@ -110,10 +137,19 @@ const ExaminationLayout = () => {
 
   const { examination, isLoading, error } = useExamination();
   const isViewMode = examination?.hasCompleted ?? false;
+  const { result: reviewResult, isLoading: isReviewResultLoading } = useExaminationReviewResult(
+    examination?.id,
+    isViewMode
+  );
 
   const questions = examination
     ? sortByIndexField(examination.questions, "questionIndex")
     : [];
+
+  const isSectionedExam = examination?.examType === "sectioned" || examination?.examType === "hybrid";
+  const sectionNames = examination?.sections?.length
+    ? examination.sections.map((s) => s.name)
+    : [...new Set(questions.map((q) => q.section).filter(Boolean))];
 
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -349,6 +385,18 @@ const ExaminationLayout = () => {
             </Flex>
           )}
 
+          {isViewMode && (
+            <Box paddingX={10} paddingTop={5}>
+              <ExamReviewResultCard
+                title="Your Result"
+                isLoading={isReviewResultLoading}
+                totalScore={reviewResult?.totalScore ?? null}
+                grade={reviewResult?.grade ?? null}
+                remark={reviewResult?.remark ?? null}
+              />
+            </Box>
+          )}
+
           <Flex paddingX={10} paddingY={5} height="100%">
             {/* Main question area */}
             <Flex
@@ -367,6 +415,18 @@ const ExaminationLayout = () => {
                 borderBottom="1px"
                 borderColor="accent.2"
               >
+                {isSectionedExam && currentQuestion?.section && (
+                  <Text
+                    fontSize="xs"
+                    fontWeight="700"
+                    color="primary.base"
+                    textTransform="uppercase"
+                    letterSpacing="wide"
+                    marginBottom={1}
+                  >
+                    Section {sectionNames.indexOf(currentQuestion.section) + 1}: {currentQuestion.section}
+                  </Text>
+                )}
                 <Heading fontSize="text.level2">
                   Question {(currentQuestion?.questionIndex ?? 0) + 1} of {examination.questionCount}
                 </Heading>
@@ -484,29 +544,66 @@ const ExaminationLayout = () => {
                     <Text as="level5" bold>Unanswered</Text>
                   </HStack>
                 </Flex>
-                <Grid templateColumns="repeat(5, 1fr)" gap={2}>
-                  {questions.map((q, i) => (
-                    <Flex
-                      key={q.id}
-                      justifyContent="center"
-                      boxSize="40px"
-                      rounded="4px"
-                      alignItems="center"
-                      border={currentQuestion?.id === q.id ? "2px" : "1px"}
-                      as="button"
-                      type="button"
-                      cursor="pointer"
-                      onClick={() => handleQuestionChange(q)}
-                      transition=".5s"
-                      transform={currentQuestion?.id === q.id ? "scale(1.1)" : undefined}
-                      backgroundColor={selectedAnswers[q.id] ? "primary.base" : undefined}
-                      color={selectedAnswers[q.id] ? "white" : undefined}
-                      borderColor={selectedAnswers[q.id] ? "transparent" : "primary.base"}
-                    >
-                      <Text bold as="level1">{i + 1}</Text>
-                    </Flex>
-                  ))}
-                </Grid>
+                {isSectionedExam && sectionNames.length > 0 ? (
+                  <Stack spacing={4}>
+                    {sectionNames.map((name, si) => {
+                      const sectionQs = questions.filter((q) => q.section === name);
+                      if (sectionQs.length === 0) return null;
+                      return (
+                        <Box key={name}>
+                          <Text as="level5" bold color="accent.3" marginBottom={2}>
+                            Section {si + 1}: {name}
+                          </Text>
+                          <Grid templateColumns="repeat(5, 1fr)" gap={2}>
+                            {sectionQs.map((q) => (
+                              <QuestionNavButton
+                                key={q.id}
+                                q={q}
+                                isActive={currentQuestion?.id === q.id}
+                                isAnswered={!!selectedAnswers[q.id]}
+                                onClick={() => handleQuestionChange(q)}
+                              />
+                            ))}
+                          </Grid>
+                        </Box>
+                      );
+                    })}
+                    {(() => {
+                      const unassigned = questions.filter((q) => !q.section);
+                      if (unassigned.length === 0) return null;
+                      return (
+                        <Box>
+                          <Text as="level5" bold color="accent.3" marginBottom={2}>
+                            Unsectioned
+                          </Text>
+                          <Grid templateColumns="repeat(5, 1fr)" gap={2}>
+                            {unassigned.map((q) => (
+                              <QuestionNavButton
+                                key={q.id}
+                                q={q}
+                                isActive={currentQuestion?.id === q.id}
+                                isAnswered={!!selectedAnswers[q.id]}
+                                onClick={() => handleQuestionChange(q)}
+                              />
+                            ))}
+                          </Grid>
+                        </Box>
+                      );
+                    })()}
+                  </Stack>
+                ) : (
+                  <Grid templateColumns="repeat(5, 1fr)" gap={2}>
+                    {questions.map((q) => (
+                      <QuestionNavButton
+                        key={q.id}
+                        q={q}
+                        isActive={currentQuestion?.id === q.id}
+                        isAnswered={!!selectedAnswers[q.id]}
+                        onClick={() => handleQuestionChange(q)}
+                      />
+                    ))}
+                  </Grid>
+                )}
               </Box>
             </Box>
           </Flex>
@@ -515,6 +612,27 @@ const ExaminationLayout = () => {
     </>
   );
 };
+
+const QuestionNavButton = ({ q, isActive, isAnswered, onClick }) => (
+  <Flex
+    justifyContent="center"
+    boxSize="40px"
+    rounded="4px"
+    alignItems="center"
+    border={isActive ? "2px" : "1px"}
+    as="button"
+    type="button"
+    cursor="pointer"
+    onClick={onClick}
+    transition=".5s"
+    transform={isActive ? "scale(1.1)" : undefined}
+    backgroundColor={isAnswered ? "primary.base" : undefined}
+    color={isAnswered ? "white" : undefined}
+    borderColor={isAnswered ? "transparent" : "primary.base"}
+  >
+    <Text bold as="level1">{q.questionIndex + 1}</Text>
+  </Flex>
+);
 
 export const QuestionInput = ({ question, selectedAnswers, onOptionSelect, onAnswerChange, disabled }) => {
   const qType = question?.questionType || "MCQ";

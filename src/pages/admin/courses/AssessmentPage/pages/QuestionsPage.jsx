@@ -257,9 +257,13 @@ const buildSectionConfigMap = (sections, shape) => {
           }
         : {
             // `questions_count` is the canonical field name (matches
-            // ExamPaperConfigPage.jsx); `question_count` is accepted too
-            // for older/standalone-shaped section data.
-            questionsCount: Number(s.questions_count ?? s.question_count) || null,
+            // ExamPaperConfigPage.jsx); `question_count` is accepted too for
+            // older/standalone-shaped section data, and `questionCount`
+            // (camelCase, no config-detail fields at all) is the exam's own
+            // bare `sections` field shape — toBatchUploadSections'/
+            // toCreateBodySections' minimal {section_name/name, weightage,
+            // questionCount} sent at create time and echoed back as-is.
+            questionsCount: Number(s.questions_count ?? s.question_count ?? s.questionCount) || null,
             questionTypeLock: s.question_type || "",
             // The Sections builder's checkbox multi-select — falls back to
             // wrapping the legacy single `question_type` lock so sections
@@ -274,7 +278,7 @@ const buildSectionConfigMap = (sections, shape) => {
             typeCategory: "",
             markingTypeLock: s.marking_type || "",
             marksPerQuestion: null,
-            totalMarks: s.total_marks ? Number(s.total_marks) : null,
+            totalMarks: (s.total_marks ?? s.weightage) ? Number(s.total_marks ?? s.weightage) : null,
           };
   });
   return map;
@@ -333,6 +337,19 @@ const queuedQuestionSection = (q) => q.formSnapshot?.section ?? q.data?.section 
 // the cases here.
 const realExamKind = (isExamination, moduleId) =>
   isExamination ? (moduleId ? "ModuleExam" : "Exam") : "Assessment";
+
+// Confirmed via a real backend test (same rule QuestionsStandalone.jsx's own
+// toApiPaperConfigBody already follows): the paper-config PUT rejects
+// `configuredSections` outright for a sectioned/hybrid exam — its own
+// `sections` field on the CREATE body (TemplatePage.jsx/BatchUploadPage.jsx's
+// toBatchUploadSections) is the only channel that accepts them. `body.examType`
+// here is already the API value ("sectioned"/"hybrid"/"unsectioned") by the
+// time it reaches pendingCreate.body — TemplatePage.jsx remaps it at save
+// time, unlike Standalone which remaps later at its own API boundary.
+const toApiPaperConfigBody = (body, paperConfigBody) =>
+  body?.examType === "sectioned" || body?.examType === "hybrid"
+    ? { ...paperConfigBody, configuredSections: undefined }
+    : paperConfigBody;
 
 // The fetched record's own examType/questionQuantity, falling back to
 // whatever markExamMeta cached at creation/edit time — confirmed via a real
@@ -522,6 +539,7 @@ const QuestionsPage = () => {
     courseId,
     assessmentId,
     examinationId: isExamination || undefined,
+    moduleId: moduleId || undefined,
     standalone: isStandaloneExamination,
     section: isSectionedExam ? selectedSectionId || undefined : undefined,
   });
@@ -544,6 +562,7 @@ const QuestionsPage = () => {
       push(
         buildBatchUploadLink({
           courseId,
+          moduleId: moduleId || undefined,
           standalone: false,
           createTarget: true,
           section: isSectionedExam ? selectedSectionId || undefined : undefined,
@@ -677,14 +696,42 @@ const QuestionsPage = () => {
         fetchViaTemplate(() => adminGetStandaloneExamTemplateId(isExamination)),
       );
     } else if (isExamination) {
-      fetchViaExamPaperConfig("examination", () =>
-        fetchViaTemplate(() =>
-          adminGetExaminationById(isExamination).then(
+      // paper-config's own `configuredSections` deliberately never gets
+      // saved for a sectioned/hybrid exam (the backend rejects it outright
+      // there — see toApiPaperConfigBody above), so this always falls
+      // through to here for one. The exam's own `sections` field (set at
+      // create time — TemplatePage.jsx/BatchUploadPage.jsx's
+      // toBatchUploadSections) is a real, always-available source of truth
+      // for it — same precedence a plain Assessment's own self-managed
+      // `sections` field already gets in the branch below — so check that
+      // before falling through to the marking-template lookup, which a
+      // sectioned/hybrid exam never has one of anyway (its own sections
+      // define marking instead).
+      fetchViaExamPaperConfig("examination", () => {
+        const ownSections = assessmentManager.assessment?.sections;
+        if (Array.isArray(ownSections) && ownSections.length > 0) {
+          // `configuredSections` (not just templateSections/sectionConfigMap
+          // above) — QuestionListingPage derives its own section grouping
+          // from this raw prop (see its `rawSections` computation), not from
+          // the two CreateQuestionPage-only values.
+          setConfiguredSections(ownSections);
+          setTemplateSections(ownSections.map((s) => s.section_name));
+          setSectionConfigMap(buildSectionConfigMap(ownSections, "exam"));
+          setSectionsLoading(false);
+          return;
+        }
+        return fetchViaTemplate(() =>
+          // This admin lookup is keyed by courseId, not the examination's own
+          // id (GET /v1/examination/admin/{courseId} — same convention
+          // BatchUploadPage.jsx's fallback already relies on) — a course has
+          // at most one examination, so the id in the URL must be the
+          // course's, never the target examination's.
+          adminGetExaminationById(courseId).then(
             ({ examination }) =>
               examination?.templateId ?? examination?.markingTemplateId ?? null,
           ),
-        ),
-      );
+        );
+      });
     } else {
       // Plain Assessments can self-manage sections the same way Examinations
       // do (added directly on the assessment record via the Listing page's
@@ -1165,6 +1212,17 @@ const CreateQuestionPage = ({
         : assessmentManager.assessment?.questions?.length || 0;
     const totalAfterSave = questionsBeforeThisSave + 1;
     const reachedLimit = amountOfQuestions && totalAfterSave >= amountOfQuestions;
+
+    // "Create and Submit" on an already-real exam/assessment just finished a
+    // supervisor-approval submission — that's a "review everything" action,
+    // not a "keep adding" one, so it always lands on the question listing
+    // regardless of how many question slots are still free (unlike a plain
+    // "Add Question" save below, which offers to add another).
+    if (justSubmittedForApprovalRef.current) {
+      justSubmittedForApprovalRef.current = false;
+      goToQuestionListing(realParentId);
+      return;
+    }
 
     if (amountOfQuestions > 1 && !reachedLimit) {
       // Everything has actually been created/saved for real by this point —
@@ -1805,6 +1863,14 @@ const CreateQuestionPage = ({
   // targeting the already-real assessment/exam as the content being
   // submitted.
   const submitForApprovalRef = useRef(false);
+  // `submitForApprovalRef` itself is reset to false as soon as its branch
+  // below is entered (before the approval modal even opens), so it can't
+  // still be checked once `onSuccess` fires later — this stays true across
+  // that gap so finishSaving knows the completed workflow was "Create and
+  // Submit" specifically, not a plain "Add Question" save, and should always
+  // land on the question listing ("See All") once done instead of finishSaving's
+  // usual "add another question?" interim screen.
+  const justSubmittedForApprovalRef = useRef(false);
 
   // Creates the exam/assessment that "Next" deferred, using the details
   // form values held in `pendingCreate`. Called from inside the approval
@@ -1818,7 +1884,7 @@ const CreateQuestionPage = ({
     if (kind === "ModuleExam" || kind === "Exam") {
       const { examination } = await adminCreateExamination(finalBody);
       if (kind === "ModuleExam") {
-        await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
+        await updateExamPaperConfig(examination.id, toApiPaperConfigBody(finalBody, paperConfigBody)).catch(() => {});
       }
       if (parentAddToBank) setAutoAddToBank("examination", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
@@ -1865,7 +1931,9 @@ const CreateQuestionPage = ({
 
     if (kind === "ModuleExam" || kind === "Exam") {
       await adminEditExamination(contentId, finalBody);
-      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      if (paperConfigBody) {
+        await updateExamPaperConfig(contentId, toApiPaperConfigBody(finalBody, paperConfigBody)).catch(() => {});
+      }
       cacheExamMetaFromBody(kind, contentId, finalBody);
       return { id: contentId };
     }
@@ -2524,6 +2592,7 @@ const CreateQuestionPage = ({
 
       if (submitForApprovalRef.current) {
         submitForApprovalRef.current = false;
+        justSubmittedForApprovalRef.current = true;
 
         const requestType = isStandaloneExamination
           ? "StandaloneExam"
@@ -3577,6 +3646,14 @@ const QuestionListingPage = ({
     toast({ description: "Queued question removed", position: "top", status: "success" });
   };
 
+  // A bulk "Question Bank" add from this page has no active section to
+  // inherit (see bankQueueCtx below) — for a sectioned/hybrid exam that
+  // leaves the queued item with no `.section` at all, which the backend
+  // rejects on submit ("none is under section"). No inline picker for this
+  // anymore (removed per request) — the admin assigns one by opening the
+  // queued item itself (getEditQueuedQuestionLink), whose form has the same
+  // section tabs a fresh question does.
+
   // ── Creates (or applies the held-back edit to) the exam/assessment and
   // saves every queued question, all gated behind the approval modal's
   // supervisor pick — same split as CreateQuestionPage's "Create and
@@ -3595,7 +3672,7 @@ const QuestionListingPage = ({
     if (kind === "ModuleExam" || kind === "Exam") {
       const { examination } = await adminCreateExamination(body);
       if (kind === "ModuleExam") {
-        await updateExamPaperConfig(examination.id, paperConfigBody).catch(() => {});
+        await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody)).catch(() => {});
       }
       if (parentAddToBank) setAutoAddToBank("examination", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
@@ -3627,7 +3704,9 @@ const QuestionListingPage = ({
 
     if (kind === "ModuleExam" || kind === "Exam") {
       await adminEditExamination(contentId, body);
-      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      if (paperConfigBody) {
+        await updateExamPaperConfig(contentId, toApiPaperConfigBody(body, paperConfigBody)).catch(() => {});
+      }
       cacheExamMetaFromBody(kind, contentId, body);
       return { id: contentId };
     }
@@ -3663,6 +3742,18 @@ const QuestionListingPage = ({
   };
 
   const handleOpenCreateAndSubmit = () => {
+    // Hybrid intentionally has a standalone (no-section) half alongside its
+    // sectioned half, so an unassigned queued question there is valid — only
+    // a plain sectioned exam/assessment requires every question to carry one.
+    const requiresQueuedSectionAssignment = sectionNames.length > 0 && realExamMeta.examType !== "hybrid";
+    if (requiresQueuedSectionAssignment && queuedQuestions.some((q) => !queuedQuestionSection(q))) {
+      toast({
+        description: "Assign every queued question to a section before submitting.",
+        position: "top",
+        status: "error",
+      });
+      return;
+    }
     if (isPendingCreation) {
       const requestType =
         pendingCreate.kind === "StandaloneExam"
@@ -3709,11 +3800,28 @@ const QuestionListingPage = ({
   // exam's own `configuredSections`; plain Assessments in the assessment's
   // own `sections` field. Either way, every question just carries the
   // section's name in its real `section` field.
-  const rawSections = isExamination
-    ? configuredSections
-    : Array.isArray(assessment?.sections)
-      ? assessment.sections
-      : [];
+  // While the parent is still pending (nothing real to fetch yet),
+  // `configuredSections`/`assessment.sections` are always empty — the only
+  // place the sections the admin actually configured exist is
+  // pendingCreate/pendingEdit.paperConfigBody.configuredSections (set by
+  // TemplatePage.jsx for every kind, real-network-send or not). Confirmed
+  // via a real bug report: without this, a still-pending sectioned exam
+  // rendered as if it had no sections at all, so a bulk Question Bank add
+  // had nothing to tag questions with, and submit failed backend-side with
+  // "none is under section".
+  const pendingSections = isPendingCreation
+    ? pendingCreate?.paperConfigBody?.configuredSections
+    : isPendingEditSubmit
+      ? pendingEdit?.paperConfigBody?.configuredSections
+      : null;
+  const rawSections =
+    Array.isArray(pendingSections) && pendingSections.length > 0
+      ? pendingSections
+      : isExamination
+        ? configuredSections
+        : Array.isArray(assessment?.sections)
+          ? assessment.sections
+          : [];
   const definedSectionNames = rawSections.map((s) => s.section_name).filter(Boolean);
   // Confirmed via a real GET /v1/assessment/admin/:id response: a plain
   // Assessment's own record carries no `sections` field at all, even for
@@ -3729,9 +3837,12 @@ const QuestionListingPage = ({
   // file's own "section" column (that column has nothing to do with our
   // Exam Type sections at all), and without this gate those got misread as
   // real section structure and grouped as if they were.
-  const isActuallySectioned = isExamination
-    ? definedSectionNames.length > 0
-    : realExamMeta.examType === "sectioned" || realExamMeta.examType === "hybrid";
+  const isActuallySectioned =
+    definedSectionNames.length > 0
+      ? true
+      : isExamination
+        ? false
+        : realExamMeta.examType === "sectioned" || realExamMeta.examType === "hybrid";
   const sectionNames = definedSectionNames.length
     ? definedSectionNames
     : isActuallySectioned
@@ -3740,10 +3851,6 @@ const QuestionListingPage = ({
   // Same lock/weightage/count-cap lookup CreateQuestionPage uses — lets this
   // page show each section's "x/N questions" limit for visibility.
   const sectionConfigMap = buildSectionConfigMap(rawSections, "exam");
-  const scrollToSection = (name) =>
-    document
-      .getElementById(`section-${name}`)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const [reassigningId, setReassigningId] = useState(null);
 
@@ -3791,6 +3898,55 @@ const QuestionListingPage = ({
   };
 
   const unassigned = questions.filter((q) => !q.section);
+  // Queued (not-yet-created) questions used to render in their own flat list
+  // below every section box, regardless of which section they were already
+  // tagged with — indistinguishable from an unsectioned exam's queue. Group
+  // them by their assigned section instead, same as the real, already-saved
+  // questions above them, so a section box shows the whole picture (created
+  // + queued) together. Preserve each item's original queue index (not its
+  // position within this filtered group) since handleRemoveQueuedQuestion/
+  // getEditQueuedQuestionLink both key off it.
+  const queuedWithIndex = queuedQuestions.map((q, index) => ({ q, index }));
+  const unassignedQueued = queuedWithIndex.filter(({ q }) => !queuedQuestionSection(q));
+
+  const renderQueuedTile = ({ q, index }) => (
+    <Flex key={`queued-${index}`} alignItems="center" gap={2} marginBottom={4}>
+      <Link
+        style={{ flex: 1 }}
+        href={getEditQueuedQuestionLink(
+          courseId,
+          assessmentId,
+          isExamination,
+          moduleId,
+          index,
+          isPendingCreation ? "submitForApproval" : "editSubmit",
+        )}
+      >
+        <Box
+          padding={4}
+          backgroundColor="gray.50"
+          borderRadius="md"
+          cursor="pointer"
+          _hover={{ backgroundColor: "gray.100" }}
+        >
+          <Text bold mb={1}>
+            {questions.length + index + 1}. {capitalizeWords(q.bank?.questionType || "")}
+          </Text>
+          <Text color="gray.600">
+            {q.bank?.questionPlainText || "(no preview available)"}
+          </Text>
+        </Box>
+      </Link>
+      <Button
+        ghost
+        type="button"
+        onClick={() => handleRemoveQueuedQuestion(index)}
+        aria-label="Remove question"
+      >
+        Remove
+      </Button>
+    </Flex>
+  );
 
   return (
     <Box padding={6} width="70%">
@@ -3815,25 +3971,11 @@ const QuestionListingPage = ({
         </PageLoaderLayout>
       )}
 
-      {/* ── Section quick-nav ── */}
-      {sectionNames.length > 1 && (
-        <Flex gap={2} flexWrap="wrap" mb={6}>
-          {sectionNames.map((name, si) => (
-            <Button
-              key={name}
-              size="xs"
-              ghost
-              onClick={() => scrollToSection(name)}
-            >
-              {si + 1}. {name}
-            </Button>
-          ))}
-        </Flex>
-      )}
-
       {/* ── Sections ── */}
       {sectionNames.map((name, si) => {
         const sectionQs = questions.filter((q) => q.section === name);
+        const sectionQueued = queuedWithIndex.filter(({ q }) => queuedQuestionSection(q) === name);
+        const sectionTotal = sectionQs.length + sectionQueued.length;
         const sectionCap = sectionConfigMap[name]?.questionsCount;
         return (
           <Box
@@ -3863,8 +4005,8 @@ const QuestionListingPage = ({
                     color="whiteAlpha.800"
                     ml={2}
                   >
-                    ({sectionQs.length}/{sectionCap}
-                    {sectionQs.length >= sectionCap ? " — full" : ""})
+                    ({sectionTotal}/{sectionCap}
+                    {sectionTotal >= sectionCap ? " — full" : ""})
                   </Text>
                 )}
               </Heading>
@@ -3872,7 +4014,7 @@ const QuestionListingPage = ({
 
             {/* Section questions */}
             <Box px={5} pt={4} pb={2}>
-              {sectionQs.length === 0 && (
+              {sectionTotal === 0 && (
                 <Box
                   padding={4}
                   backgroundColor="gray.50"
@@ -3900,6 +4042,7 @@ const QuestionListingPage = ({
                   onUnassign={() => handleAssign(q, undefined)}
                 />
               ))}
+              {sectionQueued.map(renderQueuedTile)}
               <Box pb={4}>
                 <Button link={buildAddLink(name)} size="sm" ghost>
                   + Add Question to this Section
@@ -3910,8 +4053,12 @@ const QuestionListingPage = ({
         );
       })}
 
-      {/* ── Unassigned / no-section questions ── */}
-      {(unassigned.length > 0 || sectionNames.length === 0) && (
+      {/* ── Unassigned / no-section questions — also where a queued question
+          lands until it's given a section (a plain sectioned exam requires
+          one before submitting; hybrid's standalone half and an unsectioned
+          exam's queue both live here permanently, same as their real
+          questions). ── */}
+      {(unassigned.length > 0 || unassignedQueued.length > 0 || sectionNames.length === 0) && (
         <Box marginBottom={8}>
           {sectionNames.length > 0 && (
             <Flex
@@ -3925,6 +4072,13 @@ const QuestionListingPage = ({
                 Unassigned Questions
               </Heading>
             </Flex>
+          )}
+
+          {sectionNames.length > 0 && unassignedQueued.length > 0 && realExamMeta.examType !== "hybrid" && (
+            <Text color="orange.600" fontSize="sm" mb={3}>
+              This {isExamination ? "exam" : "assessment"} uses sections — assign every queued
+              question below to a section before submitting.
+            </Text>
           )}
 
           {unassigned.map((q, index) => (
@@ -3942,6 +4096,7 @@ const QuestionListingPage = ({
               onUnassign={() => handleAssign(q, undefined)}
             />
           ))}
+          {unassignedQueued.map(renderQueuedTile)}
 
           <Box paddingTop={4}>
             {remainingQuestionSlots === 0 ? (
@@ -3953,68 +4108,11 @@ const QuestionListingPage = ({
         </Box>
       )}
 
-      {/* ── Queued questions — added via "Add more questions" but not yet
-          created. No real id/section exists for these until the whole batch
-          is saved on submit, so they link to an edit-in-place view keyed by
-          their queue index instead of a real question id. ── */}
-      {queuedQuestions.length > 0 && (
+      {(isPendingCreation || isPendingEditSubmit) && queuedQuestions.length > 0 && (
         <Box marginBottom={8}>
-          <Flex
-            alignItems="center"
-            mb={4}
-            pb={2}
-            borderBottom="1px"
-            borderColor="gray.300"
-          >
-            <Heading fontSize="heading.h5" color="gray.500">
-              Queued Questions (not yet created)
-            </Heading>
-          </Flex>
-
-          {queuedQuestions.map((q, index) => (
-            <Flex key={`queued-${index}`} alignItems="center" gap={2} marginBottom={4}>
-              <Link
-                style={{ flex: 1 }}
-                href={getEditQueuedQuestionLink(
-                  courseId,
-                  assessmentId,
-                  isExamination,
-                  moduleId,
-                  index,
-                  isPendingCreation ? "submitForApproval" : "editSubmit",
-                )}
-              >
-                <Box
-                  padding={4}
-                  backgroundColor="gray.50"
-                  borderRadius="md"
-                  cursor="pointer"
-                  _hover={{ backgroundColor: "gray.100" }}
-                >
-                  <Text bold mb={1}>
-                    {questions.length + index + 1}. {capitalizeWords(q.bank?.questionType || "")}
-                  </Text>
-                  <Text color="gray.600">
-                    {q.bank?.questionPlainText || "(no preview available)"}
-                  </Text>
-                </Box>
-              </Link>
-              <Button
-                ghost
-                type="button"
-                onClick={() => handleRemoveQueuedQuestion(index)}
-                aria-label="Remove question"
-              >
-                Remove
-              </Button>
-            </Flex>
-          ))}
-
-          {(isPendingCreation || isPendingEditSubmit) && (
-            <Button ghost onClick={handleOpenCreateAndSubmit}>
-              {isPendingCreation ? "Create and Submit" : "Update and Submit"}
-            </Button>
-          )}
+          <Button ghost onClick={handleOpenCreateAndSubmit}>
+            {isPendingCreation ? "Create and Submit" : "Update and Submit"}
+          </Button>
         </Box>
       )}
 

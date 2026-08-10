@@ -22,7 +22,14 @@ import { Button } from "../../../components";
 import { adminGetCourseListing, adminListModules } from "../../../services";
 import useAssessmentStore from "../../../store/assessmentStore";
 
-const UseBankQuestionModal = ({ isOpen, onClose, questionIds = [], initialCourseId = "", onContinue }) => {
+const UseBankQuestionModal = ({
+  isOpen,
+  onClose,
+  questionIds = [],
+  initialCourseId = "",
+  initialModuleId = "",
+  onContinue,
+}) => {
   const toast = useToast();
   const history = useHistory();
   const setFromBankQuestionIds = useAssessmentStore((s) => s.setFromBankQuestionIds);
@@ -37,7 +44,7 @@ const UseBankQuestionModal = ({ isOpen, onClose, questionIds = [], initialCourse
     if (!isOpen) return;
     setTargetType("assessment");
     setCourseId(initialCourseId || "");
-    setModuleId("");
+    setModuleId(initialModuleId || "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -49,9 +56,9 @@ const UseBankQuestionModal = ({ isOpen, onClose, questionIds = [], initialCourse
   }, [isOpen]);
 
   // Course Exam always lives under a module — its create/edit page requires
-  // one in its route.
+  // one in its route. Course Assessment can optionally be scoped to a module too.
   useEffect(() => {
-    if (!courseId || targetType !== "examination") {
+    if (!courseId || targetType === "standalone") {
       setModules([]);
       return;
     }
@@ -61,6 +68,7 @@ const UseBankQuestionModal = ({ isOpen, onClose, questionIds = [], initialCourse
   }, [courseId, targetType]);
 
   const needsCourse = targetType !== "standalone";
+  const showModule = targetType !== "standalone";
   const needsModule = targetType === "examination";
 
   const handleContinue = () => {
@@ -81,7 +89,8 @@ const UseBankQuestionModal = ({ isOpen, onClose, questionIds = [], initialCourse
     } else if (targetType === "examination") {
       history.push(`/admin/courses/${courseId}/module/${moduleId}/examinations/edit/new`);
     } else {
-      history.push(`/admin/courses/${courseId}/assessment/new/overview`);
+      const moduleQuery = moduleId ? `?moduleId=${moduleId}` : "";
+      history.push(`/admin/courses/${courseId}/assessment/new/overview${moduleQuery}`);
     }
     onClose();
   };
@@ -141,10 +150,10 @@ const UseBankQuestionModal = ({ isOpen, onClose, questionIds = [], initialCourse
               </FormControl>
             )}
 
-            {needsModule && (
-              <FormControl isRequired>
+            {showModule && (
+              <FormControl isRequired={needsModule}>
                 <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                  Module
+                  Module{!needsModule && " (optional)"}
                 </FormLabel>
                 <Select
                   size="sm"
@@ -153,7 +162,7 @@ const UseBankQuestionModal = ({ isOpen, onClose, questionIds = [], initialCourse
                   onChange={(e) => setModuleId(e.target.value)}
                   isDisabled={!courseId}
                 >
-                  <option value="">Select a module</option>
+                  <option value="">{needsModule ? "Select a module" : "Whole course (no module)"}</option>
                   {modules.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.title}

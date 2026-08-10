@@ -174,6 +174,19 @@ const BatchUploadPage = () => {
   const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
   const setPendingEdit = useAssessmentStore((s) => s.setPendingEdit);
 
+  // contextLabel(context) only ever resolves via `examinationId`/`standalone`
+  // on `context` — but the createTarget flow (nothing real exists yet) never
+  // carries an `examinationId` at all, for ANY kind, so it always fell back
+  // to "Assessment" even for a Course Exam/course-level Exam. Read the
+  // actual kind straight from `pendingCreate` for this pre-creation case.
+  const displayLabel = context.createTarget
+    ? pendingCreate?.kind === "Assessment"
+      ? "Assessment"
+      : pendingCreate?.kind === "StandaloneExam"
+        ? "Standalone Examination"
+        : "Examination"
+    : contextLabel(context);
+
   const [defaultDifficulty, setDefaultDifficulty] = useState("");
   const [file, setFile] = useState(null);
   const [mediaZip, setMediaZip] = useState(null);
@@ -475,6 +488,11 @@ const BatchUploadPage = () => {
           courseId: context.courseId,
           examinationId: isAssessment ? undefined : realId,
           assessmentId: isAssessment ? realId : undefined,
+          // Sourced from the pending body (not `context`, which never
+          // carried it either) — needed downstream so the final
+          // questions-listing redirect can tell "ModuleExam" apart from a
+          // plain course-level "Exam" (see getUploadContext's own comment).
+          moduleId: isAssessment ? undefined : body.moduleId,
           standalone: false,
           section: context.section,
         };
@@ -504,7 +522,21 @@ const BatchUploadPage = () => {
         // existing scoping (course-level "Exam" has no paper-config channel
         // wired up at all).
         if (kind === "ModuleExam" && realId && paperConfigBody) {
-          await updateExamPaperConfig(realId, paperConfigBody).catch((err) => {
+          // Confirmed via a real backend test (same rule
+          // QuestionsStandalone.jsx's own toApiPaperConfigBody already
+          // follows, and QuestionsPage.jsx's own updateExamPaperConfig calls
+          // now follow too): this PUT rejects `configuredSections` outright
+          // for a sectioned/hybrid exam — its own `sections` field on the
+          // create call above (toBatchUploadSections) is the only channel
+          // that accepts them, so it's already covered without this. Strip
+          // it here so the rest of this payload (navigationMode/
+          // randomization/uiSettings/timeLimitMinutes) still saves instead
+          // of the whole PUT failing over one rejected field.
+          const isSectionedOrHybrid = body.examType === "sectioned" || body.examType === "hybrid";
+          await updateExamPaperConfig(
+            realId,
+            isSectionedOrHybrid ? { ...paperConfigBody, configuredSections: undefined } : paperConfigBody,
+          ).catch((err) => {
             toast({
               title: "Sections were created but couldn't be saved to the exam's paper config — the Question Listing page won't group by section.",
               description: err?.response?.data?.message || err?.message,
@@ -719,7 +751,7 @@ const BatchUploadPage = () => {
         />
 
         <Flex alignItems="center" justifyContent="space-between" mt="20px" mb="20px" flexWrap="wrap" gap="12px">
-          <Heading fontSize="20px" fontWeight="600">Batch Upload {contextLabel(context)} Questions</Heading>
+          <Heading fontSize="20px" fontWeight="600">Batch Upload {displayLabel} Questions</Heading>
           <Button secondary size="sm" onClick={() => history.goBack()}>← Back</Button>
         </Flex>
 

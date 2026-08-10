@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
@@ -21,11 +21,14 @@ import {
   TagCloseButton,
   Wrap,
   WrapItem,
+  Badge,
+  Switch,
+  IconButton,
 } from "@chakra-ui/react";
-import { FaArrowLeft, FaPlus } from "react-icons/fa";
+import { FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
 import { Breadcrumb, Button, Heading, Input, Link, Select } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { adminCreateMarkingTemplate, listMarkingSchemes, getMarkingScheme } from "../../../services";
+import { adminCreateMarkingTemplate } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
 
 const ALL_QUESTION_TYPES = ["MCQ", "TrueFalse", "FillBlank", "Matching", "ShortAnswer", "Essay"];
@@ -48,49 +51,177 @@ const USAGE_SCOPE_OPTIONS = [
   { label: "Standalone Exam", value: "Standalone Exam" },
 ];
 
-const SECTION_TYPE_OPTIONS = [
-  { label: "Objective", value: "objective" },
-  { label: "Essay", value: "essay" },
-  { label: "Mixed", value: "mixed" },
-];
-
-const MARKING_TYPE_LOCK_OPTIONS = [
-  { label: "Automatic", value: "automatic" },
-  { label: "Manual", value: "manual" },
-  { label: "Hybrid", value: "hybrid" },
-];
-
-const defaultSection = () => ({
-  name: "",
-  type: "objective",
-  questionCount: 1,
-  marksPerQuestion: 1,
-  markingSchemeId: "",
-  questionTypeLock: "",
-  markingTypeLock: "",
-});
-
-const OBJECTIVE_RULE_TYPES = ["mcq", "true_false", "fill_in_the_blank"];
-
-// A section's per-question weightage is sourced from its linked Marking Scheme's
-// question-type rule (essay sections use the rule's total_marks) rather than typed
-// in manually, once a scheme is selected.
-const getSchemeWeightage = (scheme, sectionType) => {
-  if (!scheme) return null;
-  const rules = Array.isArray(scheme.questionTypeRules) ? scheme.questionTypeRules : [];
-  if (sectionType === "essay") {
-    const rule = rules.find((r) => r.type === "essay");
-    return rule?.total_marks ?? null;
-  }
-  const rule = rules.find((r) => OBJECTIVE_RULE_TYPES.includes(r.type));
-  return rule?.marks_per_question ?? null;
-};
-
 const defaultTypeConfig = () => ({
   quantity: 5,
   marks: 5,
   difficulty: "Medium",
 });
+
+const DEFAULT_GRADING_SCALE = [
+  { grade: "A", range: "90-100" },
+  { grade: "B", range: "80-89" },
+  { grade: "C", range: "70-79" },
+  { grade: "D", range: "60-69" },
+  { grade: "F", range: "0-59" },
+];
+
+const QUESTION_TYPE_RULE_OPTIONS = [
+  { label: "Mcq", value: "mcq" },
+  { label: "True False", value: "true_false" },
+  { label: "Fill In The Blank", value: "fill_in_the_blank" },
+  { label: "Essay", value: "essay" },
+];
+
+const isObjectiveRuleType = (type) =>
+  type === "mcq" || type === "true_false" || type === "fill_in_the_blank";
+
+const defaultRuleCriterion = () => ({ criterion: "", maxMarks: "", description: "" });
+
+const defaultQuestionRule = () => ({
+  type: "mcq",
+  marksPerQuestion: "",
+  negativeMarking: "",
+  partialCredit: false,
+  totalMarks: "",
+  rubric: [defaultRuleCriterion()],
+});
+
+const QuestionRuleCard = ({
+  rule,
+  ruleIndex,
+  onFieldChange,
+  onCriterionChange,
+  onAddCriterion,
+  onRemoveCriterion,
+  onRemoveRule,
+  showRemove,
+}) => (
+  <Box border="1px solid #EDF2F7" borderRadius="8px" p="16px" mb="12px">
+    <Flex justifyContent="space-between" alignItems="center" mb="14px">
+      <Badge colorScheme="purple" fontSize="11px" px="8px" py="3px">
+        Rule {ruleIndex + 1}
+      </Badge>
+      {showRemove && (
+        <IconButton
+          icon={<FaTrash />}
+          size="sm"
+          variant="ghost"
+          colorScheme="red"
+          aria-label="Remove rule"
+          onClick={() => onRemoveRule(ruleIndex)}
+        />
+      )}
+    </Flex>
+
+    <Box mb="12px">
+      <Text fontSize="13px" fontWeight="600" color="#1A202C" mb="4px">
+        Question Type *
+      </Text>
+      <Select
+        id={`ruleType-${ruleIndex}`}
+        options={QUESTION_TYPE_RULE_OPTIONS}
+        value={rule.type}
+        onChange={(e) => onFieldChange(ruleIndex, "type", e.target.value)}
+      />
+    </Box>
+
+    {isObjectiveRuleType(rule.type) ? (
+      <>
+        <Grid templateColumns="1fr 1fr" gap="14px" mb="12px">
+          <Box>
+            <Text fontSize="13px" fontWeight="600" color="#1A202C" mb="4px">
+              Marks per Question *
+            </Text>
+            <NumberInput
+              min={0}
+              value={rule.marksPerQuestion}
+              onChange={(v) => onFieldChange(ruleIndex, "marksPerQuestion", v)}
+            >
+              <NumberInputField placeholder="e.g. 2" />
+            </NumberInput>
+          </Box>
+          <Box>
+            <Text fontSize="13px" fontWeight="600" color="#1A202C" mb="4px">
+              Negative Marking
+            </Text>
+            <NumberInput
+              min={0}
+              value={rule.negativeMarking}
+              onChange={(v) => onFieldChange(ruleIndex, "negativeMarking", v)}
+            >
+              <NumberInputField placeholder="e.g. 0.5" />
+            </NumberInput>
+          </Box>
+        </Grid>
+        <Flex alignItems="center" gap="10px">
+          <Switch
+            size="sm"
+            isChecked={rule.partialCredit}
+            colorScheme="purple"
+            onChange={(e) => onFieldChange(ruleIndex, "partialCredit", e.target.checked)}
+          />
+          <Text fontSize="13px" fontWeight="500">Partial Credit</Text>
+        </Flex>
+      </>
+    ) : (
+      <>
+        <Box mb="14px">
+          <Text fontSize="13px" fontWeight="600" color="#1A202C" mb="4px">
+            Total Marks *
+          </Text>
+          <NumberInput
+            min={0}
+            value={rule.totalMarks}
+            onChange={(v) => onFieldChange(ruleIndex, "totalMarks", v)}
+          >
+            <NumberInputField placeholder="e.g. 20" />
+          </NumberInput>
+        </Box>
+
+        <Divider mb="12px" />
+
+        <Flex justifyContent="space-between" alignItems="center" mb="10px">
+          <Text fontSize="13px" fontWeight="600">Rubric Criteria</Text>
+          <Button size="sm" ghost onClick={() => onAddCriterion(ruleIndex)} type="button">
+            <Flex alignItems="center" gap="6px"><FaPlus size="11px" /> Add Criterion</Flex>
+          </Button>
+        </Flex>
+
+        {rule.rubric.map((c, cIdx) => (
+          <Grid key={cIdx} templateColumns="2fr 1fr 2fr auto" gap="10px" alignItems="center" mb="8px">
+            <Input
+              placeholder="e.g. Argumentation"
+              value={c.criterion}
+              onChange={(e) => onCriterionChange(ruleIndex, cIdx, "criterion", e.target.value)}
+            />
+            <NumberInput
+              min={0}
+              value={c.maxMarks}
+              onChange={(v) => onCriterionChange(ruleIndex, cIdx, "maxMarks", v)}
+            >
+              <NumberInputField placeholder="0" />
+            </NumberInput>
+            <Input
+              placeholder="Optional description"
+              value={c.description}
+              onChange={(e) => onCriterionChange(ruleIndex, cIdx, "description", e.target.value)}
+            />
+            {rule.rubric.length > 1 && (
+              <IconButton
+                icon={<FaTrash />}
+                size="sm"
+                variant="ghost"
+                colorScheme="red"
+                aria-label="Remove criterion"
+                onClick={() => onRemoveCriterion(ruleIndex, cIdx)}
+              />
+            )}
+          </Grid>
+        ))}
+      </>
+    )}
+  </Box>
+);
 
 export const CreateExamTemplatePage = () => {
   const history = useHistory();
@@ -104,43 +235,11 @@ export const CreateExamTemplatePage = () => {
   const [kpInput, setKpInput] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [retryPolicy, setRetryPolicy] = useState("highest");
-  const [sections, setSections] = useState([]);
+  const [passThreshold, setPassThreshold] = useState(60);
+  const [gradingScale, setGradingScale] = useState(DEFAULT_GRADING_SCALE);
+  const [questionTypeRulesEnabled, setQuestionTypeRulesEnabled] = useState(false);
+  const [questionTypeRules, setQuestionTypeRules] = useState([defaultQuestionRule()]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [markingSchemes, setMarkingSchemes] = useState([]);
-  const [schemeDetailsById, setSchemeDetailsById] = useState({});
-
-  useEffect(() => {
-    listMarkingSchemes({})
-      .then((res) => setMarkingSchemes(res?.data || res?.schemes || []))
-      .catch(() => setMarkingSchemes([]));
-  }, []);
-
-  const addSection = () => setSections((p) => [...p, defaultSection()]);
-  const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
-  const updateSection = (i, field, value) =>
-    setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
-
-  const handleSectionSchemeChange = async (i, schemeId) => {
-    updateSection(i, "markingSchemeId", schemeId);
-    if (!schemeId) return;
-
-    let scheme = schemeDetailsById[schemeId];
-    if (!scheme) {
-      try {
-        const res = await getMarkingScheme(schemeId);
-        scheme = res?.data || res?.scheme || res;
-        setSchemeDetailsById((prev) => ({ ...prev, [schemeId]: scheme }));
-      } catch {
-        return;
-      }
-    }
-
-    const sectionType = sections[i]?.type;
-    const weightage = getSchemeWeightage(scheme, sectionType);
-    if (weightage != null) {
-      updateSection(i, "marksPerQuestion", weightage);
-    }
-  };
 
   const handleTypeToggle = (types) => {
     setSelectedTypes(types);
@@ -172,6 +271,55 @@ export const CreateExamTemplatePage = () => {
     setKnowledgePoints((prev) => prev.filter((p) => p !== point));
   };
 
+  const updateGradingScale = (idx, field, value) => {
+    setGradingScale((prev) => prev.map((s, i) => (i === idx ? { ...s, [field]: value } : s)));
+  };
+
+  const handleRuleFieldChange = (ruleIndex, field, value) => {
+    setQuestionTypeRules((prev) =>
+      prev.map((r, i) => {
+        if (i !== ruleIndex) return r;
+        const updated = { ...r, [field]: value };
+        if (field === "type") {
+          updated.marksPerQuestion = "";
+          updated.negativeMarking = "";
+          updated.partialCredit = false;
+          updated.totalMarks = "";
+          updated.rubric = [defaultRuleCriterion()];
+        }
+        return updated;
+      }),
+    );
+  };
+
+  const handleAddRule = () => setQuestionTypeRules((prev) => [...prev, defaultQuestionRule()]);
+  const handleRemoveRule = (ruleIndex) =>
+    setQuestionTypeRules((prev) => prev.filter((_, i) => i !== ruleIndex));
+
+  const handleCriterionChange = (ruleIndex, cIdx, field, value) => {
+    setQuestionTypeRules((prev) =>
+      prev.map((r, i) =>
+        i === ruleIndex
+          ? { ...r, rubric: r.rubric.map((c, ci) => (ci === cIdx ? { ...c, [field]: value } : c)) }
+          : r,
+      ),
+    );
+  };
+
+  const handleAddCriterion = (ruleIndex) => {
+    setQuestionTypeRules((prev) =>
+      prev.map((r, i) => (i === ruleIndex ? { ...r, rubric: [...r.rubric, defaultRuleCriterion()] } : r)),
+    );
+  };
+
+  const handleRemoveCriterion = (ruleIndex, cIdx) => {
+    setQuestionTypeRules((prev) =>
+      prev.map((r, i) =>
+        i === ruleIndex ? { ...r, rubric: r.rubric.filter((_, ci) => ci !== cIdx) } : r,
+      ),
+    );
+  };
+
   const totalMarks = selectedTypes.reduce(
     (sum, t) => sum + Number(typeConfigs[t]?.marks || 0),
     0,
@@ -195,6 +343,10 @@ export const CreateExamTemplatePage = () => {
       toast({ description: "Select at least one question type.", position: "top", status: "warning" });
       return;
     }
+    if (passThreshold === "" || Number(passThreshold) < 0 || Number(passThreshold) > 100) {
+      toast({ description: "Pass threshold must be between 0 and 100.", position: "top", status: "warning" });
+      return;
+    }
 
     const questionQuantity = {};
     const markDistribution = {};
@@ -204,6 +356,30 @@ export const CreateExamTemplatePage = () => {
       markDistribution[t] = Number(typeConfigs[t]?.marks || 0);
       difficultyLevel[t] = typeConfigs[t]?.difficulty || "Medium";
     });
+
+    const gradingScaleObj = {};
+    gradingScale.forEach((s) => {
+      if (s.grade && s.range) gradingScaleObj[s.grade] = s.range;
+    });
+
+    const questionTypeRulesPayload = questionTypeRulesEnabled
+      ? questionTypeRules.map((r) => {
+          const base = { type: r.type };
+          if (isObjectiveRuleType(r.type)) {
+            base.marksPerQuestion = Number(r.marksPerQuestion) || 0;
+            base.negativeMarking = r.negativeMarking !== "" ? Number(r.negativeMarking) : 0;
+            base.partialCredit = Boolean(r.partialCredit);
+          } else {
+            base.totalMarks = Number(r.totalMarks) || 0;
+            base.rubric = r.rubric.map((c) => ({
+              criterion: c.criterion,
+              maxMarks: Number(c.maxMarks) || 0,
+              description: c.description || "",
+            }));
+          }
+          return base;
+        })
+      : [];
 
     const body = {
       markingTemplateName,
@@ -216,17 +392,9 @@ export const CreateExamTemplatePage = () => {
       totalMarks,
       retryCount: Number(retryCount),
       retryPolicy,
-      ...(sections.length > 0 && {
-        sections: sections.map((s) => ({
-          name: s.name,
-          type: s.type,
-          questionCount: Number(s.questionCount),
-          marksPerQuestion: Number(s.marksPerQuestion),
-          ...(s.markingSchemeId && { markingSchemeId: s.markingSchemeId }),
-          ...(s.questionTypeLock && { questionType: s.questionTypeLock }),
-          ...(s.markingTypeLock && { markingType: s.markingTypeLock }),
-        })),
-      }),
+      passThreshold: Number(passThreshold) || 0,
+      gradingScale: gradingScaleObj,
+      questionTypeRules: questionTypeRulesPayload,
     };
 
     setIsSubmitting(true);
@@ -398,128 +566,42 @@ export const CreateExamTemplatePage = () => {
             )}
           </Box>
 
-          {/* Paper Sections */}
+          {/* Question Type Rules */}
           <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
-            <Flex justifyContent="space-between" alignItems="center" mb="16px">
-              <Text fontSize="16px" fontWeight="600" color="#1A202C">Paper Sections</Text>
-              <Button ghost onClick={addSection} type="button">
-                <Flex alignItems="center" gap="6px"><FaPlus size="11px" /> Add Section</Flex>
-              </Button>
+            <Flex justifyContent="space-between" alignItems="center" mb={questionTypeRulesEnabled ? "16px" : "0"}>
+              <Flex alignItems="center" gap="10px">
+                <Switch
+                  isChecked={questionTypeRulesEnabled}
+                  colorScheme="purple"
+                  onChange={(e) => setQuestionTypeRulesEnabled(e.target.checked)}
+                />
+                <Text fontSize="16px" fontWeight="600" color="#1A202C">Question Type Rules</Text>
+              </Flex>
+              {questionTypeRulesEnabled && (
+                <Button
+                  onClick={handleAddRule}
+                  type="button"
+                  style={{ backgroundColor: "#6b006b", color: "white" }}
+                >
+                  <Flex alignItems="center" gap="6px"><FaPlus size="11px" /> Add Rule</Flex>
+                </Button>
+              )}
             </Flex>
 
-            {sections.length === 0 ? (
-              <Box bg="#F7F9FC" borderRadius="8px" p="20px" textAlign="center">
-                <Text fontSize="13px" color="#A0AEC0">No sections added — the paper will be unsectioned.</Text>
-              </Box>
-            ) : (
-              <>
-                <Grid templateColumns="1.6fr 1fr 1.4fr 1fr 1fr auto" gap="10px" mb="8px">
-                  {["NAME", "TYPE", "MARKING SCHEME", "QUESTIONS", "MARKS/Q", ""].map((h) => (
-                    <Text key={h} fontSize="11px" fontWeight="600" color="#718096">{h}</Text>
-                  ))}
-                </Grid>
-                {sections.map((s, i) => (
-                  <Box key={i} border="1px solid #EDF2F7" borderRadius="8px" p="10px" mb="10px">
-                    <Grid templateColumns="1.6fr 1fr 1.4fr 1fr 1fr auto" gap="10px" alignItems="center" mb="8px">
-                      <input
-                        value={s.name}
-                        onChange={(e) => updateSection(i, "name", e.target.value)}
-                        placeholder="e.g. Section A"
-                        style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 10px", fontSize: 13, width: "100%" }}
-                      />
-                      <select
-                        value={s.type}
-                        onChange={(e) => updateSection(i, "type", e.target.value)}
-                        style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 6px", fontSize: 13, width: "100%" }}
-                      >
-                        {SECTION_TYPE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                      <select
-                        value={s.markingSchemeId}
-                        onChange={(e) => handleSectionSchemeChange(i, e.target.value)}
-                        style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "8px 6px", fontSize: 13, width: "100%" }}
-                      >
-                        <option value="">No scheme</option>
-                        {markingSchemes.map((scheme) => (
-                          <option key={scheme._id || scheme.id} value={scheme._id || scheme.id}>
-                            {scheme.name}
-                          </option>
-                        ))}
-                      </select>
-                      <NumberInput
-                        min={1}
-                        value={s.questionCount}
-                        onChange={(v) => updateSection(i, "questionCount", v)}
-                      >
-                        <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
-                        <NumberInputStepper>
-                          <NumberIncrementStepper />
-                          <NumberDecrementStepper />
-                        </NumberInputStepper>
-                      </NumberInput>
-                      <NumberInput
-                        min={0}
-                        value={s.marksPerQuestion}
-                        onChange={(v) => updateSection(i, "marksPerQuestion", v)}
-                      >
-                        <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
-                        <NumberInputStepper>
-                          <NumberIncrementStepper />
-                          <NumberDecrementStepper />
-                        </NumberInputStepper>
-                      </NumberInput>
-                      <Box
-                        as="button"
-                        type="button"
-                        onClick={() => removeSection(i)}
-                        color="red.400"
-                        fontWeight="600"
-                        fontSize="18px"
-                        lineHeight="1"
-                        px={1}
-                        _hover={{ color: "red.600" }}
-                      >
-                        ×
-                      </Box>
-                    </Grid>
-
-                    <Grid templateColumns="1fr 1fr" gap="10px" alignItems="center">
-                      <Box>
-                        <Text fontSize="10px" color="#A0AEC0" mb="2px">Lock Question Type (optional)</Text>
-                        <select
-                          value={s.questionTypeLock}
-                          onChange={(e) => updateSection(i, "questionTypeLock", e.target.value)}
-                          style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "6px", fontSize: 12, width: "100%" }}
-                        >
-                          <option value="">No lock</option>
-                          {ALL_QUESTION_TYPES.map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                          ))}
-                        </select>
-                      </Box>
-                      <Box>
-                        <Text fontSize="10px" color="#A0AEC0" mb="2px">Lock Marking Type (optional)</Text>
-                        <select
-                          value={s.markingTypeLock}
-                          onChange={(e) => updateSection(i, "markingTypeLock", e.target.value)}
-                          style={{ border: "1px solid #E2E8F0", borderRadius: 6, padding: "6px", fontSize: 12, width: "100%" }}
-                        >
-                          <option value="">No lock</option>
-                          {MARKING_TYPE_LOCK_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </select>
-                      </Box>
-                    </Grid>
-                  </Box>
-                ))}
-                <Text fontSize="11px" color="#A0AEC0" mt="2px">
-                  Selecting a marking scheme fills Marks/Q from that scheme's overall score for the section's question type — override if needed.
-                </Text>
-              </>
-            )}
+            {questionTypeRulesEnabled &&
+              questionTypeRules.map((rule, ruleIndex) => (
+                <QuestionRuleCard
+                  key={ruleIndex}
+                  rule={rule}
+                  ruleIndex={ruleIndex}
+                  onFieldChange={handleRuleFieldChange}
+                  onCriterionChange={handleCriterionChange}
+                  onAddCriterion={handleAddCriterion}
+                  onRemoveCriterion={handleRemoveCriterion}
+                  onRemoveRule={handleRemoveRule}
+                  showRemove={questionTypeRules.length > 1}
+                />
+              ))}
           </Box>
 
           {/* Knowledge Points */}
@@ -556,6 +638,30 @@ export const CreateExamTemplatePage = () => {
                 ))}
               </Wrap>
             )}
+          </Box>
+
+          {/* Grading Scale */}
+          <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
+            <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="16px">
+              Grading Scale
+            </Text>
+            <Grid templateColumns="80px 1fr" gap="8px" mb="8px">
+              <Text fontSize="12px" fontWeight="600" color="#718096">Grade</Text>
+              <Text fontSize="12px" fontWeight="600" color="#718096">Range (e.g. 90-100)</Text>
+            </Grid>
+            {gradingScale.map((s, i) => (
+              <Grid key={i} templateColumns="80px 1fr" gap="8px" mb="8px">
+                <Input
+                  value={s.grade}
+                  onChange={(e) => updateGradingScale(i, "grade", e.target.value)}
+                />
+                <Input
+                  value={s.range}
+                  onChange={(e) => updateGradingScale(i, "range", e.target.value)}
+                  placeholder="e.g. 90-100"
+                />
+              </Grid>
+            ))}
           </Box>
         </Box>
 
@@ -600,6 +706,32 @@ export const CreateExamTemplatePage = () => {
             </Box>
           </Box>
 
+          {/* Pass/Fail Threshold */}
+          <Box bg="white" borderRadius="8px" p="24px" shadow="sm" mb="20px">
+            <Text fontSize="15px" fontWeight="600" color="#1A202C" mb="16px">
+              Pass/Fail Threshold
+            </Text>
+            <Divider mb="16px" />
+            <Text fontSize="13px" fontWeight="500" color="#1A202C" mb="8px">
+              Pass Threshold (%)
+            </Text>
+            <NumberInput
+              min={0}
+              max={100}
+              value={passThreshold}
+              onChange={(v) => setPassThreshold(v)}
+            >
+              <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
+              <NumberInputStepper>
+                <NumberIncrementStepper />
+                <NumberDecrementStepper />
+              </NumberInputStepper>
+            </NumberInput>
+            <Text fontSize="11px" color="#A0AEC0" mt="4px">
+              Scores at or above {passThreshold || 0}% pass; below that, they fail.
+            </Text>
+          </Box>
+
           {/* Summary */}
           <Box bg="white" borderRadius="8px" p="24px" shadow="sm" mb="20px">
             <Text fontSize="15px" fontWeight="600" color="#1A202C" mb="16px">
@@ -618,9 +750,13 @@ export const CreateExamTemplatePage = () => {
               <Text fontSize="13px" color="#718096">Total Marks</Text>
               <Text fontSize="13px" fontWeight="700" color="#6b006b">{totalMarks}</Text>
             </Flex>
-            <Flex justifyContent="space-between">
+            <Flex justifyContent="space-between" mb="10px">
               <Text fontSize="13px" color="#718096">Retry Count</Text>
               <Text fontSize="13px" fontWeight="600" color="#1A202C">{retryCount}</Text>
+            </Flex>
+            <Flex justifyContent="space-between">
+              <Text fontSize="13px" color="#718096">Pass Threshold</Text>
+              <Text fontSize="13px" fontWeight="600" color="#1A202C">{passThreshold || 0}%</Text>
             </Flex>
           </Box>
 

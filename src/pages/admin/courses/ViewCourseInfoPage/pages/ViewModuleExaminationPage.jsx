@@ -166,7 +166,7 @@ const OverviewTab = ({ examination }) => {
 };
 
 /* ─── Questions tab ────────────────────────────────────── */
-const QuestionsTab = ({ courseId, examinationId }) => {
+const QuestionsTab = ({ courseId, moduleId, examinationId }) => {
   const history = useHistory();
   return (
     <Flex direction="column" alignItems="center" justifyContent="center" py="60px" gap={4}>
@@ -185,7 +185,12 @@ const QuestionsTab = ({ courseId, examinationId }) => {
       <Button
         onClick={() =>
           history.push(
-            `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examinationId}`
+            // moduleId is required here — QuestionsPage.jsx's realExamKind()
+            // reads it to tell "ModuleExam" apart from a plain course-level
+            // "Exam", and without it every section-config cache lookup
+            // misses, silently rendering as if the exam had no sections at
+            // all (missing Section tabs, no section grouping).
+            `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examinationId}&moduleId=${moduleId}`
           )
         }
       >
@@ -426,7 +431,7 @@ const ViewModuleExaminationPage = () => {
         {/* Tab content */}
         <Box p={activeTab === "grading" ? 0 : 6}>
           {activeTab === "overview" && <OverviewTab examination={examination} />}
-          {activeTab === "questions" && <QuestionsTab courseId={courseId} examinationId={examinationId} />}
+          {activeTab === "questions" && <QuestionsTab courseId={courseId} moduleId={moduleId} examinationId={examinationId} />}
           {activeTab === "grading" && <GradingTab examinationId={examinationId} />}
         </Box>
       </Box>

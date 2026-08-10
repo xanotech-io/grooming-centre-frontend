@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import { Box, Flex, Grid, Badge, Spinner, Progress } from "@chakra-ui/react";
-import { Heading, Text, Button } from "../../../components";
-import { getStudentOwnResult } from "../../../services";
+import { Heading, Text, Button, SubmissionCommentsSummary } from "../../../components";
+import { getStudentOwnResult, buildThreadKey, markViewed, getUnreadCount } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
+import { useApp } from "../../../contexts";
 import { FiCheck, FiX, FiClock, FiAward } from "react-icons/fi";
 import dayjs from "dayjs";
 
@@ -135,10 +136,14 @@ const ScoreRing = ({ score, grade }) => {
 const StudentResultPage = () => {
   const { courseId, assessmentId } = useParams();
   const { push } = useHistory();
+  const {
+    state: { user: viewer },
+  } = useApp();
 
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     getStudentOwnResult(assessmentId)
@@ -151,6 +156,14 @@ const StudentResultPage = () => {
         setLoading(false);
       });
   }, [assessmentId]);
+
+  useEffect(() => {
+    if (result && viewer?.id) {
+      const key = buildThreadKey("assessment", assessmentId, viewer.id);
+      setUnreadCount(getUnreadCount(key, viewer.id));
+      markViewed(key, viewer.id);
+    }
+  }, [result, viewer?.id, assessmentId]);
 
   if (loading) {
     return (
@@ -206,6 +219,21 @@ const StudentResultPage = () => {
         >
           ← Back to course
         </Box>
+
+        {unreadCount > 0 && (
+          <Box
+            bg="#F0E6FF"
+            border="1px solid #D6BCFA"
+            borderRadius="10px"
+            px={4}
+            py={3}
+            mb={5}
+          >
+            <Text fontSize="13px" fontWeight="600" color="#6b006b">
+              You have {unreadCount} new comment{unreadCount !== 1 ? "s" : ""} from your instructor.
+            </Text>
+          </Box>
+        )}
 
         {/* Hero card */}
         <Box
@@ -428,6 +456,16 @@ const StudentResultPage = () => {
               {result.remark}
             </Text>
           </Box>
+        )}
+
+        {/* Per-question comments */}
+        {viewer?.id && (
+          <SubmissionCommentsSummary
+            submissionId={buildThreadKey("assessment", assessmentId, viewer.id)}
+            viewerId={viewer.id}
+            viewerName={`${viewer.firstName ?? ""} ${viewer.lastName ?? ""}`.trim()}
+            viewerRole="student"
+          />
         )}
 
         {/* Actions */}

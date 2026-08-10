@@ -22,7 +22,7 @@ import {
   adminGetAllDepartmentSupervisors,
   auditTrailV2PostLog,
 } from "../../../services";
-import { useFetch, useIsSuperAdmin } from "../../../hooks";
+import { useFetch } from "../../../hooks";
 import { useCallback } from "react";
 
 const STATUS_OPTIONS = [
@@ -35,7 +35,6 @@ const CreateModulePage = () => {
   const isEditMode = moduleId && moduleId !== "new";
   const { push } = useHistory();
   const toast = useToast();
-  const isSuperAdmin = useIsSuperAdmin();
   const { handleDelete } = useCache();
 
   const {
@@ -64,11 +63,9 @@ const CreateModulePage = () => {
   }, [courseId]);
 
   useEffect(() => {
-    if (!isSuperAdmin) {
-      fetchSupervisors({ fetcher: supervisorFetcher });
-    }
+    fetchSupervisors({ fetcher: supervisorFetcher });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuperAdmin, fetchSupervisors, supervisorFetcher]);
+  }, [fetchSupervisors, supervisorFetcher]);
 
   const supervisors = Array.isArray(supervisorsResource.data) ? supervisorsResource.data : [];
   const supervisorOptions = supervisors
@@ -160,7 +157,7 @@ const CreateModulePage = () => {
           description: data.description,
           sequenceOrder: Number(data.sequenceOrder),
           status: data.status,
-          ...(!isSuperAdmin && { supervisor_id: data.supervisor_id }),
+          supervisor_id: data.supervisor_id,
         };
 
         await performEdit(body);
@@ -170,7 +167,7 @@ const CreateModulePage = () => {
           description: data.description,
           sequenceOrder: Number(data.sequenceOrder),
           status: "inactive",
-          ...(!isSuperAdmin && { supervisor_id: data.supervisor_id }),
+          supervisor_id: data.supervisor_id,
         };
 
         await performCreate(body);
@@ -276,22 +273,20 @@ const CreateModulePage = () => {
             />
           </GridItem>
 
-          {!isSuperAdmin && (
-            <GridItem colSpan={{ base: 1, md: 2 }}>
-              <Select
-                id="supervisor_id"
-                label="Supervisor"
-                placeholder="Select a supervisor"
-                options={supervisorOptions}
-                isLoading={supervisorsResource.loading}
-                isRequired
-                error={errors.supervisor_id?.message}
-                {...register("supervisor_id", {
-                  required: "Please select a supervisor",
-                })}
-              />
-            </GridItem>
-          )}
+          <GridItem colSpan={{ base: 1, md: 2 }}>
+            <Select
+              id="supervisor_id"
+              label="Supervisor"
+              placeholder="Select a supervisor"
+              options={supervisorOptions}
+              isLoading={supervisorsResource.loading}
+              isRequired
+              error={errors.supervisor_id?.message}
+              {...register("supervisor_id", {
+                required: "Please select a supervisor",
+              })}
+            />
+          </GridItem>
         </Grid>
       </CreatePageLayout>
     </>

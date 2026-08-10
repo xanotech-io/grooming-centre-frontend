@@ -1,23 +1,12 @@
-import { FiSettings } from "react-icons/fi";
+import { FiSettings, FiAward, FiArchive, FiBarChart2 } from "react-icons/fi";
 import { GiBookshelf } from "react-icons/gi";
-import { HiOutlineOfficeBuilding, HiUsers } from "react-icons/hi";
+import { HiUsers } from "react-icons/hi";
 import { RiDashboardLine } from "react-icons/ri";
 import { IoIosCalendar } from "react-icons/io";
-import { AiOutlineUsergroupDelete, AiOutlineAudit } from "react-icons/ai";
-import { VscLibrary } from "react-icons/vsc";
+import { AiOutlineAudit } from "react-icons/ai";
 import { TiPen } from "react-icons/ti";
-import { MdOutlineAnnouncement, MdAssessment } from "react-icons/md";
-import {
-  FaFolderOpen,
-  FaSitemap,
-  FaClone,
-} from "react-icons/fa";
-import {
-  FiAward,
-  FiMail,
-  FiArchive,
-  FiBarChart2,
-} from "react-icons/fi";
+import { MdAssessment } from "react-icons/md";
+import { FaSitemap } from "react-icons/fa";
 
 export const links = [
   {
@@ -32,104 +21,74 @@ export const links = [
     ],
   },
   {
-    href: "/admin/users?page=1&limit=10",
-    text: "users",
-    icon: <HiUsers />,
-  },
-  {
-    href: "/admin/courses?page=1&limit=10",
-    text: "courses",
-    icon: <GiBookshelf />,
-  },
-  {
-    href: "/admin/events",
-    text: "events",
-    icon: <IoIosCalendar />,
-  },
-  {
-    href: "/admin/standalone-exams",
-    text: "Standalone Exams",
-    icon: <TiPen />,
-  },
-  // {
-  //   href: "/admin/examination",
-  //   text: "Examination Result Analysis",
-  //   icon: <TiPen />,
-  // },
-  {
-    href: "/admin/polls",
-    text: "Polls",
-    icon: <TiPen />,
-  },
-  {
     text: "account",
     href: "/admin/settings/",
     icon: <FiSettings />,
   },
   {
-    href: "/admin/departments?page=1&limit=10",
-    text: "departments",
-    icon: <HiOutlineOfficeBuilding />,
+    text: "Users & Access",
+    icon: <HiUsers />,
+    links: [
+      { href: "/admin/users?page=1&limit=10", text: "users" },
+      { href: "/admin/departments?page=1&limit=10", text: "departments" },
+      // { href: "/admin/role", text: "roles" },
+      { href: "/admin/custom-fields", text: "Custom Fields" },
+      { href: "/admin/ip-policy", text: "IP Auth Policy" },
+      // { href: "/admin/audit", text: "user audit" },
+    ],
   },
   {
-    href: "/admin/role",
-    text: "roles",
-    icon: <AiOutlineUsergroupDelete />,
+    text: "Courses & Library",
+    icon: <GiBookshelf />,
+    links: [
+      { href: "/admin/courses?page=1&limit=10", text: "courses" },
+      { href: "/admin/bulk-courses", text: "Bulk Course Creation" },
+      { href: "/admin/course-materials", text: "Course Materials" },
+      { href: "/admin/library", text: "library" },
+      { href: "/admin/documents", text: "documents" },
+      { href: "/admin/question-import", text: "Question Upload" },
+    ],
   },
   {
-    href: "/admin/custom-fields",
-    text: "Custom Fields",
+    text: "Examinations & Grading",
     icon: <TiPen />,
+    links: [
+      { href: "/admin/standalone-exams", text: "Standalone Exams" },
+      { href: "/admin/polls", text: "Polls" },
+      { href: "/admin/examination-marking", text: "Exam Marking" },
+      { href: "/admin/manual-marking", text: "Manual Marking" },
+      { href: "/admin/marking-templates", text: "Marking Templates" },
+      { href: "/admin/marking-schemes", text: "Marking Schemes" },
+      { href: "/admin/grade-book", text: "Grade Book" },
+      { href: "/admin/grade-book-v2", text: "Advanced Grade Book" },
+      { href: "/admin/feedback-markup", text: "Feedback Markup" },
+      { href: "/admin/feedback-markup-review", text: "Inline Markup Review" },
+    ],
   },
   {
-    href: "/admin/ip-policy",
-    text: "IP Auth Policy",
-    icon: <FiSettings />,
+    text: "Certificates & Badges",
+    icon: <FiAward />,
+    links: [
+      { href: "/admin/certificates", text: "Certificate Upload" },
+      { href: "/admin/certificate-management", text: "Issued Certificates" },
+      { href: "/admin/badge-support", text: "Badge Support" },
+      { href: "/admin/user-documents", text: "Document Verification" },
+    ],
   },
   {
-    href: "/admin/library",
-    text: "library",
-    icon: <VscLibrary />,
+    text: "Communications & Events",
+    icon: <IoIosCalendar />,
+    links: [
+      { href: "/admin/events", text: "events" },
+      { href: "/admin/announcement", text: "announcements" },
+      { href: "/admin/reminders", text: "Email Reminders" },
+    ],
   },
-  {
-    href: "/admin/documents",
-    text: "documents",
-    icon: <FaFolderOpen />,
-  },
-  {
-    href: "/admin/announcement",
-    text: "announcements",
-    icon: <MdOutlineAnnouncement />,
-  },
-  {
-    href: "/admin/reminders",
-    text: "Email Reminders",
-    icon: <FiMail />,
-  },
-  {
-    href: "/admin/data-import-export",
-    text: "Data Import & Export",
-    icon: <FiArchive />,
-  },
-  {
-    href: "/admin/audit",
-    text: "user audit",
-    icon: <AiOutlineAudit />,
-  },
-  //  {
-  //   href: "/admin/report",
-  //   text: "Report",
-  //   icon: <AiOutlineAudit />,
-  // },
   {
     text: "Report",
     icon: <AiOutlineAudit />,
     href: "/admin/report/student-progress",
     links: [
-      // {
-      //   href: "/admin/report/studentReport",
-      //   text: "Student Report",
-      // },
       {
         href: "/admin/report/student-progress",
         text: "Student Progress Report",
@@ -151,13 +110,9 @@ export const links = [
         text: "Archived Reports",
       },
       // {
-      //   href: "/admin/report/compliance",
-      //   text: "Compliance & Security",
+      //   href: "/admin/report/instructorReport",
+      //   text: "Instructor Report",
       // },
-      {
-        href: "/admin/report/instructorReport",
-        text: "Instructor Report",
-      },
       {
         href: "/admin/report/instructor-performance",
         text: "Instructor Performance",
@@ -178,11 +133,10 @@ export const links = [
         href: "/admin/report/report-builder",
         text: "Report Builder",
       },
-        {
-    href: "/admin/examination",
-    text: "Examination Result Analysis",
-    icon: <TiPen />,
-  },
+      {
+        href: "/admin/examination",
+        text: "Examination Result Analysis",
+      },
       {
         href: "/admin/report/assessment-overview",
         text: "Assessment & Quiz Result Report",
@@ -242,10 +196,6 @@ export const links = [
         href: "/admin/compliance",
         text: "Compliance & Non-Compliance Training Monitor",
       },
-      // {
-      //   href: "/admin/export-reports",
-      //   text: "Export Reports",
-      // },
       {
         href: "/admin/report/enrollment-status",
         text: "Enrollment Status Report",
@@ -267,6 +217,11 @@ export const links = [
         text: "Performance Drill-Down",
       },
     ],
+  },
+  {
+    href: "/admin/data-import-export",
+    text: "Data Import & Export",
+    icon: <FiArchive />,
   },
   {
     href: "/admin/workflow",
@@ -312,101 +267,6 @@ export const links = [
     icon: <FaSitemap />,
     roles: ["super admin"],
   },
-  {
-    href: "/admin/examination-marking",
-    text: "Exam Marking",
-    icon: <TiPen />,
-  },
-  {
-    href: "/admin/marking-templates",
-    text: "Marking Templates",
-    icon: <TiPen />,
-  },
-  {
-    href: "/admin/marking-schemes",
-    text: "Marking Schemes",
-    icon: <TiPen />,
-  },
-  {
-    href: "/admin/feedback-markup",
-    text: "Feedback Markup",
-    icon: <TiPen />,
-  },
-  {
-    href: "/admin/feedback-markup-review",
-    text: "Inline Markup Review",
-    icon: <TiPen />,
-  },
-  {
-    href: "/admin/grade-book",
-    text: "Grade Book",
-    icon: <TiPen />,
-  },
-  {
-    href: "/admin/bulk-courses",
-    text: "Bulk Course Creation",
-    icon: <FaClone />,
-  },
-  {
-    href: "/admin/manual-marking",
-    text: "Manual Marking",
-    icon: <TiPen />,
-  },
-  {
-    href: "/admin/grade-book-v2",
-    text: "Advanced Grade Book",
-    icon: <TiPen />,
-  },
-  {
-    href: "/admin/certificates",
-    text: "Certificate Upload",
-    icon: <FiArchive />,
-  },
-  {
-    href: "/admin/certificate-management",
-    text: "Issued Certificates",
-    icon: <FiAward />,
-  },
-  {
-    href: "/admin/course-materials",
-    text: "Course Materials",
-    icon: <FaFolderOpen />,
-  },
-  {
-    href: "/admin/user-documents",
-    text: "Document Verification",
-    icon: <FaFolderOpen />,
-  },
-  // {
-  //   href: "/admin/report-export",
-  //   text: "Report Exports",
-  //   icon: <FaDownload />,
-  // },
-  {
-    href: "/admin/question-import",
-    text: "Question Upload",
-    icon: <TiPen />,
-  },
-  // {
-  //   href: "/admin/question-bank-templates",
-  //   text: "Question Bank Templates",
-  //   icon: <TiPen />,
-  // },
-  // {
-  //   href: "/admin/data-operations",
-  //   text: "Data Operations",
-  //   icon: <FaDatabase />,
-  // },
-  {
-    href: "/admin/badge-support",
-    text: "Badge Support",
-    icon: <FiAward />,
-  },
-  // {
-  //   href: "/admin/report/studentReport",
-  //   text: "Student Progress",
-  //   icon: <FiTrendingUp />,
-  // },
 ];
 
 export const superAdminSettingsLinks = [
