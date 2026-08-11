@@ -15,7 +15,11 @@ import {
 import { FaArrowLeft } from "react-icons/fa";
 import { Button, Heading, Input, Breadcrumb, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { gradeBookV2Setup, gradeBookV2Update, gradeBookV2GetById } from "../../../services";
+import {
+  gradeBookV2Setup,
+  gradeBookV2Update,
+  gradeBookV2GetById,
+} from "../../../services";
 
 const DEFAULT_SCALE = [
   { grade: "A", range: "90-100" },
