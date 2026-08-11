@@ -17,6 +17,11 @@ export const CongratsModalContent = ({
   contextText,
   score,
   isExamination,
+  resultPending,
+  attemptNumber,
+  attemptsRemaining,
+  canRetry,
+  onRetry,
 }) => (
   <Grid placeItems="center" minHeight="300px">
     <Heading as="h3">Congratulations</Heading>
@@ -34,11 +39,31 @@ export const CongratsModalContent = ({
         is completed
       </Text>
     </Flex>
-    <Text>Your score is {isExamination ? score : `${score}%`}</Text>
 
-    <Button sm link={redirectLink} ghost leftIcon={<AiOutlineLeft />}>
-      Back to course
-    </Button>
+    {attemptNumber != null && <Text color="accent.3">Attempt #{attemptNumber}</Text>}
+
+    {resultPending ? (
+      <Text>Your result is pending.</Text>
+    ) : (
+      <Text>Your score is {isExamination ? score : `${score}%`}</Text>
+    )}
+
+    {canRetry && (
+      <Text>
+        You have {attemptsRemaining} attempt{attemptsRemaining === 1 ? "" : "s"} remaining.
+      </Text>
+    )}
+
+    <Flex gap={3}>
+      {canRetry && onRetry && (
+        <Button sm onClick={onRetry}>
+          Retry
+        </Button>
+      )}
+      <Button sm link={redirectLink} ghost leftIcon={<AiOutlineLeft />}>
+        Back to course
+      </Button>
+    </Flex>
   </Grid>
 );
 

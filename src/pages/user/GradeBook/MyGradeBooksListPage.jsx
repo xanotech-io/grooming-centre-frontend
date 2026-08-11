@@ -63,7 +63,7 @@ const MyGradeBooksListPage = () => {
               // Fetch student's grades for this grade book
               let breakdown = null;
               try {
-                const res = await gradeBookV2GetMyGrades(gradeBook.id);
+                const res = await gradeBookV2GetMyGrades(gradeBook.id, courseId);
                 breakdown = res.breakdown;
               } catch {
                 // grades not yet available — still show the grade book
@@ -167,7 +167,11 @@ const MyGradeBooksListPage = () => {
                 borderRadius="12px"
                 overflow="hidden"
                 cursor="pointer"
-                onClick={() => history.push(`/grade-book/${gradeBook.id}`)}
+                onClick={() =>
+                  history.push(
+                    `/grade-book/${gradeBook.id}?courseId=${course.id || course._id}`,
+                  )
+                }
                 _hover={{ borderColor: "#6b006b", shadow: "md" }}
                 transition="all 0.15s"
               >

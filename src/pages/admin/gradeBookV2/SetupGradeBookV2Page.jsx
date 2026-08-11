@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import {
   Box,
@@ -6,7 +6,6 @@ import {
   Text,
   Grid,
   IconButton,
-  Spinner,
   Divider,
   useToast,
   Select as ChakraSelect,
@@ -16,8 +15,7 @@ import {
 import { FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
 import { Button, Heading, Input, Breadcrumb, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { useFetch } from "../../../hooks";
-import { adminGetCourseListing, gradeBookV2Setup, gradeBookV2Update, gradeBookV2GetById } from "../../../services";
+import { gradeBookV2Setup, gradeBookV2Update, gradeBookV2GetById } from "../../../services";
 
 const DEFAULT_SCALE = [
   { grade: "A", range: "90-100" },
@@ -41,23 +39,11 @@ const SetupGradeBookV2Page = () => {
   const isEdit = !!gradebookId;
 
   // Form state
-  const [courseId, setCourseId] = useState("");
   const [title, setTitle] = useState("");
   const [calculationMethod, setCalculationMethod] = useState("weighted");
   const [gradingScale, setGradingScale] = useState(DEFAULT_SCALE);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [saving, setSaving] = useState(false);
-
-  // Course listing
-  const { resource: coursesResource, handleFetchResource: fetchCourses } = useFetch();
-  const coursesFetcher = useCallback(async () => {
-    const { courses } = await adminGetCourseListing({ page: 1, limit: 100 });
-    return { courses };
-  }, []);
-
-  useEffect(() => {
-    fetchCourses({ fetcher: coursesFetcher });
-  }, [fetchCourses, coursesFetcher]);
 
   // Load existing grade book for edit
   useEffect(() => {
@@ -66,7 +52,6 @@ const SetupGradeBookV2Page = () => {
       try {
         const { gradeBook } = await gradeBookV2GetById(gradebookId);
         setTitle(gradeBook.title || "");
-        setCourseId(gradeBook.courseId || "");
         setCalculationMethod(gradeBook.calculationMethod || "weighted");
         if (gradeBook.gradingScale) {
           setGradingScale(
@@ -82,7 +67,6 @@ const SetupGradeBookV2Page = () => {
     })();
   }, [isEdit, gradebookId, toast]);
 
-  const courses = coursesResource.data?.courses ?? [];
   const totalWeight = categories.reduce((s, c) => s + (Number(c.weight) || 0), 0);
   const weightValid = totalWeight === 100;
 
@@ -103,10 +87,6 @@ const SetupGradeBookV2Page = () => {
   };
 
   const handleSubmit = async () => {
-    if (!courseId && !isEdit) {
-      toast({ title: "Please select a course", status: "warning", duration: 2000, isClosable: true });
-      return;
-    }
     if (!title.trim()) {
       toast({ title: "Title is required", status: "warning", duration: 2000, isClosable: true });
       return;
@@ -136,7 +116,6 @@ const SetupGradeBookV2Page = () => {
       gradingScale: scaleObj,
       categories: categories.map((c) => ({ name: c.name.trim(), weight: Number(c.weight) })),
     };
-    if (!isEdit) payload.courseId = courseId;
 
     setSaving(true);
     try {
@@ -191,29 +170,6 @@ const SetupGradeBookV2Page = () => {
         <Box>
           <Box bg="white" borderRadius="8px" border="1px solid #E2E8F0" p="24px" mb="20px">
             <Text fontSize="15px" fontWeight="600" color="gray.700" mb="16px">Basic Information</Text>
-
-            {!isEdit && (
-              <Box mb="16px">
-                <Text fontSize="13px" fontWeight="600" color="gray.600" mb="6px">Course *</Text>
-                {coursesResource.loading ? (
-                  <Spinner size="sm" />
-                ) : (
-                  <ChakraSelect
-                    value={courseId}
-                    onChange={(e) => setCourseId(e.target.value)}
-                    placeholder="Select course..."
-                    size="sm"
-                    borderRadius="6px"
-                  >
-                    {courses.map((c) => (
-                      <option key={c.id || c._id} value={c.id || c._id}>
-                        {c.title || c.name}
-                      </option>
-                    ))}
-                  </ChakraSelect>
-                )}
-              </Box>
-            )}
 
             <Box mb="16px">
               <Text fontSize="13px" fontWeight="600" color="gray.600" mb="6px">Title *</Text>
