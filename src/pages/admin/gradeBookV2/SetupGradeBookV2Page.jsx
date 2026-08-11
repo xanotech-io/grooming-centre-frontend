@@ -29,7 +29,7 @@ const DEFAULT_CATEGORIES = [
   { name: "Exams", weight: 40 },
   { name: "Assignments", weight: 30 },
   { name: "Projects", weight: 20 },
-  { name: "Participation", weight: 10 },
+  { name: "Attendance", weight: 10 },
 ];
 
 const SetupGradeBookV2Page = () => {
@@ -73,6 +73,10 @@ const SetupGradeBookV2Page = () => {
 
   const updateScale = (idx, field, value) => {
     setGradingScale((prev) => prev.map((s, i) => (i === idx ? { ...s, [field]: value } : s)));
+  };
+
+  const updateCategoryWeight = (idx, value) => {
+    setCategories((prev) => prev.map((c, i) => (i === idx ? { ...c, weight: value } : c)));
   };
 
   const handleSubmit = async () => {
@@ -226,7 +230,20 @@ const SetupGradeBookV2Page = () => {
               {categories.map((cat, i) => (
                 <Flex key={i} justifyContent="space-between" alignItems="center" py="8px" borderBottom="1px solid #F7FAFC">
                   <Text fontSize="14px" color="gray.700">{cat.name}</Text>
-                  <Text fontSize="14px" fontWeight="600" color="gray.700">{cat.weight}%</Text>
+                  <Flex alignItems="center" gap="4px">
+                    <ChakraInput
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={cat.weight}
+                      onChange={(e) => updateCategoryWeight(i, e.target.value)}
+                      size="sm"
+                      borderRadius="6px"
+                      w="80px"
+                      textAlign="right"
+                    />
+                    <Text fontSize="14px" color="gray.500">%</Text>
+                  </Flex>
                 </Flex>
               ))}
 
