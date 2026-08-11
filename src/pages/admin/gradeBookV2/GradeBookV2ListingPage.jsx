@@ -4,7 +4,6 @@ import {
   Box,
   Flex,
   Text,
-  Grid,
   Table,
   Thead,
   Tbody,
@@ -18,7 +17,7 @@ import {
   useToast,
   BreadcrumbItem,
 } from "@chakra-ui/react";
-import { FaPlus, FaSearch, FaBook } from "react-icons/fa";
+import { FaPlus, FaSearch } from "react-icons/fa";
 import { Button, Heading, Breadcrumb, Link, EntityCombobox } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
@@ -262,86 +261,6 @@ const GradeBookV2ListingPage = () => {
             </Flex>
           </Flex>
         )}
-      </Box>
-
-      {/* Feature overview cards */}
-      <Grid
-        templateColumns={{
-          base: "1fr",
-          md: "repeat(2, 1fr)",
-          lg: "repeat(4, 1fr)",
-        }}
-        gap="16px"
-        mb="20px"
-      >
-        {[
-          {
-            label: "Weighted Grading",
-            desc: "Define category weights that must sum to 100%",
-            color: "#6b006b",
-            bg: "#F0E6FF",
-          },
-          {
-            label: "Score Entry",
-            desc: "Add, edit, and override student scores per category",
-            color: "#3182CE",
-            bg: "#EBF4FF",
-          },
-          {
-            label: "Analytics",
-            desc: "Class averages, grade distribution, pass rates",
-            color: "#38A169",
-            bg: "#E6F4EA",
-          },
-          {
-            label: "Audit Trail",
-            desc: "Full log of every change with before/after values",
-            color: "#DD6B20",
-            bg: "#FFF5EA",
-          },
-        ].map((f) => (
-          <Box key={f.label} bg={f.bg} borderRadius="8px" p="20px">
-            <Text fontSize="15px" fontWeight="700" color={f.color} mb="6px">
-              {f.label}
-            </Text>
-            <Text fontSize="13px" color="gray.600">
-              {f.desc}
-            </Text>
-          </Box>
-        ))}
-      </Grid>
-
-      {/* Quick start CTA */}
-      <Box
-        bg="white"
-        border="1px solid #E2E8F0"
-        borderRadius="8px"
-        p="32px"
-        textAlign="center"
-      >
-        <Box
-          w="56px"
-          h="56px"
-          bg="#F0E6FF"
-          borderRadius="50%"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          mx="auto"
-          mb="16px"
-        >
-          <FaBook color="#6b006b" size="22px" />
-        </Box>
-        <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="8px">
-          Set Up a New Grade Book
-        </Text>
-        <Text fontSize="14px" color="gray.500" mb="20px" maxW="400px" mx="auto">
-          Define assessment categories with weights, a grading scale, and
-          calculation method, then attach it to one or more courses.
-        </Text>
-        <Button onClick={() => history.push("/admin/grade-book-v2/create")}>
-          Create Grade Book
-        </Button>
       </Box>
     </Box>
     </AdminMainAreaWrapper>
