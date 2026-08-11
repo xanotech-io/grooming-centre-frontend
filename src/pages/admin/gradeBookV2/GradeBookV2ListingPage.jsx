@@ -14,14 +14,32 @@ import {
   Badge,
   Spinner,
   Select,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  IconButton,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
+  useDisclosure,
   useToast,
   BreadcrumbItem,
 } from "@chakra-ui/react";
-import { FaPlus, FaSearch } from "react-icons/fa";
+import { FaPlus, FaSearch, FaEllipsisV, FaEye, FaArchive, FaBoxOpen } from "react-icons/fa";
 import { Button, Heading, Breadcrumb, Link, EntityCombobox } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
-import { adminGetCourseListing, gradeBookV2GetByCourse, gradeBookV2List } from "../../../services";
+import {
+  adminGetCourseListing,
+  gradeBookV2GetByCourse,
+  gradeBookV2List,
+  gradeBookV2Archive,
+  gradeBookV2Unarchive,
+} from "../../../services";
 
 const getStatusBadge = (status) => {
   const map = {
@@ -52,6 +70,10 @@ const GradeBookV2ListingPage = () => {
   const [searching, setSearching] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [archiveTarget, setArchiveTarget] = useState(null);
+  const [archiving, setArchiving] = useState(false);
+  const { isOpen: isArchiveOpen, onOpen: onArchiveOpen, onClose: onArchiveClose } = useDisclosure();
+  const archiveRef = React.useRef();
   const limit = 10;
 
   const { resource, handleFetchResource } = useFetch();
@@ -76,6 +98,33 @@ const GradeBookV2ListingPage = () => {
     const { courses } = await adminGetCourseListing({ search: query });
     return courses.map((c) => ({ id: c.id, label: c.title }));
   }, []);
+
+  const openArchiveConfirm = (g) => {
+    setArchiveTarget(g);
+    onArchiveOpen();
+  };
+
+  const handleArchiveToggle = async () => {
+    if (!archiveTarget) return;
+    const isArchived = archiveTarget.active === false;
+    onArchiveClose();
+    setArchiving(true);
+    try {
+      if (isArchived) {
+        await gradeBookV2Unarchive(archiveTarget.id);
+        toast({ title: "Grade book unarchived", status: "success", duration: 3000, isClosable: true });
+      } else {
+        await gradeBookV2Archive(archiveTarget.id);
+        toast({ title: "Grade book archived", status: "success", duration: 3000, isClosable: true });
+      }
+      handleFetchResource({ fetcher });
+    } catch (err) {
+      toast({ title: err?.response?.data?.message || "Action failed", status: "error", duration: 3000, isClosable: true });
+    } finally {
+      setArchiving(false);
+      setArchiveTarget(null);
+    }
+  };
 
   const handleSelectCourse = async (opt) => {
     setSelectedCourseId(opt?.id ?? "");
@@ -205,36 +254,70 @@ const GradeBookV2ListingPage = () => {
                   <Th py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">
                     Created By
                   </Th>
+                  <Th py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none" w="100px">
+                    Actions
+                  </Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {gradebooks.length === 0 && (
                   <Tr>
-                    <Td colSpan={4} py="30px" textAlign="center">
+                    <Td colSpan={5} py="30px" textAlign="center">
                       <Text color="gray.400" fontSize="14px">
                         No grade books found.
                       </Text>
                     </Td>
                   </Tr>
                 )}
-                {gradebooks.map((g) => (
-                  <Tr
-                    key={g.id}
-                    _hover={{ bg: "#F7FAFC", cursor: "pointer" }}
-                    onClick={() => history.push(`/admin/grade-book-v2/${g.id}`)}
-                  >
-                    <Td py="12px" fontSize="13px" fontWeight="500" color="gray.800">
-                      {g.title}
-                    </Td>
-                    <Td py="12px">{getStatusBadge(g.active === false ? "archived" : "active")}</Td>
-                    <Td py="12px" fontSize="13px" isNumeric>
-                      {g.courseCount ?? 0}
-                    </Td>
-                    <Td py="12px" fontSize="13px" color="gray.600">
-                      {g.creator ? `${g.creator.firstName || ""} ${g.creator.lastName || ""}`.trim() : "—"}
-                    </Td>
-                  </Tr>
-                ))}
+                {gradebooks.map((g) => {
+                  const isArchived = g.active === false;
+                  return (
+                    <Tr
+                      key={g.id}
+                      _hover={{ bg: "#F7FAFC", cursor: "pointer" }}
+                      onClick={() => history.push(`/admin/grade-book-v2/${g.id}`)}
+                    >
+                      <Td py="12px" fontSize="13px" fontWeight="500" color="gray.800">
+                        {g.title}
+                      </Td>
+                      <Td py="12px">{getStatusBadge(isArchived ? "archived" : "active")}</Td>
+                      <Td py="12px" fontSize="13px" isNumeric>
+                        {g.courseCount ?? 0}
+                      </Td>
+                      <Td py="12px" fontSize="13px" color="gray.600">
+                        {g.creator ? `${g.creator.firstName || ""} ${g.creator.lastName || ""}`.trim() : "—"}
+                      </Td>
+                      <Td py="12px" onClick={(e) => e.stopPropagation()}>
+                        <Menu placement="bottom-end">
+                          <MenuButton
+                            as={IconButton}
+                            aria-label="Actions"
+                            icon={<FaEllipsisV />}
+                            size="xs"
+                            variant="ghost"
+                            isLoading={archiving && archiveTarget?.id === g.id}
+                          />
+                          <MenuList minW="140px" shadow="md" zIndex={10}>
+                            <MenuItem
+                              icon={<FaEye />}
+                              fontSize="13px"
+                              onClick={() => history.push(`/admin/grade-book-v2/${g.id}`)}
+                            >
+                              View
+                            </MenuItem>
+                            <MenuItem
+                              icon={isArchived ? <FaBoxOpen /> : <FaArchive />}
+                              fontSize="13px"
+                              onClick={() => openArchiveConfirm(g)}
+                            >
+                              {isArchived ? "Unarchive" : "Archive"}
+                            </MenuItem>
+                          </MenuList>
+                        </Menu>
+                      </Td>
+                    </Tr>
+                  );
+                })}
               </Tbody>
             </Table>
           </TableContainer>
@@ -262,6 +345,27 @@ const GradeBookV2ListingPage = () => {
           </Flex>
         )}
       </Box>
+
+      <AlertDialog isOpen={isArchiveOpen} leastDestructiveRef={archiveRef} onClose={onArchiveClose} isCentered>
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="16px" fontWeight="600">
+              {archiveTarget?.active === false ? "Unarchive Grade Book?" : "Archive Grade Book?"}
+            </AlertDialogHeader>
+            <AlertDialogBody fontSize="14px" color="gray.600">
+              {archiveTarget?.active === false
+                ? "This grade book will become available to attach to new courses again."
+                : "Archived grade books can no longer be newly attached to a course, but courses already using it keep working normally."}
+            </AlertDialogBody>
+            <AlertDialogFooter gap="8px">
+              <Button secondary ref={archiveRef} onClick={onArchiveClose}>Cancel</Button>
+              <Button isLoading={archiving} onClick={handleArchiveToggle}>
+                {archiveTarget?.active === false ? "Unarchive" : "Archive"}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Box>
     </AdminMainAreaWrapper>
   );
