@@ -1857,6 +1857,16 @@ const CreateQuestionPage = ({
   // of opening the approval modal — only the latter button should ever
   // trigger a supervisor-approval submission.
   const addAnotherRef = useRef(false);
+  // Set by "Create and Submit" on a brand-new pending assessment/exam's
+  // question form (see the button below) alongside `addAnotherRef` — the
+  // approval modal's own createBoth/editBoth flow had issues at one point,
+  // so this button was changed to just navigate to the question listing
+  // instead of submitting at all, silently discarding whatever was on the
+  // form. Re-using the same "queue this question" path `addAnotherRef`
+  // already handles keeps that fix intact while this flag only changes
+  // where onSubmit navigates to afterward: the listing page (so the admin
+  // can review/submit from there) instead of another blank form.
+  const createAndSubmitRef = useRef(false);
   // Set by the "Create and Submit" button on the plain add-question page
   // (a new question on an already-real assessment/exam) — saves the
   // question as normal, then opens the same approval modal used elsewhere,
@@ -2463,6 +2473,19 @@ const CreateQuestionPage = ({
           // text (which risked getting resubmitted as a duplicate).
           questionRichTextManager.handleInitData(null);
           setBankApplyKey((k) => k + 1);
+          // "Create and Submit" queues this question just like "Add more
+          // questions" does, but always lands on the listing page afterward
+          // instead of offering another blank form.
+          if (createAndSubmitRef.current) {
+            createAndSubmitRef.current = false;
+            toast({
+              description: "Question added. It'll be created once you submit this for approval.",
+              position: "top",
+              status: "success",
+            });
+            goToQueuedListing();
+            return;
+          }
           // This question is safely queued either way — only decide here
           // whether there's room left to offer another blank form, so
           // hitting the limit never costs the question just filled out.
@@ -3246,21 +3269,17 @@ const CreateQuestionPage = ({
           </Button>
         )}
         <Button
-          type={isPendingCreation && !isEditingQueued ? "button" : "submit"}
+          type="submit"
           onClick={() => {
-            // "Create and Submit" here used to hand off to the
-            // WorkflowSubmitModal/createBoth approval flow, but that flow is
-            // broken — so this just navigates to the question list (same
-            // link "See All" uses) instead of trying to create anything.
+            // A brand-new pending assessment/exam's "Create and Submit"
+            // queues this question the same way "Add more questions" does
+            // (see the `addAnotherRef.current` branch in onSubmit), then
+            // lands on the question listing page instead of another blank
+            // form — it used to just navigate away without saving the
+            // current form's question at all, silently discarding it.
             if (isPendingCreation && !isEditingQueued) {
-              push(
-                `${getQuestionListingLink(
-                  courseId,
-                  assessmentId,
-                  isExamination,
-                  moduleId,
-                )}&submitForApproval=1`,
-              );
+              addAnotherRef.current = true;
+              createAndSubmitRef.current = true;
               return;
             }
             addAnotherRef.current = false;

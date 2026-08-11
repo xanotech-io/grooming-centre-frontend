@@ -5,7 +5,7 @@ import { FaArrowLeft } from "react-icons/fa";
 import { Button, Heading, Breadcrumb, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { adminCreateExamPaperConfigPreset, adminGetMarkingTemplates } from "../../../services";
-import { DEFAULT_PRESET_CONFIG, PresetFieldsEditor, buildPresetPayload } from "./PresetFieldsEditor";
+import { DEFAULT_PRESET_CONFIG, PresetFieldsEditor, buildPresetPayload, validatePresetSections } from "./PresetFieldsEditor";
 
 const CreateExamPaperConfigPresetPage = () => {
   const history = useHistory();
@@ -32,6 +32,11 @@ const CreateExamPaperConfigPresetPage = () => {
   const handleSubmit = async () => {
     if (!form.name.trim()) {
       toast({ title: "Name is required", status: "warning", duration: 2000, isClosable: true });
+      return;
+    }
+    const sectionsError = validatePresetSections(form.sections);
+    if (sectionsError) {
+      toast({ title: sectionsError, status: "warning", duration: 3000, isClosable: true });
       return;
     }
     setSaving(true);
