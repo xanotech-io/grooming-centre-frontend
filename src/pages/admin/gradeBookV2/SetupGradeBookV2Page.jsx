@@ -12,7 +12,7 @@ import {
   Input as ChakraInput,
   BreadcrumbItem,
 } from "@chakra-ui/react";
-import { FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
+import { FaArrowLeft } from "react-icons/fa";
 import { Button, Heading, Input, Breadcrumb, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { gradeBookV2Setup, gradeBookV2Update, gradeBookV2GetById } from "../../../services";
@@ -69,18 +69,7 @@ const SetupGradeBookV2Page = () => {
 
   const totalWeight = categories.reduce((s, c) => s + (Number(c.weight) || 0), 0);
   const weightValid = totalWeight === 100;
-
-  const updateCategory = (idx, field, value) => {
-    setCategories((prev) => prev.map((c, i) => (i === idx ? { ...c, [field]: value } : c)));
-  };
-
-  const removeCategory = (idx) => {
-    setCategories((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const addCategory = () => {
-    setCategories((prev) => [...prev, { name: "", weight: 0 }]);
-  };
+  const isWeighted = calculationMethod === "weighted";
 
   const updateScale = (idx, field, value) => {
     setGradingScale((prev) => prev.map((s, i) => (i === idx ? { ...s, [field]: value } : s)));
@@ -91,19 +80,8 @@ const SetupGradeBookV2Page = () => {
       toast({ title: "Title is required", status: "warning", duration: 2000, isClosable: true });
       return;
     }
-    if (!weightValid) {
+    if (isWeighted && !weightValid) {
       toast({ title: `Category weights must sum to 100 (currently ${totalWeight})`, status: "warning", duration: 3000, isClosable: true });
-      return;
-    }
-    const emptyCategories = categories.some((c) => !c.name.trim());
-    if (emptyCategories) {
-      toast({ title: "All categories must have a name", status: "warning", duration: 2000, isClosable: true });
-      return;
-    }
-    const names = categories.map((c) => c.name.trim().toLowerCase());
-    const hasDuplicates = names.length !== new Set(names).size;
-    if (hasDuplicates) {
-      toast({ title: "Category names must be unique", status: "warning", duration: 2000, isClosable: true });
       return;
     }
 
@@ -224,14 +202,14 @@ const SetupGradeBookV2Page = () => {
         </Box>
 
         {/* Right column: categories */}
-        <Box>
-          <Box bg="white" borderRadius="8px" border="1px solid #E2E8F0" p="24px">
-            <Flex justifyContent="space-between" alignItems="center" mb="16px">
-              <Box>
-                <Text fontSize="15px" fontWeight="600" color="gray.700">Assessment Categories</Text>
-                <Text fontSize="12px" color="gray.500" mt="2px">Weights must sum to exactly 100</Text>
-              </Box>
-              <Flex alignItems="center" gap="12px">
+        {isWeighted && (
+          <Box>
+            <Box bg="white" borderRadius="8px" border="1px solid #E2E8F0" p="24px">
+              <Flex justifyContent="space-between" alignItems="center" mb="16px">
+                <Box>
+                  <Text fontSize="15px" fontWeight="600" color="gray.700">Weighted Average Calculation</Text>
+                  <Text fontSize="12px" color="gray.500" mt="2px">Fixed category weights, summing to 100</Text>
+                </Box>
                 <Box
                   px="10px"
                   py="4px"
@@ -243,86 +221,49 @@ const SetupGradeBookV2Page = () => {
                 >
                   {totalWeight}/100
                 </Box>
-                <IconButton
-                  aria-label="Add category"
-                  icon={<FaPlus />}
-                  size="sm"
-                  colorScheme="purple"
-                  variant="ghost"
-                  onClick={addCategory}
-                />
               </Flex>
-            </Flex>
 
-            <Grid templateColumns="1fr 100px 40px" gap="8px" mb="8px">
-              <Text fontSize="12px" fontWeight="600" color="gray.500">Category Name</Text>
-              <Text fontSize="12px" fontWeight="600" color="gray.500">Weight (%)</Text>
-              <Box />
-            </Grid>
+              {categories.map((cat, i) => (
+                <Flex key={i} justifyContent="space-between" alignItems="center" py="8px" borderBottom="1px solid #F7FAFC">
+                  <Text fontSize="14px" color="gray.700">{cat.name}</Text>
+                  <Text fontSize="14px" fontWeight="600" color="gray.700">{cat.weight}%</Text>
+                </Flex>
+              ))}
 
-            {categories.map((cat, i) => (
-              <Grid key={i} templateColumns="1fr 100px 40px" gap="8px" mb="8px" alignItems="center">
-                <ChakraInput
-                  value={cat.name}
-                  onChange={(e) => updateCategory(i, "name", e.target.value)}
-                  size="sm"
-                  borderRadius="6px"
-                  placeholder="e.g. Exams"
-                />
-                <ChakraInput
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={cat.weight}
-                  onChange={(e) => updateCategory(i, "weight", e.target.value)}
-                  size="sm"
-                  borderRadius="6px"
-                />
-                <IconButton
-                  aria-label="Remove category"
-                  icon={<FaTrash />}
-                  size="xs"
-                  variant="ghost"
-                  colorScheme="red"
-                  onClick={() => removeCategory(i)}
-                  isDisabled={categories.length <= 1}
-                />
-              </Grid>
-            ))}
+              <Divider my="20px" />
 
-            <Divider my="20px" />
-
-            {/* Visual weight breakdown */}
-            <Text fontSize="12px" fontWeight="600" color="gray.500" mb="10px">Weight Distribution</Text>
-            <Flex gap="4px" borderRadius="6px" overflow="hidden" h="12px" mb="10px">
-              {categories.filter((c) => c.name && Number(c.weight) > 0).map((c, i) => {
-                const colors = ["#6b006b", "#3182CE", "#38A169", "#DD6B20", "#E53E3E", "#553C9A"];
-                return (
-                  <Box
-                    key={i}
-                    flex={Number(c.weight)}
-                    bg={colors[i % colors.length]}
-                    title={`${c.name}: ${c.weight}%`}
-                  />
-                );
-              })}
-              {totalWeight < 100 && (
-                <Box flex={100 - totalWeight} bg="#E2E8F0" />
-              )}
-            </Flex>
-            <Flex gap="16px" flexWrap="wrap">
-              {categories.filter((c) => c.name).map((c, i) => {
-                const colors = ["#6b006b", "#3182CE", "#38A169", "#DD6B20", "#E53E3E", "#553C9A"];
-                return (
-                  <Flex key={i} alignItems="center" gap="6px">
-                    <Box w="10px" h="10px" borderRadius="2px" bg={colors[i % colors.length]} flexShrink={0} />
-                    <Text fontSize="12px" color="gray.600">{c.name} ({c.weight}%)</Text>
-                  </Flex>
-                );
-              })}
-            </Flex>
+              {/* Visual weight breakdown */}
+              <Text fontSize="12px" fontWeight="600" color="gray.500" mb="10px">Weight Distribution</Text>
+              <Flex gap="4px" borderRadius="6px" overflow="hidden" h="12px" mb="10px">
+                {categories.filter((c) => c.name && Number(c.weight) > 0).map((c, i) => {
+                  const colors = ["#6b006b", "#3182CE", "#38A169", "#DD6B20", "#E53E3E", "#553C9A"];
+                  return (
+                    <Box
+                      key={i}
+                      flex={Number(c.weight)}
+                      bg={colors[i % colors.length]}
+                      title={`${c.name}: ${c.weight}%`}
+                    />
+                  );
+                })}
+                {totalWeight < 100 && (
+                  <Box flex={100 - totalWeight} bg="#E2E8F0" />
+                )}
+              </Flex>
+              <Flex gap="16px" flexWrap="wrap">
+                {categories.filter((c) => c.name).map((c, i) => {
+                  const colors = ["#6b006b", "#3182CE", "#38A169", "#DD6B20", "#E53E3E", "#553C9A"];
+                  return (
+                    <Flex key={i} alignItems="center" gap="6px">
+                      <Box w="10px" h="10px" borderRadius="2px" bg={colors[i % colors.length]} flexShrink={0} />
+                      <Text fontSize="12px" color="gray.600">{c.name} ({c.weight}%)</Text>
+                    </Flex>
+                  );
+                })}
+              </Flex>
+            </Box>
           </Box>
-        </Box>
+        )}
       </Grid>
 
       <Flex justifyContent="flex-end" gap="12px" mt="24px">

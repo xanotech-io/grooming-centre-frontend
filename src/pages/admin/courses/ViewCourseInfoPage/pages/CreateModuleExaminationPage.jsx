@@ -18,6 +18,7 @@ import {
   DateTimePicker,
   Input,
   Link,
+  Select,
   Text,
 } from "../../../../../components";
 import {
@@ -122,6 +123,7 @@ const CreateModuleExaminationPage = () => {
   const [isPublished, setIsPublished] = useState(false);
   const [addToBank, setAddToBank] = useState(false);
   const [loadingExam, setLoadingExam] = useState(false);
+  const [retryPolicy, setRetryPolicy] = useState("");
 
   // Number of Questions / Total Marks / Marking Template / Sections are no
   // longer edited on this shell — they moved to the Template / Marking
@@ -174,6 +176,8 @@ const CreateModuleExaminationPage = () => {
       .then(([{ examination: exam }, paperConfigRes]) => {
         setValue("title", exam.title);
         setValue("duration", exam.duration);
+        setValue("retryCount", exam.retryCount ?? 0);
+        setRetryPolicy(exam.retryPolicy || "");
         if (exam.startTime) startTimeManager.handleChange(new Date(exam.startTime));
         if (exam.endTime) endTimeManager.handleChange(new Date(exam.endTime));
         if (exam.markingTemplateId) setFetchedMarkingTemplateId(exam.markingTemplateId);
@@ -208,6 +212,11 @@ const CreateModuleExaminationPage = () => {
         startTimeManager.handleGetValueAndValidate("Start Time");
       const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
+      const retryCount = Number(data.retryCount) || 0;
+      if (retryCount > 0 && !retryPolicy) {
+        throw new Error("Please select a retry policy for retries above 0.");
+      }
+
       const body = {
         title: data.title,
         duration: Number(data.duration),
@@ -215,6 +224,8 @@ const CreateModuleExaminationPage = () => {
         endTime: formatDateToISO(endTime),
         courseId,
         moduleId,
+        retryCount,
+        ...(retryCount > 0 ? { retryPolicy } : {}),
         navigationMode,
         randomizationConfig: randomization,
         uiSettings: { ...uiSettings, font_size: Number(uiSettings.font_size) },
@@ -337,6 +348,30 @@ const CreateModuleExaminationPage = () => {
                     message: "Duration must be at least 1 minute",
                   },
                 })}
+              />
+            </Box>
+            <Box flex={1}>
+              <Input
+                label="Retry Attempts"
+                type="number"
+                placeholder="0"
+                error={errors.retryCount?.message}
+                {...register("retryCount", {
+                  min: { value: 0, message: "Retry attempts cannot be negative" },
+                })}
+              />
+            </Box>
+            <Box flex={1}>
+              <Select
+                label="Retry Policy"
+                placeholder="Select a retry policy"
+                value={retryPolicy}
+                onChange={(e) => setRetryPolicy(e.target.value)}
+                options={[
+                  { label: "Highest Score", value: "highest" },
+                  { label: "Latest Attempt", value: "latest" },
+                  { label: "Average Score", value: "average" },
+                ]}
               />
             </Box>
           </Flex>
