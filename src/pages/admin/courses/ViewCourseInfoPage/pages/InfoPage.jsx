@@ -11,6 +11,7 @@ import {
   FaClipboardList,
   FaClock,
   FaEdit,
+  FaGraduationCap,
   FaHashtag,
   FaSitemap,
   FaUserCheck,
@@ -33,6 +34,7 @@ import { EmptyState } from '../../../../../layouts';
 import {
   adminPublishCourse,
   adminUnpublishCourse,
+  gradeBookV2GetByCourse,
 } from '../../../../../services';
 import ReassignInstructorModal from '../components/ReassignInstructorModal';
 import { capitalizeFirstLetter } from '../../../../../utils';
@@ -76,6 +78,14 @@ const InfoPage = () => {
   const isLoading = courseDetails.loading;
   const isError = courseDetails.err;
   const isApproved = /approved/i.test(courseDetailsData?.approvalStatus);
+
+  const [gradeBook, setGradeBook] = useState(null);
+  useEffect(() => {
+    if (!courseDetailsData?.id) return;
+    gradeBookV2GetByCourse(courseDetailsData.id)
+      .then(({ gradeBook }) => setGradeBook(gradeBook ?? null))
+      .catch(() => setGradeBook(null));
+  }, [courseDetailsData?.id]);
 
   const toast = useToast();
   const [isPublishing, setIsPublishing] = useState(false);
@@ -322,6 +332,11 @@ const InfoPage = () => {
               icon={FaBuilding}
               label="Prerequisite"
               value={courseDetailsData?.preRequisite?.title}
+            />
+            <InfoItem
+              icon={FaGraduationCap}
+              label="Grade Book"
+              value={gradeBook?.title}
             />
             <InfoItem
               icon={HiBadgeCheck}
