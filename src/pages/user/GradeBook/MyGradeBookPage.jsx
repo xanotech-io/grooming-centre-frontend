@@ -19,7 +19,7 @@ import {
   Collapse,
 } from "@chakra-ui/react";
 import { FaArrowLeft, FaChevronDown, FaChevronRight } from "react-icons/fa";
-import { useFetch } from "../../../hooks";
+import { useFetch, useQueryParams } from "../../../hooks";
 import {
   gradeBookV2GetMyGrades,
   gradeBookV2GetAnalytics,
@@ -261,19 +261,20 @@ const CategoryRow = ({ cat, index }) => {
 const MyGradeBookPage = () => {
   const history = useHistory();
   const { gradebookId } = useParams();
+  const courseId = useQueryParams().get("courseId");
   const { resource, handleFetchResource } = useFetch();
   const { resource: analyticsResource, handleFetchResource: fetchAnalytics } =
     useFetch();
 
   const fetcher = useCallback(async () => {
-    const { breakdown } = await gradeBookV2GetMyGrades(gradebookId);
+    const { breakdown } = await gradeBookV2GetMyGrades(gradebookId, courseId);
     return { breakdown };
-  }, [gradebookId]);
+  }, [gradebookId, courseId]);
 
   const analyticsFetcher = useCallback(async () => {
-    const { analytics } = await gradeBookV2GetAnalytics(gradebookId);
+    const { analytics } = await gradeBookV2GetAnalytics(gradebookId, courseId);
     return { analytics };
-  }, [gradebookId]);
+  }, [gradebookId, courseId]);
 
   useEffect(() => {
     handleFetchResource({ fetcher });

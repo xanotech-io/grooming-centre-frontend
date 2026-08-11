@@ -23,6 +23,7 @@ const useAssessment = () => {
   const { course_id } = useParams();
   const isExamination = useQueryParams().get("examination");
   const [score, setScore] = useState("");
+  const [submissionMeta, setSubmissionMeta] = useState({});
    // eslint-disable-next-line no-unused-vars
   const [end, setEnd] = useState(true);
 
@@ -86,6 +87,12 @@ const useAssessment = () => {
         };
         const { message, data } = await submitExamination(body);
         setScore(data?.score);
+        setSubmissionMeta({
+          attemptNumber: data?.attemptNumber,
+          attemptsRemaining: data?.attemptsRemaining,
+          canRetry: data?.canRetry,
+          resultPending: data?.resultPending,
+        });
         toast({
           description: exitAttempts === totalSteps ? "Exam auto submitted" : message,
           position: "top",
@@ -104,6 +111,12 @@ const useAssessment = () => {
         };
         const { message, data } = await submitAssessmentMarking(assessment.id, body);
         setScore(data?.totalScore ?? data?.score);
+        setSubmissionMeta({
+          attemptNumber: data?.attemptNumber,
+          attemptsRemaining: data?.attemptsRemaining,
+          canRetry: data?.canRetry,
+          resultPending: data?.resultPending,
+        });
         toast({
           description: exitAttempts === totalSteps ? "Assessment auto submitted" : message,
           position: "top",
@@ -114,6 +127,7 @@ const useAssessment = () => {
       setSubmitStatus({ success: true });
     } catch (error) {
       toast({
+        title: error.statusCode === 403 ? "Maximum attempts reached" : undefined,
         description: error.message,
         position: "top",
         status: "error",
@@ -171,6 +185,11 @@ const useAssessment = () => {
         contextText={assessment.topic}
         score={score}
         isExamination={isExamination}
+        resultPending={submissionMeta.resultPending}
+        attemptNumber={submissionMeta.attemptNumber}
+        attemptsRemaining={submissionMeta.attemptsRemaining}
+        canRetry={submissionMeta.canRetry}
+        onRetry={submissionMeta.canRetry ? () => window.location.reload() : undefined}
       />
     );
     timerCountdownManger.handleStopCountdown();

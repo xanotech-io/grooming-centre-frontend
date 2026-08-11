@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import {
   Box,
@@ -51,12 +51,21 @@ import {
   FaSync,
   FaDownload,
   FaSlidersH,
+  FaLink,
+  FaUnlink,
+  FaArchive,
+  FaBoxOpen,
 } from "react-icons/fa";
-import { Button, Heading, Breadcrumb, Link } from "../../../components";
+import { Button, Heading, Breadcrumb, Link, EntityCombobox } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import {
   gradeBookV2GetById,
+  gradeBookV2GetCourses,
+  gradeBookV2Attach,
+  gradeBookV2Detach,
+  gradeBookV2Archive,
+  gradeBookV2Unarchive,
   gradeBookV2AddEntry,
   gradeBookV2UpdateEntry,
   gradeBookV2DeleteEntry,
@@ -68,6 +77,7 @@ import {
   gradeBookV2GetAudit,
   gradeBookV2Sync,
   gradeBookV2Export,
+  adminGetCourseListing,
 } from "../../../services";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -117,7 +127,7 @@ const gradeBadge = (grade) => {
 
 // ── Entries Tab ───────────────────────────────────────────────────────────────
 
-const EntriesTab = ({ gradebookId, categories }) => {
+const EntriesTab = ({ gradebookId, courseId, categories }) => {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isAdjustOpen, onOpen: onAdjustOpen, onClose: onAdjustClose } = useDisclosure();
@@ -138,9 +148,14 @@ const EntriesTab = ({ gradebookId, categories }) => {
   const [deletingId, setDeletingId] = useState(null);
 
   const loadEntries = useCallback(async () => {
+    if (!courseId) {
+      setEntries([]);
+      setLoadingEntries(false);
+      return;
+    }
     setLoadingEntries(true);
     try {
-      const { report } = await gradeBookV2GetReport(gradebookId);
+      const { report } = await gradeBookV2GetReport(gradebookId, courseId);
       const allEntries = [];
       (report?.students ?? []).forEach((s) => {
         (s.breakdown ?? []).forEach((cat) => {
@@ -160,7 +175,7 @@ const EntriesTab = ({ gradebookId, categories }) => {
     } finally {
       setLoadingEntries(false);
     }
-  }, [gradebookId]);
+  }, [gradebookId, courseId]);
 
   useEffect(() => { loadEntries(); }, [loadEntries]);
 
@@ -186,13 +201,13 @@ const EntriesTab = ({ gradebookId, categories }) => {
     setSaving(true);
     try {
       if (editTarget) {
-        await gradeBookV2UpdateEntry(gradebookId, editTarget.id, {
+        await gradeBookV2UpdateEntry(gradebookId, courseId, editTarget.id, {
           score: Number(formOverride.score),
           overrideReason: formOverride.overrideReason || undefined,
         });
         toast({ title: "Entry updated", status: "success", duration: 2000, isClosable: true });
       } else {
-        await gradeBookV2AddEntry(gradebookId, {
+        await gradeBookV2AddEntry(gradebookId, courseId, {
           studentId: form.studentId,
           categoryId: form.categoryId,
           assessmentName: form.assessmentName,
@@ -215,7 +230,7 @@ const EntriesTab = ({ gradebookId, categories }) => {
   const handleAdjust = async () => {
     setAdjustSaving(true);
     try {
-      await gradeBookV2AdjustEntry(gradebookId, adjustTarget.id, {
+      await gradeBookV2AdjustEntry(gradebookId, courseId, adjustTarget.id, {
         adjustmentValue: Number(adjustForm.adjustmentValue) || 0,
         adjustmentReason: adjustForm.adjustmentReason || undefined,
         extraCredit: Number(adjustForm.extraCredit) || 0,
@@ -233,7 +248,7 @@ const EntriesTab = ({ gradebookId, categories }) => {
   const handleDelete = async (entry) => {
     setDeletingId(entry.id);
     try {
-      await gradeBookV2DeleteEntry(gradebookId, entry.id);
+      await gradeBookV2DeleteEntry(gradebookId, courseId, entry.id);
       toast({ title: "Entry deleted", status: "success", duration: 2000, isClosable: true });
       loadEntries();
     } catch {
@@ -247,10 +262,14 @@ const EntriesTab = ({ gradebookId, categories }) => {
     <Box>
       <Flex px="20px" py="14px" justifyContent="space-between" alignItems="center" borderBottom="1px solid #E2E8F0">
         <Text fontSize="14px" fontWeight="600" color="gray.700">Score Entries ({entries.length})</Text>
-        <Button size="sm" leftIcon={<FaPlus />} onClick={openAdd}>Add Entry</Button>
+        <Button size="sm" leftIcon={<FaPlus />} onClick={openAdd} isDisabled={!courseId}>Add Entry</Button>
       </Flex>
 
-      {loadingEntries ? (
+      {!courseId ? (
+        <Flex justifyContent="center" py="40px">
+          <Text color="gray.400">Attach a course, or select one above, to view entries.</Text>
+        </Flex>
+      ) : loadingEntries ? (
         <Flex justifyContent="center" py="40px"><Spinner size="lg" color="blue.500" /></Flex>
       ) : entries.length === 0 ? (
         <Flex justifyContent="center" py="40px">
@@ -461,12 +480,13 @@ const EntriesTab = ({ gradebookId, categories }) => {
 
 // ── Analytics Tab ─────────────────────────────────────────────────────────────
 
-const AnalyticsTab = ({ gradebookId }) => {
+const AnalyticsTab = ({ gradebookId, courseId }) => {
   const { resource, handleFetchResource } = useFetch();
   const fetcher = useCallback(async () => {
-    const { analytics } = await gradeBookV2GetAnalytics(gradebookId);
+    if (!courseId) return { analytics: null };
+    const { analytics } = await gradeBookV2GetAnalytics(gradebookId, courseId);
     return { analytics };
-  }, [gradebookId]);
+  }, [gradebookId, courseId]);
   useEffect(() => { handleFetchResource({ fetcher }); }, [handleFetchResource, fetcher]);
 
   const a = resource.data?.analytics;
@@ -475,8 +495,9 @@ const AnalyticsTab = ({ gradebookId }) => {
 
   return (
     <Box p="20px">
-      {resource.loading && <Flex justifyContent="center" py="40px"><Spinner size="lg" color="blue.500" /></Flex>}
-      {resource.err && <Flex justifyContent="center" py="40px"><Text color="red.500">Failed to load analytics.</Text></Flex>}
+      {!courseId && <Flex justifyContent="center" py="40px"><Text color="gray.400">Select a course above to view analytics.</Text></Flex>}
+      {courseId && resource.loading && <Flex justifyContent="center" py="40px"><Spinner size="lg" color="blue.500" /></Flex>}
+      {courseId && resource.err && <Flex justifyContent="center" py="40px"><Text color="red.500">Failed to load analytics.</Text></Flex>}
       {a && (
         <>
           <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(5, 1fr)" }} gap="16px" mb="24px">
@@ -606,12 +627,13 @@ const StudentReportRow = ({ student }) => {
   );
 };
 
-const ReportTab = ({ gradebookId }) => {
+const ReportTab = ({ gradebookId, courseId }) => {
   const { resource, handleFetchResource } = useFetch();
   const fetcher = useCallback(async () => {
-    const { report } = await gradeBookV2GetReport(gradebookId);
+    if (!courseId) return { report: null };
+    const { report } = await gradeBookV2GetReport(gradebookId, courseId);
     return { report };
-  }, [gradebookId]);
+  }, [gradebookId, courseId]);
   useEffect(() => { handleFetchResource({ fetcher }); }, [handleFetchResource, fetcher]);
 
   const report = resource.data?.report;
@@ -619,9 +641,10 @@ const ReportTab = ({ gradebookId }) => {
 
   return (
     <Box>
-      {resource.loading && <Flex justifyContent="center" py="40px"><Spinner size="lg" color="blue.500" /></Flex>}
-      {resource.err && <Flex justifyContent="center" py="40px"><Text color="red.500">Failed to load report.</Text></Flex>}
-      {!resource.loading && !resource.err && (
+      {!courseId && <Flex justifyContent="center" py="40px"><Text color="gray.400">Select a course above to view the report.</Text></Flex>}
+      {courseId && resource.loading && <Flex justifyContent="center" py="40px"><Spinner size="lg" color="blue.500" /></Flex>}
+      {courseId && resource.err && <Flex justifyContent="center" py="40px"><Text color="red.500">Failed to load report.</Text></Flex>}
+      {courseId && !resource.loading && !resource.err && (
         students.length === 0 ? (
           <Flex justifyContent="center" py="40px"><Text color="gray.400">No student data available.</Text></Flex>
         ) : (
@@ -739,11 +762,21 @@ const GradeBookV2DetailsPage = () => {
   const [syncResult, setSyncResult] = useState(null);
   const [exporting, setExporting] = useState(null);
   const [entriesKey, setEntriesKey] = useState(0);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [archiving, setArchiving] = useState(false);
+  const [detaching, setDetaching] = useState(false);
+  const [attaching, setAttaching] = useState(false);
+  const [attachCourseId, setAttachCourseId] = useState("");
   const { isOpen: isSyncOpen, onOpen: onSyncOpen, onClose: onSyncClose } = useDisclosure();
   const { isOpen: isFinalizeOpen, onOpen: onFinalizeOpen, onClose: onFinalizeClose } = useDisclosure();
   const { isOpen: isPublishOpen, onOpen: onPublishOpen, onClose: onPublishClose } = useDisclosure();
+  const { isOpen: isArchiveOpen, onOpen: onArchiveOpen, onClose: onArchiveClose } = useDisclosure();
+  const { isOpen: isDetachOpen, onOpen: onDetachOpen, onClose: onDetachClose } = useDisclosure();
+  const { isOpen: isAttachOpen, onOpen: onAttachOpen, onClose: onAttachClose } = useDisclosure();
   const finalizeRef = React.useRef();
   const publishRef = React.useRef();
+  const archiveRef = React.useRef();
+  const detachRef = React.useRef();
 
   const { resource, handleFetchResource } = useFetch();
   const fetcher = useCallback(async () => {
@@ -752,8 +785,36 @@ const GradeBookV2DetailsPage = () => {
   }, [gradebookId]);
   useEffect(() => { handleFetchResource({ fetcher }); }, [handleFetchResource, fetcher]);
 
+  const { resource: coursesResource, handleFetchResource: fetchCourses } = useFetch();
+  const coursesFetcher = useCallback(async () => {
+    const { courses } = await gradeBookV2GetCourses(gradebookId);
+    return { courses };
+  }, [gradebookId]);
+  useEffect(() => { fetchCourses({ fetcher: coursesFetcher }); }, [fetchCourses, coursesFetcher]);
+
+  const fetchCourseOptions = useCallback(async (query) => {
+    const { courses } = await adminGetCourseListing({ search: query });
+    return courses.map((c) => ({ id: c.id, label: c.title }));
+  }, []);
+
   const gradeBook = resource.data?.gradeBook;
   const status = String(gradeBook?.status || "draft").toLowerCase();
+  const isArchived = !!gradeBook?.archivedAt;
+  const attachedCourses = useMemo(() => coursesResource.data?.courses ?? [], [coursesResource.data]);
+
+  useEffect(() => {
+    if (attachedCourses.length && !selectedCourseId) {
+      setSelectedCourseId(attachedCourses[0].id);
+    }
+    if (attachedCourses.length && selectedCourseId && !attachedCourses.some((c) => c.id === selectedCourseId)) {
+      setSelectedCourseId(attachedCourses[0].id);
+    }
+    if (attachedCourses.length === 0 && selectedCourseId) {
+      setSelectedCourseId("");
+    }
+  }, [attachedCourses, selectedCourseId]);
+
+  const refreshCourses = () => fetchCourses({ fetcher: coursesFetcher });
 
   const handleFinalize = async () => {
     onFinalizeClose();
@@ -783,10 +844,67 @@ const GradeBookV2DetailsPage = () => {
     }
   };
 
+  const handleArchiveToggle = async () => {
+    onArchiveClose();
+    setArchiving(true);
+    try {
+      if (isArchived) {
+        await gradeBookV2Unarchive(gradebookId);
+        toast({ title: "Grade book unarchived", status: "success", duration: 3000, isClosable: true });
+      } else {
+        await gradeBookV2Archive(gradebookId);
+        toast({ title: "Grade book archived", status: "success", duration: 3000, isClosable: true });
+      }
+      handleFetchResource({ fetcher });
+    } catch (err) {
+      toast({ title: err?.response?.data?.message || "Action failed", status: "error", duration: 3000, isClosable: true });
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const openAttach = () => {
+    setAttachCourseId("");
+    onAttachOpen();
+  };
+
+  const handleAttach = async () => {
+    if (!attachCourseId) {
+      toast({ title: "Select a course", status: "warning", duration: 2000, isClosable: true });
+      return;
+    }
+    setAttaching(true);
+    try {
+      await gradeBookV2Attach(attachCourseId, gradebookId);
+      toast({ title: "Course attached", status: "success", duration: 3000, isClosable: true });
+      onAttachClose();
+      refreshCourses();
+    } catch (err) {
+      toast({ title: err?.response?.data?.message || "Failed to attach course", status: "error", duration: 4000, isClosable: true });
+    } finally {
+      setAttaching(false);
+    }
+  };
+
+  const handleDetach = async () => {
+    onDetachClose();
+    setDetaching(true);
+    try {
+      await gradeBookV2Detach(selectedCourseId);
+      toast({ title: "Course detached", status: "success", duration: 3000, isClosable: true });
+      refreshCourses();
+    } catch (err) {
+      toast({ title: err?.response?.data?.message || "Failed to detach course", status: "error", duration: 3000, isClosable: true });
+    } finally {
+      setDetaching(false);
+    }
+  };
+
   const handleSync = async () => {
+    if (!selectedCourseId) return;
     setSyncing(true);
     try {
-      const { result } = await gradeBookV2Sync(gradebookId);
+      const { result } = await gradeBookV2Sync(gradebookId, selectedCourseId);
       setSyncResult(result);
       onSyncOpen();
       setEntriesKey((k) => k + 1);
@@ -803,9 +921,10 @@ const GradeBookV2DetailsPage = () => {
   };
 
   const handleExport = async (format) => {
+    if (!selectedCourseId) return;
     setExporting(format);
     try {
-      const blob = await gradeBookV2Export(gradebookId, format);
+      const blob = await gradeBookV2Export(gradebookId, selectedCourseId, format);
       const ext = format.toLowerCase() === "excel" ? "xlsx" : format.toLowerCase();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -860,11 +979,48 @@ const GradeBookV2DetailsPage = () => {
             <Flex justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="12px">
               <Box>
                 <Text fontSize="20px" fontWeight="700" color="#1A202C" mb="6px">{gradeBook.title}</Text>
-                <Text fontSize="14px" color="gray.500">{gradeBook.course?.title || gradeBook.courseId}</Text>
+                <Text fontSize="14px" color="gray.500">
+                  {attachedCourses.length} course{attachedCourses.length === 1 ? "" : "s"} attached
+                </Text>
               </Box>
               <Flex gap="8px" alignItems="center" flexWrap="wrap">
+                {isArchived && (
+                  <Badge bg="#F7FAFC" color="#718096" px="12px" py="4px" borderRadius="12px" textTransform="none" fontWeight="500">
+                    Archived
+                  </Badge>
+                )}
                 {statusBadge(gradeBook.status)}
               </Flex>
+            </Flex>
+
+            <Divider my="16px" />
+
+            {/* Course scoping */}
+            <Flex gap="12px" alignItems="center" flexWrap="wrap" mb="4px">
+              {attachedCourses.length > 0 ? (
+                <>
+                  <Text fontSize="12px" fontWeight="600" color="gray.500">Course</Text>
+                  <ChakraSelect
+                    size="sm"
+                    borderRadius="6px"
+                    maxW="280px"
+                    value={selectedCourseId}
+                    onChange={(e) => setSelectedCourseId(e.target.value)}
+                  >
+                    {attachedCourses.map((c) => (
+                      <option key={c.id} value={c.id}>{c.title}</option>
+                    ))}
+                  </ChakraSelect>
+                  <Button size="xs" variant="ghost" leftIcon={<FaUnlink />} isLoading={detaching} onClick={onDetachOpen}>
+                    Detach
+                  </Button>
+                </>
+              ) : (
+                <Text fontSize="13px" color="gray.400">No courses attached yet.</Text>
+              )}
+              <Button size="sm" variant="outline" leftIcon={<FaLink />} onClick={openAttach}>
+                Attach Course
+              </Button>
             </Flex>
 
             <Divider my="16px" />
@@ -877,6 +1033,7 @@ const GradeBookV2DetailsPage = () => {
                 secondary
                 leftIcon={<FaSync />}
                 isLoading={syncing}
+                isDisabled={!selectedCourseId}
                 onClick={handleSync}
               >
                 Sync LMS Data
@@ -895,29 +1052,40 @@ const GradeBookV2DetailsPage = () => {
                   borderRadius="6px"
                   fontSize="13px"
                   fontWeight="500"
-                  color="gray.700"
+                  color={selectedCourseId ? "gray.700" : "gray.400"}
                   bg="white"
-                  cursor="pointer"
-                  _hover={{ bg: "#F7FAFC" }}
+                  cursor={selectedCourseId ? "pointer" : "not-allowed"}
+                  opacity={selectedCourseId ? 1 : 0.6}
+                  _hover={selectedCourseId ? { bg: "#F7FAFC" } : {}}
                 >
                   <FaDownload size="11px" />
                   <Text>{exporting ? `Exporting ${exporting}…` : "Export"}</Text>
                   <FaChevronDown size="9px" />
                 </MenuButton>
                 <MenuList minW="140px" shadow="md" zIndex={10}>
-                  <MenuItem fontSize="13px" onClick={() => handleExport("Excel")} isDisabled={!!exporting}>
+                  <MenuItem fontSize="13px" onClick={() => handleExport("Excel")} isDisabled={!!exporting || !selectedCourseId}>
                     Excel (.xlsx)
                   </MenuItem>
-                  <MenuItem fontSize="13px" onClick={() => handleExport("PDF")} isDisabled={!!exporting}>
+                  <MenuItem fontSize="13px" onClick={() => handleExport("PDF")} isDisabled={!!exporting || !selectedCourseId}>
                     PDF
                   </MenuItem>
-                  <MenuItem fontSize="13px" onClick={() => handleExport("CSV")} isDisabled={!!exporting}>
+                  <MenuItem fontSize="13px" onClick={() => handleExport("CSV")} isDisabled={!!exporting || !selectedCourseId}>
                     CSV
                   </MenuItem>
                 </MenuList>
               </Menu>
 
               <Box flex={1} />
+
+              <Button
+                size="sm"
+                secondary
+                leftIcon={isArchived ? <FaBoxOpen /> : <FaArchive />}
+                isLoading={archiving}
+                onClick={onArchiveOpen}
+              >
+                {isArchived ? "Unarchive" : "Archive"}
+              </Button>
 
               <Button
                 size="sm"
@@ -982,13 +1150,14 @@ const GradeBookV2DetailsPage = () => {
 
             {activeTab === "entries" && (
               <EntriesTab
-                key={entriesKey}
+                key={`${entriesKey}-${selectedCourseId}`}
                 gradebookId={gradebookId}
+                courseId={selectedCourseId}
                 categories={gradeBook.categories ?? []}
               />
             )}
-            {activeTab === "analytics" && <AnalyticsTab gradebookId={gradebookId} />}
-            {activeTab === "report" && <ReportTab gradebookId={gradebookId} />}
+            {activeTab === "analytics" && <AnalyticsTab gradebookId={gradebookId} courseId={selectedCourseId} />}
+            {activeTab === "report" && <ReportTab gradebookId={gradebookId} courseId={selectedCourseId} />}
             {activeTab === "audit" && <AuditTab gradebookId={gradebookId} />}
           </Box>
         </>
@@ -1053,6 +1222,66 @@ const GradeBookV2DetailsPage = () => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Archive / Unarchive confirmation */}
+      <AlertDialog isOpen={isArchiveOpen} leastDestructiveRef={archiveRef} onClose={onArchiveClose} isCentered>
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="16px" fontWeight="600">
+              {isArchived ? "Unarchive Grade Book?" : "Archive Grade Book?"}
+            </AlertDialogHeader>
+            <AlertDialogBody fontSize="14px" color="gray.600">
+              {isArchived
+                ? "This grade book will become available to attach to new courses again."
+                : "Archived grade books can no longer be newly attached to a course, but courses already using it keep working normally."}
+            </AlertDialogBody>
+            <AlertDialogFooter gap="8px">
+              <Button secondary ref={archiveRef} onClick={onArchiveClose}>Cancel</Button>
+              <Button isLoading={archiving} onClick={handleArchiveToggle}>
+                {isArchived ? "Unarchive" : "Archive"}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      {/* Detach confirmation */}
+      <AlertDialog isOpen={isDetachOpen} leastDestructiveRef={detachRef} onClose={onDetachClose} isCentered>
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="16px" fontWeight="600">Detach Course?</AlertDialogHeader>
+            <AlertDialogBody fontSize="14px" color="gray.600">
+              This will clear the grade book link for this course. Entries already recorded are unaffected, but the course will no longer show this grade book to students.
+            </AlertDialogBody>
+            <AlertDialogFooter gap="8px">
+              <Button secondary ref={detachRef} onClick={onDetachClose}>Cancel</Button>
+              <Button isLoading={detaching} onClick={handleDetach}>Detach</Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      {/* Attach course modal */}
+      <Modal isOpen={isAttachOpen} onClose={onAttachClose} size="sm" isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Attach Course</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb="20px">
+            <Text fontSize="13px" fontWeight="600" color="gray.600" mb="6px">Course</Text>
+            <EntityCombobox
+              fetchFn={fetchCourseOptions}
+              value={attachCourseId}
+              onSelect={(opt) => setAttachCourseId(opt?.id ?? "")}
+              placeholder="Search course by title…"
+            />
+          </ModalBody>
+          <ModalFooter gap="8px">
+            <Button secondary onClick={onAttachClose}>Cancel</Button>
+            <Button isLoading={attaching} onClick={handleAttach}>Attach</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
     </AdminMainAreaWrapper>
   );

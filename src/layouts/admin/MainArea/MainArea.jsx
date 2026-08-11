@@ -85,6 +85,9 @@ import {
   GradeBookV2ListingPageRoute,
   SetupGradeBookV2PageRoute,
   GradeBookV2DetailsPageRoute,
+  ExamPaperConfigPresetsPageRoute,
+  CreateExamPaperConfigPresetPageRoute,
+  ExamPaperConfigPresetDetailsPageRoute,
   ViewStandaloneExamPageRoute,
   StandaloneStudentGradingPageRoute,
   MISReportsPageRoute,
@@ -389,6 +392,15 @@ const MainArea = () => {
         <GradeBookV2DetailsPageRoute
           exact
           path="/admin/grade-book-v2/:gradebookId"
+        />
+        <ExamPaperConfigPresetsPageRoute exact path="/admin/exam-paper-config-presets" />
+        <CreateExamPaperConfigPresetPageRoute
+          exact
+          path="/admin/exam-paper-config-presets/create"
+        />
+        <ExamPaperConfigPresetDetailsPageRoute
+          exact
+          path="/admin/exam-paper-config-presets/:presetId"
         />
         <ManualMarkingExamsPageRoute exact path="/admin/manual-marking" />
         <ManualMarkingStudentsPageRoute

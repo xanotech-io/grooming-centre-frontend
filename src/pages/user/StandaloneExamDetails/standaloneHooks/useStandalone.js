@@ -75,6 +75,7 @@ const useStandalone = () => {
   });
   const [questionId, setQuestionId] = useState([]);
   const [optionId, setOptionId] = useState([]);
+  const [submissionMeta, setSubmissionMeta] = useState({});
   const toast = useToast();
   // const {
   //   state: { user },
@@ -105,13 +106,23 @@ const useStandalone = () => {
         courseId: assessment.courseId,
       };
 
-      await (isExamination ? submitExamination(body) : submitAssessment(body));
+      const { data } = await (isExamination
+        ? submitExamination(body)
+        : submitAssessment(body));
+
+      setSubmissionMeta({
+        attemptNumber: data?.attemptNumber,
+        attemptsRemaining: data?.attemptsRemaining,
+        canRetry: data?.canRetry,
+        resultPending: data?.resultPending,
+      });
 
       setSubmitStatus({
         success: true,
       });
     } catch (error) {
       toast({
+        title: error.statusCode === 403 ? "Maximum attempts reached" : undefined,
         description: error.message,
         position: "top",
         status: "error",
@@ -152,6 +163,11 @@ const useStandalone = () => {
       <CongratsModalContent
         redirectLink={`/courses/details/${course_id}`}
         contextText={assessment.topic}
+        resultPending={submissionMeta.resultPending}
+        attemptNumber={submissionMeta.attemptNumber}
+        attemptsRemaining={submissionMeta.attemptsRemaining}
+        canRetry={submissionMeta.canRetry}
+        onRetry={submissionMeta.canRetry ? () => window.location.reload() : undefined}
       />
     );
     timerCountdownManger.handleStopCountdown();

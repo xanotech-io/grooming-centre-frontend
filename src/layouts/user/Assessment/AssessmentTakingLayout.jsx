@@ -141,6 +141,7 @@ const AssessmentTakingLayout = () => {
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [submitStatus, setSubmitStatus] = useState({ success: false, loading: false, error: null });
+  const [submissionMeta, setSubmissionMeta] = useState({});
 
   useEffect(() => {
     if (assessment?.hasCompleted && assessment?.submittedAnswers?.length > 0) {
@@ -188,7 +189,13 @@ const AssessmentTakingLayout = () => {
         submissionTime: new Date().toISOString(),
         timeTaken: 0,
       };
-      const { message } = await submitAssessmentMarking(assessment.id, body);
+      const { message, data } = await submitAssessmentMarking(assessment.id, body);
+      setSubmissionMeta({
+        attemptNumber: data?.attemptNumber,
+        attemptsRemaining: data?.attemptsRemaining,
+        canRetry: data?.canRetry,
+        resultPending: data?.resultPending,
+      });
       toast({
         description: exitAttempts >= totalSteps ? "Assessment auto submitted" : message,
         position: "top",
@@ -196,7 +203,12 @@ const AssessmentTakingLayout = () => {
       });
       setSubmitStatus({ success: true });
     } catch (err) {
-      toast({ description: err.message, position: "top", status: "error" });
+      toast({
+        title: err.statusCode === 403 ? "Maximum attempts reached" : undefined,
+        description: err.message,
+        position: "top",
+        status: "error",
+      });
       setSubmitStatus({ error: err.message });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -216,6 +228,11 @@ const AssessmentTakingLayout = () => {
         <SubmitSuccessContent
           onBack={() => push(`/courses/details/${course_id}`)}
           topic={assessment?.topic}
+          resultPending={submissionMeta.resultPending}
+          attemptNumber={submissionMeta.attemptNumber}
+          attemptsRemaining={submissionMeta.attemptsRemaining}
+          canRetry={submissionMeta.canRetry}
+          onRetry={submissionMeta.canRetry ? () => window.location.reload() : undefined}
         />
       );
     }
@@ -382,6 +399,8 @@ const AssessmentTakingLayout = () => {
                 totalScore={reviewResult?.totalScore ?? null}
                 grade={reviewResult?.grade ?? null}
                 remark={reviewResult?.remark ?? null}
+                resultPending={reviewResult?.resultPending}
+                attemptNumber={reviewResult?.attemptNumber}
               />
             </Box>
           )}
@@ -781,7 +800,15 @@ const QuestionInput = ({ question, selectedAnswers, onOptionSelect, onAnswerChan
   return null;
 };
 
-const SubmitSuccessContent = ({ onBack, topic }) => (
+const SubmitSuccessContent = ({
+  onBack,
+  topic,
+  resultPending,
+  attemptNumber,
+  attemptsRemaining,
+  canRetry,
+  onRetry,
+}) => (
   <Flex direction="column" alignItems="center" p={6} gap={4} textAlign="center">
     <Box w="64px" h="64px" bg="green.100" borderRadius="50%" display="flex" alignItems="center" justifyContent="center">
       <Text fontSize="2xl">✓</Text>
@@ -790,7 +817,17 @@ const SubmitSuccessContent = ({ onBack, topic }) => (
     <Text color="gray.500">
       Your answers for <b>{topic}</b> have been submitted successfully.
     </Text>
-    <Button onClick={onBack} marginTop={4}>Back to Course</Button>
+    {attemptNumber != null && <Text color="gray.500">Attempt #{attemptNumber}</Text>}
+    {resultPending && <Text color="gray.500">Your result is pending.</Text>}
+    {canRetry && attemptsRemaining != null && (
+      <Text color="gray.500">
+        {attemptsRemaining} attempt{attemptsRemaining === 1 ? "" : "s"} remaining.
+      </Text>
+    )}
+    <Flex gap={3} marginTop={4}>
+      {canRetry && onRetry && <Button onClick={onRetry}>Retry</Button>}
+      <Button secondary={canRetry} onClick={onBack}>Back to Course</Button>
+    </Flex>
   </Flex>
 );
 
