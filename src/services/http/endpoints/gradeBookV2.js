@@ -6,7 +6,8 @@ export const gradeBookV2Setup = async (body) => {
 };
 
 export const gradeBookV2List = async (params) => {
-  const { data: { total, page, limit, gradebooks } } = await http.get('/v1/grade-book-v2', { params });
+  const { data: { data } } = await http.get('/v1/grade-book-v2', { params });
+  const { total, page, limit, gradebooks } = data;
   return { total, page, limit, gradebooks: gradebooks ?? [] };
 };
 
