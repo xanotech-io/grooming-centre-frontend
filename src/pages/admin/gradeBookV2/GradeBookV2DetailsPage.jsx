@@ -16,13 +16,6 @@ import {
   Th,
   Td,
   TableContainer,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
   AlertDialog,
   AlertDialogBody,
   AlertDialogFooter,
@@ -41,44 +34,24 @@ import {
 import {
   FaArrowLeft,
   FaChevronDown,
-  FaSync,
   FaDownload,
-  FaLink,
   FaUnlink,
   FaArchive,
   FaBoxOpen,
 } from "react-icons/fa";
-import { Button, Heading, Breadcrumb, Link, EntityCombobox } from "../../../components";
+import { Button, Heading, Breadcrumb, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useFetch } from "../../../hooks";
 import {
   gradeBookV2GetById,
   gradeBookV2GetCourses,
-  gradeBookV2Attach,
   gradeBookV2Detach,
   gradeBookV2Archive,
   gradeBookV2Unarchive,
   gradeBookV2Publish,
-  gradeBookV2Sync,
+  gradeBookV2GetAudit,
   gradeBookV2Export,
-  adminGetCourseListing,
 } from "../../../services";
-
-// ── Shared helpers ────────────────────────────────────────────────────────────
-
-const statusBadge = (status) => {
-  const map = {
-    draft:     { bg: "#F7FAFC", color: "#718096", label: "Draft" },
-    finalized: { bg: "#EBF4FF", color: "#3182CE", label: "Finalized" },
-    published: { bg: "#E6F4EA", color: "#38A169", label: "Published" },
-  };
-  const s = map[String(status).toLowerCase()] || map.draft;
-  return (
-    <Badge bg={s.bg} color={s.color} px="12px" py="4px" borderRadius="12px" textTransform="none" fontWeight="500">
-      {s.label}
-    </Badge>
-  );
-};
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -87,20 +60,14 @@ const GradeBookV2DetailsPage = () => {
   const { gradebookId } = useParams();
   const toast = useToast();
   const [publishing, setPublishing] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState(null);
   const [exporting, setExporting] = useState(null);
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [archiving, setArchiving] = useState(false);
   const [detaching, setDetaching] = useState(false);
   const [detachTargetId, setDetachTargetId] = useState("");
-  const [attaching, setAttaching] = useState(false);
-  const [attachCourseId, setAttachCourseId] = useState("");
-  const { isOpen: isSyncOpen, onOpen: onSyncOpen, onClose: onSyncClose } = useDisclosure();
   const { isOpen: isPublishOpen, onOpen: onPublishOpen, onClose: onPublishClose } = useDisclosure();
   const { isOpen: isArchiveOpen, onOpen: onArchiveOpen, onClose: onArchiveClose } = useDisclosure();
   const { isOpen: isDetachOpen, onOpen: onDetachOpen, onClose: onDetachClose } = useDisclosure();
-  const { isOpen: isAttachOpen, onOpen: onAttachOpen, onClose: onAttachClose } = useDisclosure();
   const publishRef = React.useRef();
   const archiveRef = React.useRef();
   const detachRef = React.useRef();
@@ -119,15 +86,18 @@ const GradeBookV2DetailsPage = () => {
   }, [gradebookId]);
   useEffect(() => { fetchCourses({ fetcher: coursesFetcher }); }, [fetchCourses, coursesFetcher]);
 
-  const fetchCourseOptions = useCallback(async (query) => {
-    const { courses } = await adminGetCourseListing({ search: query });
-    return courses.map((c) => ({ id: c.id, label: c.title }));
-  }, []);
+  const { resource: auditResource, handleFetchResource: fetchAudit } = useFetch();
+  const auditFetcher = useCallback(async () => {
+    const { audit } = await gradeBookV2GetAudit(gradebookId);
+    return { audit };
+  }, [gradebookId]);
+  useEffect(() => { fetchAudit({ fetcher: auditFetcher }); }, [fetchAudit, auditFetcher]);
 
   const gradeBook = resource.data?.gradeBook;
   const status = String(gradeBook?.status || "draft").toLowerCase();
   const isArchived = !!gradeBook?.archivedAt;
   const attachedCourses = useMemo(() => coursesResource.data?.courses ?? [], [coursesResource.data]);
+  const audit = auditResource.data?.audit ?? [];
   const detachTargetCourse = attachedCourses.find((c) => c.id === detachTargetId);
 
   useEffect(() => {
@@ -177,29 +147,6 @@ const GradeBookV2DetailsPage = () => {
     }
   };
 
-  const openAttach = () => {
-    setAttachCourseId("");
-    onAttachOpen();
-  };
-
-  const handleAttach = async () => {
-    if (!attachCourseId) {
-      toast({ title: "Select a course", status: "warning", duration: 2000, isClosable: true });
-      return;
-    }
-    setAttaching(true);
-    try {
-      await gradeBookV2Attach(attachCourseId, gradebookId);
-      toast({ title: "Course attached", status: "success", duration: 3000, isClosable: true });
-      onAttachClose();
-      refreshCourses();
-    } catch (err) {
-      toast({ title: err?.response?.data?.message || "Failed to attach course", status: "error", duration: 4000, isClosable: true });
-    } finally {
-      setAttaching(false);
-    }
-  };
-
   const openDetachConfirm = (courseId) => {
     setDetachTargetId(courseId);
     onDetachOpen();
@@ -217,25 +164,6 @@ const GradeBookV2DetailsPage = () => {
     } finally {
       setDetaching(false);
       setDetachTargetId("");
-    }
-  };
-
-  const handleSync = async () => {
-    if (!selectedCourseId) return;
-    setSyncing(true);
-    try {
-      const { result } = await gradeBookV2Sync(gradebookId, selectedCourseId);
-      setSyncResult(result);
-      onSyncOpen();
-    } catch (err) {
-      toast({
-        title: err?.response?.data?.message || "Sync failed",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -260,6 +188,22 @@ const GradeBookV2DetailsPage = () => {
     }
   };
 
+  const actionBadge = (action) => {
+    const map = {
+      created:   { bg: "#E6F4EA", color: "#38A169" },
+      updated:   { bg: "#EBF4FF", color: "#3182CE" },
+      adjusted:  { bg: "#F0E6FF", color: "#6b006b" },
+      deleted:   { bg: "#FED7D7", color: "#E53E3E" },
+      finalized: { bg: "#F0E6FF", color: "#6b006b" },
+      published: { bg: "#EBF8FF", color: "#553C9A" },
+      synced:    { bg: "#E6F4EA", color: "#276749" },
+    };
+    const s = map[String(action).toLowerCase()] || { bg: "#F7FAFC", color: "#718096" };
+    return (
+      <Badge bg={s.bg} color={s.color} px="8px" py="3px" borderRadius="10px" textTransform="none" fontSize="11px">{action}</Badge>
+    );
+  };
+
   return (
     <AdminMainAreaWrapper>
       <Flex justify="space-between" align="center" mb={6}>
@@ -277,15 +221,53 @@ const GradeBookV2DetailsPage = () => {
         />
       </Flex>
       <Box marginX="22px" marginY="20px">
-      <Flex alignItems="center" gap="12px" mb="24px">
-        <IconButton
-          aria-label="Go back"
-          icon={<FaArrowLeft />}
-          variant="ghost"
-          size="sm"
-          onClick={() => history.push("/admin/grade-book-v2")}
-        />
-        <Heading fontSize="22px" fontWeight="600">Grade Book Details</Heading>
+      <Flex alignItems="center" justifyContent="space-between" mb="24px" flexWrap="wrap" gap="12px">
+        <Flex alignItems="center" gap="12px">
+          <IconButton
+            aria-label="Go back"
+            icon={<FaArrowLeft />}
+            variant="ghost"
+            size="sm"
+            onClick={() => history.push("/admin/grade-book-v2")}
+          />
+          <Heading fontSize="22px" fontWeight="600">Grade Book Details</Heading>
+        </Flex>
+
+        {/* Export dropdown */}
+        <Menu>
+          <MenuButton
+            as={Box}
+            display="inline-flex"
+            alignItems="center"
+            gap="6px"
+            px="12px"
+            h="32px"
+            border="1px solid #E2E8F0"
+            borderRadius="6px"
+            fontSize="13px"
+            fontWeight="500"
+            color={selectedCourseId ? "gray.700" : "gray.400"}
+            bg="white"
+            cursor={selectedCourseId ? "pointer" : "not-allowed"}
+            opacity={selectedCourseId ? 1 : 0.6}
+            _hover={selectedCourseId ? { bg: "#F7FAFC" } : {}}
+          >
+            <FaDownload size="11px" />
+            <Text>{exporting ? `Exporting ${exporting}…` : "Export"}</Text>
+            <FaChevronDown size="9px" />
+          </MenuButton>
+          <MenuList minW="140px" shadow="md" zIndex={10}>
+            <MenuItem fontSize="13px" onClick={() => handleExport("Excel")} isDisabled={!!exporting || !selectedCourseId}>
+              Excel (.xlsx)
+            </MenuItem>
+            <MenuItem fontSize="13px" onClick={() => handleExport("PDF")} isDisabled={!!exporting || !selectedCourseId}>
+              PDF
+            </MenuItem>
+            <MenuItem fontSize="13px" onClick={() => handleExport("CSV")} isDisabled={!!exporting || !selectedCourseId}>
+              CSV
+            </MenuItem>
+          </MenuList>
+        </Menu>
       </Flex>
 
       {resource.loading && <Flex justifyContent="center" py="60px"><Spinner size="xl" color="blue.500" /></Flex>}
@@ -302,97 +284,37 @@ const GradeBookV2DetailsPage = () => {
                   {attachedCourses.length} course{attachedCourses.length === 1 ? "" : "s"} attached
                 </Text>
               </Box>
-              <Flex gap="8px" alignItems="center" flexWrap="wrap">
-                {isArchived && (
-                  <Badge bg="#F7FAFC" color="#718096" px="12px" py="4px" borderRadius="12px" textTransform="none" fontWeight="500">
-                    Archived
-                  </Badge>
-                )}
-                {statusBadge(gradeBook.status)}
-              </Flex>
+              {isArchived && (
+                <Badge bg="#F7FAFC" color="#718096" px="12px" py="4px" borderRadius="12px" textTransform="none" fontWeight="500">
+                  Archived
+                </Badge>
+              )}
             </Flex>
 
             <Divider my="16px" />
 
-            {/* Course scoping (used to target Sync / Export) */}
-            <Flex gap="12px" alignItems="center" flexWrap="wrap" mb="4px">
-              {attachedCourses.length > 0 ? (
-                <>
-                  <Text fontSize="12px" fontWeight="600" color="gray.500">Course</Text>
-                  <ChakraSelect
-                    size="sm"
-                    borderRadius="6px"
-                    maxW="280px"
-                    value={selectedCourseId}
-                    onChange={(e) => setSelectedCourseId(e.target.value)}
-                  >
-                    {attachedCourses.map((c) => (
-                      <option key={c.id} value={c.id}>{c.title}</option>
-                    ))}
-                  </ChakraSelect>
-                </>
-              ) : (
-                <Text fontSize="13px" color="gray.400">No courses attached yet.</Text>
-              )}
-              <Button size="sm" variant="outline" leftIcon={<FaLink />} onClick={openAttach}>
-                Attach Course
-              </Button>
-            </Flex>
+            {/* Course scoping (used to target Export) */}
+            {attachedCourses.length > 0 && (
+              <Flex gap="12px" alignItems="center" flexWrap="wrap" mb="4px">
+                <Text fontSize="12px" fontWeight="600" color="gray.500">Course</Text>
+                <ChakraSelect
+                  size="sm"
+                  borderRadius="6px"
+                  maxW="280px"
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                >
+                  {attachedCourses.map((c) => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                </ChakraSelect>
+              </Flex>
+            )}
 
             <Divider my="16px" />
 
             {/* Action bar */}
             <Flex gap="8px" flexWrap="wrap" alignItems="center">
-              {/* Sync LMS Data */}
-              <Button
-                size="sm"
-                secondary
-                leftIcon={<FaSync />}
-                isLoading={syncing}
-                isDisabled={!selectedCourseId}
-                onClick={handleSync}
-              >
-                Sync LMS Data
-              </Button>
-
-              {/* Export dropdown */}
-              <Menu>
-                <MenuButton
-                  as={Box}
-                  display="inline-flex"
-                  alignItems="center"
-                  gap="6px"
-                  px="12px"
-                  h="32px"
-                  border="1px solid #E2E8F0"
-                  borderRadius="6px"
-                  fontSize="13px"
-                  fontWeight="500"
-                  color={selectedCourseId ? "gray.700" : "gray.400"}
-                  bg="white"
-                  cursor={selectedCourseId ? "pointer" : "not-allowed"}
-                  opacity={selectedCourseId ? 1 : 0.6}
-                  _hover={selectedCourseId ? { bg: "#F7FAFC" } : {}}
-                >
-                  <FaDownload size="11px" />
-                  <Text>{exporting ? `Exporting ${exporting}…` : "Export"}</Text>
-                  <FaChevronDown size="9px" />
-                </MenuButton>
-                <MenuList minW="140px" shadow="md" zIndex={10}>
-                  <MenuItem fontSize="13px" onClick={() => handleExport("Excel")} isDisabled={!!exporting || !selectedCourseId}>
-                    Excel (.xlsx)
-                  </MenuItem>
-                  <MenuItem fontSize="13px" onClick={() => handleExport("PDF")} isDisabled={!!exporting || !selectedCourseId}>
-                    PDF
-                  </MenuItem>
-                  <MenuItem fontSize="13px" onClick={() => handleExport("CSV")} isDisabled={!!exporting || !selectedCourseId}>
-                    CSV
-                  </MenuItem>
-                </MenuList>
-              </Menu>
-
-              <Box flex={1} />
-
               <Button
                 size="sm"
                 secondary
@@ -459,15 +381,11 @@ const GradeBookV2DetailsPage = () => {
           </Box>
 
           {/* Attached Courses */}
-          <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" overflow="hidden">
+          <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" overflow="hidden" mb="20px">
             <Flex px="20px" py="14px" justifyContent="space-between" alignItems="center" borderBottom="1px solid #E2E8F0">
               <Text fontSize="14px" fontWeight="600" color="gray.700">Attached Courses ({attachedCourses.length})</Text>
             </Flex>
-            {attachedCourses.length === 0 ? (
-              <Flex justifyContent="center" py="40px">
-                <Text color="gray.400">No courses attached yet.</Text>
-              </Flex>
-            ) : (
+            {attachedCourses.length > 0 && (
               <TableContainer>
                 <Table variant="simple" size="sm">
                   <Thead bg="#F7FAFC">
@@ -501,33 +419,60 @@ const GradeBookV2DetailsPage = () => {
               </TableContainer>
             )}
           </Box>
+
+          {/* Audit Log */}
+          <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" overflow="hidden">
+            <Flex px="20px" py="14px" justifyContent="space-between" alignItems="center" borderBottom="1px solid #E2E8F0">
+              <Text fontSize="14px" fontWeight="600" color="gray.700">Audit Log</Text>
+            </Flex>
+            {auditResource.loading && <Flex justifyContent="center" py="40px"><Spinner size="lg" color="blue.500" /></Flex>}
+            {auditResource.err && <Flex justifyContent="center" py="40px"><Text color="red.500">Failed to load audit log.</Text></Flex>}
+            {!auditResource.loading && !auditResource.err && (
+              audit.length === 0 ? (
+                <Flex justifyContent="center" py="40px"><Text color="gray.400">No audit records found.</Text></Flex>
+              ) : (
+                <TableContainer>
+                  <Table variant="simple" size="sm">
+                    <Thead bg="#F7FAFC">
+                      <Tr>
+                        {["Date", "Action", "Performed By", "Changed Fields", "Previous", "New"].map((h) => (
+                          <Th key={h} py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">{h}</Th>
+                        ))}
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {audit.map((log) => (
+                        <Tr key={log.id} _hover={{ bg: "#F7FAFC" }}>
+                          <Td py="12px" fontSize="12px" color="gray.500" whiteSpace="nowrap">
+                            {new Date(log.createdAt).toLocaleString()}
+                          </Td>
+                          <Td py="12px">{actionBadge(log.action)}</Td>
+                          <Td py="12px" fontSize="13px">
+                            {log.performer ? `${log.performer.firstName} ${log.performer.lastName}` : "—"}
+                          </Td>
+                          <Td py="12px" fontSize="12px" color="gray.600">
+                            {(log.changedFields ?? []).join(", ") || "—"}
+                          </Td>
+                          <Td py="12px" fontSize="12px" color="gray.500" maxW="180px">
+                            {log.previousValue ? (
+                              <Text noOfLines={2} fontFamily="mono">{JSON.stringify(log.previousValue)}</Text>
+                            ) : "—"}
+                          </Td>
+                          <Td py="12px" fontSize="12px" color="gray.700" maxW="180px">
+                            {log.newValue ? (
+                              <Text noOfLines={2} fontFamily="mono">{JSON.stringify(log.newValue)}</Text>
+                            ) : "—"}
+                          </Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </TableContainer>
+              )
+            )}
+          </Box>
         </>
       )}
-
-      {/* Sync result modal */}
-      <Modal isOpen={isSyncOpen} onClose={onSyncClose} size="sm" isCentered>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Sync Complete</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody pb="20px">
-            {syncResult && (
-              <Grid templateColumns="repeat(3, 1fr)" gap="12px">
-                {[
-                  { label: "Students Processed", value: syncResult.studentsProcessed ?? 0, color: "#3182CE", bg: "#EBF4FF" },
-                  { label: "Entries Created", value: syncResult.entriesCreated ?? 0, color: "#38A169", bg: "#E6F4EA" },
-                  { label: "Entries Skipped", value: syncResult.entriesSkipped ?? 0, color: "#718096", bg: "#F7FAFC" },
-                ].map((s) => (
-                  <Box key={s.label} bg={s.bg} borderRadius="8px" p="16px" textAlign="center">
-                    <Text fontSize="26px" fontWeight="800" color={s.color}>{s.value}</Text>
-                    <Text fontSize="11px" color="gray.500" mt="4px">{s.label}</Text>
-                  </Box>
-                ))}
-              </Grid>
-            )}
-          </ModalBody>
-        </ModalContent>
-      </Modal>
 
       {/* Publish confirmation */}
       <AlertDialog isOpen={isPublishOpen} leastDestructiveRef={publishRef} onClose={onPublishClose} isCentered>
@@ -582,28 +527,6 @@ const GradeBookV2DetailsPage = () => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
-
-      {/* Attach course modal */}
-      <Modal isOpen={isAttachOpen} onClose={onAttachClose} size="sm" isCentered>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Attach Course</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody pb="20px">
-            <Text fontSize="13px" fontWeight="600" color="gray.600" mb="6px">Course</Text>
-            <EntityCombobox
-              fetchFn={fetchCourseOptions}
-              value={attachCourseId}
-              onSelect={(opt) => setAttachCourseId(opt?.id ?? "")}
-              placeholder="Search course by title…"
-            />
-          </ModalBody>
-          <ModalFooter gap="8px">
-            <Button secondary onClick={onAttachClose}>Cancel</Button>
-            <Button isLoading={attaching} onClick={handleAttach}>Attach</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
     </Box>
     </AdminMainAreaWrapper>
   );
