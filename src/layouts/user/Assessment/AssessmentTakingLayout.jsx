@@ -18,7 +18,7 @@ import { PageLoaderLayout } from "../../global/PageLoader/PageLoaderLayout";
 import { CustomModal } from "./Modal";
 import { EmptyState } from "../..";
 import useTimerCountdown from "./hooks/useTimerCountdown";
-import { getEndTime, sortByIndexField, parseOptionIndex } from "../../../utils";
+import { getEndTime, sortByIndexField, parseOptionIndex, getResultRemark } from "../../../utils";
 import { http } from "../../../services/http/http";
 import { submitAssessmentMarking, getStudentOwnResult } from "../../../services";
 import { normalizeQuestionType } from "../../../pages/admin/examQuestionImport/questionRowUtils";
@@ -398,7 +398,7 @@ const AssessmentTakingLayout = () => {
                 isLoading={isReviewResultLoading}
                 totalScore={reviewResult?.totalScore ?? null}
                 grade={reviewResult?.grade ?? null}
-                remark={reviewResult?.remark ?? null}
+                remark={getResultRemark(reviewResult)}
                 resultPending={reviewResult?.resultPending}
                 attemptNumber={reviewResult?.attemptNumber}
               />

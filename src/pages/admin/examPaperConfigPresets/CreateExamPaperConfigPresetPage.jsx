@@ -42,10 +42,10 @@ const CreateExamPaperConfigPresetPage = () => {
     setSaving(true);
     try {
       const { preset } = await adminCreateExamPaperConfigPreset(buildPresetPayload(form));
-      toast({ title: "Preset created", status: "success", duration: 3000, isClosable: true });
+      toast({ title: "Exam template created", status: "success", duration: 3000, isClosable: true });
       history.push(`/admin/exam-paper-config-presets/${preset.id}`);
     } catch (err) {
-      toast({ title: err?.response?.data?.message || "Failed to create preset", status: "error", duration: 4000, isClosable: true });
+      toast({ title: err?.response?.data?.message || "Failed to create exam template", status: "error", duration: 4000, isClosable: true });
     } finally {
       setSaving(false);
     }
@@ -55,7 +55,7 @@ const CreateExamPaperConfigPresetPage = () => {
     <AdminMainAreaWrapper>
       <Flex justify="space-between" align="center" mb={6}>
         <Breadcrumb
-          item2={<BreadcrumbItem><Link href="/admin/exam-paper-config-presets">Exam Paper Presets</Link></BreadcrumbItem>}
+          item2={<BreadcrumbItem><Link href="/admin/exam-paper-config-presets">Exam Template Library</Link></BreadcrumbItem>}
           item3={<BreadcrumbItem isCurrentPage><Link href="#">Create</Link></BreadcrumbItem>}
         />
       </Flex>
@@ -65,7 +65,7 @@ const CreateExamPaperConfigPresetPage = () => {
             aria-label="Go back" icon={<FaArrowLeft />} variant="ghost" size="sm"
             onClick={() => history.push("/admin/exam-paper-config-presets")}
           />
-          <Heading fontSize="22px" fontWeight="600">Create Exam Paper Config Preset</Heading>
+          <Heading fontSize="22px" fontWeight="600">Create Exam Template</Heading>
         </Flex>
 
         <PresetFieldsEditor
@@ -78,7 +78,7 @@ const CreateExamPaperConfigPresetPage = () => {
 
         <Flex justifyContent="flex-end" gap="12px" mt="16px">
           <Button secondary onClick={() => history.push("/admin/exam-paper-config-presets")}>Cancel</Button>
-          <Button isLoading={saving} onClick={handleSubmit}>Create Preset</Button>
+          <Button isLoading={saving} onClick={handleSubmit}>Create Exam Template</Button>
         </Flex>
       </Box>
     </AdminMainAreaWrapper>

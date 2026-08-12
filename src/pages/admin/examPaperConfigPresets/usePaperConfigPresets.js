@@ -40,11 +40,11 @@ export const usePaperConfigPresets = () => {
       setIsLoadingPreset(true);
       try {
         const { preset } = await adminGetExamPaperConfigPresetById(presetId);
-        toast({ title: `Loaded preset "${preset.name}"`, status: "success", duration: 2000, isClosable: true });
+        toast({ title: `Loaded exam template "${preset.name}"`, status: "success", duration: 2000, isClosable: true });
         return { preset, paperConfig: hydratePaperConfig(preset) };
       } catch (err) {
         toast({
-          title: err?.response?.data?.message || "Failed to load preset",
+          title: err?.response?.data?.message || "Failed to load exam template",
           status: "error",
           duration: 3000,
           isClosable: true,
@@ -63,11 +63,11 @@ export const usePaperConfigPresets = () => {
       setIsSavingPreset(true);
       try {
         const { preset } = await adminCreateExamPaperConfigPreset(payload);
-        toast({ title: "Saved as preset", status: "success", duration: 3000, isClosable: true });
+        toast({ title: "Saved as exam template", status: "success", duration: 3000, isClosable: true });
         return preset;
       } catch (err) {
         toast({
-          title: err?.response?.data?.message || "Failed to save preset",
+          title: err?.response?.data?.message || "Failed to save exam template",
           status: "error",
           duration: 4000,
           isClosable: true,

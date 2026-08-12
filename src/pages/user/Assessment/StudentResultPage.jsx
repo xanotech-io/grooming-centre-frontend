@@ -3,7 +3,7 @@ import { Route, useHistory, useParams } from "react-router-dom";
 import { Box, Flex, Grid, Badge, Spinner, Progress } from "@chakra-ui/react";
 import { Heading, Text, Button, SubmissionCommentsSummary } from "../../../components";
 import { getStudentOwnResult, buildThreadKey, markViewed, getUnreadCount } from "../../../services";
-import { capitalizeFirstLetter } from "../../../utils";
+import { capitalizeFirstLetter, getResultRemark } from "../../../utils";
 import { useApp } from "../../../contexts";
 import { FiCheck, FiX, FiClock, FiAward } from "react-icons/fi";
 import dayjs from "dayjs";
@@ -197,6 +197,7 @@ const StudentResultPage = () => {
   const autoScore = parseFloat(result.autoScore ?? 0);
   const manualScore = parseFloat(result.manualScore ?? 0);
   const isPassed = totalScore >= 50;
+  const remark = getResultRemark(result);
 
   return (
     <Box
@@ -434,7 +435,7 @@ const StudentResultPage = () => {
         </Box>
 
         {/* Remark */}
-        {result.remark && (
+        {remark && (
           <Box
             bg="white"
             border="1px solid #E2E8F0"
@@ -452,8 +453,8 @@ const StudentResultPage = () => {
             >
               Instructor Feedback
             </Text>
-            <Text fontSize="14px" color="#1A202C" lineHeight="1.7">
-              {result.remark}
+            <Text fontSize="14px" color="#1A202C" lineHeight="1.7" whiteSpace="pre-wrap">
+              {remark}
             </Text>
           </Box>
         )}

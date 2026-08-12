@@ -59,7 +59,7 @@ export const links = [
       { href: "/admin/manual-marking", text: "Manual Marking" },
       { href: "/admin/marking-templates", text: "Marking Templates" },
       { href: "/admin/marking-schemes", text: "Marking Schemes" },
-      { href: "/admin/exam-paper-config-presets", text: "Exam Paper Presets" },
+      { href: "/admin/exam-paper-config-presets", text: "Exam Template Library" },
       // { href: "/admin/grade-book", text: "Grade Book" },
       { href: "/admin/grade-book-v2", text: "Advanced Grade Book" },
       { href: "/admin/feedback-markup", text: "Feedback Markup" },

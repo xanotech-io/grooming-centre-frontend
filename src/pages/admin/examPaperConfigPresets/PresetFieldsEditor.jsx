@@ -21,11 +21,12 @@ import {
   MARKING_TYPE_LOCK_OPTIONS,
 } from "../examSectionBuilder/examTypeConfig";
 
-// The navigationMode/uiSettings/toolsEnabled/accessibilitySettings/
-// submissionSettings/randomizationMethod/randomizationConfig slice, shared
-// between a preset's own form and the "Template / Marking Scheme" step of
-// each exam-creation flow (TemplateStandalone.jsx / TemplatePage.jsx) so
-// both can hydrate from and save into the same preset shape.
+// The navigationMode/uiSettings/toolsEnabled/submissionSettings/
+// randomizationMethod/randomizationConfig slice, shared between a preset's
+// own form and the "Template / Marking Scheme" step of each exam-creation
+// flow (TemplateStandalone.jsx / TemplatePage.jsx) so both can hydrate from
+// and save into the same preset shape. No accessibilitySettings — the
+// backend doesn't accept it on this endpoint.
 export const PAPER_CONFIG_DEFAULTS = {
   navigationMode: "free",
   uiSettings: {
@@ -35,13 +36,6 @@ export const PAPER_CONFIG_DEFAULTS = {
     progress_indicator: true,
   },
   toolsEnabled: { calculator: "none", spellchecker: false, scratchpad: false },
-  accessibilitySettings: {
-    // A scaling multiplier (0.5 - 3.0), not a toggle — 1 means "no scaling".
-    font_scaling: 1,
-    dyslexia_font: false,
-    high_contrast: false,
-    screen_reader: false,
-  },
   submissionSettings: { confirmation_dialog: true, auto_submit: false },
   randomizationMethod: "none",
   randomizationConfig: { shufflePerAttempt: false },
@@ -51,7 +45,6 @@ export const hydratePaperConfig = (raw) => ({
   navigationMode: raw?.navigationMode || PAPER_CONFIG_DEFAULTS.navigationMode,
   uiSettings: { ...PAPER_CONFIG_DEFAULTS.uiSettings, ...(raw?.uiSettings || {}) },
   toolsEnabled: { ...PAPER_CONFIG_DEFAULTS.toolsEnabled, ...(raw?.toolsEnabled || {}) },
-  accessibilitySettings: { ...PAPER_CONFIG_DEFAULTS.accessibilitySettings, ...(raw?.accessibilitySettings || {}) },
   submissionSettings: { ...PAPER_CONFIG_DEFAULTS.submissionSettings, ...(raw?.submissionSettings || {}) },
   randomizationMethod: raw?.randomizationMethod || "none",
   randomizationConfig: { ...PAPER_CONFIG_DEFAULTS.randomizationConfig, ...(raw?.randomizationConfig || {}) },
@@ -66,20 +59,60 @@ export const DEFAULT_PRESET_CONFIG = {
 
 // Backend constraints (must match server-side validation):
 // - uiSettings.font_size: 10-32
-// - accessibilitySettings.font_scaling: 0.5-3.0
 // - sections: at most 10 items; when any are present each needs a
 //   name/section_name, a question count, and either total_marks/weightage
 //   or marksPerQuestion. Zero sections is valid (unsectioned presets).
+// Accepts sections in either this form's internal shape (section_name/
+// questions_count/total_marks) or the API's wire shape (section_name/
+// questionCount/weightage) — called on both, depending on caller.
 export const validatePresetSections = (sections = []) => {
   if (sections.length > 10) return "A preset can have at most 10 sections";
   const invalid = sections.some((s) => {
     const name = s.section_name || s.name;
+    const count = s.questions_count ?? s.questionCount;
     const hasMarks = s.total_marks != null || s.marksPerQuestion != null || s.weightage != null;
-    return !name?.trim() || !s.questions_count || !hasMarks;
+    return !name?.trim() || !count || !hasMarks;
   });
   if (invalid) return "Each section needs a name, a question count, and marks/weightage";
   return null;
 };
+
+// The preset-v2 API's own wire shape for a section — distinct from the
+// exam Section Builder's `question_types`(array)/`questions_count`/
+// `marking_type`/`total_marks` shape (examSectionBuilder/examTypeConfig.js).
+// This form/editor keeps the latter internally (question_type singular,
+// questions_count, marking_type, total_marks) and translates at the
+// boundary via these two helpers, so only they need to change if the API
+// shape changes again.
+const sectionToWire = (s) => ({
+  section_name: s.section_name,
+  questionCount: Number(s.questions_count) || 0,
+  questionType: s.question_type || "",
+  markingType: s.marking_type || "",
+  weightage: s.total_marks ? Number(s.total_marks) : null,
+});
+
+// randomizationConfig on the wire is only ever {question_order, option_order}
+// booleans — derived straight from the Method select rather than tracked as
+// its own editable state, so there's no separate control that can drift out
+// of sync with it.
+export const deriveRandomizationConfig = (method) => ({
+  question_order: method === "questions" || method === "both",
+  option_order: method === "options" || method === "both",
+});
+
+const sectionFromWire = (s) => ({
+  section_name: s.section_name || s.name || "",
+  questions_count: s.questionCount ?? s.questions_count ?? "",
+  // This editor's own Question Type field is a single-select — if a section
+  // was saved with 2+ types (an array, from the exam-creation flow's
+  // multi-select Section Builder), show just the first one here.
+  question_type: Array.isArray(s.questionType)
+    ? (s.questionType[0] || "")
+    : (s.questionType ?? s.question_type ?? ""),
+  marking_type: s.markingType ?? s.marking_type ?? "",
+  total_marks: s.weightage ?? s.total_marks ?? null,
+});
 
 const ToggleRow = ({ label, description, value, onChange, isDisabled }) => (
   <Flex justifyContent="space-between" alignItems="center" py="10px" borderBottom="1px solid #F7FAFC">
@@ -108,24 +141,17 @@ export const buildPresetPayload = (form) => ({
   navigationMode: form.navigationMode,
   uiSettings: form.uiSettings,
   toolsEnabled: form.toolsEnabled,
-  accessibilitySettings: form.accessibilitySettings,
   submissionSettings: form.submissionSettings,
   randomizationMethod: form.randomizationMethod,
-  randomizationConfig: form.randomizationConfig,
-  sections: (form.sections || []).map((s) => ({
-    section_name: s.section_name,
-    questions_count: Number(s.questions_count) || 0,
-    question_type: s.question_type || "",
-    marking_type: s.marking_type || "",
-    total_marks: s.total_marks ? Number(s.total_marks) : null,
-  })),
+  randomizationConfig: deriveRandomizationConfig(form.randomizationMethod),
+  sections: (form.sections || []).map(sectionToWire),
 });
 
 export const hydratePresetForm = (preset) => ({
   name: preset?.name || "",
   markingTemplateId: preset?.markingTemplateId || "",
   ...hydratePaperConfig(preset),
-  sections: preset?.sections?.length ? preset.sections : [],
+  sections: preset?.sections?.length ? preset.sections.map(sectionFromWire) : [],
 });
 
 // The Navigation/UI Settings/Tools/Accessibility/Submission Settings/
@@ -209,23 +235,6 @@ export const PaperConfigFieldsEditor = ({ values, setValues, disabled }) => {
         <ToggleRow label="Scratchpad" value={values.toolsEnabled.scratchpad} onChange={(v) => set(["toolsEnabled", "scratchpad"], v)} isDisabled={disabled} />
       </FieldGroup>
 
-      <FieldGroup title="Accessibility">
-        <Box mb="12px" maxW="220px">
-          <Text fontSize="12px" color="gray.500" mb="4px">Font Scaling (0.5 – 3.0×)</Text>
-          <NumberInput
-            size="sm" min={0.5} max={3.0} step={0.1} precision={1}
-            value={values.accessibilitySettings.font_scaling}
-            onChange={(v) => set(["accessibilitySettings", "font_scaling"], Number(v) || 1)}
-            isDisabled={disabled}
-          >
-            <NumberInputField borderRadius="6px" />
-          </NumberInput>
-        </Box>
-        <ToggleRow label="Dyslexia Font" value={values.accessibilitySettings.dyslexia_font} onChange={(v) => set(["accessibilitySettings", "dyslexia_font"], v)} isDisabled={disabled} />
-        <ToggleRow label="High Contrast" value={values.accessibilitySettings.high_contrast} onChange={(v) => set(["accessibilitySettings", "high_contrast"], v)} isDisabled={disabled} />
-        <ToggleRow label="Screen Reader Optimisation" value={values.accessibilitySettings.screen_reader} onChange={(v) => set(["accessibilitySettings", "screen_reader"], v)} isDisabled={disabled} />
-      </FieldGroup>
-
       <FieldGroup title="Submission Settings">
         <ToggleRow label="Confirmation Dialog" value={values.submissionSettings.confirmation_dialog} onChange={(v) => set(["submissionSettings", "confirmation_dialog"], v)} isDisabled={disabled} />
         <ToggleRow label="Auto-Submit on Expiry" value={values.submissionSettings.auto_submit} onChange={(v) => set(["submissionSettings", "auto_submit"], v)} isDisabled={disabled} />
@@ -241,13 +250,40 @@ export const PaperConfigFieldsEditor = ({ values, setValues, disabled }) => {
             <option value="both">Shuffle Both</option>
           </ChakraSelect>
         </Box>
-        <ToggleRow
-          label="Reshuffle Per Attempt"
-          description="Generate a new random order on every retry attempt"
-          value={values.randomizationConfig.shufflePerAttempt}
-          onChange={(v) => set(["randomizationConfig", "shufflePerAttempt"], v)}
-          isDisabled={disabled || values.randomizationMethod === "none"}
-        />
+      </FieldGroup>
+    </Box>
+  );
+};
+
+// Randomization-only slice of PaperConfigFieldsEditor — used by the
+// "Template / Marking Scheme" step of each exam-creation flow, which only
+// exposes Randomization there (Navigation/UI/Tools/Accessibility/Submission
+// Settings are configured later, on the exam's own Paper Config screen).
+export const RandomizationFieldsEditor = ({ values, setValues, disabled }) => {
+  const set = (path, value) => {
+    setValues((prev) => {
+      const next = { ...prev };
+      if (path.length === 1) {
+        next[path[0]] = value;
+      } else {
+        next[path[0]] = { ...prev[path[0]], [path[1]]: value };
+      }
+      return next;
+    });
+  };
+
+  return (
+    <Box>
+      <FieldGroup title="Randomization">
+        <Box mb="12px">
+          <Text fontSize="12px" color="gray.500" mb="4px">Method</Text>
+          <ChakraSelect size="sm" borderRadius="6px" maxW="220px" value={values.randomizationMethod} onChange={(e) => set(["randomizationMethod"], e.target.value)} isDisabled={disabled}>
+            <option value="none">None</option>
+            <option value="questions">Shuffle Questions</option>
+            <option value="options">Shuffle Options</option>
+            <option value="both">Shuffle Both</option>
+          </ChakraSelect>
+        </Box>
       </FieldGroup>
     </Box>
   );
