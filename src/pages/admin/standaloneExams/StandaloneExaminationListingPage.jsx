@@ -224,7 +224,7 @@ const StandaloneExaminationListingPage = () => {
         <Box display={"flex"} gap="8px">
           <Button link={`/admin/exam-question-bank`} secondary>Question Bank</Button>
 
-          <Button link={`/admin/standalone-exams/temporary-library`} secondary>Exam Template Library</Button>
+          <Button link={`/admin/exam-paper-config-presets`} secondary>Exam Template Library</Button>
 
           <Button link={`/admin/standalone-exams/overview`}>Create New Exam</Button>
         </Box>

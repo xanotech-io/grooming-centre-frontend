@@ -64,7 +64,8 @@
       "Bash(NODE_OPTIONS=--openssl-legacy-provider CI=true npx react-scripts build)",
       "Bash(curl -s -o /tmp/cf_list.json -w \"HTTP_STATUS:%{http_code}\\\\n\" \"https://gclms.xanotech.org/api/v1/custom-fields-v2?entity=course&status=active\")",
       "Read(//tmp/**)",
-      "Bash(grep -n \"^const BASE\\\\|http.get\\(\\\\`\\\\${BASE}\\\\`\\\\|report\\\\b\" /home/cyberbot/grooming-centre-frontend/src/pages/admin/report/submissions/SubmissionsReportPage.jsx)"
+      "Bash(grep -n \"^const BASE\\\\|http.get\\(\\\\`\\\\${BASE}\\\\`\\\\|report\\\\b\" /home/cyberbot/grooming-centre-frontend/src/pages/admin/report/submissions/SubmissionsReportPage.jsx)",
+      "Bash(CI=false NODE_OPTIONS=--openssl-legacy-provider GENERATE_SOURCEMAP=false timeout 300 npx react-scripts build)"
     ]
   }
 }

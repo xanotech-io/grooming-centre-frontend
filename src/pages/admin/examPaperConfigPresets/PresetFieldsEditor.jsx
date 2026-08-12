@@ -21,9 +21,12 @@ import {
   MARKING_TYPE_LOCK_OPTIONS,
 } from "../examSectionBuilder/examTypeConfig";
 
-export const DEFAULT_PRESET_CONFIG = {
-  name: "",
-  markingTemplateId: "",
+// The navigationMode/uiSettings/toolsEnabled/accessibilitySettings/
+// submissionSettings/randomizationMethod/randomizationConfig slice, shared
+// between a preset's own form and the "Template / Marking Scheme" step of
+// each exam-creation flow (TemplateStandalone.jsx / TemplatePage.jsx) so
+// both can hydrate from and save into the same preset shape.
+export const PAPER_CONFIG_DEFAULTS = {
   navigationMode: "free",
   uiSettings: {
     theme: "default",
@@ -33,7 +36,8 @@ export const DEFAULT_PRESET_CONFIG = {
   },
   toolsEnabled: { calculator: "none", spellchecker: false, scratchpad: false },
   accessibilitySettings: {
-    font_scaling: false,
+    // A scaling multiplier (0.5 - 3.0), not a toggle — 1 means "no scaling".
+    font_scaling: 1,
     dyslexia_font: false,
     high_contrast: false,
     screen_reader: false,
@@ -41,7 +45,40 @@ export const DEFAULT_PRESET_CONFIG = {
   submissionSettings: { confirmation_dialog: true, auto_submit: false },
   randomizationMethod: "none",
   randomizationConfig: { shufflePerAttempt: false },
+};
+
+export const hydratePaperConfig = (raw) => ({
+  navigationMode: raw?.navigationMode || PAPER_CONFIG_DEFAULTS.navigationMode,
+  uiSettings: { ...PAPER_CONFIG_DEFAULTS.uiSettings, ...(raw?.uiSettings || {}) },
+  toolsEnabled: { ...PAPER_CONFIG_DEFAULTS.toolsEnabled, ...(raw?.toolsEnabled || {}) },
+  accessibilitySettings: { ...PAPER_CONFIG_DEFAULTS.accessibilitySettings, ...(raw?.accessibilitySettings || {}) },
+  submissionSettings: { ...PAPER_CONFIG_DEFAULTS.submissionSettings, ...(raw?.submissionSettings || {}) },
+  randomizationMethod: raw?.randomizationMethod || "none",
+  randomizationConfig: { ...PAPER_CONFIG_DEFAULTS.randomizationConfig, ...(raw?.randomizationConfig || {}) },
+});
+
+export const DEFAULT_PRESET_CONFIG = {
+  name: "",
+  markingTemplateId: "",
+  ...PAPER_CONFIG_DEFAULTS,
   sections: [],
+};
+
+// Backend constraints (must match server-side validation):
+// - uiSettings.font_size: 10-32
+// - accessibilitySettings.font_scaling: 0.5-3.0
+// - sections: at most 10 items; when any are present each needs a
+//   name/section_name, a question count, and either total_marks/weightage
+//   or marksPerQuestion. Zero sections is valid (unsectioned presets).
+export const validatePresetSections = (sections = []) => {
+  if (sections.length > 10) return "A preset can have at most 10 sections";
+  const invalid = sections.some((s) => {
+    const name = s.section_name || s.name;
+    const hasMarks = s.total_marks != null || s.marksPerQuestion != null || s.weightage != null;
+    return !name?.trim() || !s.questions_count || !hasMarks;
+  });
+  if (invalid) return "Each section needs a name, a question count, and marks/weightage";
+  return null;
 };
 
 const ToggleRow = ({ label, description, value, onChange, isDisabled }) => (
@@ -87,15 +124,134 @@ export const buildPresetPayload = (form) => ({
 export const hydratePresetForm = (preset) => ({
   name: preset?.name || "",
   markingTemplateId: preset?.markingTemplateId || "",
-  navigationMode: preset?.navigationMode || DEFAULT_PRESET_CONFIG.navigationMode,
-  uiSettings: { ...DEFAULT_PRESET_CONFIG.uiSettings, ...(preset?.uiSettings || {}) },
-  toolsEnabled: { ...DEFAULT_PRESET_CONFIG.toolsEnabled, ...(preset?.toolsEnabled || {}) },
-  accessibilitySettings: { ...DEFAULT_PRESET_CONFIG.accessibilitySettings, ...(preset?.accessibilitySettings || {}) },
-  submissionSettings: { ...DEFAULT_PRESET_CONFIG.submissionSettings, ...(preset?.submissionSettings || {}) },
-  randomizationMethod: preset?.randomizationMethod || "none",
-  randomizationConfig: { ...DEFAULT_PRESET_CONFIG.randomizationConfig, ...(preset?.randomizationConfig || {}) },
+  ...hydratePaperConfig(preset),
   sections: preset?.sections?.length ? preset.sections : [],
 });
+
+// The Navigation/UI Settings/Tools/Accessibility/Submission Settings/
+// Randomization field groups — shared by PresetFieldsEditor and by the
+// "Load Preset"-aware Template/Marking Scheme step of each exam-creation
+// flow. `values` must be the PAPER_CONFIG_DEFAULTS shape; `setValues` is a
+// plain useState setter (functional-update form) over an object holding
+// that shape (either the whole preset form, or a dedicated paperConfig
+// slice of a host page's own state).
+export const PaperConfigFieldsEditor = ({ values, setValues, disabled }) => {
+  const set = (path, value) => {
+    setValues((prev) => {
+      const next = { ...prev };
+      if (path.length === 1) {
+        next[path[0]] = value;
+      } else {
+        next[path[0]] = { ...prev[path[0]], [path[1]]: value };
+      }
+      return next;
+    });
+  };
+
+  return (
+    <Box>
+      <FieldGroup title="Navigation">
+        <RadioGroup value={values.navigationMode} onChange={(v) => set(["navigationMode"], v)} isDisabled={disabled}>
+          <Flex direction="column" gap="6px">
+            {[
+              { value: "free", label: "Free" },
+              { value: "forward-only", label: "Forward Only" },
+              { value: "section-locked", label: "Section Locked" },
+            ].map((opt) => (
+              <Radio key={opt.value} value={opt.value} colorScheme="purple">
+                <Text fontSize="13px">{opt.label}</Text>
+              </Radio>
+            ))}
+          </Flex>
+        </RadioGroup>
+      </FieldGroup>
+
+      <FieldGroup title="UI Settings">
+        <Flex gap="12px" flexWrap="wrap" mb="12px">
+          <Box flex="1" minW="140px">
+            <Text fontSize="12px" color="gray.500" mb="4px">Theme</Text>
+            <ChakraSelect size="sm" borderRadius="6px" value={values.uiSettings.theme} onChange={(e) => set(["uiSettings", "theme"], e.target.value)} isDisabled={disabled}>
+              <option value="default">Default</option>
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+              <option value="high-contrast">High Contrast</option>
+            </ChakraSelect>
+          </Box>
+          <Box flex="1" minW="140px">
+            <Text fontSize="12px" color="gray.500" mb="4px">Font Family</Text>
+            <ChakraSelect size="sm" borderRadius="6px" value={values.uiSettings.font_family} onChange={(e) => set(["uiSettings", "font_family"], e.target.value)} isDisabled={disabled}>
+              <option value="default">Default</option>
+              <option value="dyslexia">Dyslexia</option>
+              <option value="serif">Serif</option>
+              <option value="sans-serif">Sans-Serif</option>
+            </ChakraSelect>
+          </Box>
+          <Box flex="0 0 100px">
+            <Text fontSize="12px" color="gray.500" mb="4px">Font Size</Text>
+            <NumberInput size="sm" min={10} max={32} value={values.uiSettings.font_size} onChange={(v) => set(["uiSettings", "font_size"], Number(v) || 16)} isDisabled={disabled}>
+              <NumberInputField borderRadius="6px" />
+            </NumberInput>
+          </Box>
+        </Flex>
+        <ToggleRow label="Show Progress Bar" value={values.uiSettings.progress_indicator} onChange={(v) => set(["uiSettings", "progress_indicator"], v)} isDisabled={disabled} />
+      </FieldGroup>
+
+      <FieldGroup title="Tools">
+        <Box mb="12px">
+          <Text fontSize="12px" color="gray.500" mb="4px">Calculator</Text>
+          <ChakraSelect size="sm" borderRadius="6px" maxW="200px" value={values.toolsEnabled.calculator} onChange={(e) => set(["toolsEnabled", "calculator"], e.target.value)} isDisabled={disabled}>
+            <option value="none">None</option>
+            <option value="basic">Basic</option>
+            <option value="scientific">Scientific</option>
+          </ChakraSelect>
+        </Box>
+        <ToggleRow label="Spellchecker" value={values.toolsEnabled.spellchecker} onChange={(v) => set(["toolsEnabled", "spellchecker"], v)} isDisabled={disabled} />
+        <ToggleRow label="Scratchpad" value={values.toolsEnabled.scratchpad} onChange={(v) => set(["toolsEnabled", "scratchpad"], v)} isDisabled={disabled} />
+      </FieldGroup>
+
+      <FieldGroup title="Accessibility">
+        <Box mb="12px" maxW="220px">
+          <Text fontSize="12px" color="gray.500" mb="4px">Font Scaling (0.5 – 3.0×)</Text>
+          <NumberInput
+            size="sm" min={0.5} max={3.0} step={0.1} precision={1}
+            value={values.accessibilitySettings.font_scaling}
+            onChange={(v) => set(["accessibilitySettings", "font_scaling"], Number(v) || 1)}
+            isDisabled={disabled}
+          >
+            <NumberInputField borderRadius="6px" />
+          </NumberInput>
+        </Box>
+        <ToggleRow label="Dyslexia Font" value={values.accessibilitySettings.dyslexia_font} onChange={(v) => set(["accessibilitySettings", "dyslexia_font"], v)} isDisabled={disabled} />
+        <ToggleRow label="High Contrast" value={values.accessibilitySettings.high_contrast} onChange={(v) => set(["accessibilitySettings", "high_contrast"], v)} isDisabled={disabled} />
+        <ToggleRow label="Screen Reader Optimisation" value={values.accessibilitySettings.screen_reader} onChange={(v) => set(["accessibilitySettings", "screen_reader"], v)} isDisabled={disabled} />
+      </FieldGroup>
+
+      <FieldGroup title="Submission Settings">
+        <ToggleRow label="Confirmation Dialog" value={values.submissionSettings.confirmation_dialog} onChange={(v) => set(["submissionSettings", "confirmation_dialog"], v)} isDisabled={disabled} />
+        <ToggleRow label="Auto-Submit on Expiry" value={values.submissionSettings.auto_submit} onChange={(v) => set(["submissionSettings", "auto_submit"], v)} isDisabled={disabled} />
+      </FieldGroup>
+
+      <FieldGroup title="Randomization">
+        <Box mb="12px">
+          <Text fontSize="12px" color="gray.500" mb="4px">Method</Text>
+          <ChakraSelect size="sm" borderRadius="6px" maxW="220px" value={values.randomizationMethod} onChange={(e) => set(["randomizationMethod"], e.target.value)} isDisabled={disabled}>
+            <option value="none">None</option>
+            <option value="questions">Shuffle Questions</option>
+            <option value="options">Shuffle Options</option>
+            <option value="both">Shuffle Both</option>
+          </ChakraSelect>
+        </Box>
+        <ToggleRow
+          label="Reshuffle Per Attempt"
+          description="Generate a new random order on every retry attempt"
+          value={values.randomizationConfig.shufflePerAttempt}
+          onChange={(v) => set(["randomizationConfig", "shufflePerAttempt"], v)}
+          isDisabled={disabled || values.randomizationMethod === "none"}
+        />
+      </FieldGroup>
+    </Box>
+  );
+};
 
 export const PresetFieldsEditor = ({ form, setForm, markingTemplates, markingTemplatesLoading, disabled }) => {
   const set = (path, value) => {
@@ -194,100 +350,15 @@ export const PresetFieldsEditor = ({ form, setForm, markingTemplates, markingTem
             />
           </Grid>
         ))}
-        <Button size="xs" variant="outline" leftIcon={<FaPlus />} onClick={addSection} isDisabled={disabled}>
+        {sections.length >= 10 && (
+          <Text fontSize="12px" color="orange.500" mb="8px">Maximum of 10 sections reached.</Text>
+        )}
+        <Button size="xs" variant="outline" leftIcon={<FaPlus />} onClick={addSection} isDisabled={disabled || sections.length >= 10}>
           Add Section
         </Button>
       </FieldGroup>
 
-      <FieldGroup title="Navigation">
-        <RadioGroup value={form.navigationMode} onChange={(v) => set(["navigationMode"], v)} isDisabled={disabled}>
-          <Flex direction="column" gap="6px">
-            {[
-              { value: "free", label: "Free" },
-              { value: "forward-only", label: "Forward Only" },
-              { value: "section-locked", label: "Section Locked" },
-            ].map((opt) => (
-              <Radio key={opt.value} value={opt.value} colorScheme="purple">
-                <Text fontSize="13px">{opt.label}</Text>
-              </Radio>
-            ))}
-          </Flex>
-        </RadioGroup>
-      </FieldGroup>
-
-      <FieldGroup title="UI Settings">
-        <Flex gap="12px" flexWrap="wrap" mb="12px">
-          <Box flex="1" minW="140px">
-            <Text fontSize="12px" color="gray.500" mb="4px">Theme</Text>
-            <ChakraSelect size="sm" borderRadius="6px" value={form.uiSettings.theme} onChange={(e) => set(["uiSettings", "theme"], e.target.value)} isDisabled={disabled}>
-              <option value="default">Default</option>
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-              <option value="high-contrast">High Contrast</option>
-            </ChakraSelect>
-          </Box>
-          <Box flex="1" minW="140px">
-            <Text fontSize="12px" color="gray.500" mb="4px">Font Family</Text>
-            <ChakraSelect size="sm" borderRadius="6px" value={form.uiSettings.font_family} onChange={(e) => set(["uiSettings", "font_family"], e.target.value)} isDisabled={disabled}>
-              <option value="default">Default</option>
-              <option value="dyslexia">Dyslexia</option>
-              <option value="serif">Serif</option>
-              <option value="sans-serif">Sans-Serif</option>
-            </ChakraSelect>
-          </Box>
-          <Box flex="0 0 100px">
-            <Text fontSize="12px" color="gray.500" mb="4px">Font Size</Text>
-            <NumberInput size="sm" min={12} max={24} value={form.uiSettings.font_size} onChange={(v) => set(["uiSettings", "font_size"], Number(v) || 16)} isDisabled={disabled}>
-              <NumberInputField borderRadius="6px" />
-            </NumberInput>
-          </Box>
-        </Flex>
-        <ToggleRow label="Show Progress Bar" value={form.uiSettings.progress_indicator} onChange={(v) => set(["uiSettings", "progress_indicator"], v)} isDisabled={disabled} />
-      </FieldGroup>
-
-      <FieldGroup title="Tools">
-        <Box mb="12px">
-          <Text fontSize="12px" color="gray.500" mb="4px">Calculator</Text>
-          <ChakraSelect size="sm" borderRadius="6px" maxW="200px" value={form.toolsEnabled.calculator} onChange={(e) => set(["toolsEnabled", "calculator"], e.target.value)} isDisabled={disabled}>
-            <option value="none">None</option>
-            <option value="basic">Basic</option>
-            <option value="scientific">Scientific</option>
-          </ChakraSelect>
-        </Box>
-        <ToggleRow label="Spellchecker" value={form.toolsEnabled.spellchecker} onChange={(v) => set(["toolsEnabled", "spellchecker"], v)} isDisabled={disabled} />
-        <ToggleRow label="Scratchpad" value={form.toolsEnabled.scratchpad} onChange={(v) => set(["toolsEnabled", "scratchpad"], v)} isDisabled={disabled} />
-      </FieldGroup>
-
-      <FieldGroup title="Accessibility">
-        <ToggleRow label="Font Scaling" value={form.accessibilitySettings.font_scaling} onChange={(v) => set(["accessibilitySettings", "font_scaling"], v)} isDisabled={disabled} />
-        <ToggleRow label="Dyslexia Font" value={form.accessibilitySettings.dyslexia_font} onChange={(v) => set(["accessibilitySettings", "dyslexia_font"], v)} isDisabled={disabled} />
-        <ToggleRow label="High Contrast" value={form.accessibilitySettings.high_contrast} onChange={(v) => set(["accessibilitySettings", "high_contrast"], v)} isDisabled={disabled} />
-        <ToggleRow label="Screen Reader Optimisation" value={form.accessibilitySettings.screen_reader} onChange={(v) => set(["accessibilitySettings", "screen_reader"], v)} isDisabled={disabled} />
-      </FieldGroup>
-
-      <FieldGroup title="Submission Settings">
-        <ToggleRow label="Confirmation Dialog" value={form.submissionSettings.confirmation_dialog} onChange={(v) => set(["submissionSettings", "confirmation_dialog"], v)} isDisabled={disabled} />
-        <ToggleRow label="Auto-Submit on Expiry" value={form.submissionSettings.auto_submit} onChange={(v) => set(["submissionSettings", "auto_submit"], v)} isDisabled={disabled} />
-      </FieldGroup>
-
-      <FieldGroup title="Randomization">
-        <Box mb="12px">
-          <Text fontSize="12px" color="gray.500" mb="4px">Method</Text>
-          <ChakraSelect size="sm" borderRadius="6px" maxW="220px" value={form.randomizationMethod} onChange={(e) => set(["randomizationMethod"], e.target.value)} isDisabled={disabled}>
-            <option value="none">None</option>
-            <option value="questions">Shuffle Questions</option>
-            <option value="options">Shuffle Options</option>
-            <option value="both">Shuffle Both</option>
-          </ChakraSelect>
-        </Box>
-        <ToggleRow
-          label="Reshuffle Per Attempt"
-          description="Generate a new random order on every retry attempt"
-          value={form.randomizationConfig.shufflePerAttempt}
-          onChange={(v) => set(["randomizationConfig", "shufflePerAttempt"], v)}
-          isDisabled={disabled || form.randomizationMethod === "none"}
-        />
-      </FieldGroup>
+      <PaperConfigFieldsEditor values={form} setValues={setForm} disabled={disabled} />
     </Box>
   );
 };

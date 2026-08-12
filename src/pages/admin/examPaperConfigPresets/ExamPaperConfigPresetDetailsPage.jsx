@@ -41,6 +41,7 @@ import {
   PresetFieldsEditor,
   buildPresetPayload,
   hydratePresetForm,
+  validatePresetSections,
 } from "./PresetFieldsEditor";
 
 const ExamPaperConfigPresetDetailsPage = () => {
@@ -94,6 +95,11 @@ const ExamPaperConfigPresetDetailsPage = () => {
   const handleSaveFull = async () => {
     if (!form.name.trim()) {
       toast({ title: "Name is required", status: "warning", duration: 2000, isClosable: true });
+      return;
+    }
+    const sectionsError = validatePresetSections(form.sections);
+    if (sectionsError) {
+      toast({ title: sectionsError, status: "warning", duration: 3000, isClosable: true });
       return;
     }
     setSaving(true);
