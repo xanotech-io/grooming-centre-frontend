@@ -61,10 +61,10 @@ const ExamPaperConfigPresetsPage = () => {
     setDeleting(true);
     try {
       await adminDeleteExamPaperConfigPreset(presetToDelete.id);
-      toast({ title: "Preset deleted", status: "success", duration: 3000, isClosable: true });
+      toast({ title: "Exam template deleted", status: "success", duration: 3000, isClosable: true });
       handleFetchResource({ fetcher });
     } catch (err) {
-      toast({ title: err?.response?.data?.message || "Failed to delete preset", status: "error", duration: 4000, isClosable: true });
+      toast({ title: err?.response?.data?.message || "Failed to delete exam template", status: "error", duration: 4000, isClosable: true });
     } finally {
       setDeleting(false);
       setPresetToDelete(null);
@@ -80,13 +80,13 @@ const ExamPaperConfigPresetsPage = () => {
     <AdminMainAreaWrapper>
       <Flex justify="space-between" align="center" mb={6}>
         <Breadcrumb
-          item2={<BreadcrumbItem isCurrentPage><Link href="#">Exam Paper Presets</Link></BreadcrumbItem>}
+          item2={<BreadcrumbItem isCurrentPage><Link href="#">Exam Template Library</Link></BreadcrumbItem>}
         />
       </Flex>
       <Box marginX="22px" marginY="20px">
         <Flex justifyContent="space-between" alignItems="center" mb="24px">
           <Box>
-            <Heading fontSize="22px" fontWeight="600">Exam Paper Config Presets</Heading>
+            <Heading fontSize="22px" fontWeight="600">Exam Template Library</Heading>
             <Text fontSize="13px" color="gray.500" mt="4px">
               Reusable exam paper configurations you can apply across exams, assessments, and standalone exams.
             </Text>
@@ -95,7 +95,7 @@ const ExamPaperConfigPresetsPage = () => {
             leftIcon={<FaPlus />}
             onClick={() => history.push("/admin/exam-paper-config-presets/create")}
           >
-            Create Preset
+            Create Exam Template
           </Button>
         </Flex>
 
@@ -104,7 +104,7 @@ const ExamPaperConfigPresetsPage = () => {
             <Flex justifyContent="center" py="40px"><Spinner size="lg" color="purple.500" /></Flex>
           )}
           {resource.err && (
-            <Flex justifyContent="center" py="40px"><Text color="red.500">Failed to load presets.</Text></Flex>
+            <Flex justifyContent="center" py="40px"><Text color="red.500">Failed to load exam templates.</Text></Flex>
           )}
           {!resource.loading && !resource.err && (
             <TableContainer>
@@ -122,7 +122,7 @@ const ExamPaperConfigPresetsPage = () => {
                   {presets.length === 0 && (
                     <Tr>
                       <Td colSpan={5} py="30px" textAlign="center">
-                        <Text color="gray.400" fontSize="14px">No presets found.</Text>
+                        <Text color="gray.400" fontSize="14px">No exam templates found.</Text>
                       </Td>
                     </Tr>
                   )}
@@ -152,7 +152,7 @@ const ExamPaperConfigPresetsPage = () => {
                         <Td py="12px" fontSize="13px">
                           <Flex gap="4px">
                             <IconButton
-                              aria-label="Edit preset"
+                              aria-label="Edit exam template"
                               icon={<FaPencilAlt />}
                               size="xs"
                               variant="ghost"
@@ -163,7 +163,7 @@ const ExamPaperConfigPresetsPage = () => {
                             />
                             <Tooltip label={isLocked ? "Cannot delete template in use" : ""} isDisabled={!isLocked}>
                               <IconButton
-                                aria-label="Delete preset"
+                                aria-label="Delete exam template"
                                 icon={<FaTrash />}
                                 size="xs"
                                 variant="ghost"
@@ -197,7 +197,7 @@ const ExamPaperConfigPresetsPage = () => {
       <AlertDialog isOpen={isDeleteOpen} leastDestructiveRef={deleteRef} onClose={onDeleteClose} isCentered>
         <AlertDialogOverlay>
           <AlertDialogContent>
-            <AlertDialogHeader fontSize="16px" fontWeight="600">Delete Preset?</AlertDialogHeader>
+            <AlertDialogHeader fontSize="16px" fontWeight="600">Delete Exam Template?</AlertDialogHeader>
             <AlertDialogBody fontSize="14px" color="gray.600">
               This cannot be undone. Delete “{presetToDelete?.name}”?
             </AlertDialogBody>

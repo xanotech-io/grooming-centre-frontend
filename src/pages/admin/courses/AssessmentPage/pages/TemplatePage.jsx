@@ -19,7 +19,7 @@ import {
   computeQuantityTotals,
   seedQuantityCounts,
 } from "../../../examSectionBuilder/examTypeConfig";
-import { PAPER_CONFIG_DEFAULTS, PaperConfigFieldsEditor } from "../../../examPaperConfigPresets/PresetFieldsEditor";
+import { PAPER_CONFIG_DEFAULTS, RandomizationFieldsEditor, deriveRandomizationConfig, validatePresetSections } from "../../../examPaperConfigPresets/PresetFieldsEditor";
 import { usePaperConfigPresets } from "../../../examPaperConfigPresets/usePaperConfigPresets";
 import { LoadPresetSelect, SaveAsPresetModal } from "../../../examPaperConfigPresets/PresetPickerControls";
 
@@ -93,23 +93,45 @@ const TemplatePage = () => {
     if (!result) return;
     setPaperConfig(result.paperConfig);
     if (result.preset.markingTemplateId) setMarkingTemplateId(result.preset.markingTemplateId);
-    if (result.preset.sections?.length) setSections(result.preset.sections.map(hydrateSection));
+    if (result.preset.sections?.length) {
+      setSections(
+        result.preset.sections.map((s) => hydrateSection({
+          section_name: s.section_name,
+          question_types: Array.isArray(s.questionType) ? s.questionType : (s.questionType ? [s.questionType] : []),
+          marking_type: s.markingType,
+          total_marks: s.weightage,
+          questions_count: s.questionCount,
+        })),
+      );
+    }
   };
 
   const handleSaveAsPreset = async (name) => {
+    // Deliberately not reusing normalizeSectionsForConfig's `question_type`
+    // here — that widens 2+ selected types to "" (correct for the
+    // paper-config channel, which keeps the full `question_types` array
+    // alongside it). The preset schema sends a single string for 0-1
+    // selected types, and an array when 2+ are selected.
+    const presetSections = normalizeSectionsForConfig(sections).map(
+      ({ section_name, questions_count, question_types, marking_type, total_marks }) => ({
+        section_name,
+        questionCount: questions_count,
+        questionType: question_types?.length > 1 ? question_types : (question_types?.[0] || ""),
+        markingType: marking_type,
+        weightage: total_marks,
+      }),
+    );
+    const sectionsError = validatePresetSections(presetSections);
+    if (sectionsError) {
+      toast({ title: sectionsError, status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
     const preset = await saveAsPreset({
       name,
       ...(markingTemplateId ? { markingTemplateId } : {}),
       ...paperConfig,
-      sections: normalizeSectionsForConfig(sections).map(
-        ({ section_name, questions_count, question_type, marking_type, total_marks }) => ({
-          section_name,
-          questions_count,
-          question_type,
-          marking_type,
-          total_marks,
-        }),
-      ),
+      randomizationConfig: deriveRandomizationConfig(paperConfig.randomizationMethod),
+      sections: presetSections,
     });
     if (!preset) return;
     setPaperConfigPresetId(preset.id);
@@ -313,7 +335,7 @@ const TemplatePage = () => {
             />
           </Box>
           <Button secondary onClick={openSaveModal} marginBottom="20px">
-            Save Configuration as Preset
+            Save Configuration as Exam Template
           </Button>
         </Flex>
       </Box>
@@ -422,7 +444,7 @@ const TemplatePage = () => {
         <Heading as="h3" size="md" marginBottom="24px" color="#1A202C">
           Advance Settings
         </Heading>
-        <PaperConfigFieldsEditor values={paperConfig} setValues={setPaperConfig} disabled={false} />
+        <RandomizationFieldsEditor values={paperConfig} setValues={setPaperConfig} disabled={false} />
       </Box>
 
       <Flex justifyContent="flex-end" gap="16px">

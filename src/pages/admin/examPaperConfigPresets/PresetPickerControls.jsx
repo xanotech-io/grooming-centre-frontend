@@ -17,8 +17,8 @@ import { Button, Select } from "../../../components";
 // responsible for fetching its full details and hydrating the form.
 export const LoadPresetSelect = ({ presets, presetsLoading, value, onSelect, isLoading }) => (
   <Select
-    label="Load Preset"
-    placeholder={presetsLoading ? "Loading presets…" : "Select a saved preset (optional)"}
+    label="Load Exam Template"
+    placeholder={presetsLoading ? "Loading exam templates…" : "Select a saved exam template (optional)"}
     isDisabled={presetsLoading || isLoading}
     value={value || ""}
     onChange={(e) => onSelect(e.target.value)}
@@ -40,13 +40,12 @@ export const SaveAsPresetModal = ({ isOpen, onClose, onSave, isSaving }) => {
     <Modal isOpen={isOpen} onClose={onClose} isCentered>
       <ModalOverlay />
       <ModalContent>
-        <ModalHeader fontSize="16px" fontWeight="600">Save Configuration as Preset</ModalHeader>
+        <ModalHeader fontSize="16px" fontWeight="600">Save Configuration as Exam Template</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <Text fontSize="13px" color="gray.600" mb="12px">
-            Saves the current navigation, UI, tools, accessibility, submission and
-            randomization settings (and sections) as a reusable preset in the Exam
-            Template Library.
+            Saves the current randomization settings (and sections) as a reusable
+            exam template in the Exam Template Library.
           </Text>
           <Text fontSize="13px" fontWeight="600" color="gray.600" mb="6px">Name *</Text>
           <ChakraInput
@@ -61,7 +60,7 @@ export const SaveAsPresetModal = ({ isOpen, onClose, onSave, isSaving }) => {
         <ModalFooter gap="8px">
           <Button secondary onClick={onClose}>Cancel</Button>
           <Button isLoading={isSaving} isDisabled={!name.trim()} onClick={() => onSave(name.trim())}>
-            Save Preset
+            Save Template
           </Button>
         </ModalFooter>
       </ModalContent>

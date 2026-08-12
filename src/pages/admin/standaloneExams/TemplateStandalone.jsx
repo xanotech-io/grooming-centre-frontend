@@ -14,6 +14,7 @@ import {
     TableContainer,
     Checkbox,
     useDisclosure,
+    useToast,
 } from "@chakra-ui/react";
 import { useHistory } from "react-router-dom";
 import { FaRegSave, FaFileAlt } from "react-icons/fa";
@@ -22,7 +23,7 @@ import { Button, Input, Select } from "../../../components";
 import { useQueryParams, useGoBack } from "../../../hooks";
 import { adminGetMarkingTemplates } from "../../../services";
 import useAssessmentStore from "../../../store/assessmentStore";
-import { PAPER_CONFIG_DEFAULTS, PaperConfigFieldsEditor } from "../examPaperConfigPresets/PresetFieldsEditor";
+import { PAPER_CONFIG_DEFAULTS, RandomizationFieldsEditor, deriveRandomizationConfig, validatePresetSections } from "../examPaperConfigPresets/PresetFieldsEditor";
 import { usePaperConfigPresets } from "../examPaperConfigPresets/usePaperConfigPresets";
 import { LoadPresetSelect, SaveAsPresetModal } from "../examPaperConfigPresets/PresetPickerControls";
 
@@ -192,6 +193,7 @@ const SectionRow = ({ section, idx, onChange, onRemove, disabled }) => (
 
 const TemplateStandalone = () => {
     const { push } = useHistory();
+    const toast = useToast();
     const examinationId = useQueryParams().get("examination");
     const handleCancel = useGoBack();
     const isCreateMode = examinationId === "new";
@@ -223,8 +225,8 @@ const TemplateStandalone = () => {
         setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
 
     // "Save as Template" / "Load Preset" — navigationMode/uiSettings/
-    // toolsEnabled/accessibilitySettings/submissionSettings/
-    // randomizationMethod/randomizationConfig live here, separate from the
+    // toolsEnabled/submissionSettings/randomizationMethod/randomizationConfig
+    // live here, separate from the
     // sections/marking-template state above so a loaded preset's sections can
     // be merged in via the same setSections used everywhere else on this page.
     const [paperConfig, setPaperConfig] = useState(PAPER_CONFIG_DEFAULTS);
@@ -246,27 +248,36 @@ const TemplateStandalone = () => {
             setSections(
                 result.preset.sections.map((s) => ({
                     section_name: s.section_name || "",
-                    question_types: s.question_type ? [s.question_type] : [],
-                    marking_type: s.marking_type || "",
-                    total_marks: s.total_marks ?? null,
-                    question_count: s.questions_count ?? null,
+                    question_types: Array.isArray(s.questionType)
+                        ? s.questionType
+                        : s.questionType ? [s.questionType] : [],
+                    marking_type: s.markingType || "",
+                    total_marks: s.weightage ?? null,
+                    question_count: s.questionCount ?? null,
                 })),
             );
         }
     };
 
     const handleSaveAsPreset = async (name) => {
+        const presetSections = sections.map((s) => ({
+            section_name: s.section_name,
+            questionCount: Number(s.question_count) || 0,
+            questionType: s.question_types?.length > 1 ? s.question_types : (s.question_types?.[0] || ""),
+            markingType: s.marking_type || "",
+            weightage: s.total_marks != null ? Number(s.total_marks) : null,
+        }));
+        const sectionsError = validatePresetSections(presetSections);
+        if (sectionsError) {
+            toast({ title: sectionsError, status: "warning", duration: 3000, isClosable: true });
+            return;
+        }
         const preset = await saveAsPreset({
             name,
             ...(templateId ? { markingTemplateId: templateId } : {}),
             ...paperConfig,
-            sections: sections.map((s) => ({
-                section_name: s.section_name,
-                questions_count: Number(s.question_count) || 0,
-                question_type: s.question_types?.length === 1 ? s.question_types[0] : "",
-                marking_type: s.marking_type || "",
-                total_marks: s.total_marks != null ? Number(s.total_marks) : null,
-            })),
+            randomizationConfig: deriveRandomizationConfig(paperConfig.randomizationMethod),
+            sections: presetSections,
         });
         if (!preset) return;
         setPaperConfigPresetId(preset.id);
@@ -569,7 +580,7 @@ const TemplateStandalone = () => {
                         />
                     </Box>
                     <Button secondary onClick={openSaveModal} marginBottom="20px">
-                        Save Configuration as Preset
+                        Save Configuration as Exam Template
                     </Button>
                 </Flex>
             </Box>
@@ -796,7 +807,7 @@ const TemplateStandalone = () => {
                         Advance Settings
                     </Heading>
 
-                    <PaperConfigFieldsEditor values={paperConfig} setValues={setPaperConfig} disabled={false} />
+                    <RandomizationFieldsEditor values={paperConfig} setValues={setPaperConfig} disabled={false} />
                 </Box>
             </Grid>
 

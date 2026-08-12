@@ -105,11 +105,11 @@ const ExamPaperConfigPresetDetailsPage = () => {
     setSaving(true);
     try {
       await adminUpdateExamPaperConfigPreset(presetId, buildPresetPayload(form));
-      toast({ title: "Preset updated", status: "success", duration: 3000, isClosable: true });
+      toast({ title: "Exam template updated", status: "success", duration: 3000, isClosable: true });
       setEditing(false);
       handleFetchResource({ fetcher });
     } catch (err) {
-      toast({ title: err?.response?.data?.message || "Failed to update preset", status: "error", duration: 4000, isClosable: true });
+      toast({ title: err?.response?.data?.message || "Failed to update exam template", status: "error", duration: 4000, isClosable: true });
     } finally {
       setSaving(false);
     }
@@ -134,10 +134,10 @@ const ExamPaperConfigPresetDetailsPage = () => {
     setDeleting(true);
     try {
       await adminDeleteExamPaperConfigPreset(presetId);
-      toast({ title: "Preset deleted", status: "success", duration: 3000, isClosable: true });
+      toast({ title: "Exam template deleted", status: "success", duration: 3000, isClosable: true });
       history.push("/admin/exam-paper-config-presets");
     } catch (err) {
-      toast({ title: err?.response?.data?.message || "Failed to delete preset", status: "error", duration: 4000, isClosable: true });
+      toast({ title: err?.response?.data?.message || "Failed to delete exam template", status: "error", duration: 4000, isClosable: true });
     } finally {
       setDeleting(false);
     }
@@ -147,7 +147,7 @@ const ExamPaperConfigPresetDetailsPage = () => {
     <AdminMainAreaWrapper>
       <Flex justify="space-between" align="center" mb={6}>
         <Breadcrumb
-          item2={<BreadcrumbItem><Link href="/admin/exam-paper-config-presets">Exam Paper Presets</Link></BreadcrumbItem>}
+          item2={<BreadcrumbItem><Link href="/admin/exam-paper-config-presets">Exam Template Library</Link></BreadcrumbItem>}
           item3={<BreadcrumbItem isCurrentPage><Link href="#">Details</Link></BreadcrumbItem>}
         />
       </Flex>
@@ -157,11 +157,11 @@ const ExamPaperConfigPresetDetailsPage = () => {
             aria-label="Go back" icon={<FaArrowLeft />} variant="ghost" size="sm"
             onClick={() => history.push("/admin/exam-paper-config-presets")}
           />
-          <Heading fontSize="22px" fontWeight="600">Preset Details</Heading>
+          <Heading fontSize="22px" fontWeight="600">Exam Template Details</Heading>
         </Flex>
 
         {resource.loading && <Flex justifyContent="center" py="60px"><Spinner size="xl" color="blue.500" /></Flex>}
-        {resource.err && <Flex justifyContent="center" py="60px"><Text color="red.500">Failed to load preset.</Text></Flex>}
+        {resource.err && <Flex justifyContent="center" py="60px"><Text color="red.500">Failed to load exam template.</Text></Flex>}
 
         {!resource.loading && !resource.err && preset && (
           <>
@@ -178,9 +178,9 @@ const ExamPaperConfigPresetDetailsPage = () => {
                   <Badge bg={isLocked ? "#EBF4FF" : "#E6F4EA"} color={isLocked ? "#3182CE" : "#38A169"} px="12px" py="4px" borderRadius="12px" textTransform="none" fontWeight="500">
                     {usageCount} use{usageCount === 1 ? "" : "s"}
                   </Badge>
-                  <Tooltip label={isLocked ? "Cannot delete — preset is in use" : ""} isDisabled={!isLocked}>
+                  <Tooltip label={isLocked ? "Cannot delete — template is in use" : ""} isDisabled={!isLocked}>
                     <IconButton
-                      aria-label="Delete preset" icon={<FaTrash />} size="sm" variant="ghost" colorScheme="red"
+                      aria-label="Delete exam template" icon={<FaTrash />} size="sm" variant="ghost" colorScheme="red"
                       isDisabled={isLocked} isLoading={deleting} onClick={onDeleteOpen}
                     />
                   </Tooltip>
@@ -192,8 +192,8 @@ const ExamPaperConfigPresetDetailsPage = () => {
               {isLocked && (
                 <Box bg="#FFF5EA" border="1px solid #FBD38D" borderRadius="6px" px="12px" py="10px" mb="16px">
                   <Text fontSize="13px" color="#744210">
-                    This preset is used by {usageCount} exam(s)/assessment(s). Only the name can be changed —
-                    create a new preset to change its structure.
+                    This exam template is used by {usageCount} exam(s)/assessment(s). Only the name can be changed —
+                    create a new exam template to change its structure.
                   </Text>
                 </Box>
               )}
@@ -204,7 +204,7 @@ const ExamPaperConfigPresetDetailsPage = () => {
                   <Button size="sm" isLoading={saving} onClick={handleSaveNameOnly}>Save Name</Button>
                 </Flex>
               ) : !editing ? (
-                <Button size="sm" secondary onClick={startEdit}>Edit Preset</Button>
+                <Button size="sm" secondary onClick={startEdit}>Edit Exam Template</Button>
               ) : null}
 
               {coursesUsedIn.length > 0 && (
@@ -261,9 +261,9 @@ const ExamPaperConfigPresetDetailsPage = () => {
         <AlertDialog isOpen={isDeleteOpen} leastDestructiveRef={deleteRef} onClose={onDeleteClose} isCentered>
           <AlertDialogOverlay>
             <AlertDialogContent>
-              <AlertDialogHeader fontSize="16px" fontWeight="600">Delete Preset?</AlertDialogHeader>
+              <AlertDialogHeader fontSize="16px" fontWeight="600">Delete Exam Template?</AlertDialogHeader>
               <AlertDialogBody fontSize="14px" color="gray.600">
-                This cannot be undone. Presets currently in use cannot be deleted.
+                This cannot be undone. Exam templates currently in use cannot be deleted.
               </AlertDialogBody>
               <AlertDialogFooter gap="8px">
                 <Button secondary ref={deleteRef} onClick={onDeleteClose}>Cancel</Button>

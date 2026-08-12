@@ -169,6 +169,21 @@ export const getSubmissionReview = async (submissionId) => {
 };
 
 /**
+ * Get the current student's own submission (with grade & remarks) for a project
+ * @param {string} projectId
+ * @returns {Promise<{ submission: object }>}
+ */
+export const getMyProjectSubmission = async (projectId) => {
+  const path = `/v1/projects/${projectId}/my-submission`;
+
+  const {
+    data: { data },
+  } = await http.get(path);
+
+  return { submission: data };
+};
+
+/**
  * Submit a project file (student)
  * @param {string} projectId
  * @param {File} file
