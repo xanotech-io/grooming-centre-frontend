@@ -2,7 +2,8 @@ import { getToken, onMessage } from "firebase/messaging";
 import { messaging } from "./firebase";
 import { http } from "./http/http";
 
-const VAPID_KEY = "YOUR_VAPID_KEY";
+const VAPID_KEY =
+  "BJPaBOkl1EOSTaAvrK1plMA39pMrA5jwvWL97NZC-ZwVxzzu2J5kVWbG1REp0QOpjLisxykz42IFb87S9dfskFs";
 const DEVICE_ID_STORAGE_KEY = "fcmDeviceId";
 
 /**
