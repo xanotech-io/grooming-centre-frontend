@@ -47,6 +47,7 @@ const StandaloneExamsStart = () => {
   const [grade, setGrade] = useState("");
   const [loading] = useState(false);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [submissionMeta, setSubmissionMeta] = useState({});
   const { push } = useHistory();
   const [modal, setModal] = useState({
     state: false,
@@ -93,9 +94,16 @@ const StandaloneExamsStart = () => {
       });
       if (submission?.totalScore != null) setGrade(submission.totalScore);
       else if (submission?.score != null) setGrade(submission.score);
+      setSubmissionMeta({
+        attemptNumber: submission?.attemptNumber,
+        attemptsRemaining: submission?.attemptsRemaining,
+        canRetry: submission?.canRetry,
+        resultPending: submission?.resultPending,
+      });
       setModal((prevModal) => ({ ...prevModal, congrats: true }));
     } catch (error) {
       toast({
+        title: error.statusCode === 403 ? "Maximum attempts reached" : undefined,
         description: error?.response?.data?.message || error.message,
         position: "top",
         status: "error",
@@ -200,9 +208,19 @@ const StandaloneExamsStart = () => {
       >
         {modal.congrats &&
           (modal.score ? (
-            <ExamResultContent grade={grade} loading={loading} />
+            <ExamResultContent
+              grade={grade}
+              loading={loading}
+              resultPending={submissionMeta.resultPending}
+            />
           ) : (
-            <ExamSubmittedContent onViewResult={handleViewResult} />
+            <ExamSubmittedContent
+              onViewResult={handleViewResult}
+              attemptNumber={submissionMeta.attemptNumber}
+              attemptsRemaining={submissionMeta.attemptsRemaining}
+              canRetry={submissionMeta.canRetry}
+              onRetry={submissionMeta.canRetry ? () => window.location.reload() : undefined}
+            />
           ))}
       </CustomModal>
 
@@ -459,7 +477,13 @@ const StandaloneExamsStart = () => {
   return renderContent();
 };
 
-const ExamSubmittedContent = ({ onViewResult }) => (
+const ExamSubmittedContent = ({
+  onViewResult,
+  attemptNumber,
+  attemptsRemaining,
+  canRetry,
+  onRetry,
+}) => (
   <Flex direction="column" alignItems="center" p={6} gap={4} textAlign="center">
     <Box
       w="64px"
@@ -476,17 +500,33 @@ const ExamSubmittedContent = ({ onViewResult }) => (
     <Text color="gray.500">
       Your examination has been submitted successfully.
     </Text>
-    <Button onClick={onViewResult} marginTop={4}>
-      View Result
-    </Button>
+    {attemptNumber != null && <Text color="gray.500">Attempt #{attemptNumber}</Text>}
+    {canRetry && attemptsRemaining != null && (
+      <Text color="gray.500">
+        {attemptsRemaining} attempt{attemptsRemaining === 1 ? "" : "s"} remaining.
+      </Text>
+    )}
+    <Flex gap={3} marginTop={4}>
+      {canRetry && onRetry && <Button onClick={onRetry}>Retry</Button>}
+      <Button secondary={canRetry} onClick={onViewResult}>
+        View Result
+      </Button>
+    </Flex>
   </Flex>
 );
 
-const ExamResultContent = ({ grade, loading }) => (
+const ExamResultContent = ({ grade, loading, resultPending }) => (
   <Flex direction="column" alignItems="center" p={6} gap={4} textAlign="center">
     <Heading fontSize="heading.h4">Result Overview</Heading>
     {loading ? (
       <Spinner />
+    ) : resultPending ? (
+      <>
+        <Text color="gray.500">Your result is pending.</Text>
+        <Button link="/standalone-exams" marginTop={4}>
+          Back to Exams
+        </Button>
+      </>
     ) : (
       <>
         <Text color="gray.500">Your Score</Text>

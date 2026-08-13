@@ -85,6 +85,7 @@ const CreateAssessmentPage = ({ users }) => {
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [markingTemplateId, setMarkingTemplateId] = useState("");
   const [templateSections, setTemplateSections] = useState([]);
+  const [retryPolicy, setRetryPolicy] = useState("");
 
   const usageScope = isStandaloneExamination
     ? "Standalone Exam"
@@ -138,12 +139,18 @@ const CreateAssessmentPage = ({ users }) => {
       if (!supportsSectionAuthoring && !markingTemplateId)
         throw new Error("A marking template must be selected before creating an assessment or examination.");
 
+      const retryCount = Number(data.retryCount) || 0;
+      if (retryCount > 0 && !retryPolicy)
+        throw new Error("Please select a retry policy for retries above 0.");
+
       data = {
         ...data,
         courseId,
         duration: Number(data.duration),
         startTime: formatDateToISO(startTime),
         endTime: formatDateToISO(endTime),
+        retryCount,
+        ...(retryCount > 0 ? { retryPolicy } : {}),
         ...(isModuleAssessment ? { moduleId } : {}),
         // Number of Questions / Total Marks / Marking Template are collected
         // on the Template step (next) for a plain Assessment — only the
@@ -376,6 +383,32 @@ const CreateAssessmentPage = ({ users }) => {
                 {...register("duration", {
                   required: "Please enter duration",
                 })}
+              />
+            </GridItem>
+
+            <GridItem>
+              <Input
+                label="Retry Attempts"
+                type="number"
+                id="retryCount"
+                placeholder="0"
+                error={errors.retryCount?.message}
+                {...register("retryCount", {
+                  min: { value: 0, message: "Retry attempts cannot be negative" },
+                })}
+              />
+            </GridItem>
+            <GridItem>
+              <Select
+                label="Retry Policy"
+                placeholder="Select a retry policy"
+                value={retryPolicy}
+                onChange={(e) => setRetryPolicy(e.target.value)}
+                options={[
+                  { label: "Highest Score", value: "highest" },
+                  { label: "Latest Attempt", value: "latest" },
+                  { label: "Average Score", value: "average" },
+                ]}
               />
             </GridItem>
 

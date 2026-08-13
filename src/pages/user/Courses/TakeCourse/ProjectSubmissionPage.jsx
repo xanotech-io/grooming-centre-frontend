@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { FaUpload, FaExternalLinkAlt, FaCheckCircle } from "react-icons/fa";
 import Icon from "@chakra-ui/icon";
 import { Button, Heading, Spinner, Text, AnnotatableText, ExamReviewResultCard } from "../../../../components";
-import { getProjectById, getProjectSubmissions, submitProjectFile, buildThreadKey, markViewed, getUnreadCount, getSubmissionReview } from "../../../../services";
+import { getProjectById, getMyProjectSubmission, submitProjectFile, buildThreadKey, markViewed, getUnreadCount } from "../../../../services";
 import { capitalizeFirstLetter } from "../../../../utils";
 import { useApp } from "../../../../contexts";
 import dayjs from "dayjs";
@@ -27,22 +27,19 @@ const ProjectSubmissionPage = ({ sidebarLinks }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submission, setSubmission] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [review, setReview] = useState(null);
-  const [isReviewLoading, setIsReviewLoading] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
       try {
-        const [{ project: data }, submissionsResult] = await Promise.allSettled([
+        const [{ project: data }, mySubmissionResult] = await Promise.allSettled([
           getProjectById(project_id),
-          getProjectSubmissions(project_id),
+          getMyProjectSubmission(project_id),
         ]).then(([p, s]) => [
           p.status === "fulfilled" ? p.value : (() => { throw new Error("Failed to load project details."); })(),
-          s.status === "fulfilled" ? s.value : { submissions: [] },
+          s.status === "fulfilled" ? s.value : { submission: null },
         ]);
         setProject(data);
-        const existing = submissionsResult.submissions?.[0] ?? null;
-        if (existing) setSubmission(existing);
+        if (mySubmissionResult.submission) setSubmission(mySubmissionResult.submission);
       } catch (err) {
         setError(err.message || "Failed to load project details.");
       } finally {
@@ -60,14 +57,8 @@ const ProjectSubmissionPage = ({ sidebarLinks }) => {
     }
   }, [submission, viewer?.id, project_id]);
 
-  useEffect(() => {
-    if (!submission?.id) return;
-    setIsReviewLoading(true);
-    getSubmissionReview(submission.id)
-      .then(({ review: data }) => setReview(data))
-      .catch(() => setReview(null))
-      .finally(() => setIsReviewLoading(false));
-  }, [submission?.id]);
+  const grade = submission?.review?.grade ?? submission?.grade ?? null;
+  const remarks = submission?.review?.remarks ?? submission?.remarks ?? null;
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -211,10 +202,9 @@ const ProjectSubmissionPage = ({ sidebarLinks }) => {
 
               <ExamReviewResultCard
                 title="Grade & Feedback"
-                isLoading={isReviewLoading}
-                totalScore={review?.grade ?? null}
+                totalScore={grade}
                 scoreSuffix={project.maxGrade != null ? `/${project.maxGrade}` : "%"}
-                remark={review?.remarks ?? null}
+                remark={remarks}
                 emptyRemarkLabel="Your instructor hasn't graded this submission yet."
                 mb={0}
               />

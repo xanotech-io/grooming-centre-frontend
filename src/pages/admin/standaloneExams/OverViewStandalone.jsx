@@ -216,6 +216,14 @@ const EditStandalonePage = ({ assessment }) => {
     if (assessment?.templateId) setTemplateId(assessment?.templateId);
   }, [assessment?.templateId]);
 
+  useEffect(() => {
+    if (assessment?.retryCount != null) setValue("retryCount", assessment.retryCount);
+  }, [assessment?.retryCount, setValue]);
+
+  useEffect(() => {
+    if (assessment?.retryPolicy) setRetryPolicy(assessment.retryPolicy);
+  }, [assessment?.retryPolicy]);
+
   const { push } = useHistory();
   const toast = useToast();
   const isSuperAdmin = useIsSuperAdmin();
@@ -227,6 +235,7 @@ const EditStandalonePage = ({ assessment }) => {
   const isPublished = assessment?.isPublished === true || isConfigPublished;
   const [markingTemplates, setMarkingTemplates] = useState([]);
   const [templateId, setTemplateId] = useState("");
+  const [retryPolicy, setRetryPolicy] = useState("");
 
   useEffect(() => {
     adminGetMarkingTemplates()
@@ -290,6 +299,11 @@ const EditStandalonePage = ({ assessment }) => {
       if (!templateId)
         throw new Error("A marking template must be selected before saving.");
 
+      const retryCount = Number(data.retryCount) || 0;
+      if (retryCount > 0 && !retryPolicy) {
+        throw new Error("Please select a retry policy for retries above 0.");
+      }
+
       const body = {
         ...data,
         amountOfQuestions: Number(data.amountOfQuestions),
@@ -297,6 +311,8 @@ const EditStandalonePage = ({ assessment }) => {
         startTime: formatDateToISO(startTime),
         endTime: formatDateToISO(endTime),
         templateId,
+        retryCount,
+        ...(retryCount > 0 ? { retryPolicy } : {}),
       };
 
       const paperConfigBody = {
@@ -421,6 +437,31 @@ const EditStandalonePage = ({ assessment }) => {
               options={markingTemplates.map((t) => ({ label: t.markingTemplateName, value: t.id }))}
             />
           </GridItem>
+          <GridItem>
+            <Input
+              label="Retry Attempts"
+              type="number"
+              id="retryCount"
+              placeholder="0"
+              error={errors.retryCount?.message}
+              {...register("retryCount", {
+                min: { value: 0, message: "Retry attempts cannot be negative" },
+              })}
+            />
+          </GridItem>
+          <GridItem>
+            <Select
+              label="Retry Policy"
+              placeholder="Select a retry policy"
+              value={retryPolicy}
+              onChange={(e) => setRetryPolicy(e.target.value)}
+              options={[
+                { label: "Highest Score", value: "highest" },
+                { label: "Latest Attempt", value: "latest" },
+                { label: "Average Score", value: "average" },
+              ]}
+            />
+          </GridItem>
         </Grid>
 
         <Heading as="h3" size="md" marginTop="32px" marginBottom="16px" color="#1A202C">
@@ -517,6 +558,7 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
   const startTimeManager = useDateTimePicker();
   const endTimeManager = useDateTimePicker();
   const [addToBank, setAddToBank] = useState(false);
+  const [retryPolicy, setRetryPolicy] = useState("");
   const pendingCreate = useAssessmentStore((s) => s.pendingCreate);
   const setPendingCreate = useAssessmentStore((s) => s.setPendingCreate);
   const clearPendingCreate = useAssessmentStore((s) => s.clearPendingCreate);
@@ -552,6 +594,8 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
     const { body, paperConfigBody, addToBank: pendingAddToBank } = pendingCreate;
     if (body?.title) setValue("title", body.title);
     if (body?.duration != null) setValue("duration", body.duration);
+    if (body?.retryCount != null) setValue("retryCount", body.retryCount);
+    if (body?.retryPolicy) setRetryPolicy(body.retryPolicy);
     if (body?.startTime) startTimeManager.handleChange(body.startTime);
     if (body?.endTime) endTimeManager.handleChange(body.endTime);
     if (paperConfigBody?.randomization) setRandomization(paperConfigBody.randomization);
@@ -564,11 +608,18 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
       const startTime = startTimeManager.handleGetValueAndValidate("Start Time");
       const endTime = endTimeManager.handleGetValueAndValidate("End Time");
 
+      const retryCount = Number(data.retryCount) || 0;
+      if (retryCount > 0 && !retryPolicy) {
+        throw new Error("Please select a retry policy for retries above 0.");
+      }
+
       const body = {
         title: data.title,
         duration: Number(data.duration),
         startTime: formatDateToISO(startTime),
         endTime: formatDateToISO(endTime),
+        retryCount,
+        ...(retryCount > 0 ? { retryPolicy } : {}),
       };
 
       const paperConfigBody = {
@@ -643,6 +694,31 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
               placeholder="Enter duration in minutes"
               error={errors.duration?.message}
               {...register("duration", { required: "Please enter duration" })}
+            />
+          </GridItem>
+          <GridItem>
+            <Input
+              label="Retry Attempts"
+              type="number"
+              id="retryCount"
+              placeholder="0"
+              error={errors.retryCount?.message}
+              {...register("retryCount", {
+                min: { value: 0, message: "Retry attempts cannot be negative" },
+              })}
+            />
+          </GridItem>
+          <GridItem>
+            <Select
+              label="Retry Policy"
+              placeholder="Select a retry policy"
+              value={retryPolicy}
+              onChange={(e) => setRetryPolicy(e.target.value)}
+              options={[
+                { label: "Highest Score", value: "highest" },
+                { label: "Latest Attempt", value: "latest" },
+                { label: "Average Score", value: "average" },
+              ]}
             />
           </GridItem>
         </Grid>

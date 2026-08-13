@@ -18,7 +18,7 @@ import { PageLoaderLayout } from "../../global/PageLoader/PageLoaderLayout";
 import { CustomModal } from "../Assessment/Modal";
 import { EmptyState } from "../..";
 import useTimerCountdown from "../Assessment/hooks/useTimerCountdown";
-import { getEndTime, sortByIndexField, parseOptionIndex } from "../../../utils";
+import { getEndTime, sortByIndexField, parseOptionIndex, getResultRemark } from "../../../utils";
 import { http } from "../../../services/http/http";
 import { submitExamMarking, getExamMarkingResult } from "../../../services/http/endpoints/examMarking";
 
@@ -154,6 +154,7 @@ const ExaminationLayout = () => {
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [submitStatus, setSubmitStatus] = useState({ success: false, loading: false, error: null });
+  const [submissionMeta, setSubmissionMeta] = useState({});
 
   useEffect(() => {
     if (examination?.hasCompleted && examination?.submittedAnswers?.length > 0) {
@@ -199,7 +200,13 @@ const ExaminationLayout = () => {
         answers,
         submissionTime: new Date().toISOString(),
       };
-      const { message } = await submitExamMarking(examination.id, body);
+      const { message, data } = await submitExamMarking(examination.id, body);
+      setSubmissionMeta({
+        attemptNumber: data?.attemptNumber,
+        attemptsRemaining: data?.attemptsRemaining,
+        canRetry: data?.canRetry,
+        resultPending: data?.resultPending,
+      });
       toast({
         description: exitAttempts >= totalSteps ? "Exam auto submitted" : message,
         position: "top",
@@ -207,7 +214,12 @@ const ExaminationLayout = () => {
       });
       setSubmitStatus({ success: true });
     } catch (err) {
-      toast({ description: err.message, position: "top", status: "error" });
+      toast({
+        title: err.statusCode === 403 ? "Maximum attempts reached" : undefined,
+        description: err.message,
+        position: "top",
+        status: "error",
+      });
       setSubmitStatus({ error: err.message });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -227,6 +239,11 @@ const ExaminationLayout = () => {
         <SubmitSuccessContent
           onBack={() => push(`/courses/details/${course_id}`)}
           topic={examination?.topic}
+          resultPending={submissionMeta.resultPending}
+          attemptNumber={submissionMeta.attemptNumber}
+          attemptsRemaining={submissionMeta.attemptsRemaining}
+          canRetry={submissionMeta.canRetry}
+          onRetry={submissionMeta.canRetry ? () => window.location.reload() : undefined}
         />
       );
     }
@@ -392,7 +409,9 @@ const ExaminationLayout = () => {
                 isLoading={isReviewResultLoading}
                 totalScore={reviewResult?.totalScore ?? null}
                 grade={reviewResult?.grade ?? null}
-                remark={reviewResult?.remark ?? null}
+                remark={getResultRemark(reviewResult)}
+                resultPending={reviewResult?.resultPending}
+                attemptNumber={reviewResult?.attemptNumber}
               />
             </Box>
           )}
@@ -792,7 +811,15 @@ export const QuestionInput = ({ question, selectedAnswers, onOptionSelect, onAns
   return null;
 };
 
-const SubmitSuccessContent = ({ onBack, topic }) => (
+const SubmitSuccessContent = ({
+  onBack,
+  topic,
+  resultPending,
+  attemptNumber,
+  attemptsRemaining,
+  canRetry,
+  onRetry,
+}) => (
   <Flex direction="column" alignItems="center" p={6} gap={4} textAlign="center">
     <Box w="64px" h="64px" bg="green.100" borderRadius="50%" display="flex" alignItems="center" justifyContent="center">
       <Text fontSize="2xl">✓</Text>
@@ -801,7 +828,17 @@ const SubmitSuccessContent = ({ onBack, topic }) => (
     <Text color="gray.500">
       Your answers for <b>{topic}</b> have been submitted successfully.
     </Text>
-    <Button onClick={onBack} marginTop={4}>Back to Course</Button>
+    {attemptNumber != null && <Text color="gray.500">Attempt #{attemptNumber}</Text>}
+    {resultPending && <Text color="gray.500">Your result is pending.</Text>}
+    {canRetry && attemptsRemaining != null && (
+      <Text color="gray.500">
+        {attemptsRemaining} attempt{attemptsRemaining === 1 ? "" : "s"} remaining.
+      </Text>
+    )}
+    <Flex gap={3} marginTop={4}>
+      {canRetry && onRetry && <Button onClick={onRetry}>Retry</Button>}
+      <Button secondary={canRetry} onClick={onBack}>Back to Course</Button>
+    </Flex>
   </Flex>
 );
 

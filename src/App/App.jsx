@@ -84,6 +84,8 @@ export const useAppConfig = () => {
         title: payload.notification?.title,
         body: payload.notification?.body,
         contentUrl: payload.data?.contentUrl,
+        senderName: payload.data?.senderName,
+        senderAvatar: payload.data?.senderAvatar || payload.notification?.icon,
         receivedAt: Date.now(),
       });
 

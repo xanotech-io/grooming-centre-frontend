@@ -18,7 +18,7 @@ import {
   FiCheckCircle, FiRefreshCw, FiArchive,
 } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { Breadcrumb, Link } from "../../../components";
+import { Breadcrumb, Link, EntityCombobox } from "../../../components";
 import {
   getSubmissionMarkups,
   getSubmissionSummary,
@@ -29,6 +29,8 @@ import {
   replyToMarkup,
   publishAllDrafts,
   getDepartmentStudents,
+  getSubmissionsReport,
+  MOCK_SUBMISSIONS,
 } from "../../../services";
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
@@ -89,6 +91,31 @@ function EmptyPrompt({ text }) {
   );
 }
 
+async function fetchSubmissionOptions(query) {
+  let rows;
+  try {
+    const res = await getSubmissionsReport({ search: query, limit: 20 });
+    const d = res?.data ?? res;
+    rows = d?.data ?? d?.rows ?? [];
+  } catch {
+    rows = MOCK_SUBMISSIONS;
+  }
+  const q = query.toLowerCase();
+  return rows
+    .filter(
+      (s) =>
+        !q ||
+        s.submissionId?.toLowerCase().includes(q) ||
+        s.studentName?.toLowerCase().includes(q) ||
+        s.title?.toLowerCase().includes(q),
+    )
+    .map((s) => ({
+      id: s.submissionId,
+      label: `${s.studentName} — ${s.title}`,
+      sublabel: `${s.type} • ${s.submissionId}`,
+    }));
+}
+
 function emptyForm(submissionId = "") {
   return {
     submissionId,
@@ -104,12 +131,7 @@ function emptyForm(submissionId = "") {
 
 export default function InlineMarkupPage() {
   const [submissionId, setSubmissionId] = useState("");
-  const [inputId, setInputId] = useState("");
   const [activeTab, setActiveTab] = useState(0);
-
-  const handleLoad = () => {
-    if (inputId.trim()) setSubmissionId(inputId.trim());
-  };
 
   return (
     <AdminMainAreaWrapper>
@@ -130,15 +152,14 @@ export default function InlineMarkupPage() {
       </Box>
 
       <Flex gap={3} mb={5} align="center">
-        <Input
-          size="sm" maxW="380px" placeholder="Enter Submission UUID and click Load"
-          value={inputId} onChange={(e) => setInputId(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleLoad()}
-          fontFamily="mono"
-        />
-        <Button size="sm" colorScheme="blue" onClick={handleLoad} isDisabled={!inputId.trim()}>
-          Load
-        </Button>
+        <Box minW="380px">
+          <EntityCombobox
+            fetchFn={fetchSubmissionOptions}
+            value={submissionId}
+            onSelect={(opt) => setSubmissionId(opt?.id ?? "")}
+            placeholder="Search by student, title, or submission UUID…"
+          />
+        </Box>
         {submissionId && (
           <Text fontSize="xs" color="gray.500" fontFamily="mono">
             Loaded: {submissionId}
@@ -266,7 +287,7 @@ function MarkupListTab({ submissionId, isActive }) {
     }
   };
 
-  if (!submissionId) return <EmptyPrompt text="Enter a Submission UUID above and click Load to view markups." />;
+  if (!submissionId) return <EmptyPrompt text="Search and select a submission above to view markups." />;
 
   return (
     <Box>
@@ -518,7 +539,7 @@ function SummaryTab({ submissionId, isActive }) {
     if (isActive && submissionId) fetchSummary();
   }, [isActive, submissionId, fetchSummary]);
 
-  if (!submissionId) return <EmptyPrompt text="Enter a Submission UUID above and click Load to view the summary." />;
+  if (!submissionId) return <EmptyPrompt text="Search and select a submission above to view the summary." />;
   if (loading) return <Flex justify="center" py={10}><Spinner /></Flex>;
   if (!summary) return (
     <Flex justify="center" py={6}>

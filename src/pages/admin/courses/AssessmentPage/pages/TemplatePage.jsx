@@ -1,5 +1,6 @@
 import { Box, Flex } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
+import { useDisclosure } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import { Button, Heading, Select, Input, Text } from "../../../../../components";
@@ -18,6 +19,9 @@ import {
   computeQuantityTotals,
   seedQuantityCounts,
 } from "../../../examSectionBuilder/examTypeConfig";
+import { PAPER_CONFIG_DEFAULTS, RandomizationFieldsEditor, deriveRandomizationConfig, validatePresetSections } from "../../../examPaperConfigPresets/PresetFieldsEditor";
+import { usePaperConfigPresets } from "../../../examPaperConfigPresets/usePaperConfigPresets";
+import { LoadPresetSelect, SaveAsPresetModal } from "../../../examPaperConfigPresets/PresetPickerControls";
 
 // Shared "Template / Marking Scheme" step for Course Exam ("ModuleExam" kind)
 // and Assessment ("Assessment"/"Exam" kind) — mirrors Standalone Exam's own
@@ -71,6 +75,69 @@ const TemplatePage = () => {
   const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
   const updateSection = (i, field, value) =>
     setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
+
+  // "Save as Template" / "Load Preset" — same paperConfig shape and preset
+  // service as TemplateStandalone.jsx's own wiring.
+  const [paperConfig, setPaperConfig] = useState(PAPER_CONFIG_DEFAULTS);
+  const [paperConfigPresetId, setPaperConfigPresetId] = useState("");
+  const { presets, presetsLoading, fetchPresets, loadPreset, isLoadingPreset, saveAsPreset, isSavingPreset } =
+    usePaperConfigPresets();
+  const { isOpen: isSaveModalOpen, onOpen: openSaveModal, onClose: closeSaveModal } = useDisclosure();
+
+  useEffect(() => { fetchPresets(); }, [fetchPresets]);
+
+  const handleLoadPreset = async (presetId) => {
+    setPaperConfigPresetId(presetId);
+    if (!presetId) return;
+    const result = await loadPreset(presetId);
+    if (!result) return;
+    setPaperConfig(result.paperConfig);
+    if (result.preset.markingTemplateId) setMarkingTemplateId(result.preset.markingTemplateId);
+    if (result.preset.sections?.length) {
+      setSections(
+        result.preset.sections.map((s) => hydrateSection({
+          section_name: s.section_name,
+          question_types: Array.isArray(s.questionType) ? s.questionType : (s.questionType ? [s.questionType] : []),
+          marking_type: s.markingType,
+          total_marks: s.weightage,
+          questions_count: s.questionCount,
+        })),
+      );
+    }
+  };
+
+  const handleSaveAsPreset = async (name) => {
+    // Deliberately not reusing normalizeSectionsForConfig's `question_type`
+    // here — that widens 2+ selected types to "" (correct for the
+    // paper-config channel, which keeps the full `question_types` array
+    // alongside it). The preset schema sends a single string for 0-1
+    // selected types, and an array when 2+ are selected.
+    const presetSections = normalizeSectionsForConfig(sections).map(
+      ({ section_name, questions_count, question_types, marking_type, total_marks }) => ({
+        section_name,
+        questionCount: questions_count,
+        questionType: question_types?.length > 1 ? question_types : (question_types?.[0] || ""),
+        markingType: marking_type,
+        weightage: total_marks,
+      }),
+    );
+    const sectionsError = validatePresetSections(presetSections);
+    if (sectionsError) {
+      toast({ title: sectionsError, status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
+    const preset = await saveAsPreset({
+      name,
+      ...(markingTemplateId ? { markingTemplateId } : {}),
+      ...paperConfig,
+      randomizationConfig: deriveRandomizationConfig(paperConfig.randomizationMethod),
+      sections: presetSections,
+    });
+    if (!preset) return;
+    setPaperConfigPresetId(preset.id);
+    closeSaveModal();
+    fetchPresets();
+  };
 
   const sectionsEnabled = examType === "with_sections" || examType === "hybrid";
   const amountOfQuestionsIsAuto = examType === "with_sections" || examType === "without_sections" || examType === "hybrid";
@@ -146,6 +213,10 @@ const TemplatePage = () => {
     if (Array.isArray(paperConfigBody?.configuredSections) && paperConfigBody.configuredSections.length > 0) {
       setSections(paperConfigBody.configuredSections.map(hydrateSection));
     }
+    if (body?.paperConfigPresetId) setPaperConfigPresetId(body.paperConfigPresetId);
+    if (paperConfigBody?.navigationMode) {
+      setPaperConfig((prev) => ({ ...prev, ...paperConfigBody }));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -194,6 +265,10 @@ const TemplatePage = () => {
     const newBody = {
       ...pending.body,
       amountOfQuestions: Number(amountOfQuestions),
+      // See TemplateStandalone.jsx's identical comment — attached whenever a
+      // preset was loaded/saved on this step; the backend falls back to the
+      // preset's own values for anything else the create body doesn't set.
+      paperConfigPresetId: paperConfigPresetId || undefined,
       // Backend confirmed: total marks is calculated automatically for
       // hybrid exams and rejects the field if sent at creation/edit time.
       totalMarks: examType === "hybrid" ? undefined : Number(totalMarks),
@@ -229,6 +304,7 @@ const TemplatePage = () => {
     // non-empty value from a previous visit gets cleared out too.
     const newPaperConfigBody = {
       ...pending.paperConfigBody,
+      ...paperConfig,
       configuredSections: sections.length > 0 ? normalizeSectionsForConfig(sections) : undefined,
     };
     const updated = { ...pending, body: newBody, paperConfigBody: newPaperConfigBody };
@@ -247,6 +323,23 @@ const TemplatePage = () => {
 
   return (
     <Box marginY="20px" marginX="22px">
+      <Box backgroundColor="white" padding="24px" borderRadius="8px" shadow="sm" marginBottom="20px">
+        <Flex gap="16px" alignItems="flex-end" flexWrap="wrap">
+          <Box flex="1" minW="260px">
+            <LoadPresetSelect
+              presets={presets}
+              presetsLoading={presetsLoading}
+              value={paperConfigPresetId}
+              onSelect={handleLoadPreset}
+              isLoading={isLoadingPreset}
+            />
+          </Box>
+          <Button secondary onClick={openSaveModal} marginBottom="20px">
+            Save Configuration as Exam Template
+          </Button>
+        </Flex>
+      </Box>
+
       <Box backgroundColor="white" padding="40px" borderRadius="8px" shadow="sm" marginBottom="30px">
         <Heading as="h3" size="md" marginBottom="24px" color="#1A202C">
           Template/Marking Scheme Details
@@ -347,6 +440,13 @@ const TemplatePage = () => {
         )}
       </Box>
 
+      <Box backgroundColor="white" padding="40px" borderRadius="8px" shadow="sm" marginBottom="30px">
+        <Heading as="h3" size="md" marginBottom="24px" color="#1A202C">
+          Advance Settings
+        </Heading>
+        <RandomizationFieldsEditor values={paperConfig} setValues={setPaperConfig} disabled={false} />
+      </Box>
+
       <Flex justifyContent="flex-end" gap="16px">
         <Button secondary onClick={handleCancel} type="button">
           Cancel
@@ -355,6 +455,13 @@ const TemplatePage = () => {
           Next: Questions
         </Button>
       </Flex>
+
+      <SaveAsPresetModal
+        isOpen={isSaveModalOpen}
+        onClose={closeSaveModal}
+        onSave={handleSaveAsPreset}
+        isSaving={isSavingPreset}
+      />
     </Box>
   );
 };

@@ -1,0 +1,43 @@
+{
+  "files": {
+    "main.css": "/static/css/main.5b67ad43.css",
+    "main.js": "/static/js/main.6a97a8fd.js",
+    "reactPlayerYouTube.js": "/static/js/reactPlayerYouTube.fcec006f.chunk.js",
+    "reactPlayerSoundCloud.js": "/static/js/reactPlayerSoundCloud.3ee301e3.chunk.js",
+    "reactPlayerVimeo.js": "/static/js/reactPlayerVimeo.f14cf63c.chunk.js",
+    "reactPlayerFacebook.js": "/static/js/reactPlayerFacebook.aae8a51f.chunk.js",
+    "reactPlayerStreamable.js": "/static/js/reactPlayerStreamable.dbc0d481.chunk.js",
+    "reactPlayerWistia.js": "/static/js/reactPlayerWistia.eeeeeeb2.chunk.js",
+    "reactPlayerTwitch.js": "/static/js/reactPlayerTwitch.77e68fa1.chunk.js",
+    "reactPlayerDailyMotion.js": "/static/js/reactPlayerDailyMotion.8250f003.chunk.js",
+    "reactPlayerMixcloud.js": "/static/js/reactPlayerMixcloud.b79e825e.chunk.js",
+    "reactPlayerVidyard.js": "/static/js/reactPlayerVidyard.9fe21ba5.chunk.js",
+    "reactPlayerKaltura.js": "/static/js/reactPlayerKaltura.1ca22a4e.chunk.js",
+    "reactPlayerFilePlayer.js": "/static/js/reactPlayerFilePlayer.6225e1e3.chunk.js",
+    "reactPlayerPreview.js": "/static/js/reactPlayerPreview.69dccd5b.chunk.js",
+    "static/js/760.229b9fb4.chunk.js": "/static/js/760.229b9fb4.chunk.js",
+    "static/js/790.18e1e75b.chunk.js": "/static/js/790.18e1e75b.chunk.js",
+    "static/js/206.0a16b3b4.chunk.js": "/static/js/206.0a16b3b4.chunk.js",
+    "static/media/User_CourseDetailsHeader.svg": "/static/media/User_CourseDetailsHeader.5f3041ad2fc5b8e53be5334a48256ec7.svg",
+    "static/media/onboarding1.png": "/static/media/onboarding1.5d19fb3a1613f75f0cea.png",
+    "static/media/Avatar.svg": "/static/media/Avatar.a8b3048f173276b67dd8d7937e9ddc9b.svg",
+    "static/media/GC Login 1.jpg": "/static/media/GC Login 1.372e522c00b72d4edfc8.jpg",
+    "static/media/Auth.svg": "/static/media/Auth.62cfefaa2ec70b4014419a2006b4cd8a.svg",
+    "static/media/newlogo.png": "/static/media/newlogo.79319f440f73b3f78acd.png",
+    "static/media/Certificate.png": "/static/media/Certificate.520a68b59de1bc1bd93f.png",
+    "static/media/image 11.png": "/static/media/image 11.071ae9ad05a106633e48.png",
+    "static/media/image 10.png": "/static/media/image 10.d9153ad20f4310a93f14.png",
+    "static/media/error.svg": "/static/media/error.1d929f68e1cbce8cbca540e7259961ce.svg",
+    "static/media/page-not-found.svg": "/static/media/page-not-found.08ded0d8f509f9742022edc266cc8de7.svg",
+    "static/media/groom-small.png": "/static/media/groom-small.2b09997494245815224b.png",
+    "static/media/empty-events.svg": "/static/media/empty-events.2eb4494c27d266986f203b847710412e.svg",
+    "static/media/temp.xlsx": "/static/media/temp.55f6a994a601b7311d51.xlsx",
+    "static/media/no-data.svg": "/static/media/no-data.3f697f93fbddcfe18bbd81f73c478238.svg",
+    "static/media/events-banner.svg": "/static/media/events-banner.cb11b79257d479ee926b14353c9d2147.svg",
+    "index.html": "/index.html"
+  },
+  "entrypoints": [
+    "static/css/main.5b67ad43.css",
+    "static/js/main.6a97a8fd.js"
+  ]
+}

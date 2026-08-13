@@ -12,3 +12,4 @@ export * from "./submissionStatus";
 export * from "./pendingWorkflowSubmission";
 export * from "./examMetaCache";
 export * from "./optionIndex";
+export * from "./getResultRemark";

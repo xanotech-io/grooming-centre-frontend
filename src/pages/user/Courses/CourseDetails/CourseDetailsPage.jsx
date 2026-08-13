@@ -670,7 +670,9 @@ const CourseDetailsPage = () => {
             <HStack spacing={2} alignSelf="center">
               <Button
                 size="sm"
-                onClick={() => history.push(`/grade-book/${gradeBookId}`)}
+                onClick={() =>
+                  history.push(`/grade-book/${gradeBookId}?courseId=${courseId}`)
+                }
                 style={{ backgroundColor: "#6b006b", color: "white" }}
               >
                 View Grade Book

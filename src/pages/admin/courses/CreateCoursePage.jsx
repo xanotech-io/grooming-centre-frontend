@@ -29,6 +29,8 @@ import {
   adminEditCourse,
   adminGetCoursesByDepartment,
   adminGetWorkflowSupervisors,
+  gradeBookV2List,
+  gradeBookV2GetByCourse,
 } from "../../../services";
 import { useUpload, useRichText } from "../../../hooks";
 import useCourseDetails from "../../user/Courses/CourseDetails/hooks/useCourseDetails";
@@ -37,10 +39,13 @@ import { useEffect, useMemo } from "react";
 const CreateCoursePage = ({ metadata: propMetadata }) => {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(null);
   const [selectedSupervisorId, setSelectedSupervisorId] = useState(null);
+  const [selectedGradebookId, setSelectedGradebookId] = useState(null);
   const [prerequisites, setPrerequisites] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
+  const [gradebooks, setGradebooks] = useState([]);
   const [prerequisiteLoading, setPrerequisiteLoading] = useState(true);
   const [supervisorsLoading, setSupervisorsLoading] = useState(true);
+  const [gradebooksLoading, setGradebooksLoading] = useState(true);
   const [useDefaultCertificate, setUseDefaultCertificate] = useState(true);
   const [customFieldValues, setCustomFieldValues] = useState({});
   const toast = useToast();
@@ -97,6 +102,7 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
         courseThumbnail,
         certificate,
         ...customFieldValues,
+        ...(!isEditMode && selectedGradebookId ? { gradebookId: selectedGradebookId } : {}),
       };
 
       const body = appendFormData(data);
@@ -188,6 +194,22 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
     // eslint-disable-next-line
   }, [selectedDepartmentId]);
 
+  // Fetch active grade books for the optional gradebook attach selector
+  useEffect(() => {
+    setGradebooksLoading(true);
+    const getGradebooks = async () => {
+      try {
+        const { gradebooks } = await gradeBookV2List({ status: "active", limit: 100 });
+        setGradebooks(gradebooks);
+      } catch {
+        setGradebooks([]);
+      } finally {
+        setGradebooksLoading(false);
+      }
+    };
+    getGradebooks();
+  }, []);
+
   // set image files for edit
   useEffect(() => {
     if (courseDetailsData) {
@@ -248,6 +270,16 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
     }
   }, [courseDetailsData]);
 
+  // prefill attached gradebook for edit (best-effort — course may have none attached)
+  useEffect(() => {
+    if (!isEditMode || !courseId) return;
+    gradeBookV2GetByCourse(courseId)
+      .then(({ gradeBook }) => {
+        if (gradeBook?.id) setSelectedGradebookId(gradeBook.id);
+      })
+      .catch(() => {});
+  }, [isEditMode, courseId]);
+
   const populateDepartmentOptions = (data, filterBody = () => true) => {
     return data?.filter(filterBody)?.map((item) => ({
       label: capitalizeWords(item.name),
@@ -265,6 +297,13 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
   const populateSupervisorOptions = (data) => {
     return data?.map((item) => ({
       label: capitalizeWords(item.name || item.fullName || item.email || "Supervisor"),
+      value: item.id,
+    }));
+  };
+
+  const populateGradebookOptions = (data) => {
+    return data?.map((item) => ({
+      label: item.title,
       value: item.id,
     }));
   };
@@ -415,6 +454,32 @@ const CreateCoursePage = ({ metadata: propMetadata }) => {
               setCustomFieldValues((current) => ({ ...current, [slot]: value }))
             }
             role="Admin"
+          />
+        </Box>
+        <Box
+          as="div"
+          display={{ lg: "grid", base: "flex", md: "flex" }}
+          flexDirection={{ base: "column", md: "column" }}
+          gridTemplateColumns="1fr 1fr"
+          gap={10}
+          marginBottom={10}
+        >
+          {/* Row 2d — Advanced Grade Book attachment (optional) */}
+          <Select
+            label="Attach grade book (optional)"
+            options={populateGradebookOptions(gradebooks)}
+            id="gradebookId"
+            placeholder={
+              gradebooksLoading
+                ? "loading grade books..."
+                : isEditMode
+                ? "manage attachment from the Advanced Grade Book page"
+                : "none"
+            }
+            isLoading={gradebooksLoading}
+            isDisabled={isEditMode}
+            value={selectedGradebookId}
+            onChange={(e) => setSelectedGradebookId(e.target.value)}
           />
         </Box>
         {/* Row 3 */}

@@ -1,5 +1,5 @@
 import { Box, Flex, Progress, Badge } from "@chakra-ui/react";
-import { Heading, Text, SkeletonText } from "..";
+import { Heading, Text, SkeletonText, Button } from "..";
 
 const gradeColors = {
   A: { color: "#38A169", bg: "#E6F4EA" },
@@ -27,6 +27,11 @@ export const ExamReviewResultCard = ({
   remark,
   emptyRemarkLabel = "Your instructor hasn't left any remarks yet.",
   mb = 6,
+  resultPending,
+  attemptNumber,
+  attemptsRemaining,
+  canRetry,
+  onRetry,
 }) => {
   if (isLoading) {
     return (
@@ -36,12 +41,13 @@ export const ExamReviewResultCard = ({
     );
   }
 
-  const hasScore = totalScore !== null && totalScore !== undefined;
+  const hasScore = !resultPending && totalScore !== null && totalScore !== undefined;
+  const isPending = resultPending || !hasScore;
   const gs = getGradeStyle(grade);
 
   return (
     <Box bg="white" border="1px solid" borderColor="accent.2" borderRadius="md" p={5} mb={mb}>
-      <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={4} mb={4}>
+      <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={4} mb={2}>
         <Heading fontSize="text.level2">{title}</Heading>
         <Flex alignItems="center" gap={3}>
           <Text bold fontSize="24px" color={gs.color}>
@@ -55,6 +61,19 @@ export const ExamReviewResultCard = ({
         </Flex>
       </Flex>
 
+      {attemptNumber != null && (
+        <Text color="gray.500" fontSize="13px" mb={4}>
+          Attempt #{attemptNumber}
+          {canRetry && attemptsRemaining != null && ` — ${attemptsRemaining} attempt${attemptsRemaining === 1 ? "" : "s"} remaining`}
+        </Text>
+      )}
+
+      {isPending && resultPending && (
+        <Text color="gray.400" fontSize="14px" mb={4}>
+          Your result is pending. Check back once it has been graded.
+        </Text>
+      )}
+
       {hasScore && scoreSuffix === "%" && (
         <Progress
           value={Math.min(Math.max(Number(totalScore) || 0, 0), 100)}
@@ -63,6 +82,12 @@ export const ExamReviewResultCard = ({
           mb={4}
           sx={{ "& > div": { background: gs.color } }}
         />
+      )}
+
+      {canRetry && onRetry && (
+        <Button size="sm" onClick={onRetry} mb={4}>
+          Retry
+        </Button>
       )}
 
       <Box borderTop="1px solid" borderColor="accent.1" pt={4}>

@@ -1,38 +1,137 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Box,
   Flex,
   Text,
-  Grid,
-  Input as ChakraInput,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  TableContainer,
+  Badge,
+  Spinner,
+  Select,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  IconButton,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
+  useDisclosure,
   useToast,
   BreadcrumbItem,
 } from "@chakra-ui/react";
-import { FaPlus, FaSearch, FaBook } from "react-icons/fa";
-import { Button, Heading, Breadcrumb, Link } from "../../../components";
+import { FaPlus, FaSearch, FaEllipsisV, FaEye, FaArchive, FaBoxOpen } from "react-icons/fa";
+import { Button, Heading, Breadcrumb, Link, EntityCombobox } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { gradeBookV2GetByCourse } from "../../../services";
+import { useFetch } from "../../../hooks";
+import {
+  adminGetCourseListing,
+  gradeBookV2GetByCourse,
+  gradeBookV2List,
+  gradeBookV2Archive,
+  gradeBookV2Unarchive,
+} from "../../../services";
+
+const getStatusBadge = (status) => {
+  const map = {
+    active: { bg: "#E6F4EA", color: "#38A169", label: "Active" },
+    archived: { bg: "#F7FAFC", color: "#718096", label: "Archived" },
+  };
+  const s = map[status] || { bg: "gray.100", color: "gray.600", label: status || "—" };
+  return (
+    <Badge
+      bg={s.bg}
+      color={s.color}
+      px="10px"
+      py="3px"
+      borderRadius="12px"
+      textTransform="none"
+      fontWeight="500"
+      fontSize="12px"
+    >
+      {s.label}
+    </Badge>
+  );
+};
 
 const GradeBookV2ListingPage = () => {
   const history = useHistory();
   const toast = useToast();
-  const [courseId, setCourseId] = useState("");
+  const [selectedCourseId, setSelectedCourseId] = useState("");
   const [searching, setSearching] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [archiveTarget, setArchiveTarget] = useState(null);
+  const [archiving, setArchiving] = useState(false);
+  const { isOpen: isArchiveOpen, onOpen: onArchiveOpen, onClose: onArchiveClose } = useDisclosure();
+  const archiveRef = React.useRef();
+  const limit = 10;
 
-  const handleSearch = async () => {
-    if (!courseId.trim()) {
-      toast({
-        title: "Enter a course ID",
-        status: "warning",
-        duration: 2000,
-        isClosable: true,
-      });
-      return;
+  const { resource, handleFetchResource } = useFetch();
+  const fetcher = useCallback(async () => {
+    const { total, gradebooks } = await gradeBookV2List({
+      page,
+      limit,
+      status: statusFilter || undefined,
+    });
+    return { total, gradebooks };
+  }, [page, statusFilter]);
+
+  useEffect(() => {
+    handleFetchResource({ fetcher });
+  }, [handleFetchResource, fetcher]);
+
+  const gradebooks = resource.data?.gradebooks || [];
+  const total = resource.data?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const fetchCourses = useCallback(async (query) => {
+    const { courses } = await adminGetCourseListing({ search: query });
+    return courses.map((c) => ({ id: c.id, label: c.title }));
+  }, []);
+
+  const openArchiveConfirm = (g) => {
+    setArchiveTarget(g);
+    onArchiveOpen();
+  };
+
+  const handleArchiveToggle = async () => {
+    if (!archiveTarget) return;
+    const isArchived = archiveTarget.active === false;
+    onArchiveClose();
+    setArchiving(true);
+    try {
+      if (isArchived) {
+        await gradeBookV2Unarchive(archiveTarget.id);
+        toast({ title: "Grade book unarchived", status: "success", duration: 3000, isClosable: true });
+      } else {
+        await gradeBookV2Archive(archiveTarget.id);
+        toast({ title: "Grade book archived", status: "success", duration: 3000, isClosable: true });
+      }
+      handleFetchResource({ fetcher });
+    } catch (err) {
+      toast({ title: err?.response?.data?.message || "Action failed", status: "error", duration: 3000, isClosable: true });
+    } finally {
+      setArchiving(false);
+      setArchiveTarget(null);
     }
+  };
+
+  const handleSelectCourse = async (opt) => {
+    setSelectedCourseId(opt?.id ?? "");
+    if (!opt) return;
     setSearching(true);
     try {
-      const { gradeBook } = await gradeBookV2GetByCourse(courseId.trim());
+      const { gradeBook } = await gradeBookV2GetByCourse(opt.id);
       history.push(`/admin/grade-book-v2/${gradeBook.id}`);
     } catch (err) {
       const msg =
@@ -69,53 +168,6 @@ const GradeBookV2ListingPage = () => {
         </Button>
       </Flex>
 
-      {/* Feature overview cards */}
-      <Grid
-        templateColumns={{
-          base: "1fr",
-          md: "repeat(2, 1fr)",
-          lg: "repeat(4, 1fr)",
-        }}
-        gap="16px"
-        mb="30px"
-      >
-        {[
-          {
-            label: "Weighted Grading",
-            desc: "Define category weights that must sum to 100%",
-            color: "#6b006b",
-            bg: "#F0E6FF",
-          },
-          {
-            label: "Score Entry",
-            desc: "Add, edit, and override student scores per category",
-            color: "#3182CE",
-            bg: "#EBF4FF",
-          },
-          {
-            label: "Analytics",
-            desc: "Class averages, grade distribution, pass rates",
-            color: "#38A169",
-            bg: "#E6F4EA",
-          },
-          {
-            label: "Audit Trail",
-            desc: "Full log of every change with before/after values",
-            color: "#DD6B20",
-            bg: "#FFF5EA",
-          },
-        ].map((f) => (
-          <Box key={f.label} bg={f.bg} borderRadius="8px" p="20px">
-            <Text fontSize="15px" fontWeight="700" color={f.color} mb="6px">
-              {f.label}
-            </Text>
-            <Text fontSize="13px" color="gray.600">
-              {f.desc}
-            </Text>
-          </Box>
-        ))}
-      </Grid>
-
       {/* Find by Course */}
       <Box
         bg="white"
@@ -131,56 +183,189 @@ const GradeBookV2ListingPage = () => {
           </Text>
         </Flex>
         <Text fontSize="13px" color="gray.500" mb="16px">
-          Enter a course UUID to open its grade book, or create a new one for a
-          course.
+          Search for a course to open the grade book currently attached to it.
         </Text>
-        <Flex gap="12px" maxW="480px">
-          <ChakraInput
-            value={courseId}
-            onChange={(e) => setCourseId(e.target.value)}
-            placeholder="Course UUID…"
-            size="sm"
-            borderRadius="6px"
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          />
-          <Button size="sm" isLoading={searching} onClick={handleSearch}>
-            Find
-          </Button>
+        <Flex gap="12px" maxW="480px" alignItems="center">
+          <Box flex={1}>
+            <EntityCombobox
+              fetchFn={fetchCourses}
+              value={selectedCourseId}
+              onSelect={handleSelectCourse}
+              placeholder="Search course by title…"
+            />
+          </Box>
+          {searching && <Spinner size="sm" color="purple.500" />}
         </Flex>
       </Box>
 
-      {/* Quick start CTA */}
+      {/* Filters */}
+      <Flex gap="12px" mb="16px" flexWrap="wrap" alignItems="center">
+        <Text fontSize="15px" fontWeight="600" color="gray.700">
+          All Grade Books
+        </Text>
+        <Select
+          size="sm"
+          maxW="180px"
+          ml="auto"
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="archived">Archived</option>
+        </Select>
+      </Flex>
+
+      {/* Table */}
       <Box
         bg="white"
         border="1px solid #E2E8F0"
         borderRadius="8px"
-        p="32px"
-        textAlign="center"
+        overflow="hidden"
+        mb="20px"
       >
-        <Box
-          w="56px"
-          h="56px"
-          bg="#F0E6FF"
-          borderRadius="50%"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          mx="auto"
-          mb="16px"
-        >
-          <FaBook color="#6b006b" size="22px" />
-        </Box>
-        <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="8px">
-          Set Up a New Grade Book
-        </Text>
-        <Text fontSize="14px" color="gray.500" mb="20px" maxW="400px" mx="auto">
-          Define assessment categories with weights, a grading scale, and
-          calculation method for any course.
-        </Text>
-        <Button onClick={() => history.push("/admin/grade-book-v2/create")}>
-          Create Grade Book
-        </Button>
+        {resource.loading && (
+          <Flex justifyContent="center" py="40px">
+            <Spinner size="lg" color="purple.500" />
+          </Flex>
+        )}
+        {resource.err && (
+          <Flex justifyContent="center" py="40px">
+            <Text color="red.500">Failed to load grade books.</Text>
+          </Flex>
+        )}
+        {!resource.loading && !resource.err && (
+          <TableContainer>
+            <Table variant="simple" size="sm">
+              <Thead bg="#F7FAFC">
+                <Tr>
+                  <Th py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">
+                    Title
+                  </Th>
+                  <Th py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">
+                    Status
+                  </Th>
+                  <Th py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none" isNumeric>
+                    Courses
+                  </Th>
+                  <Th py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none">
+                    Created By
+                  </Th>
+                  <Th py="12px" color="gray.500" fontSize="12px" fontWeight="600" textTransform="none" w="100px">
+                    Actions
+                  </Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {gradebooks.length === 0 && (
+                  <Tr>
+                    <Td colSpan={5} py="30px" textAlign="center">
+                      <Text color="gray.400" fontSize="14px">
+                        No grade books found.
+                      </Text>
+                    </Td>
+                  </Tr>
+                )}
+                {gradebooks.map((g) => {
+                  const isArchived = g.active === false;
+                  return (
+                    <Tr
+                      key={g.id}
+                      _hover={{ bg: "#F7FAFC", cursor: "pointer" }}
+                      onClick={() => history.push(`/admin/grade-book-v2/${g.id}`)}
+                    >
+                      <Td py="12px" fontSize="13px" fontWeight="500" color="gray.800">
+                        {g.title}
+                      </Td>
+                      <Td py="12px">{getStatusBadge(isArchived ? "archived" : "active")}</Td>
+                      <Td py="12px" fontSize="13px" isNumeric>
+                        {g.courseCount ?? 0}
+                      </Td>
+                      <Td py="12px" fontSize="13px" color="gray.600">
+                        {g.creator ? `${g.creator.firstName || ""} ${g.creator.lastName || ""}`.trim() : "—"}
+                      </Td>
+                      <Td py="12px" onClick={(e) => e.stopPropagation()}>
+                        <Menu placement="bottom-end">
+                          <MenuButton
+                            as={IconButton}
+                            aria-label="Actions"
+                            icon={<FaEllipsisV />}
+                            size="xs"
+                            variant="ghost"
+                            isLoading={archiving && archiveTarget?.id === g.id}
+                          />
+                          <MenuList minW="140px" shadow="md" zIndex={10}>
+                            <MenuItem
+                              icon={<FaEye />}
+                              fontSize="13px"
+                              onClick={() => history.push(`/admin/grade-book-v2/${g.id}`)}
+                            >
+                              View
+                            </MenuItem>
+                            <MenuItem
+                              icon={isArchived ? <FaBoxOpen /> : <FaArchive />}
+                              fontSize="13px"
+                              onClick={() => openArchiveConfirm(g)}
+                            >
+                              {isArchived ? "Unarchive" : "Archive"}
+                            </MenuItem>
+                          </MenuList>
+                        </Menu>
+                      </Td>
+                    </Tr>
+                  );
+                })}
+              </Tbody>
+            </Table>
+          </TableContainer>
+        )}
+
+        {!resource.loading && totalPages > 1 && (
+          <Flex
+            justifyContent="space-between"
+            alignItems="center"
+            px="20px"
+            py="12px"
+            borderTop="1px solid #E2E8F0"
+          >
+            <Text fontSize="13px" color="gray.500">
+              Page {page} of {totalPages} ({total} total)
+            </Text>
+            <Flex gap="8px">
+              <Button size="xs" variant="outline" isDisabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                Prev
+              </Button>
+              <Button size="xs" variant="outline" isDisabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                Next
+              </Button>
+            </Flex>
+          </Flex>
+        )}
       </Box>
+
+      <AlertDialog isOpen={isArchiveOpen} leastDestructiveRef={archiveRef} onClose={onArchiveClose} isCentered>
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="16px" fontWeight="600">
+              {archiveTarget?.active === false ? "Unarchive Grade Book?" : "Archive Grade Book?"}
+            </AlertDialogHeader>
+            <AlertDialogBody fontSize="14px" color="gray.600">
+              {archiveTarget?.active === false
+                ? "This grade book will become available to attach to new courses again."
+                : "Archived grade books can no longer be newly attached to a course, but courses already using it keep working normally."}
+            </AlertDialogBody>
+            <AlertDialogFooter gap="8px">
+              <Button secondary ref={archiveRef} onClick={onArchiveClose}>Cancel</Button>
+              <Button isLoading={archiving} onClick={handleArchiveToggle}>
+                {archiveTarget?.active === false ? "Unarchive" : "Archive"}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Box>
     </AdminMainAreaWrapper>
   );

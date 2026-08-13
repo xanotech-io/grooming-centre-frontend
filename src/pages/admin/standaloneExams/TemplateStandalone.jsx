@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Box, Flex, Grid, GridItem, Text, Divider } from "@chakra-ui/layout";
+import { Box, Flex, Grid, GridItem, Text } from "@chakra-ui/layout";
 import {
     Heading,
-    Switch,
     HStack,
-    Circle,
     IconButton,
     Badge,
     Table,
@@ -15,6 +13,8 @@ import {
     Td,
     TableContainer,
     Checkbox,
+    useDisclosure,
+    useToast,
 } from "@chakra-ui/react";
 import { useHistory } from "react-router-dom";
 import { FaRegSave, FaFileAlt } from "react-icons/fa";
@@ -23,6 +23,9 @@ import { Button, Input, Select } from "../../../components";
 import { useQueryParams, useGoBack } from "../../../hooks";
 import { adminGetMarkingTemplates } from "../../../services";
 import useAssessmentStore from "../../../store/assessmentStore";
+import { PAPER_CONFIG_DEFAULTS, RandomizationFieldsEditor, deriveRandomizationConfig, validatePresetSections } from "../examPaperConfigPresets/PresetFieldsEditor";
+import { usePaperConfigPresets } from "../examPaperConfigPresets/usePaperConfigPresets";
+import { LoadPresetSelect, SaveAsPresetModal } from "../examPaperConfigPresets/PresetPickerControls";
 
 // Kept identical to ExamTemplateDetailsPage.jsx's — same question-type badge colors.
 const TYPE_COLOR = {
@@ -62,8 +65,10 @@ const QUESTION_TYPE_LOCK_OPTIONS = [
 
 const ALL_QUESTION_TYPES = QUESTION_TYPE_LOCK_OPTIONS.filter((o) => o.value !== "").map((o) => o.value);
 
+// "Any marking type" is a placeholder only — a section's marking type must
+// be one of the other three, so it's rendered disabled/unselectable.
 const MARKING_TYPE_LOCK_OPTIONS = [
-    { label: "Any marking type", value: "" },
+    { label: "Any marking type", value: "", disabled: true },
     { label: "Automatic", value: "automatic" },
     { label: "Manual", value: "manual" },
     { label: "Hybrid", value: "hybrid" },
@@ -190,6 +195,7 @@ const SectionRow = ({ section, idx, onChange, onRemove, disabled }) => (
 
 const TemplateStandalone = () => {
     const { push } = useHistory();
+    const toast = useToast();
     const examinationId = useQueryParams().get("examination");
     const handleCancel = useGoBack();
     const isCreateMode = examinationId === "new";
@@ -219,6 +225,67 @@ const TemplateStandalone = () => {
     const removeSection = (i) => setSections((p) => p.filter((_, idx) => idx !== i));
     const updateSection = (i, field, value) =>
         setSections((p) => p.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
+
+    // "Save as Template" / "Load Preset" — navigationMode/uiSettings/
+    // toolsEnabled/submissionSettings/randomizationMethod/randomizationConfig
+    // live here, separate from the
+    // sections/marking-template state above so a loaded preset's sections can
+    // be merged in via the same setSections used everywhere else on this page.
+    const [paperConfig, setPaperConfig] = useState(PAPER_CONFIG_DEFAULTS);
+    const [paperConfigPresetId, setPaperConfigPresetId] = useState("");
+    const { presets, presetsLoading, fetchPresets, loadPreset, isLoadingPreset, saveAsPreset, isSavingPreset } =
+        usePaperConfigPresets();
+    const { isOpen: isSaveModalOpen, onOpen: openSaveModal, onClose: closeSaveModal } = useDisclosure();
+
+    useEffect(() => { fetchPresets(); }, [fetchPresets]);
+
+    const handleLoadPreset = async (presetId) => {
+        setPaperConfigPresetId(presetId);
+        if (!presetId) return;
+        const result = await loadPreset(presetId);
+        if (!result) return;
+        setPaperConfig(result.paperConfig);
+        if (result.preset.markingTemplateId) setTemplateId(result.preset.markingTemplateId);
+        if (result.preset.sections?.length) {
+            setSections(
+                result.preset.sections.map((s) => ({
+                    section_name: s.section_name || "",
+                    question_types: Array.isArray(s.questionType)
+                        ? s.questionType
+                        : s.questionType ? [s.questionType] : [],
+                    marking_type: s.markingType || "",
+                    total_marks: s.weightage ?? null,
+                    question_count: s.questionCount ?? null,
+                })),
+            );
+        }
+    };
+
+    const handleSaveAsPreset = async (name) => {
+        const presetSections = sections.map((s) => ({
+            section_name: s.section_name,
+            questionCount: Number(s.question_count) || 0,
+            questionType: s.question_types?.length > 1 ? s.question_types : (s.question_types?.[0] || ""),
+            markingType: s.marking_type || "",
+            weightage: s.total_marks != null ? Number(s.total_marks) : null,
+        }));
+        const sectionsError = validatePresetSections(presetSections);
+        if (sectionsError) {
+            toast({ title: sectionsError, status: "warning", duration: 3000, isClosable: true });
+            return;
+        }
+        const preset = await saveAsPreset({
+            name,
+            ...(templateId ? { markingTemplateId: templateId } : {}),
+            ...paperConfig,
+            randomizationConfig: deriveRandomizationConfig(paperConfig.randomizationMethod),
+            sections: presetSections,
+        });
+        if (!preset) return;
+        setPaperConfigPresetId(preset.id);
+        closeSaveModal();
+        fetchPresets();
+    };
 
     // A sectioned exam defines marking per-section, not via a marking
     // template — clear out any previously-picked template (e.g. from
@@ -347,6 +414,10 @@ const TemplateStandalone = () => {
                 })),
             );
         }
+        if (body?.paperConfigPresetId) setPaperConfigPresetId(body.paperConfigPresetId);
+        if (pendingCreate.paperConfigBody?.navigationMode) {
+            setPaperConfig((prev) => ({ ...prev, ...pendingCreate.paperConfigBody }));
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -423,6 +494,12 @@ const TemplateStandalone = () => {
                         // in QuestionsStandalone.jsx), the same place
                         // templateId is stripped.
                         amountOfQuestions: Number(amountOfQuestions),
+                        // Attached whenever a preset was loaded (and/or saved)
+                        // on this step, whether or not any of its auto-filled
+                        // fields were subsequently edited by hand — the
+                        // backend falls back to the preset's own values for
+                        // anything the create body doesn't explicitly set.
+                        paperConfigPresetId: paperConfigPresetId || undefined,
                         // Confirmed against a real backend test: a sectioned
                         // exam takes its sections directly on the create body
                         // as `sections: [{ section_name, weightage,
@@ -457,6 +534,7 @@ const TemplateStandalone = () => {
                     },
                     paperConfigBody: {
                         ...pendingCreate.paperConfigBody,
+                        ...paperConfig,
                         // Sections are optional — the backend rejects an
                         // empty `configuredSections` array, so leave the key
                         // out entirely when none were added instead of
@@ -492,6 +570,22 @@ const TemplateStandalone = () => {
 
     return (
         <Box marginY="20px" marginX="22px">
+            <Box backgroundColor="white" padding="24px" borderRadius="8px" shadow="sm" marginBottom="20px">
+                <Flex gap="16px" alignItems="flex-end" flexWrap="wrap">
+                    <Box flex="1" minW="260px">
+                        <LoadPresetSelect
+                            presets={presets}
+                            presetsLoading={presetsLoading}
+                            value={paperConfigPresetId}
+                            onSelect={handleLoadPreset}
+                            isLoading={isLoadingPreset}
+                        />
+                    </Box>
+                    <Button secondary onClick={openSaveModal} marginBottom="20px">
+                        Save Configuration as Exam Template
+                    </Button>
+                </Flex>
+            </Box>
             <Grid templateColumns="1fr 350px" gap="30px" alignItems="start">
 
                 {/* Left Column: Template Details */}
@@ -715,70 +809,16 @@ const TemplateStandalone = () => {
                         Advance Settings
                     </Heading>
 
-                    <Text fontSize="14px" fontWeight="600" color="#4A5568" marginBottom="16px">
-                        Display and Navigation
-                    </Text>
-
-                    <Flex flexDirection="column" gap="20px" marginBottom="30px">
-                        <Flex justifyContent="space-between" alignItems="center">
-                            <Text fontSize="14px" color="#1A202C">Question per page</Text>
-                            <Box width="100px">
-                                <Select id="questionPerPage" options={[{ label: "Single", value: "single" }]} />
-                            </Box>
-                        </Flex>
-
-                        <Flex justifyContent="space-between" alignItems="center">
-                            <Text fontSize="14px" color="#1A202C">Allow Backtracking</Text>
-                            <Switch colorScheme="gray" />
-                        </Flex>
-
-                        <Flex justifyContent="space-between" alignItems="center">
-                            <Text fontSize="14px" color="#1A202C">Randomize Questions</Text>
-                            <Box width="100px">
-                                <Select id="randomize" options={[{ label: "Partial", value: "partial" }]} />
-                            </Box>
-                        </Flex>
-
-                        <Flex justifyContent="space-between" alignItems="center">
-                            <Text fontSize="14px" color="#1A202C">Theme Colour</Text>
-                            <HStack spacing="12px">
-                                <Circle size="24px" bg="#6b006b" border="2px solid white" outline="2px solid #6b006b" cursor="pointer" />
-                                <Circle size="24px" bg="#1A202C" cursor="pointer" />
-                                <Circle size="24px" bg="#A0AEC0" cursor="pointer" />
-                            </HStack>
-                        </Flex>
-                    </Flex>
-
-                    <Divider borderColor="#E2E8F0" marginBottom="20px" />
-
-                    <Text fontSize="14px" fontWeight="600" color="#4A5568" marginBottom="16px">
-                        Student Tools and Multimedia
-                    </Text>
-
-                    <Flex flexDirection="column" gap="20px">
-                        <Flex justifyContent="space-between" alignItems="center">
-                            <Text fontSize="14px" color="#1A202C">On-Screen Calculator</Text>
-                            <Switch colorScheme="gray" />
-                        </Flex>
-
-                        <Flex justifyContent="space-between" alignItems="center">
-                            <Text fontSize="14px" color="#1A202C">Spell Checker</Text>
-                            <Switch colorScheme="gray" />
-                        </Flex>
-
-                        <Flex justifyContent="space-between" alignItems="center">
-                            <Text fontSize="14px" color="#1A202C">Time Waiver</Text>
-                            <Switch colorScheme="purple" isChecked={true} />
-                        </Flex>
-
-                        <Flex justifyContent="space-between" alignItems="center">
-                            <Text fontSize="14px" color="#1A202C">Multimedia</Text>
-                            <Switch colorScheme="purple" isChecked={true} />
-                        </Flex>
-                    </Flex>
-
+                    <RandomizationFieldsEditor values={paperConfig} setValues={setPaperConfig} disabled={false} />
                 </Box>
             </Grid>
+
+            <SaveAsPresetModal
+                isOpen={isSaveModalOpen}
+                onClose={closeSaveModal}
+                onSave={handleSaveAsPreset}
+                isSaving={isSavingPreset}
+            />
         </Box>
     );
 };
