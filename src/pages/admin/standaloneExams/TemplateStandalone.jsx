@@ -65,8 +65,10 @@ const QUESTION_TYPE_LOCK_OPTIONS = [
 
 const ALL_QUESTION_TYPES = QUESTION_TYPE_LOCK_OPTIONS.filter((o) => o.value !== "").map((o) => o.value);
 
+// "Any marking type" is a placeholder only — a section's marking type must
+// be one of the other three, so it's rendered disabled/unselectable.
 const MARKING_TYPE_LOCK_OPTIONS = [
-    { label: "Any marking type", value: "" },
+    { label: "Any marking type", value: "", disabled: true },
     { label: "Automatic", value: "automatic" },
     { label: "Manual", value: "manual" },
     { label: "Hybrid", value: "hybrid" },
