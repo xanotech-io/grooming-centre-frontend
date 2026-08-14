@@ -114,10 +114,16 @@ export const WorkflowSubmitModal = ({
 
       const { message } = await adminSubmitWorkflow(payload);
 
+      const supervisorName = !isSuperAdmin
+        ? supervisorOptions.find((s) => s.value === selectedSupervisorId)?.label
+        : undefined;
+
       toast({
-        description: capitalizeFirstLetter(
-          message ?? 'Submitted for approval successfully.',
-        ),
+        description: supervisorName
+          ? `Submitted to ${supervisorName} for approval successfully.`
+          : capitalizeFirstLetter(
+              message ?? 'Submitted for approval successfully.',
+            ),
         position: 'top',
         status: 'success',
       });
