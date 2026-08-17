@@ -20,7 +20,10 @@ const messaging = firebase.messaging();
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const contentUrl = event.notification.data?.contentUrl || "/";
+  const contentUrl =
+    event.notification.data?.contentUrl ||
+    event.notification.data?.content_url ||
+    "/";
 
   event.waitUntil(
     self.clients

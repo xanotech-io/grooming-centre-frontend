@@ -42,11 +42,12 @@ import {
     Spinner,
     BreadcrumbItem,
 } from '@chakra-ui/react';
-import { FaSearch, FaFilter, FaChevronLeft, FaChevronRight, FaRegCalendarAlt } from 'react-icons/fa';
+import { FaSearch, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { MdClose } from 'react-icons/md';
 import { FiMoreVertical } from 'react-icons/fi';
-import { Breadcrumb, Button, Heading, Link, Select } from '../../../components';
+import { Breadcrumb, Button, Heading, Link, Select, Upload } from '../../../components';
 import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
+import { useUpload } from '../../../hooks';
 import { capitalizeFirstLetter } from '../../../utils';
 import {
     adminGetBadges,
@@ -56,7 +57,7 @@ import {
     adminDeactivateBadge,
     adminAddBadgeCourses,
     adminRemoveBadgeCourses,
-    userGetCourseListing,
+    adminGetCourseListing,
 } from '../../../services';
 
 /* ─── Constants ──────────────────────────────────────────────────── */
@@ -91,6 +92,7 @@ const getStatusBadge = (status) => {
 const CreateBadgeModal = ({ isOpen, onClose, editBadge, onSaved, allCourses }) => {
     const toast = useToast();
     const isEdit = !!editBadge;
+    const badgeFileUpload = useUpload();
 
     const emptyForm = {
         title: '',
@@ -98,7 +100,6 @@ const CreateBadgeModal = ({ isOpen, onClose, editBadge, onSaved, allCourses }) =
         description: '',
         issuingAuthority: '',
         validationMethod: '',
-        badgeFile: '',
         courseIds: [],
     };
 
@@ -119,11 +120,12 @@ const CreateBadgeModal = ({ isOpen, onClose, editBadge, onSaved, allCourses }) =
                     description: editBadge.description || '',
                     issuingAuthority: editBadge.issuingAuthority || '',
                     validationMethod: editBadge.validationMethod || '',
-                    badgeFile: editBadge.badgeFile || '',
                     courseIds: existingIds,
                 });
+                badgeFileUpload.handleInitialImageSelect(editBadge.badgeFile || null);
             } else {
-                setForm({ title: '', badgeType: '', description: '', issuingAuthority: '', validationMethod: '', badgeFile: '', courseIds: [] });
+                setForm({ title: '', badgeType: '', description: '', issuingAuthority: '', validationMethod: '', courseIds: [] });
+                badgeFileUpload.handleFileDelete();
             }
             setCourseSearch('');
         }
@@ -168,13 +170,14 @@ const CreateBadgeModal = ({ isOpen, onClose, editBadge, onSaved, allCourses }) =
 
         setSaving(true);
         try {
+            const newBadgeFile = badgeFileUpload.handleGetFileAndValidate('Badge Image', true);
             const body = {
                 title: form.title.trim(),
                 badgeType: form.badgeType,
                 description: form.description.trim(),
                 issuingAuthority: form.issuingAuthority.trim(),
                 validationMethod: form.validationMethod,
-                badgeFile: form.badgeFile.trim() || undefined,
+                badgeFile: newBadgeFile || undefined,
                 courseIds: form.courseIds,
             };
 
@@ -319,20 +322,15 @@ const CreateBadgeModal = ({ isOpen, onClose, editBadge, onSaved, allCourses }) =
                             />
                         </FormControl>
 
-                        <FormControl mb={4}>
-                            <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={1}>
-                                Badge File URL
-                            </FormLabel>
-                            <Input
-                                value={form.badgeFile}
-                                onChange={(e) => set('badgeFile', e.target.value)}
-                                placeholder="https://..."
-                                fontSize="14px"
-                                borderRadius="6px"
-                                borderColor="#E2E8F0"
-                                _focus={{ borderColor: '#6b006b', boxShadow: 'none' }}
+                        <Box mb={4}>
+                            <Upload
+                                id="badgeFile"
+                                label="Badge Image"
+                                onFileSelect={badgeFileUpload.handleFileSelect}
+                                imageUrl={badgeFileUpload.image.url}
+                                accept={badgeFileUpload.accept}
                             />
-                        </FormControl>
+                        </Box>
 
                         {/* Required Courses Picker */}
                         <FormControl isRequired mb={2}>
@@ -424,7 +422,7 @@ const CourseAssignmentDrawer = ({ isOpen, onClose, badge, onDone }) => {
         if (isOpen) {
             setSearch('');
             setSelectedToAdd([]);
-            userGetCourseListing()
+            adminGetCourseListing({ limit: 500 })
                 .then((res) => {
                     const list = res?.courses || res?.data || res || [];
                     setAllCourses(Array.isArray(list) ? list : []);
@@ -698,7 +696,7 @@ const BadgeSupportPage = () => {
     /* ── Fetch courses for modal picker ── */
     const fetchAllCourses = async () => {
         try {
-            const res = await userGetCourseListing();
+            const res = await adminGetCourseListing({ limit: 500 });
             const list = res?.courses || res?.data || res || [];
             setAllCourses(Array.isArray(list) ? list : []);
         } catch {
@@ -895,33 +893,6 @@ const BadgeSupportPage = () => {
                                         _focus={{ borderColor: '#6b006b', boxShadow: 'none' }}
                                     />
                                 </InputGroup>
-
-                                <Button
-                                    variant="outline"
-                                    leftIcon={<FaFilter color="#4A5568" />}
-                                    borderColor="#E2E8F0"
-                                    color="#4A5568"
-                                    fontSize="14px"
-                                    fontWeight="500"
-                                    bg="white"
-                                >
-                                    Filter
-                                </Button>
-                            </Flex>
-
-                            {/* Right Toolbar */}
-                            <Flex>
-                                <Button
-                                    variant="outline"
-                                    leftIcon={<FaRegCalendarAlt color="#4A5568" />}
-                                    borderColor="#E2E8F0"
-                                    color="#4A5568"
-                                    fontSize="14px"
-                                    fontWeight="500"
-                                    bg="white"
-                                >
-                                    Select dates
-                                </Button>
                             </Flex>
                         </Flex>
 

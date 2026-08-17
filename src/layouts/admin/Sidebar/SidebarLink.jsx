@@ -79,7 +79,7 @@ const SidebarLink = ({ link, onClick }) => {
 
   return (
     <li>
-      {link.href ? (
+      {link.href && !isParent ? (
         <Link
           onClick={onClick}
           href={link.href}
