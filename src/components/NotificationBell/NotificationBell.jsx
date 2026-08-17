@@ -54,9 +54,13 @@ export const NotificationBell = () => {
       <Box position="relative" display="inline-block">
         <IconButton
           aria-label="Notifications"
-          icon={<MdNotificationsActive />}
+          icon={<MdNotificationsActive size="28px" />}
           isRound
           variant="ghost"
+          size="lg"
+          color="white"
+          _hover={{ bg: "whiteAlpha.200" }}
+          _active={{ bg: "whiteAlpha.300" }}
           onClick={openDrawer}
         />
         {unreadCount > 0 && (

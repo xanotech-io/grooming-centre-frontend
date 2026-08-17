@@ -83,9 +83,12 @@ export const useAppConfig = () => {
         id: payload.messageId || `${Date.now()}-${Math.random()}`,
         title: payload.notification?.title,
         body: payload.notification?.body,
-        contentUrl: payload.data?.contentUrl,
-        senderName: payload.data?.senderName,
-        senderAvatar: payload.data?.senderAvatar || payload.notification?.icon,
+        contentUrl: payload.data?.contentUrl || payload.data?.content_url,
+        senderName: payload.data?.senderName || payload.data?.sender_name,
+        senderAvatar:
+          payload.data?.senderAvatar ||
+          payload.data?.sender_avatar ||
+          payload.notification?.icon,
         receivedAt: Date.now(),
       });
 
