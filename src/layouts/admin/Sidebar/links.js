@@ -58,7 +58,7 @@ export const links = [
       // { href: "/admin/examination-marking", text: "Exam Marking" },
       // { href: "/admin/manual-marking", text: "Manual Marking" },
       { href: "/admin/marking-templates", text: "Marking Templates" },
-      // { href: "/admin/marking-schemes", text: "Marking Schemes" },
+      { href: "/admin/marking-schemes", text: "Marking Schemes" },
       { href: "/admin/exam-paper-config-presets", text: "Exam Template Library" },
       // { href: "/admin/grade-book", text: "Grade Book" },
       { href: "/admin/grade-book-v2", text: "Advanced Grade Book" },
@@ -99,6 +99,10 @@ export const links = [
         text: "Assessment Analytics",
       },
       {
+        href: "/admin/report/assessment-overview",
+        text: "Assessment & Quiz Result Report",
+      },
+      {
         href: "/admin/report/attendance",
         text: "Attendance Report",
       },
@@ -114,6 +118,10 @@ export const links = [
         href: "/admin/report/instructor-performance",
         text: "Instructor Performance",
       },
+      // {
+      //   href: "/admin/report/instructorReport",
+      //   text: "Instructor Report",
+      // },
       {
         href: "/admin/report/managementReport",
         text: "Management Report",
@@ -142,10 +150,6 @@ export const links = [
         href: "/admin/report/student-progress",
         text: "Student Progress Report",
       },
-      // {
-      //   href: "/admin/student-transcript-v2",
-      //   text: "Transcript Posting",
-      // },
       {
         href: "/admin/report/studentTranscripts",
         text: "Student Transcripts",
@@ -154,6 +158,10 @@ export const links = [
         href: "/admin/report/system-utilization",
         text: "System Utilization",
       },
+      // {
+      //   href: "/admin/student-transcript-v2",
+      //   text: "Transcript Posting",
+      // },
       {
         href: "/admin/report/visual-analytics",
         text: "Visual Analytics",
@@ -205,10 +213,10 @@ export const links = [
         href: "/admin/report/student-reporting",
         text: "Student Reporting & Participation",
       },
-      {
-        href: "/admin/report/submissions",
-        text: "Submissions Report",
-      },
+      // {
+      //   href: "/admin/report/submissions",
+      //   text: "Submissions Report",
+      // },
     ],
   },
   {
@@ -229,16 +237,8 @@ export const links = [
     roles: ["supervisor"],
     links: [
       {
-        href: "/admin/report/assessment-analytics",
-        text: "Assessment Analytics Report",
-      },
-      {
-        href: "/admin/report/project-grading",
-        text: "Assignment Grading Summary",
-      },
-      {
-        href: "/admin/compliance",
-        text: "Compliance & Non-Compliance Training Monitor",
+        href: "/admin/report/report-builder",
+        text: "Multi-search Custom Report Builder",
       },
       {
         href: "/admin/report/course-completion",
@@ -249,8 +249,16 @@ export const links = [
         text: "Instructor Performance Report",
       },
       {
-        href: "/admin/report/report-builder",
-        text: "Multi-search Custom Report Builder",
+        href: "/admin/report/project-grading",
+        text: "Assignment Grading Summary",
+      },
+      {
+        href: "/admin/report/assessment-analytics",
+        text: "Assessment Analytics Report",
+      },
+      {
+        href: "/admin/compliance",
+        text: "Compliance & Non-Compliance Training Monitor",
       },
     ],
   },
