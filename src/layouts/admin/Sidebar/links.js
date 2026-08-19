@@ -213,10 +213,7 @@ export const links = [
         href: "/admin/report/student-reporting",
         text: "Student Reporting & Participation",
       },
-      // {
-      //   href: "/admin/report/submissions",
-      //   text: "Submissions Report",
-      // },
+  
     ],
   },
   {
