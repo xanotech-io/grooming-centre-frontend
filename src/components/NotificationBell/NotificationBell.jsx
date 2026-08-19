@@ -32,7 +32,7 @@ const formatRelativeTime = (timestamp) => {
   return `${Math.round(diffHours / 24)}d ago`;
 };
 
-export const NotificationBell = () => {
+export const NotificationBell = ({ iconColor = "white" }) => {
   const notifications = useNotificationStore((state) => state.notifications);
   const markRead = useNotificationStore((state) => state.markRead);
   const markAllRead = useNotificationStore((state) => state.markAllRead);
@@ -45,6 +45,10 @@ export const NotificationBell = () => {
 
   const handleSelect = (notification) => {
     markRead(notification.id);
+    if (notification.contentUrl) {
+      window.location.href = notification.contentUrl;
+      return;
+    }
     setActiveNotification(notification);
     openModal();
   };
@@ -58,9 +62,9 @@ export const NotificationBell = () => {
           isRound
           variant="ghost"
           size="lg"
-          color="white"
-          _hover={{ bg: "whiteAlpha.200" }}
-          _active={{ bg: "whiteAlpha.300" }}
+          color={iconColor}
+          _hover={{ bg: iconColor === "white" ? "whiteAlpha.200" : "blackAlpha.100" }}
+          _active={{ bg: iconColor === "white" ? "whiteAlpha.300" : "blackAlpha.200" }}
           onClick={openDrawer}
         />
         {unreadCount > 0 && (

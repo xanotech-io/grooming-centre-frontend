@@ -45,8 +45,8 @@ export const links = [
       { href: "/admin/bulk-courses", text: "Bulk Course Creation" },
       { href: "/admin/course-materials", text: "Course Materials" },
       { href: "/admin/library", text: "library" },
-      { href: "/admin/documents", text: "documents" },
-      { href: "/admin/question-import", text: "Question Upload" },
+      // { href: "/admin/documents", text: "documents" },
+      // { href: "/admin/question-import", text: "Question Upload" },
     ],
   },
   {
@@ -55,14 +55,14 @@ export const links = [
     links: [
       { href: "/admin/standalone-exams", text: "Standalone Exams" },
       { href: "/admin/polls", text: "Polls" },
-      { href: "/admin/examination-marking", text: "Exam Marking" },
-      { href: "/admin/manual-marking", text: "Manual Marking" },
+      // { href: "/admin/examination-marking", text: "Exam Marking" },
+      // { href: "/admin/manual-marking", text: "Manual Marking" },
       { href: "/admin/marking-templates", text: "Marking Templates" },
-      { href: "/admin/marking-schemes", text: "Marking Schemes" },
+      // { href: "/admin/marking-schemes", text: "Marking Schemes" },
       { href: "/admin/exam-paper-config-presets", text: "Exam Template Library" },
       // { href: "/admin/grade-book", text: "Grade Book" },
       { href: "/admin/grade-book-v2", text: "Advanced Grade Book" },
-      { href: "/admin/feedback-markup", text: "Feedback Markup" },
+      // { href: "/admin/feedback-markup", text: "Feedback Markup" },
       // { href: "/admin/feedback-markup-review", text: "Inline Markup Review" },
     ],
   },
@@ -73,7 +73,7 @@ export const links = [
       { href: "/admin/certificates", text: "Certificate Upload" },
       { href: "/admin/certificate-management", text: "Issued Certificates" },
       { href: "/admin/badge-support", text: "Badge Support" },
-      { href: "/admin/user-documents", text: "Document Verification" },
+      // { href: "/admin/user-documents", text: "Document Verification" },
     ],
   },
   {
@@ -91,56 +91,8 @@ export const links = [
     href: "/admin/report/student-progress",
     links: [
       {
-        href: "/admin/report/student-progress",
-        text: "Student Progress Report",
-      },
-      {
-        href: "/admin/student-transcript-v2",
-        text: "Transcript Posting",
-      },
-      {
-        href: "/admin/report/studentTranscripts",
-        text: "Student Transcripts",
-      },
-      {
-        href: "/admin/report/managementReport",
-        text: "Management Report",
-      },
-      {
         href: "/admin/report/archived",
         text: "Archived Reports",
-      },
-      // {
-      //   href: "/admin/report/instructorReport",
-      //   text: "Instructor Report",
-      // },
-      {
-        href: "/admin/report/instructor-performance",
-        text: "Instructor Performance",
-      },
-      {
-        href: "/admin/report/course-completion",
-        text: "Course Completion & Pass Rate",
-      },
-      {
-        href: "/admin/mis-reports",
-        text: "MIS Reports",
-      },
-      {
-        href: "/admin/report/participation-monitoring",
-        text: "Participation Monitoring",
-      },
-      {
-        href: "/admin/report/report-builder",
-        text: "Report Builder",
-      },
-      {
-        href: "/admin/examination",
-        text: "Examination Result Analysis",
-      },
-      {
-        href: "/admin/report/assessment-overview",
-        text: "Assessment & Quiz Result Report",
       },
       {
         href: "/admin/report/assessment-analytics",
@@ -151,20 +103,60 @@ export const links = [
         text: "Attendance Report",
       },
       {
-        href: "/admin/report/system-utilization",
-        text: "System Utilization",
+        href: "/admin/report/course-completion",
+        text: "Course Completion & Pass Rate",
+      },
+      {
+        href: "/admin/examination",
+        text: "Examination Result Analysis",
+      },
+      {
+        href: "/admin/report/instructor-performance",
+        text: "Instructor Performance",
+      },
+      {
+        href: "/admin/report/managementReport",
+        text: "Management Report",
+      },
+      {
+        href: "/admin/mis-reports",
+        text: "MIS Reports",
+      },
+      {
+        href: "/admin/report/participation-monitoring",
+        text: "Participation Monitoring",
       },
       {
         href: "/admin/report/performance-filters",
         text: "Performance Filters",
       },
       {
-        href: "/admin/report/visual-analytics",
-        text: "Visual Analytics",
-      },
-      {
         href: "/admin/report/proctoring-audit",
         text: "Proctoring & Audit",
+      },
+      {
+        href: "/admin/report/report-builder",
+        text: "Report Builder",
+      },
+      {
+        href: "/admin/report/student-progress",
+        text: "Student Progress Report",
+      },
+      // {
+      //   href: "/admin/student-transcript-v2",
+      //   text: "Transcript Posting",
+      // },
+      {
+        href: "/admin/report/studentTranscripts",
+        text: "Student Transcripts",
+      },
+      {
+        href: "/admin/report/system-utilization",
+        text: "System Utilization",
+      },
+      {
+        href: "/admin/report/visual-analytics",
+        text: "Visual Analytics",
       },
     ],
   },
@@ -178,20 +170,8 @@ export const links = [
         text: "Assignment Grading Summary",
       },
       {
-        href: "/admin/report/submissions",
-        text: "Submissions Report",
-      },
-      {
-        href: "/admin/report/exam-integrity",
-        text: "Randomization and Integrity Report",
-      },
-      {
-        href: "/admin/report/question-bank-usage",
-        text: "Question Bank Usage",
-      },
-      {
-        href: "/admin/exam-notifications",
-        text: "Exam Notifications",
+        href: "/admin/report/audit-trail",
+        text: "Audit Trail Report",
       },
       {
         href: "/admin/compliance",
@@ -202,8 +182,20 @@ export const links = [
         text: "Enrollment Status Report",
       },
       {
-        href: "/admin/report/audit-trail",
-        text: "Audit Trail Report",
+        href: "/admin/exam-notifications",
+        text: "Exam Notifications",
+      },
+      {
+        href: "/admin/performance-drill-down",
+        text: "Performance Drill-Down",
+      },
+      {
+        href: "/admin/report/question-bank-usage",
+        text: "Question Bank Usage",
+      },
+      {
+        href: "/admin/report/exam-integrity",
+        text: "Randomization and Integrity Report",
       },
       {
         href: "/admin/report/scheduled-reporting",
@@ -214,8 +206,8 @@ export const links = [
         text: "Student Reporting & Participation",
       },
       {
-        href: "/admin/performance-drill-down",
-        text: "Performance Drill-Down",
+        href: "/admin/report/submissions",
+        text: "Submissions Report",
       },
     ],
   },
@@ -237,8 +229,16 @@ export const links = [
     roles: ["supervisor"],
     links: [
       {
-        href: "/admin/report/report-builder",
-        text: "Multi-search Custom Report Builder",
+        href: "/admin/report/assessment-analytics",
+        text: "Assessment Analytics Report",
+      },
+      {
+        href: "/admin/report/project-grading",
+        text: "Assignment Grading Summary",
+      },
+      {
+        href: "/admin/compliance",
+        text: "Compliance & Non-Compliance Training Monitor",
       },
       {
         href: "/admin/report/course-completion",
@@ -249,16 +249,8 @@ export const links = [
         text: "Instructor Performance Report",
       },
       {
-        href: "/admin/report/project-grading",
-        text: "Assignment Grading Summary",
-      },
-      {
-        href: "/admin/report/assessment-analytics",
-        text: "Assessment Analytics Report",
-      },
-      {
-        href: "/admin/compliance",
-        text: "Compliance & Non-Compliance Training Monitor",
+        href: "/admin/report/report-builder",
+        text: "Multi-search Custom Report Builder",
       },
     ],
   },
