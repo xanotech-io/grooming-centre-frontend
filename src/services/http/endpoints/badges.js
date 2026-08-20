@@ -7,8 +7,36 @@ export const adminGetBadges = async (params) => {
   return data;
 };
 
+/**
+ * badgeFile can be a real File (uploaded via the badge form) or a plain
+ * URL string (already-hosted image). Only a File needs multipart — the
+ * backend accepts both content types on the same create/update endpoints.
+ */
+const buildBadgeRequestBody = ({ badgeFile, courseIds, ...rest }) => {
+  const badgeFileIsFile = typeof File !== "undefined" && badgeFile instanceof File;
+
+  if (!badgeFileIsFile) {
+    return { ...rest, badgeFile, courseIds };
+  }
+
+  const formData = new FormData();
+  Object.entries(rest).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) formData.append(key, value);
+  });
+  formData.append("badgeFile", badgeFile);
+  formData.append("courseIds", JSON.stringify(courseIds || []));
+
+  return formData;
+};
+
 export const adminCreateBadge = async (body) => {
-  const { data } = await http.post("/v1/badges/create", body);
+  const requestBody = buildBadgeRequestBody(body);
+  const isMultipart = requestBody instanceof FormData;
+  const { data } = await http.post(
+    "/v1/badges/create",
+    requestBody,
+    isMultipart ? { headers: { "Content-Type": "multipart/form-data" } } : undefined,
+  );
   return data;
 };
 
@@ -28,7 +56,13 @@ export const adminGetPendingBadgeApprovals = async () => {
 };
 
 export const adminUpdateBadge = async (badgeId, body) => {
-  const { data } = await http.put(`/v1/badges/${badgeId}`, body);
+  const requestBody = buildBadgeRequestBody(body);
+  const isMultipart = requestBody instanceof FormData;
+  const { data } = await http.put(
+    `/v1/badges/${badgeId}`,
+    requestBody,
+    isMultipart ? { headers: { "Content-Type": "multipart/form-data" } } : undefined,
+  );
   return data;
 };
 

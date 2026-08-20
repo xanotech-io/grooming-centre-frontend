@@ -18,7 +18,7 @@ import {
 } from '../layouts';
 import { useApp } from '../contexts';
 import { useEffect } from 'react';
-import { useToast } from '@chakra-ui/react';
+import { useToast, Box, Text } from '@chakra-ui/react';
 import {
   registerPushToken,
   listenForForegroundMessages,
@@ -79,23 +79,54 @@ export const useAppConfig = () => {
     registerPushToken().catch((err) => console.error(err));
 
     const unsubscribe = listenForForegroundMessages((payload) => {
+      const contentUrl = payload.data?.contentUrl || payload.data?.content_url;
+
       addNotification({
         id: payload.messageId || `${Date.now()}-${Math.random()}`,
         title: payload.notification?.title,
         body: payload.notification?.body,
-        contentUrl: payload.data?.contentUrl,
-        senderName: payload.data?.senderName,
-        senderAvatar: payload.data?.senderAvatar || payload.notification?.icon,
+        contentUrl,
+        senderName: payload.data?.senderName || payload.data?.sender_name,
+        senderAvatar:
+          payload.data?.senderAvatar ||
+          payload.data?.sender_avatar ||
+          payload.notification?.icon,
         receivedAt: Date.now(),
       });
 
-      toast({
-        title: payload.notification?.title,
-        description: payload.notification?.body,
-        status: 'info',
-        isClosable: true,
-        duration: 6000,
-      });
+      if (contentUrl) {
+        const toastId = `push-${Date.now()}-${Math.random()}`;
+        toast({
+          id: toastId,
+          duration: 6000,
+          isClosable: true,
+          render: () => (
+            <Box
+              bg="primary.base"
+              color="white"
+              borderRadius="md"
+              px={4}
+              py={3}
+              cursor="pointer"
+              onClick={() => {
+                toast.close(toastId);
+                window.location.href = contentUrl;
+              }}
+            >
+              <Text fontWeight={700}>{payload.notification?.title}</Text>
+              <Text fontSize="sm">{payload.notification?.body}</Text>
+            </Box>
+          ),
+        });
+      } else {
+        toast({
+          title: payload.notification?.title,
+          description: payload.notification?.body,
+          status: 'info',
+          isClosable: true,
+          duration: 6000,
+        });
+      }
     });
 
     return unsubscribe;

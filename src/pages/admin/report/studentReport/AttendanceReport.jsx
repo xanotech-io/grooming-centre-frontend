@@ -1,9 +1,13 @@
 import { Box, Flex } from "@chakra-ui/layout";
-import { useState, useRef } from "react";
-import { Route, useParams } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { Route, useParams, useHistory } from "react-router-dom";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { getStudentAttendanceV2 } from "../../../../services";
+import {
+  getStudentAttendanceV2,
+  recordStudentAttendance,
+  adminGetStudentProgressV2,
+} from "../../../../services";
 import {
   Button,
   Table,
@@ -13,7 +17,23 @@ import {
   Breadcrumb,
   Link,
 } from "../../../../components";
-import { BreadcrumbItem, Input, Select, Collapse } from "@chakra-ui/react";
+import {
+  BreadcrumbItem,
+  Input,
+  Select,
+  Collapse,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  useDisclosure,
+  useToast,
+  FormControl,
+  FormLabel,
+} from "@chakra-ui/react";
 import { Tag } from "@chakra-ui/tag";
 import { FiFilter, FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { useTableRows } from "../../../../hooks";
@@ -33,7 +53,10 @@ const deliveryColorMap = {
 
 const mapRecordToRow = (record) => ({
   id: record.id,
-  courseTitle: record.courseTitle ?? record.course?.title ?? "—",
+  courseTitle: {
+    title: record.courseTitle ?? record.course?.title ?? "—",
+    courseId: record.courseId ?? record.course?.id ?? record.course?._id ?? null,
+  },
   lessonTitle: record.lessonTitle ?? record.lesson?.title ?? "—",
   sessionDate: record.sessionDate ?? "—",
   attendanceStatus: record.attendanceStatus ?? record.status ?? "—",
@@ -160,8 +183,229 @@ const CollapsibleFilterBar = ({ filters, onChange, onApply, onReset, isOpen, onT
   );
 };
 
+const defaultRecordForm = {
+  courseId: "",
+  sessionDate: "",
+  attendanceStatus: "",
+  deliveryMode: "",
+  entryTime: "",
+  exitTime: "",
+};
+
+const RecordAttendanceModal = ({ isOpen, onClose, studentId, onSuccess }) => {
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [courseOptions, setCourseOptions] = useState([]);
+  const [form, setForm] = useState(defaultRecordForm);
+
+  useEffect(() => {
+    if (!isOpen || !studentId) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const response = await adminGetStudentProgressV2(studentId);
+        const courses = (response?.courses ?? []).map((c) => ({
+          id: c.courseId,
+          title: c.courseTitle || c.courseId,
+        }));
+        if (mounted) setCourseOptions(courses);
+      } catch {
+        if (mounted) setCourseOptions([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, studentId]);
+
+  const update = (field, value) => setForm((p) => ({ ...p, [field]: value }));
+  const reset = () => setForm(defaultRecordForm);
+
+  const handleSubmit = async () => {
+    if (!form.courseId) {
+      toast({ title: "Course is required", status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
+    if (!form.sessionDate) {
+      toast({ title: "Session date is required", status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
+    if (!form.attendanceStatus) {
+      toast({ title: "Attendance status is required", status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await recordStudentAttendance({
+        studentId,
+        courseId: form.courseId,
+        sessionDate: form.sessionDate,
+        attendanceStatus: form.attendanceStatus,
+        deliveryMode: form.deliveryMode || undefined,
+        entryTime: form.entryTime || undefined,
+        exitTime: form.exitTime || undefined,
+      });
+      toast({
+        status: "success",
+        description: "Attendance recorded successfully",
+        duration: 3000,
+        isClosable: true,
+      });
+      reset();
+      onSuccess();
+      onClose();
+    } catch (err) {
+      toast({
+        status: "error",
+        description: err.message || "Unable to record attendance",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={() => {
+        reset();
+        onClose();
+      }}
+      isCentered
+      size="lg"
+    >
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader fontSize="16px">Record Attendance</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <Flex direction="column" gap="14px">
+            <FormControl isRequired>
+              <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                Course
+              </FormLabel>
+              <Select
+                size="sm"
+                borderRadius="6px"
+                placeholder="Select course"
+                value={form.courseId}
+                onChange={(e) => update("courseId", e.target.value)}
+              >
+                {courseOptions.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.title}
+                  </option>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Flex gap="12px">
+              <FormControl flex="1" isRequired>
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Session Date
+                </FormLabel>
+                <Input
+                  size="sm"
+                  borderRadius="6px"
+                  type="date"
+                  value={form.sessionDate}
+                  onChange={(e) => update("sessionDate", e.target.value)}
+                />
+              </FormControl>
+
+              <FormControl flex="1" isRequired>
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Attendance Status
+                </FormLabel>
+                <Select
+                  size="sm"
+                  borderRadius="6px"
+                  placeholder="Select status"
+                  value={form.attendanceStatus}
+                  onChange={(e) => update("attendanceStatus", e.target.value)}
+                >
+                  {ATTENDANCE_STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+            </Flex>
+
+            <Flex gap="12px">
+              <FormControl flex="1">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Delivery Mode
+                </FormLabel>
+                <Select
+                  size="sm"
+                  borderRadius="6px"
+                  placeholder="Select mode"
+                  value={form.deliveryMode}
+                  onChange={(e) => update("deliveryMode", e.target.value)}
+                >
+                  {DELIVERY_MODE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl flex="1">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Entry Time
+                </FormLabel>
+                <Input
+                  size="sm"
+                  borderRadius="6px"
+                  type="time"
+                  value={form.entryTime}
+                  onChange={(e) => update("entryTime", e.target.value)}
+                />
+              </FormControl>
+              <FormControl flex="1">
+                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                  Exit Time
+                </FormLabel>
+                <Input
+                  size="sm"
+                  borderRadius="6px"
+                  type="time"
+                  value={form.exitTime}
+                  onChange={(e) => update("exitTime", e.target.value)}
+                />
+              </FormControl>
+            </Flex>
+          </Flex>
+        </ModalBody>
+        <ModalFooter gap="10px">
+          <Button
+            secondary
+            onClick={() => {
+              reset();
+              onClose();
+            }}
+            isDisabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} isLoading={loading}>
+            Save Attendance
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+};
+
 const AttendanceReport = () => {
   const { studentId } = useParams();
+  const history = useHistory();
+  const recordModal = useDisclosure();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [kpis, setKpis] = useState(null);
@@ -231,6 +475,26 @@ const AttendanceReport = () => {
         key: "courseTitle",
         text: "Course",
         fraction: "220px",
+        renderContent: ({ title, courseId }) =>
+          courseId ? (
+            <Text
+              as="button"
+              fontSize="sm"
+              color="#6b006b"
+              fontWeight="500"
+              textAlign="left"
+              cursor="pointer"
+              onClick={() =>
+                history.push(
+                  `/admin/report/studentReport/${studentId}/attendance/course/${courseId}`
+                )
+              }
+            >
+              {title}
+            </Text>
+          ) : (
+            <Text fontSize="sm">{title}</Text>
+          ),
       },
       {
         id: "lessonTitle",
@@ -334,6 +598,7 @@ const AttendanceReport = () => {
             </BreadcrumbItem>
           }
         />
+        <Button onClick={recordModal.onOpen}>Record Attendance</Button>
       </Box>
 
       <Box display="flex" justifyContent="space-between" gap={4} mb={8}>
@@ -401,6 +666,13 @@ const AttendanceReport = () => {
           placeholder="Search by course or lesson..."
         />
       )}
+
+      <RecordAttendanceModal
+        isOpen={recordModal.isOpen}
+        onClose={recordModal.onClose}
+        studentId={studentId}
+        onSuccess={fetchRowItems}
+      />
     </AdminMainAreaWrapper>
   );
 };

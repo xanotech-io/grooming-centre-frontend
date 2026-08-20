@@ -88,3 +88,23 @@ export const supervisorGetMyEvaluations = async () => {
   const { data } = await http.get(`/v1/assessment-quiz-report-v2/evaluations`);
   return data;
 };
+
+// GET /api/v1/assessment-quiz-report-v2/filters/students
+export const adminGetAssessmentReportStudentFilters = async (params = {}) => {
+  const { data } = await http.get(
+    `/v1/assessment-quiz-report-v2/filters/students`,
+    { params },
+  );
+  const raw = data?.data ?? data ?? {};
+  return raw.students ?? raw.rows ?? (Array.isArray(raw) ? raw : []);
+};
+
+// GET /api/v1/assessment-quiz-report-v2/filters/instructors
+export const adminGetAssessmentReportInstructorFilters = async (params = {}) => {
+  const { data } = await http.get(
+    `/v1/assessment-quiz-report-v2/filters/instructors`,
+    { params },
+  );
+  const raw = data?.data ?? data ?? {};
+  return raw.instructors ?? raw.rows ?? (Array.isArray(raw) ? raw : []);
+};

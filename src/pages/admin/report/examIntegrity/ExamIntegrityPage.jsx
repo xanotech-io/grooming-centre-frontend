@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Route } from "react-router-dom";
 import {
+  Accordion,
+  AccordionButton,
+  AccordionIcon,
+  AccordionItem,
+  AccordionPanel,
   Badge,
   Box,
   Divider,
@@ -13,13 +18,19 @@ import {
   Flex,
   FormControl,
   FormLabel,
+  Grid,
   Input,
   Progress,
   Select,
   SimpleGrid,
   Skeleton,
+  Tab,
   Table,
   TableContainer,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
   Tbody,
   Td,
   Text,
@@ -36,15 +47,28 @@ import {
   FiX,
   FiAlertTriangle,
 } from "react-icons/fi";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip as ChartTooltip,
+  Legend,
+} from "chart.js";
+import { Bar } from "react-chartjs-2";
 import { Button, Breadcrumb, Heading, Link } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
   getExamIntegrityList,
   getExamIntegrityDetail,
   getExamIrregularityLogs,
+  getExamIntegrityChartData,
   adminGetCourseListing,
 } from "../../../../services";
 import dayjs from "dayjs";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, ChartTooltip, Legend);
 
 // ─── Mock Data (fallback when API is unavailable) ─────────────────────────────
 // TODO: remove once GET /v1/exam-integrity-v2/* endpoints are live
@@ -191,6 +215,22 @@ const MOCK_DETAIL = {
   ...MOCK_EXAMS[0],
   course: { id: "course-001", title: "Microfinance Principles" },
   irregularityLogs: MOCK_LOGS,
+};
+
+const MOCK_CHART_DATA = {
+  randomizationEffectivenessDistribution: [
+    { bucket: "0–20%", count: 2 },
+    { bucket: "21–40%", count: 3 },
+    { bucket: "41–60%", count: 5 },
+    { bucket: "61–80%", count: 9 },
+    { bucket: "81–100%", count: 14 },
+  ],
+  geolocationHeatmap: [
+    { location: "Lagos, Nigeria", count: 18 },
+    { location: "Abuja, Nigeria", count: 11 },
+    { location: "Port Harcourt, Nigeria", count: 7 },
+    { location: "Kano, Nigeria", count: 4 },
+  ],
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -706,9 +746,162 @@ const ExamDetailDrawer = ({ examId, isOpen, onClose }) => {
 };
 
 
+// ─── Flagged Exams Tab ─────────────────────────────────────────────────────────
+
+const FlaggedExamsPanel = ({ exams, loading }) => {
+  const flagged = exams.filter((exam) => exam.integrityStatus === "Flagged");
+
+  if (loading) {
+    return (
+      <Box p={4}>
+        {[...Array(3)].map((_, i) => (
+          <Skeleton key={i} height="48px" mb={2} />
+        ))}
+      </Box>
+    );
+  }
+
+  if (flagged.length === 0) {
+    return (
+      <Box p={10} textAlign="center">
+        <Text color="gray.500">No flagged exams on this page.</Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Accordion allowMultiple>
+      {flagged.map((exam) => (
+        <AccordionItem key={exam.examId} border="1px solid" borderColor="red.100" borderRadius="md" mb={3}>
+          <AccordionButton _expanded={{ bg: "red.50" }} borderRadius="md" py={4} px={5}>
+            <Flex flex={1} align="center" justify="space-between" textAlign="left" flexWrap="wrap" gap={2}>
+              <Flex align="center" gap={2}>
+                <FiAlertTriangle color="#C53030" />
+                <Box>
+                  <Text fontWeight="semibold">{exam.examTitle}</Text>
+                  <Text fontSize="xs" color="gray.500">{exam.course?.title ?? "—"}</Text>
+                </Box>
+              </Flex>
+              <Badge colorScheme="red" borderRadius="full" px={3}>
+                {exam.irregularAttemptsCount ?? 0} irregular attempt{exam.irregularAttemptsCount === 1 ? "" : "s"}
+              </Badge>
+            </Flex>
+            <AccordionIcon ml={3} />
+          </AccordionButton>
+          <AccordionPanel pb={4} px={5}>
+            <IrregularityLogsPanel examId={exam.examId} previewLogs={[]} />
+          </AccordionPanel>
+        </AccordionItem>
+      ))}
+    </Accordion>
+  );
+};
+
+// ─── Charts Panel ───────────────────────────────────────────────────────────────
+
+const barChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    title: { display: false },
+  },
+  scales: {
+    x: { grid: { display: false } },
+    y: { beginAtZero: true, ticks: { precision: 0 } },
+  },
+};
+
+const IntegrityChartsPanel = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getExamIntegrityChartData()
+      .then((res) => setData(res?.data ?? res))
+      .catch(() => {
+        // TODO: endpoint GET /v1/exam-integrity-v2/chart-data not yet live — using mock
+        console.warn("[ExamIntegrity] /chart-data failed, falling back to mock data");
+        setData(MOCK_CHART_DATA);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const distribution = data?.randomizationEffectivenessDistribution ?? [];
+  const heatmap = data?.geolocationHeatmap ?? [];
+  const maxHeatmapCount = Math.max(1, ...heatmap.map((h) => h.count ?? 0));
+
+  const chartData = {
+    labels: distribution.map((d) => d.bucket),
+    datasets: [
+      {
+        label: "Exams",
+        data: distribution.map((d) => d.count),
+        backgroundColor: "#805AD5",
+        borderRadius: 4,
+        barPercentage: 0.6,
+        categoryPercentage: 0.7,
+      },
+    ],
+  };
+
+  return (
+    <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap={6}>
+      <Box bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.100" p={5}>
+        <Text fontWeight="semibold" mb={4}>Randomization Effectiveness Distribution</Text>
+        {loading ? (
+          <Skeleton height="250px" />
+        ) : distribution.length === 0 ? (
+          <Flex height="250px" align="center" justify="center">
+            <Text color="gray.500">No distribution data available.</Text>
+          </Flex>
+        ) : (
+          <Box height="250px">
+            <Bar data={chartData} options={barChartOptions} />
+          </Box>
+        )}
+      </Box>
+
+      <Box bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.100" p={5}>
+        <Text fontWeight="semibold" mb={1}>Geolocation Heatmap</Text>
+        <Text fontSize="xs" color="gray.500" mb={4}>
+          Preview — irregular-attempt concentration by location
+        </Text>
+        {loading ? (
+          <Skeleton height="250px" />
+        ) : heatmap.length === 0 ? (
+          <Flex height="250px" align="center" justify="center">
+            <Text color="gray.500">No geolocation data available.</Text>
+          </Flex>
+        ) : (
+          <Box>
+            {heatmap.map((h) => (
+              <Box key={h.location} mb={3}>
+                <Flex justify="space-between" mb={1}>
+                  <Text fontSize="sm">{h.location}</Text>
+                  <Text fontSize="sm" fontWeight="medium">{h.count}</Text>
+                </Flex>
+                <Box bg="gray.100" borderRadius="full" h="8px" overflow="hidden">
+                  <Box
+                    bg="orange.400"
+                    h="100%"
+                    borderRadius="full"
+                    width={`${Math.max(4, (h.count / maxHeatmapCount) * 100)}%`}
+                  />
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Box>
+    </Grid>
+  );
+};
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
-const SearchableSelect = ({ value, options, onChange, placeholder, maxW }) => {
+const SearchableSelect = ({ value, options, onChange, onQueryChange, placeholder, maxW }) => {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
@@ -746,6 +939,7 @@ const SearchableSelect = ({ value, options, onChange, placeholder, maxW }) => {
         onChange={(e) => {
           setQuery(e.target.value);
           setIsOpen(true);
+          onQueryChange?.(e.target.value);
           if (e.target.value === "") onChange("");
         }}
         onFocus={() => setIsOpen(true)}
@@ -800,6 +994,7 @@ const ExamIntegrityPage = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [courseId, setCourseId] = useState("");
   const [search, setSearch] = useState("");
+  const [courseSearch, setCourseSearch] = useState("");
   const [examType, setExamType] = useState("");
   const [randomizationType, setRandomizationType] = useState("");
   const [courses, setCourses] = useState([]);
@@ -818,11 +1013,12 @@ const ExamIntegrityPage = () => {
   }, []);
 
   const fetchExams = useCallback((filters, p, l) => {
-    const { courseId: cId, search: s, examType: eType, randomizationType: rType } = filters;
+    const { courseId: cId, search: s, courseSearch: cSearch, examType: eType, randomizationType: rType } = filters;
     setTableLoading(true);
     const params = { page: p, limit: l };
     if (cId) params.courseId = cId;
-    if (s) params.search = s;
+    if (cSearch) params.courseSearch = cSearch;
+    if (s) params.examTitle = s;
     if (eType) params.examType = eType;
     if (rType) params.randomizationMethod = rType;
     getExamIntegrityList(params)
@@ -841,6 +1037,7 @@ const ExamIntegrityPage = () => {
           if (eType && exam.examType !== eType) return false;
           if (rType && exam.randomizationMethod !== rType) return false;
           if (s && !exam.examTitle.toLowerCase().includes(s.toLowerCase())) return false;
+          if (cSearch && !exam.course?.title?.toLowerCase().includes(cSearch.toLowerCase())) return false;
           return true;
         });
         setExams(filtered);
@@ -850,13 +1047,13 @@ const ExamIntegrityPage = () => {
   }, []);
 
   useEffect(() => {
-    fetchExams({ courseId, search, examType, randomizationType }, page, limit);
+    fetchExams({ courseId, search, courseSearch, examType, randomizationType }, page, limit);
   }, []); // eslint-disable-line
 
   const handleCourseChange = (val) => {
     setCourseId(val);
     setPage(1);
-    fetchExams({ courseId: val, search, examType, randomizationType }, 1, limit);
+    fetchExams({ courseId: val, search, courseSearch, examType, randomizationType }, 1, limit);
   };
 
   const handleSearchChange = (val) => {
@@ -864,29 +1061,40 @@ const ExamIntegrityPage = () => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       setPage(1);
-      fetchExams({ courseId, search: val, examType, randomizationType }, 1, limit);
+      fetchExams({ courseId, search: val, courseSearch, examType, randomizationType }, 1, limit);
+    }, 400);
+  };
+
+  const courseSearchDebounceRef = useRef(null);
+  const handleCourseSearchChange = (val) => {
+    setCourseSearch(val);
+    if (courseSearchDebounceRef.current) clearTimeout(courseSearchDebounceRef.current);
+    courseSearchDebounceRef.current = setTimeout(() => {
+      setPage(1);
+      fetchExams({ courseId, search, courseSearch: val, examType, randomizationType }, 1, limit);
     }, 400);
   };
 
   const handleExamTypeChange = (val) => {
     setExamType(val);
     setPage(1);
-    fetchExams({ courseId, search, examType: val, randomizationType }, 1, limit);
+    fetchExams({ courseId, search, courseSearch, examType: val, randomizationType }, 1, limit);
   };
 
   const handleRandomizationTypeChange = (val) => {
     setRandomizationType(val);
     setPage(1);
-    fetchExams({ courseId, search, examType, randomizationType: val }, 1, limit);
+    fetchExams({ courseId, search, courseSearch, examType, randomizationType: val }, 1, limit);
   };
 
   const clearFilter = () => {
     setCourseId("");
     setSearch("");
+    setCourseSearch("");
     setExamType("");
     setRandomizationType("");
     setPage(1);
-    fetchExams({ courseId: "", search: "", examType: "", randomizationType: "" }, 1, limit);
+    fetchExams({ courseId: "", search: "", courseSearch: "", examType: "", randomizationType: "" }, 1, limit);
   };
 
   const handleRowClick = (examId) => {
@@ -896,12 +1104,12 @@ const ExamIntegrityPage = () => {
 
   const handlePage = (p) => {
     setPage(p);
-    fetchExams({ courseId, search, examType, randomizationType }, p, limit);
+    fetchExams({ courseId, search, courseSearch, examType, randomizationType }, p, limit);
   };
   const handleLimit = (l) => {
     setLimit(l);
     setPage(1);
-    fetchExams({ courseId, search, examType, randomizationType }, 1, l);
+    fetchExams({ courseId, search, courseSearch, examType, randomizationType }, 1, l);
   };
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -934,6 +1142,7 @@ const ExamIntegrityPage = () => {
             <SearchableSelect
               value={courseId}
               onChange={handleCourseChange}
+              onQueryChange={handleCourseSearchChange}
               options={courses.map((c) => ({ value: String(c.courseId || c.id), label: c.courseTitle || c.title || c.name }))}
               placeholder="Search course…"
               maxW="280px"
@@ -977,7 +1186,7 @@ const ExamIntegrityPage = () => {
               ))}
             </Select>
           </FormControl>
-          {(courseId || search || examType || randomizationType) && (
+          {(courseId || search || courseSearch || examType || randomizationType) && (
             <Button
               size="sm"
               secondary
@@ -991,7 +1200,7 @@ const ExamIntegrityPage = () => {
             size="sm"
             secondary
             onClick={() =>
-              fetchExams({ courseId, search, examType, randomizationType }, page, limit)
+              fetchExams({ courseId, search, courseSearch, examType, randomizationType }, page, limit)
             }
             leftIcon={<FiRefreshCw />}
           >
@@ -1000,6 +1209,14 @@ const ExamIntegrityPage = () => {
         </Flex>
       </Box>
 
+      <Tabs colorScheme="purple">
+        <TabList>
+          <Tab>All Exams</Tab>
+          <Tab>Flagged</Tab>
+          <Tab>Charts</Tab>
+        </TabList>
+        <TabPanels>
+          <TabPanel px={0}>
       <Box bg="white" borderRadius="lg" boxShadow="sm" overflow="hidden">
           <Flex
             justify="space-between"
@@ -1173,6 +1390,19 @@ const ExamIntegrityPage = () => {
             />
           )}
       </Box>
+          </TabPanel>
+
+          <TabPanel px={0}>
+            <Box bg="white" borderRadius="lg" boxShadow="sm" overflow="hidden" p={4}>
+              <FlaggedExamsPanel exams={exams} loading={tableLoading} />
+            </Box>
+          </TabPanel>
+
+          <TabPanel px={0}>
+            <IntegrityChartsPanel />
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
 
       {/* Exam Detail Drawer */}
       <ExamDetailDrawer

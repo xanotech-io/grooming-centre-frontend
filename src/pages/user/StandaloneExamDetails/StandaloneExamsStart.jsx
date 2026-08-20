@@ -1,5 +1,5 @@
 import { Box, Flex, Grid, HStack } from "@chakra-ui/layout";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Route } from "react-router";
 import {
   Button,
@@ -19,10 +19,9 @@ import {
 import breakpoints from "../../../theme/breakpoints";
 import useStandalone from "./standaloneHooks/useStandalone";
 import { useToast } from "@chakra-ui/toast";
-import { capitalizeFirstLetter } from "../../../utils";
+import { capitalizeFirstLetter, getGeolocationString } from "../../../utils";
 import { submitSAExamAnswers, getSAExamResult } from "../../../services";
-import { useQueryParams } from "../../../hooks";
-import { useHistory } from "react-router-dom";
+import { useQueryParams, useLiveProctoring } from "../../../hooks";
 const StandaloneExamsStart = () => {
   const {
     assessment,
@@ -48,7 +47,6 @@ const StandaloneExamsStart = () => {
   const [loading] = useState(false);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [submissionMeta, setSubmissionMeta] = useState({});
-  const { push } = useHistory();
   const [modal, setModal] = useState({
     state: false,
     congrats: false,
@@ -66,9 +64,9 @@ const StandaloneExamsStart = () => {
       })
       .catch(() => {});
   }, [isExamination]);
-  const [exitAttempts, setExitAttempts] = useState(0);
-  const totalSteps = 3;
-  const handleExamSubmit = useCallback(async () => {
+  const startTimeRef = useRef(Date.now());
+
+  const handleExamSubmit = useCallback(async (isAutoSubmit = false) => {
     try {
       const answers = Object.entries(selectedAnswers).map(
         ([questionId, answer]) => ({
@@ -77,15 +75,18 @@ const StandaloneExamsStart = () => {
           timeTaken: 0,
         }),
       );
+      const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
+      const geolocation = await getGeolocationString();
       const body = {
         answers,
         submissionTime: new Date().toISOString(),
-        timeTaken: 0,
+        timeTaken,
+        ...(geolocation ? { geolocation } : {}),
       };
       const { submission } = await submitSAExamAnswers(isExamination, body);
       toast({
         description: capitalizeFirstLetter(
-          exitAttempts === totalSteps
+          isAutoSubmit
             ? "Examination auto submitted successfully"
             : "Examination submitted successfully",
         ),
@@ -109,46 +110,26 @@ const StandaloneExamsStart = () => {
         status: "error",
       });
     }
-  }, [isExamination, selectedAnswers, exitAttempts, totalSteps, toast]);
+  }, [isExamination, selectedAnswers, toast]);
 
-  const handleExitAttempt = useCallback(() => {
-    if (exitAttempts < totalSteps) {
-      setExitAttempts((prev) => prev + 1);
-    }
-    if (exitAttempts === totalSteps) {
-      push("/standalone-exams");
-      handleExamSubmit();
-    }
-  }, [exitAttempts, totalSteps, push, handleExamSubmit]);
+  const { isBlocked: isProctoringBlocked } = useLiveProctoring({
+    examId: isExamination,
+    enabled: !isLoading && !alreadySubmitted && !!isExamination,
+    onAutoSubmit: () => handleExamSubmit(true),
+  });
 
   useEffect(() => {
     const handleUnload = (event) => {
       event.preventDefault();
       event.returnValue = ""; // Standard for most browsers
-      handleExitAttempt();
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        handleExitAttempt();
-        exitAttempts !== 3 &&
-          toast({
-            position: "top",
-            status: "error",
-            title:
-              "Note leaving this tab three times will automatically submit your exam",
-          });
-      }
     };
 
     window.addEventListener("beforeunload", handleUnload);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.removeEventListener("beforeunload", handleUnload);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [exitAttempts, handleExitAttempt, toast]);
+  }, []);
 
   const handleViewResult = useCallback(() => {
     setModal((prev) => ({ ...prev, score: true }));
@@ -224,11 +205,30 @@ const StandaloneExamsStart = () => {
           ))}
       </CustomModal>
 
-      {exitAttempts === totalSteps ? null : (
+      {isProctoringBlocked ? null : (
         <NavigationBlocker
           when={!submitStatus.success && !error && isLoading && end === true}
           disable={end}
         />
+      )}
+
+      {isProctoringBlocked && !modal.congrats && (
+        <Flex
+          position="fixed"
+          top={0}
+          left={0}
+          width="100vw"
+          height="100vh"
+          bg="blackAlpha.700"
+          zIndex={1400}
+          justifyContent="center"
+          alignItems="center"
+          direction="column"
+          gap={4}
+        >
+          <Spinner size="xl" color="white" thickness="4px" />
+          <Text color="white" fontWeight="600">Submitting your exam…</Text>
+        </Flex>
       )}
 
       {isLoading ? (

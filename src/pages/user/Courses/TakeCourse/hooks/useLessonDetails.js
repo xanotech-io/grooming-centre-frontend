@@ -3,6 +3,7 @@ import { useHistory } from "react-router-dom";
 import { useParams } from "react-router-dom";
 import { useCache, useTakeCourse } from "../../../../../contexts";
 import useComponentIsMount from "../../../../../hooks/useComponentIsMount";
+import useBadgeEarnedNotifier from "../../../../../hooks/useBadgeEarnedNotifier";
 import {
   requestEndLesson,
   requestLessonDetails,
@@ -64,6 +65,7 @@ const usePlayer = ({ lessonHasBeenCompleted }) => {
 const useLessonDetails = (sidebarLinks, setCourseState) => {
   const { handleGetOrSetAndGet, handleDelete } = useCache();
   const componentIsMount = useComponentIsMount();
+  const { checkForNewlyEarnedBadges } = useBadgeEarnedNotifier();
   const { lesson_id: lessonId } = useParams();
   const { push } = useHistory();
 
@@ -117,6 +119,7 @@ const useLessonDetails = (sidebarLinks, setCourseState) => {
         });
 
         setEndLesson({ success: true });
+        checkForNewlyEarnedBadges();
       } catch (err) {
         console.error(err);
         setEndLesson({ error: err.message });

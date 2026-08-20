@@ -1,13 +1,14 @@
 import { useDisclosure } from "@chakra-ui/hooks";
 import { useToast } from "@chakra-ui/toast";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { useCache } from "../../../../contexts";
 import { Text } from "../../../../components";
 import useQueryParams from "../../../../hooks/useQueryParams";
+import useLiveProctoring from "../../../../hooks/useLiveProctoring";
 import { submitAssessmentMarking } from "../../../../services";
 import { submitExamination } from "../../../../services/http/endpoints/examination";
-import {  sortByIndexField } from "../../../../utils";
+import {  sortByIndexField, getGeolocationString } from "../../../../utils";
 import { CongratsModalContent } from "../Modal";
 import useTimerCountdown from "./useTimerCountdown";
 import { Box } from "@chakra-ui/layout";
@@ -28,9 +29,7 @@ const useAssessment = () => {
   const [end, setEnd] = useState(true);
 
   const { push } = useHistory();
-  const totalSteps = 3;
-  const [nav, setNav] = useState(false);
-  const [exitAttempts, setExitAttempts] = useState(0);
+  const startTimeRef = useRef(Date.now());
   assessment.questions = sortByIndexField(
     assessment.questions,
     "questionIndex"
@@ -68,7 +67,7 @@ const useAssessment = () => {
   //   state: { user },
   // } = useApp();
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (isAutoSubmit = false) => {
     setSubmitStatus({
       loading: true,
     });
@@ -79,11 +78,15 @@ const useAssessment = () => {
         const examinationOptionsId = examinationQuestionsId.map(
           (id) => selectedAnswers[id] || null
         );
+        const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
+        const geolocation = await getGeolocationString();
         const body = {
           examinationId: assessment.id,
           courseId: assessment.courseId,
           examinationQuestionsId,
           examinationOptionsId,
+          timeTaken,
+          ...(geolocation ? { geolocation } : {}),
         };
         const { message, data } = await submitExamination(body);
         setScore(data?.score);
@@ -94,7 +97,7 @@ const useAssessment = () => {
           resultPending: data?.resultPending,
         });
         toast({
-          description: exitAttempts === totalSteps ? "Exam auto submitted" : message,
+          description: isAutoSubmit ? "Exam auto submitted" : message,
           position: "top",
           status: "success",
         });
@@ -118,7 +121,7 @@ const useAssessment = () => {
           resultPending: data?.resultPending,
         });
         toast({
-          description: exitAttempts === totalSteps ? "Assessment auto submitted" : message,
+          description: isAutoSubmit ? "Assessment auto submitted" : message,
           position: "top",
           status: "success",
         });
@@ -243,16 +246,22 @@ const useAssessment = () => {
     });
   };
 
-  const handleExitAttempt = () => {
+  // Plain (non-examination) assessments have no exam-integrity endpoint to
+  // report to, so they keep the original client-only "3 strikes" guard.
+  const totalSteps = 3;
+  const [exitAttempts, setExitAttempts] = useState(0);
+
+  const handleExitAttempt = useCallback(() => {
+    if (isExamination) return;
     if (exitAttempts < totalSteps) {
       setExitAttempts(exitAttempts + 1);
     }
     if (exitAttempts === totalSteps) {
-      setNav(true);
       push("/courses");
       handleSubmit();
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exitAttempts, isExamination]);
 
   useEffect(() => {
     const handleUnload = (event) => {
@@ -262,6 +271,7 @@ const useAssessment = () => {
     };
 
     const handleVisibilityChange = () => {
+      if (isExamination) return; // handled by useLiveProctoring below
       if (document.visibilityState === "hidden") {
         handleExitAttempt();
         exitAttempts !== 3 &&
@@ -283,7 +293,15 @@ const useAssessment = () => {
     };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exitAttempts]);
+  }, [exitAttempts, isExamination]);
+
+  const { isBlocked: isProctoringBlocked } = useLiveProctoring({
+    examId: assessment?.id,
+    enabled: !!isExamination && !submitStatus.success,
+    onAutoSubmit: () => handleSubmit(true),
+  });
+
+  const nav = isExamination ? isProctoringBlocked : exitAttempts === totalSteps;
 
   const handleQuestionChange = (question) => setCurrentQuestion(question);
 
@@ -344,6 +362,7 @@ const useAssessment = () => {
     handleAnswerChange,
     handleCert,
     nav,
+    isProctoringBlocked,
     timerCountdownManger,
     modalManager: {
       ...modalManager,

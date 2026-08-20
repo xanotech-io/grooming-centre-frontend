@@ -20,7 +20,10 @@ const messaging = firebase.messaging();
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const contentUrl = event.notification.data?.contentUrl || "/";
+  const contentUrl =
+    event.notification.data?.contentUrl ||
+    event.notification.data?.content_url ||
+    "/";
 
   event.waitUntil(
     self.clients
@@ -29,8 +32,13 @@ self.addEventListener("notificationclick", (event) => {
         const existing = clients.find((client) => "focus" in client);
         if (existing) {
           existing.focus();
-          existing.navigate(contentUrl);
-          return;
+          try {
+            return existing.navigate(contentUrl).catch(() =>
+              self.clients.openWindow(contentUrl)
+            );
+          } catch (err) {
+            return self.clients.openWindow(contentUrl);
+          }
         }
         return self.clients.openWindow(contentUrl);
       })
