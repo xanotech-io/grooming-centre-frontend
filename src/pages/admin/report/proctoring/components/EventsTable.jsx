@@ -48,6 +48,22 @@ const EventsTable = ({
           </InputGroup>
         </HStack>
         <HStack spacing={3} flexWrap="wrap">
+          <Input
+            size="sm"
+            borderRadius="md"
+            w="130px"
+            placeholder="Exam ID"
+            value={filters.examId ?? ''}
+            onChange={(e) => onFilterChange('examId', e.target.value)}
+          />
+          <Input
+            size="sm"
+            borderRadius="md"
+            w="130px"
+            placeholder="Student ID"
+            value={filters.studentId ?? ''}
+            onChange={(e) => onFilterChange('studentId', e.target.value)}
+          />
           <Select
             size="sm"
             borderRadius="md"

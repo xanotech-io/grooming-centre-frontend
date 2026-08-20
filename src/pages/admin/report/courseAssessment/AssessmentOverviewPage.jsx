@@ -24,9 +24,9 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import {
   adminGetAssessmentListing,
   adminGetAssessmentOverview,
+  adminGetAssessmentReportInstructorFilters,
+  adminGetAssessmentReportStudentFilters,
   adminGetDepartmentListing,
-  adminGetInstructorReportDirectory,
-  adminGetStudents,
   adminListCoursesForReport,
   adminListModules,
 } from "../../../../services";
@@ -253,18 +253,16 @@ const AssessmentOverviewPage = () => {
   }, []);
 
   const fetchStudentOptions = useCallback(async (query) => {
-    const res = await adminGetStudents({ search: query, limit: 50 });
-    return (res?.students ?? []).map((s) => ({
+    const list = await adminGetAssessmentReportStudentFilters({ search: query, limit: 50 });
+    return (list ?? []).map((s) => ({
       id: s.id ?? s.userId,
-      label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.email,
-      sublabel: s.email ?? null,
+      label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.name || s.email,
     }));
   }, []);
 
   const fetchInstructorOptions = useCallback(async (query) => {
-    const res = await adminGetInstructorReportDirectory({ search: query, limit: 50 });
-    const list = res?.data ?? [];
-    return list.map((i) => ({
+    const list = await adminGetAssessmentReportInstructorFilters({ search: query, limit: 50 });
+    return (list ?? []).map((i) => ({
       id: i.id ?? i.instructor_id,
       label: (i.name ?? `${i.firstName ?? ""} ${i.lastName ?? ""}`.trim()) || i.instructor_name,
       sublabel: i.email ?? i.instructor_email ?? null,
@@ -630,7 +628,6 @@ const AssessmentOverviewPage = () => {
                       <TH w="70px">Grade</TH>
                       <TH w="80px">Result</TH>
                       <TH w="140px">Instructor</TH>
-                      <TH w="200px">Instructor Remark</TH>
                       <TH w="110px">Date Taken</TH>
                       <TH w="100px">Duration</TH>
                     </Box>
@@ -693,11 +690,6 @@ const AssessmentOverviewPage = () => {
                         <TD>
                           <Text fontSize="13px">
                             {item.instructorName ?? item.instructor ?? "—"}
-                          </Text>
-                        </TD>
-                        <TD>
-                          <Text fontSize="13px" color="gray.600" noOfLines={2}>
-                            {item.instructorRemark ?? item.feedback ?? item.remark ?? "—"}
                           </Text>
                         </TD>
                         <TD>

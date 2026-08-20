@@ -26,6 +26,9 @@ const ProctoringAuditReportPage = () => {
   const [eventsLoading, setEventsLoading] = useState(true);
 
   const [filters, setFilters] = useState({
+    search: '',
+    examId: '',
+    studentId: '',
     alertType: '',
     status: '',
     startDate: '',
@@ -52,6 +55,9 @@ const ProctoringAuditReportPage = () => {
     setEventsLoading(true);
     try {
       const params = { page, limit };
+      if (filters.search) params.search = filters.search;
+      if (filters.examId) params.examId = filters.examId;
+      if (filters.studentId) params.studentId = filters.studentId;
       if (filters.alertType) params.alertType = filters.alertType;
       if (filters.status) params.status = filters.status;
       if (filters.startDate) params.startDate = filters.startDate;

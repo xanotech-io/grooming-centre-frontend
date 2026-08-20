@@ -141,6 +141,7 @@ import { AdminStudentTrainingReportPageRoute } from "../../../pages/admin/report
 import { StudentProgressListingPageRoute } from "../../../pages/admin/report/studentReport/StudentProgressListingPage";
 import { TranscriptReportRoute } from "../../../pages/admin/report/studentReport/TranscriptReport";
 import { AttendanceReportRoute } from "../../../pages/admin/report/studentReport/AttendanceReport";
+import { AdminStudentCourseAttendancePageRoute } from "../../../pages/admin/report/studentReport/AdminStudentCourseAttendancePage";
 import { AssessmentReportRoute } from "../../../pages/admin/report/studentReport/AssessmentReport";
 import { ComplianceReportRoute } from "../../../pages/admin/report/studentReport/ComplianceReport";
 import { ArchivedReportsPageRoute } from "../../../pages/admin/report/ArchivedReportsPage";
@@ -148,6 +149,7 @@ import { ComplianceSecurityReportPageRoute } from "../../../pages/admin/report/C
 import { ProjectGradingReportPageRoute } from "../../../pages/admin/report/projectGrading/ProjectGradingReportPage";
 import { SubmissionsReportPageRoute } from "../../../pages/admin/report/submissions/SubmissionsReportPage";
 import { ExamIntegrityPageRoute } from "../../../pages/admin/report/examIntegrity/ExamIntegrityPage";
+import { ComplianceNotificationsPageRoute } from "../../../pages/admin/report/complianceNotifications/ComplianceNotificationsPage";
 import { QuestionBankUsagePageRoute } from "../../../pages/admin/report/questionBankUsage/QuestionBankUsagePage";
 
 import PollsListingPageRoute from "../../../pages/admin/polls/PollsPage";
@@ -621,6 +623,10 @@ const MainArea = () => {
           exact
           path="/admin/report/studentReport/:studentId/transcript"
         />
+        <AdminStudentCourseAttendancePageRoute
+          exact
+          path="/admin/report/studentReport/:studentId/attendance/course/:courseId"
+        />
         <AttendanceReportRoute
           exact
           path="/admin/report/studentReport/:studentId/attendance"
@@ -712,6 +718,7 @@ const MainArea = () => {
           path="/admin/report/tc01-course-pass-rate"
         />
         <AuditTrailReportPageRoute exact path="/admin/report/audit-trail" />
+        <ComplianceNotificationsPageRoute exact path="/admin/report/compliance-notifications" />
         <ScheduledReportingPageRoute
           exact
           path="/admin/report/scheduled-reporting"

@@ -37,6 +37,7 @@ import { ExampleRoute } from "../../pages/user/tabby";
 import { PollsVotePageRoute } from "../../pages/user/PollsVotePage/PollsVotePage";
 import { TranscriptRequestPageRoute } from "../../pages/user/Transcript/TranscriptRequestPage";
 import { MyAssessmentResultsPageRoute } from "../../pages/user/AssessmentResults/MyAssessmentResultsPage";
+import { ComplianceInboxPageRoute } from "../../pages/user/ComplianceInbox/ComplianceInboxPage";
 
 const MainArea = () => {
   return (
@@ -64,6 +65,7 @@ const MainArea = () => {
         <PollsPageRoute exact path="/polls" />
         <TranscriptRequestPageRoute exact path="/transcript" />
         <MyAssessmentResultsPageRoute exact path="/assessment-results" />
+        <ComplianceInboxPageRoute exact path="/compliance-notifications" />
         <StudentCourseProgressPageRoute exact path="/my-progress/course/:courseId" />
         <StudentProgressReportPageRoute exact path="/my-progress" />
         <StudentVisualAnalyticsPageRoute exact path="/my-analytics" />
