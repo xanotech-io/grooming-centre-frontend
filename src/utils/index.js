@@ -13,3 +13,4 @@ export * from "./pendingWorkflowSubmission";
 export * from "./examMetaCache";
 export * from "./optionIndex";
 export * from "./getResultRemark";
+export * from "./geolocation";

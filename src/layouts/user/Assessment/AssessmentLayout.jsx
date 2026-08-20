@@ -2,6 +2,7 @@ import { Box, Flex, Grid, HStack, Stack } from "@chakra-ui/layout";
 import { Radio, RadioGroup } from "@chakra-ui/radio";
 import { Textarea } from "@chakra-ui/textarea";
 import { Input as ChakraInput } from "@chakra-ui/input";
+import { Spinner } from "@chakra-ui/spinner";
 import { Route } from "react-router-dom";
 import {
   Button,
@@ -39,6 +40,7 @@ const AssessmentLayout = () => {
     handleOptionSelect,
     handleAnswerChange,
     nav,
+    isProctoringBlocked,
   } = useAssessment();
 
   const isSectionedExam = assessment?.examType === "sectioned" || assessment?.examType === "hybrid";
@@ -73,6 +75,25 @@ const AssessmentLayout = () => {
           when={!submitStatus.success && !error && isLoading && end}
           disable={end}
         />
+      )}
+
+      {isProctoringBlocked && !submitStatus.success && (
+        <Flex
+          position="fixed"
+          top={0}
+          left={0}
+          width="100vw"
+          height="100vh"
+          bg="blackAlpha.700"
+          zIndex={1400}
+          justifyContent="center"
+          alignItems="center"
+          direction="column"
+          gap={4}
+        >
+          <Spinner size="xl" color="white" thickness="4px" />
+          <Text color="white" fontWeight="600">Submitting your exam…</Text>
+        </Flex>
       )}
 
       {isLoading ? (

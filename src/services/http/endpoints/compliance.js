@@ -24,6 +24,16 @@ export const getComplianceNotifications = async (params) => {
   return data;
 };
 
+export const getComplianceNotificationDashboard = async (params) => {
+  const { data } = await http.get(`${BASE_NOTIF}/dashboard`, { params });
+  return data;
+};
+
+export const getComplianceNotificationHistory = async (params) => {
+  const { data } = await http.get(`${BASE_NOTIF}/history`, { params });
+  return data;
+};
+
 export const getComplianceNotificationById = async (id) => {
   const { data } = await http.get(`${BASE_NOTIF}/${id}`);
   return data;

@@ -24,6 +24,8 @@ const AuditTrailReportPage = () => {
   const [logsLoading, setLogsLoading] = useState(true);
 
   const [filters, setFilters] = useState({
+    userId: '',
+    courseId: '',
     userRole: '',
     eventType: '',
     module: '',
@@ -53,6 +55,8 @@ const AuditTrailReportPage = () => {
     setLogsLoading(true);
     try {
       const params = { page, limit };
+      if (filters.userId) params.userId = filters.userId;
+      if (filters.courseId) params.courseId = filters.courseId;
       if (filters.userRole) params.userRole = filters.userRole;
       if (filters.eventType) params.eventType = filters.eventType;
       if (filters.module) params.module = filters.module;

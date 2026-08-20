@@ -29,3 +29,9 @@ export const getProctoringAuditKpi = async (params = {}) => {
   const { data } = await http.get('/v1/proctoring-v2/audit-report', { params });
   return data.data;
 };
+
+// POST /api/v1/proctoring-v2/screen-warning
+export const postScreenWarning = async (body) => {
+  const { data } = await http.post('/v1/proctoring-v2/screen-warning', body);
+  return data.data ?? data;
+};

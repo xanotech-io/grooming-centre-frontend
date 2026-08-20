@@ -28,6 +28,22 @@ const AuditLogsTable = ({
 }) => (
   <Box bg="white" p={4} borderRadius="lg" border="1px solid" borderColor="gray.200" boxShadow="sm">
     <Flex mb={5} gap={3} flexWrap="wrap" align="center">
+      <Input
+        size="sm"
+        borderRadius="md"
+        w="130px"
+        placeholder="User ID"
+        value={filters.userId ?? ''}
+        onChange={(e) => onFilterChange('userId', e.target.value)}
+      />
+      <Input
+        size="sm"
+        borderRadius="md"
+        w="130px"
+        placeholder="Course ID"
+        value={filters.courseId ?? ''}
+        onChange={(e) => onFilterChange('courseId', e.target.value)}
+      />
       <Select
         size="sm"
         borderRadius="md"

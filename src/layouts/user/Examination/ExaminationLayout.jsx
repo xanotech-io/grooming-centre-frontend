@@ -4,7 +4,8 @@ import { Textarea } from "@chakra-ui/textarea";
 import { Input as ChakraInput } from "@chakra-ui/input";
 import { useDisclosure } from "@chakra-ui/hooks";
 import { useToast } from "@chakra-ui/toast";
-import { useCallback, useEffect, useState } from "react";
+import { Spinner } from "@chakra-ui/spinner";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import {
   Button,
@@ -18,9 +19,10 @@ import { PageLoaderLayout } from "../../global/PageLoader/PageLoaderLayout";
 import { CustomModal } from "../Assessment/Modal";
 import { EmptyState } from "../..";
 import useTimerCountdown from "../Assessment/hooks/useTimerCountdown";
-import { getEndTime, sortByIndexField, parseOptionIndex, getResultRemark } from "../../../utils";
+import { getEndTime, sortByIndexField, parseOptionIndex, getResultRemark, getGeolocationString } from "../../../utils";
 import { http } from "../../../services/http/http";
 import { submitExamMarking, getExamMarkingResult } from "../../../services/http/endpoints/examMarking";
+import useLiveProctoring from "../../../hooks/useLiveProctoring";
 
 export const normalizeQuestionType = (raw) => {
   if (!raw) return "MCQ";
@@ -166,10 +168,7 @@ const ExaminationLayout = () => {
     }
   }, [examination?.hasCompleted, examination?.submittedAnswers]);
 
-  const [exitAttempts, setExitAttempts] = useState(0);
-  const [nav, setNav] = useState(false);
-
-  const totalSteps = 3;
+  const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
     if (questions.length > 0 && !currentQuestion) {
@@ -188,7 +187,7 @@ const ExaminationLayout = () => {
   const [modalPrompt, setModalPrompt] = useState(null);
   const [modalCanClose, setModalCanClose] = useState(true);
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (isAutoSubmit = false) => {
     if (isViewMode) return;
     setSubmitStatus({ loading: true });
     try {
@@ -196,9 +195,13 @@ const ExaminationLayout = () => {
         questionId: q.id,
         answer: selectedAnswers[q.id] ?? null,
       }));
+      const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
+      const geolocation = await getGeolocationString();
       const body = {
         answers,
         submissionTime: new Date().toISOString(),
+        timeTaken,
+        ...(geolocation ? { geolocation } : {}),
       };
       const { message, data } = await submitExamMarking(examination.id, body);
       setSubmissionMeta({
@@ -208,7 +211,7 @@ const ExaminationLayout = () => {
         resultPending: data?.resultPending,
       });
       toast({
-        description: exitAttempts >= totalSteps ? "Exam auto submitted" : message,
+        description: isAutoSubmit ? "Exam auto submitted" : message,
         position: "top",
         status: "success",
       });
@@ -223,7 +226,13 @@ const ExaminationLayout = () => {
       setSubmitStatus({ error: err.message });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [examination, selectedAnswers, exitAttempts, isViewMode]);
+  }, [examination, selectedAnswers, isViewMode]);
+
+  const { isBlocked: isProctoringBlocked } = useLiveProctoring({
+    examId: examination?.id,
+    enabled: !isViewMode && !!examination,
+    onAutoSubmit: () => handleSubmit(true),
+  });
 
   useEffect(() => {
     if (!isViewMode && timerManager.hasEnded?.timeout) handleSubmit();
@@ -268,39 +277,12 @@ const ExaminationLayout = () => {
     });
   };
 
-  const handleExitAttempt = useCallback(() => {
-    if (isViewMode) return;
-    setExitAttempts((prev) => {
-      const next = prev + 1;
-      if (next >= totalSteps) {
-        setNav(true);
-        push("/courses");
-        handleSubmit();
-      }
-      return next;
-    });
-  }, [handleSubmit, push, isViewMode]);
-
   useEffect(() => {
-    if (isViewMode) return;
-    const onUnload = (e) => { e.preventDefault(); e.returnValue = ""; handleExitAttempt(); };
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        handleExitAttempt();
-        toast({
-          position: "top",
-          status: "warning",
-          title: "Leaving this tab 3 times will auto-submit your exam",
-        });
-      }
-    };
+    if (isViewMode) return undefined;
+    const onUnload = (e) => { e.preventDefault(); e.returnValue = ""; };
     window.addEventListener("beforeunload", onUnload);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("beforeunload", onUnload);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [handleExitAttempt, toast, isViewMode]);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, [isViewMode]);
 
   const handleOptionSelect = (value) => {
     if (isViewMode) return;
@@ -338,7 +320,6 @@ const ExaminationLayout = () => {
 
   return (
     <>
-      {nav ? null : null}
       <CustomModal
         onClose={modalManager.onClose}
         canClose={modalCanClose}
@@ -347,6 +328,25 @@ const ExaminationLayout = () => {
       >
         {modalContent}
       </CustomModal>
+
+      {isProctoringBlocked && !submitStatus.success && (
+        <Flex
+          position="fixed"
+          top={0}
+          left={0}
+          width="100vw"
+          height="100vh"
+          bg="blackAlpha.700"
+          zIndex={1400}
+          justifyContent="center"
+          alignItems="center"
+          direction="column"
+          gap={4}
+        >
+          <Spinner size="xl" color="white" thickness="4px" />
+          <Text color="white" fontWeight="600">Submitting your exam…</Text>
+        </Flex>
+      )}
 
       <Flex
         justifyContent="center"
