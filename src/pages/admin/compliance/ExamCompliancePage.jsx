@@ -43,8 +43,12 @@ import {
   Grid,
   Collapse,
   BreadcrumbItem,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
 } from "@chakra-ui/react";
-import { Tabs, Tab, makeStyles } from "@material-ui/core";
 import {
   FiAlertTriangle,
   FiRefreshCw,
@@ -72,11 +76,6 @@ import {
   adminGetStandaloneExaminationListing,
   adminGetDepartmentListing,
 } from "../../../services";
-
-const useStyles = makeStyles(() => ({
-  tabs: { borderBottom: "1px solid #e2e8f0", marginBottom: 16 },
-  tab: { textTransform: "none", fontWeight: 600, fontSize: 14 },
-}));
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
@@ -737,7 +736,7 @@ const SearchableSelect = ({ placeholder, fetchOptions, onSelect, selectedLabel, 
   );
 };
 
-// ─── Send / Evaluate Tab ──────────────────────────────────────────────────────
+// ─── Send / Evaluate Modal ────────────────────────────────────────────────────
 
 const fetchStudentOptions = async (query) => {
   const res = await adminGetUserListing({ search: query, limit: 10 });
@@ -754,15 +753,20 @@ const fetchExamOptions = async (query) => {
   return (res.examinations ?? []).map((e) => ({ id: e.id, label: e.title }));
 };
 
-const SendEvaluateTab = ({ onDone }) => {
+const EMPTY_SINGLE = { recipientId: "", recipientLabel: "", entityType: "Course", courseId: "", courseLabel: "", examId: "", examLabel: "", notificationType: "", notificationChannel: "", remarks: "" };
+
+const SendEvaluateModal = ({ isOpen, onClose, onDone }) => {
   const toast = useToast();
-  const [single, setSingle] = useState({ recipientId: "", recipientLabel: "", entityType: "Course", courseId: "", courseLabel: "", examId: "", examLabel: "", notificationType: "", notificationChannel: "", remarks: "" });
+  const [single, setSingle] = useState(EMPTY_SINGLE);
   const [singleErrors, setSingleErrors] = useState({});
   const [sending, setSending] = useState(false);
 
-  // const [bulk, setBulk] = useState({ entityType: "", notificationChannel: "Both", daysAhead: 7, escalateAfterDays: 14 });
-  // const [bulkResult, setBulkResult] = useState(null);
-  // const [evaluating, setEvaluating] = useState(false);
+  useEffect(() => {
+    if (isOpen) {
+      setSingle(EMPTY_SINGLE);
+      setSingleErrors({});
+    }
+  }, [isOpen]);
 
   const validateSingle = () => {
     const errs = {};
@@ -790,36 +794,21 @@ const SendEvaluateTab = ({ onDone }) => {
     try {
       await sendComplianceNotification(payload);
       toast({ title: "Notification sent.", status: "success", duration: 3000 });
-      setSingle({ recipientId: "", recipientLabel: "", entityType: "Course", courseId: "", courseLabel: "", examId: "", examLabel: "", notificationType: "", notificationChannel: "", remarks: "" });
       onDone();
+      onClose();
     } catch (err) {
       const msg = err?.response?.status === 404 ? "Recipient or course/exam not found." : err?.response?.data?.message ?? "Something went wrong.";
       toast({ title: msg, status: "error", duration: 4000 });
     } finally { setSending(false); }
   };
 
-  // const handleEvaluate = async () => {
-  //   const { daysAhead, escalateAfterDays } = bulk;
-  //   if (daysAhead < 0) { toast({ title: "Days ahead must be 0 or greater.", status: "error", duration: 3000 }); return; }
-  //   if (escalateAfterDays < 1) { toast({ title: "Escalation threshold must be a positive number.", status: "error", duration: 3000 }); return; }
-  //   setEvaluating(true);
-  //   setBulkResult(null);
-  //   try {
-  //     const res = await evaluateComplianceNotifications({ ...bulk, daysAhead: Number(daysAhead), escalateAfterDays: Number(escalateAfterDays) });
-  //     const d = res?.data ?? res;
-  //     setBulkResult(d);
-  //     toast({ title: `${d.sent} sent, ${d.failed} failed, ${d.skipped} skipped.`, status: d.failed > 0 ? "warning" : "success", duration: 5000 });
-  //     onDone();
-  //   } catch {
-  //     setBulkResult({ total: 98, sent: 90, failed: 4, skipped: 4 });
-  //   } finally { setEvaluating(false); }
-  // };
-
   return (
-    <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={8}>
-      {/* Single Send */}
-      <Box p={5} border="1px solid" borderColor="gray.200" borderRadius="md">
-        <Text fontWeight={700} mb={4} color="gray.700">Send Single Notification</Text>
+    <Modal isOpen={isOpen} onClose={onClose} isCentered size="lg">
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Send / Evaluate Notification</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
         <Flex direction="column" gap={4}>
 
           <FormControl isInvalid={!!singleErrors.recipientId}>
@@ -889,14 +878,14 @@ const SendEvaluateTab = ({ onDone }) => {
             <FormLabel fontSize="sm">Remarks (optional)</FormLabel>
             <Textarea size="sm" placeholder="Admin notes…" value={single.remarks} onChange={(e) => setSingle((s) => ({ ...s, remarks: e.target.value }))} />
           </FormControl>
-
-          <Button colorScheme="blue" leftIcon={<FiSend />} size="sm" onClick={handleSendSingle} isLoading={sending} loadingText="Sending…">Send Notification</Button>
         </Flex>
-      </Box>
-
-      {/* Bulk Evaluate */}
-     
-    </Grid>
+        </ModalBody>
+        <ModalFooter gap={2}>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button colorScheme="blue" leftIcon={<FiSend />} size="sm" onClick={handleSendSingle} isLoading={sending} loadingText="Sending…">Send Notification</Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 };
 
@@ -1395,13 +1384,12 @@ const ComplianceReportTab = () => {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const ExamCompliancePage = () => {
-  const classes = useStyles();
-  const [activeTab, setActiveTab] = useState(0);
   const [kpis, setKpis] = useState(null);
   const [kpisLoading, setKpisLoading] = useState(false);
   const [selectedNotifId, setSelectedNotifId] = useState(null);
   const [logRefreshKey, setLogRefreshKey] = useState(0);
   const { isOpen: isDrawerOpen, onOpen: openDrawer, onClose: closeDrawer } = useDisclosure();
+  const { isOpen: isSendOpen, onOpen: openSend, onClose: closeSend } = useDisclosure();
 
   const fetchKpis = useCallback(async () => {
     setKpisLoading(true);
@@ -1430,25 +1418,31 @@ const ExamCompliancePage = () => {
           }
         />
       </Flex>
-      <Box mb={6}>
-        <Text fontSize="2xl" fontWeight={700} color="gray.800">Compliance & Non-Compliance Monitor</Text>
-        <Text fontSize="sm" color="gray.500" mt={1}>Monitor course and exam compliance obligations, dispatch notifications, and manage escalations</Text>
-      </Box>
+      <Flex justify="space-between" align="flex-start" mb={6} flexWrap="wrap" gap={3}>
+        <Box>
+          <Text fontSize="2xl" fontWeight={700} color="gray.800">Compliance & Non-Compliance Monitor</Text>
+          <Text fontSize="sm" color="gray.500" mt={1}>Monitor course and exam compliance obligations, dispatch notifications, and manage escalations</Text>
+        </Box>
+        <Button colorScheme="blue" leftIcon={<FiSend />} onClick={openSend}>Send / Evaluate</Button>
+      </Flex>
 
       <KpiSection kpis={kpis} loading={kpisLoading} />
 
       <Box bg="white" borderRadius="md" border="1px solid" borderColor="gray.200" p={5}>
-        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} className={classes.tabs} indicatorColor="primary" textColor="primary">
-          <Tab label="Notification Log" className={classes.tab} />
-          <Tab label="Send / Evaluate" className={classes.tab} />
-          <Tab label="Compliance Report" className={classes.tab} />
+        <Tabs colorScheme="blue">
+          <TabList>
+            <Tab>Notification Log</Tab>
+            <Tab>Compliance Report</Tab>
+          </TabList>
+          <TabPanels>
+            <TabPanel px={0}>
+              <LogTableTab onOpenDetail={handleOpenDetail} refreshKey={logRefreshKey} />
+            </TabPanel>
+            <TabPanel px={0}>
+              <ComplianceReportTab />
+            </TabPanel>
+          </TabPanels>
         </Tabs>
-
-        <Box mt={2}>
-          {activeTab === 0 && <LogTableTab onOpenDetail={handleOpenDetail} refreshKey={logRefreshKey} />}
-          {activeTab === 1 && <SendEvaluateTab onDone={handleRefresh} />}
-          {activeTab === 2 && <ComplianceReportTab />}
-        </Box>
       </Box>
 
       <NotifDetailDrawer
@@ -1457,6 +1451,8 @@ const ExamCompliancePage = () => {
         onClose={closeDrawer}
         onActionDone={handleRefresh}
       />
+
+      <SendEvaluateModal isOpen={isSendOpen} onClose={closeSend} onDone={handleRefresh} />
     </AdminMainAreaWrapper>
   );
 };

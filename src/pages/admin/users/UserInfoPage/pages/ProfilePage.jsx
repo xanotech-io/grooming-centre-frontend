@@ -14,12 +14,14 @@ import Icon from "@chakra-ui/icon";
 import { FiCheckSquare } from "react-icons/fi";
 import { BiCertification } from "react-icons/bi";
 import { HiOutlineSwitchHorizontal } from "react-icons/hi";
-import { BreadcrumbItem } from "@chakra-ui/react";
-import { useComponentIsMount } from "../../../../../hooks";
+import { RiLockPasswordLine } from "react-icons/ri";
+import { BreadcrumbItem, useDisclosure } from "@chakra-ui/react";
+import { useComponentIsMount, useIsSuperAdmin } from "../../../../../hooks";
 import { useCallback, useEffect, useState } from "react";
 import { adminGetUserDetails } from "../../../../../services";
 import { Avatar, SkeletonCircle } from "@chakra-ui/react";
 import { FaEdit } from "react-icons/fa";
+import { ResetPasswordModal } from "./ResetPasswordModal";
 
 export const useViewUserDetails = () => {
   const { handleGetOrSetAndGet } = useCache();
@@ -69,6 +71,12 @@ export const useViewUserDetails = () => {
 
 const ProfilePage = () => {
   const { user, isLoading } = useViewUserDetails();
+  const isSuperAdmin = useIsSuperAdmin();
+  const {
+    isOpen: isResetOpen,
+    onOpen: onResetOpen,
+    onClose: onResetClose,
+  } = useDisclosure();
 
   const userIsLoading = isLoading;
 
@@ -93,15 +101,28 @@ const ProfilePage = () => {
         <Section
           heading="Profile"
           editButton={
-            <Button
-              link={`/admin/users/edit/${user?.id}`}
-              paddingLeft={2}
-              sizes="sm"
-              rightIcon={<FaEdit />}
-              secondary
-            >
-              Edit
-            </Button>
+            <Flex gap={3}>
+              {isSuperAdmin && (
+                <Button
+                  onClick={onResetOpen}
+                  paddingLeft={2}
+                  sizes="sm"
+                  rightIcon={<RiLockPasswordLine />}
+                  secondary
+                >
+                  Reset Password
+                </Button>
+              )}
+              <Button
+                link={`/admin/users/edit/${user?.id}`}
+                paddingLeft={2}
+                sizes="sm"
+                rightIcon={<FaEdit />}
+                secondary
+              >
+                Edit
+              </Button>
+            </Flex>
           }
         >
           <Box backgroundColor="white" padding={5} paddingX={10} shadow="md">
@@ -217,6 +238,14 @@ const ProfilePage = () => {
           </Grid>
         </Section>
       </Box>
+
+      {isSuperAdmin && (
+        <ResetPasswordModal
+          isOpen={isResetOpen}
+          onClose={onResetClose}
+          targetUser={user}
+        />
+      )}
     </>
   );
 };
