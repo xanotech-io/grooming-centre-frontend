@@ -110,13 +110,13 @@ export const SidebarContent = ({ onClose, ...rest }) => {
             {isSettingsPage
               ? isSuperAdmin
                 ? superAdminSettingsLinks.map((link) => (
-                  <SidebarLink key={link.text} link={link} />
+                  <SidebarLink key={link.text} link={link} roleName={role?.name} />
                 ))
                 : settingsLinks.map((link) => (
-                  <SidebarLink key={link.text} link={link} />
+                  <SidebarLink key={link.text} link={link} roleName={role?.name} />
                 ))
               : visibleLinks.map((link) => (
-                <SidebarLink key={link.text} link={link} onClick={onClose} />
+                <SidebarLink key={link.text} link={link} onClick={onClose} roleName={role?.name} />
               ))}
           </Stack>
         </Box>

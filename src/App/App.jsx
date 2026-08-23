@@ -18,7 +18,7 @@ import {
 } from '../layouts';
 import { useApp } from '../contexts';
 import { useEffect } from 'react';
-import { useToast, Box, Text } from '@chakra-ui/react';
+import { useToast } from '@chakra-ui/react';
 import {
   registerPushToken,
   listenForForegroundMessages,
@@ -94,39 +94,13 @@ export const useAppConfig = () => {
         receivedAt: Date.now(),
       });
 
-      if (contentUrl) {
-        const toastId = `push-${Date.now()}-${Math.random()}`;
-        toast({
-          id: toastId,
-          duration: 6000,
-          isClosable: true,
-          render: () => (
-            <Box
-              bg="primary.base"
-              color="white"
-              borderRadius="md"
-              px={4}
-              py={3}
-              cursor="pointer"
-              onClick={() => {
-                toast.close(toastId);
-                window.location.href = contentUrl;
-              }}
-            >
-              <Text fontWeight={700}>{payload.notification?.title}</Text>
-              <Text fontSize="sm">{payload.notification?.body}</Text>
-            </Box>
-          ),
-        });
-      } else {
-        toast({
-          title: payload.notification?.title,
-          description: payload.notification?.body,
-          status: 'info',
-          isClosable: true,
-          duration: 6000,
-        });
-      }
+      toast({
+        title: payload.notification?.title,
+        description: payload.notification?.body,
+        status: 'info',
+        isClosable: true,
+        duration: 6000,
+      });
     });
 
     return unsubscribe;

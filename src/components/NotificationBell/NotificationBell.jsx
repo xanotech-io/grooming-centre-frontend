@@ -45,10 +45,6 @@ export const NotificationBell = ({ iconColor = "white" }) => {
 
   const handleSelect = (notification) => {
     markRead(notification.id);
-    if (notification.contentUrl) {
-      window.location.href = notification.contentUrl;
-      return;
-    }
     setActiveNotification(notification);
     openModal();
   };

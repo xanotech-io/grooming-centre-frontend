@@ -13,12 +13,16 @@ const isPathActive = (pathname, href, exact) => {
   return !!matchPath(pathname, { path: href.split("?")[0], exact });
 };
 
-const SidebarLink = ({ link, onClick }) => {
+const SidebarLink = ({ link, onClick, roleName }) => {
   const { pathname } = useLocation();
+
+  const visibleChildLinks = link.links?.filter(
+    (child) => !child.roles || child.roles.some((r) => new RegExp(r, "i").test(roleName))
+  );
 
   const isSelfActive = isPathActive(pathname, link.href, link.exact);
   const isChildActive =
-    link.links?.some((child) => isPathActive(pathname, child.href, child.exact)) ??
+    visibleChildLinks?.some((child) => isPathActive(pathname, child.href, child.exact)) ??
     false;
   const isHighlighted = isSelfActive || isChildActive;
   const isParent = !!link.links;
@@ -98,10 +102,10 @@ const SidebarLink = ({ link, onClick }) => {
           overflow="hidden"
           transition="max-height .5s linear"
           maxHeight={
-            accordionManager.isOpen ? `${44 * link.links.length}px` : 0
+            accordionManager.isOpen ? `${44 * visibleChildLinks.length}px` : 0
           }
         >
-          {link.links.map((child) => {
+          {visibleChildLinks.map((child) => {
             const childActive = isPathActive(pathname, child.href, child.exact);
             return (
               <li key={child.text}>
@@ -140,6 +144,7 @@ const SidebarLink = ({ link, onClick }) => {
 SidebarLink.propTypes = {
   link: PropTypes.object,
   onClick: PropTypes.func,
+  roleName: PropTypes.string,
 };
 
 export default SidebarLink;

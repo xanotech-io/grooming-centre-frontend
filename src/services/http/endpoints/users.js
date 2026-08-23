@@ -121,3 +121,21 @@ export const adminEditUser = async (userId, body) => {
 
   return { message, user };
 };
+
+/**
+ * Endpoint for a super admin to reset another user's password.
+ * Requires the requester's own current password as a step-up confirmation.
+ * @param {string} userId - target user's id
+ * @param {string} currentPassword - requester's own current password
+ *
+ * @returns {Promise<{ userId: string, newPassword: string }>}
+ */
+export const adminResetUserPassword = async (userId, currentPassword) => {
+  const path = `/v1/admin/users/${userId}/reset-password`;
+
+  const {
+    data: { data },
+  } = await http.patch(path, { currentPassword });
+
+  return { userId: data.userId, newPassword: data.newPassword };
+};
