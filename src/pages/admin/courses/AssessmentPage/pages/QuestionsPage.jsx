@@ -2151,6 +2151,10 @@ const CreateQuestionPage = ({
             courseId: pendingEdit.courseId,
           });
         }
+        // This is the real, final create/submit-for-approval — like the
+        // ghost "Create and Submit" button below, it always lands on the
+        // question listing afterward instead of offering to add another.
+        justSubmittedForApprovalRef.current = true;
         setWorkflowModalOpen(true);
         return;
       }
@@ -2542,6 +2546,10 @@ const CreateQuestionPage = ({
           requestType,
           courseId: modalCourseId,
         });
+        // This is the real, final create/submit-for-approval — like the
+        // ghost "Create and Submit" button below, it always lands on the
+        // question listing afterward instead of offering to add another.
+        justSubmittedForApprovalRef.current = true;
         setWorkflowModalOpen(true);
         return;
       }
@@ -2567,6 +2575,19 @@ const CreateQuestionPage = ({
           // text (which risked getting resubmitted as a duplicate).
           questionRichTextManager.handleInitData(null);
           setBankApplyKey((k) => k + 1);
+          // "Update and Submit" queues this question just like "Add more
+          // questions" does, but always lands on the listing page afterward
+          // instead of offering another blank form.
+          if (createAndSubmitRef.current) {
+            createAndSubmitRef.current = false;
+            toast({
+              description: "Question added. It'll be created once you submit this for approval.",
+              position: "top",
+              status: "success",
+            });
+            goToQueuedListing();
+            return;
+          }
           if (amountOfQuestions && updatedQuestions.length >= amountOfQuestions) {
             toast({
               description: `Question added. You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — submit this for approval to finish.`,
@@ -2609,6 +2630,10 @@ const CreateQuestionPage = ({
           requestType: pendingEdit.requestType,
           courseId: pendingEdit.courseId,
         });
+        // This is the real, final create/submit-for-approval — like the
+        // ghost "Create and Submit" button below, it always lands on the
+        // question listing afterward instead of offering to add another.
+        justSubmittedForApprovalRef.current = true;
         setWorkflowModalOpen(true);
         return;
       }
@@ -3271,13 +3296,14 @@ const CreateQuestionPage = ({
         <Button
           type="submit"
           onClick={() => {
-            // A brand-new pending assessment/exam's "Create and Submit"
-            // queues this question the same way "Add more questions" does
-            // (see the `addAnotherRef.current` branch in onSubmit), then
-            // lands on the question listing page instead of another blank
-            // form — it used to just navigate away without saving the
-            // current form's question at all, silently discarding it.
-            if (isPendingCreation && !isEditingQueued) {
+            // A brand-new pending assessment/exam's "Create and Submit" (or
+            // an already-existing shell's "Update and Submit") queues this
+            // question the same way "Add more questions" does (see the
+            // `addAnotherRef.current` branch in onSubmit), then lands on the
+            // question listing page instead of another blank form — it used
+            // to just navigate away without saving the current form's
+            // question at all, silently discarding it.
+            if ((isPendingCreation || isPendingEditSubmit) && !isEditingQueued) {
               addAnotherRef.current = true;
               createAndSubmitRef.current = true;
               return;
