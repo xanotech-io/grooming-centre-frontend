@@ -21,6 +21,7 @@ const useLiveProctoring = ({ examId, enabled = true, onAutoSubmit } = {}) => {
   const blockedRef = useRef(false);
   const inFlightRef = useRef(false);
   const lastReportRef = useRef(0);
+  const localStrikeRef = useRef(0);
   const onAutoSubmitRef = useRef(onAutoSubmit);
   onAutoSubmitRef.current = onAutoSubmit;
 
@@ -74,8 +75,39 @@ const useLiveProctoring = ({ examId, enabled = true, onAutoSubmit } = {}) => {
           });
         }
       } catch (err) {
-        // Fail open — a network hiccup shouldn't lock a student out of their exam.
-        console.warn("[useLiveProctoring] screen-warning request failed", err);
+        // TODO: endpoint POST /v1/proctoring-v2/screen-warning not yet live —
+        // fall back to a local 3-strikes counter so the feature still gives
+        // the student visible feedback instead of doing nothing at all.
+        console.warn(
+          "[useLiveProctoring] screen-warning request failed, using local fallback",
+          err
+        );
+        localStrikeRef.current += 1;
+        setWarningCount((count) => count + 1);
+
+        if (localStrikeRef.current >= 3) {
+          blockedRef.current = true;
+          setIsBlocked(true);
+          toast({
+            title: "Exam Auto-Submitted",
+            description:
+              "Repeatedly leaving this screen was detected and your exam has been submitted.",
+            status: "error",
+            position: "top",
+            duration: null,
+            isClosable: false,
+          });
+          onAutoSubmitRef.current?.("auto_submit_pending_review", null);
+        } else {
+          toast({
+            title: "Proctoring Warning",
+            description: `Leaving this screen has been flagged (${localStrikeRef.current}/3). Continued violations will auto-submit your exam.`,
+            status: "warning",
+            position: "top",
+            duration: 6000,
+            isClosable: true,
+          });
+        }
       } finally {
         inFlightRef.current = false;
       }

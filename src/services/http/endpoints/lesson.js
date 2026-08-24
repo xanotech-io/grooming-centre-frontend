@@ -1,5 +1,6 @@
 import { http } from "../http";
 import { capitalizeFirstLetter } from "../../../utils";
+import { adminGetUserDetails } from "./users";
 
 /**
  * Format a lesson's `lessonType` relation into a display-friendly file type label.
@@ -13,16 +14,53 @@ const formatFileType = (lesson) => {
 };
 
 /**
- * Format the user who uploaded a lesson into a display-friendly full name.
+ * Format the user who uploaded a lesson into a display-friendly full name,
+ * when the API has populated the relation as an object.
  * @param {{ uploader: ?object, createdBy: ?object }} lesson
  *
  * @returns {?string}
  */
 const formatUploadedBy = (lesson) => {
   const uploader = lesson?.uploader ?? lesson?.createdBy;
-  return uploader
+  return uploader && typeof uploader === "object"
     ? `${uploader.firstName ?? ""} ${uploader.lastName ?? ""}`.trim() || null
     : null;
+};
+
+/**
+ * Extract the raw uploader ID from a lesson when the API sends the relation
+ * unpopulated (a plain ID string) instead of a joined user object.
+ * @param {{ uploader: ?any, createdBy: ?any, uploadedBy: ?any }} lesson
+ *
+ * @returns {?string}
+ */
+const getUploaderId = (lesson) => {
+  const raw = lesson?.uploader ?? lesson?.createdBy ?? lesson?.uploadedBy;
+  return typeof raw === "string" ? raw : null;
+};
+
+/**
+ * Resolve raw uploader IDs into display names via the admin user-details
+ * endpoint, deduped so each unique uploader is only fetched once.
+ * @param {Array<?string>} ids
+ *
+ * @returns {Promise<Map<string, ?string>>}
+ */
+const resolveUploaderNames = async (ids) => {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+
+  const entries = await Promise.all(
+    uniqueIds.map(async (id) => {
+      try {
+        const { user } = await adminGetUserDetails(id);
+        return [id, `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || null];
+      } catch {
+        return [id, null];
+      }
+    })
+  );
+
+  return new Map(entries);
 };
 
 /**
@@ -38,13 +76,15 @@ export const requestLessonDetails = async (id) => {
     data: { data },
   } = await http.get(path);
 
+  const nameById = await resolveUploaderNames([getUploaderId(data)]);
+
   return {
     lesson: {
       ...data,
       hasEnded: data.lessonTracking?.[0]?.isCompleted,
       file: data.file.replace("http://", "https://"),
       fileType: formatFileType(data),
-      uploadedBy: formatUploadedBy(data),
+      uploadedBy: formatUploadedBy(data) ?? nameById.get(getUploaderId(data)) ?? null,
     },
   };
 };
@@ -129,6 +169,9 @@ export const adminGetLessonListing = async (courseId, params, body) => {
   const {
     data: { message, data },
   } = await http.get(path, { params }, body);
+
+  const nameById = await resolveUploaderNames(data.rows.map(getUploaderId));
+
   return {
     message,
     lessons: data.rows.map((lesson) => ({
@@ -138,7 +181,7 @@ export const adminGetLessonListing = async (courseId, params, body) => {
       active: lesson.active,
       courseId: lesson.courseId,
       fileType: formatFileType(lesson),
-      uploadedBy: formatUploadedBy(lesson),
+      uploadedBy: formatUploadedBy(lesson) ?? nameById.get(getUploaderId(lesson)) ?? null,
     })),
     showingDocumentsCount: data.rows.length,
     totalDocumentsCount: data.rows.length,
@@ -157,6 +200,8 @@ export const adminGetModuleLessons = async (moduleId) => {
     data: { data },
   } = await http.get(path);
 
+  const nameById = await resolveUploaderNames(data.map(getUploaderId));
+
   return {
     lessons: data.map((lesson) => ({
       id: lesson.id,
@@ -165,7 +210,7 @@ export const adminGetModuleLessons = async (moduleId) => {
       courseId: lesson.courseId,
       approvalStatus: lesson.approvalStatus,
       fileType: formatFileType(lesson),
-      uploadedBy: formatUploadedBy(lesson),
+      uploadedBy: formatUploadedBy(lesson) ?? nameById.get(getUploaderId(lesson)) ?? null,
     })),
   };
 };
