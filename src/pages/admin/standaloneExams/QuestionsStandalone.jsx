@@ -126,7 +126,11 @@ const toApiCreateBody = (body) => {
   // marking, so strip it here too — right at the actual API boundary —
   // regardless of what's upstream.
   const isSectioned = body.examType === "with_sections";
-  const { standaloneQuestionCounts, ...rest } = body;
+  // Local-only bookkeeping (TemplateStandalone.jsx re-reads it from
+  // `pendingCreate.body` to restore which preset was selected) — the
+  // backend rejects it outright on create ("paperConfigPresetId" is not
+  // allowed), so it must never reach the actual network call.
+  const { standaloneQuestionCounts, paperConfigPresetId, ...rest } = body;
   return {
     ...rest,
     ...(body.examType && EXAM_TYPE_TO_API[body.examType] && { examType: EXAM_TYPE_TO_API[body.examType] }),

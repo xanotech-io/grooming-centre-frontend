@@ -1,11 +1,12 @@
 import { Route, useHistory, useParams } from "react-router-dom";
-import { Box, Flex, Grid, Spinner, Select, Input } from "@chakra-ui/react";
+import { Box, Flex, Grid, Spinner, Select, Input, useToast } from "@chakra-ui/react";
 import { Badge, BreadcrumbItem } from "@chakra-ui/react";
 import { Breadcrumb, Button, Heading, Link, Text } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
   adminGetStandaloneExamById,
   getSAExamGradingSummary,
+  getStandaloneExamAccessRecords,
 } from "../../../services";
 import { getDuration, isSubmissionGraded, submissionStatusLabel } from "../../../utils";
 import dayjs from "dayjs";
@@ -13,7 +14,7 @@ import { useEffect, useState } from "react";
 import { FiEdit } from "react-icons/fi";
 import { useQueryParams } from "../../../hooks";
 
-const VALID_TABS = new Set(["overview", "questions", "submissions"]);
+const VALID_TABS = new Set(["overview", "questions", "submissions", "access-links"]);
 
 /* ─── Tab bar ──────────────────────────────────────────── */
 const Tab = ({ label, active, count, onClick }) => (
@@ -136,6 +137,117 @@ const QuestionsTab = ({ examId }) => {
         Go to Questions
       </Button>
     </Flex>
+  );
+};
+
+/* ─── Access Links tab ─────────────────────────────────── */
+const accessStatusColor = (status) =>
+  status === "Accessed"
+    ? { bg: "#E6F4EA", color: "#38A169" }
+    : { bg: "#FFF3CD", color: "#B7791F" };
+
+const AccessLinksTab = ({ examId }) => {
+  const toast = useToast();
+  const [loading, setLoading] = useState(true);
+  const [records, setRecords] = useState([]);
+  const [copyingId, setCopyingId] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getStandaloneExamAccessRecords(examId)
+      .then(({ records: data }) => {
+        if (!cancelled) setRecords(data);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [examId]);
+
+  const handleCopy = async (record) => {
+    setCopyingId(record.accessId);
+    try {
+      await navigator.clipboard.writeText(record.accessLink);
+      toast({
+        title: "Access link copied to clipboard",
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch {
+      toast({
+        title: "Failed to copy link",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setCopyingId(null);
+    }
+  };
+
+  if (loading) return <Flex justifyContent="center" py="60px"><Spinner size="xl" color="#6b006b" /></Flex>;
+
+  if (records.length === 0) {
+    return (
+      <Flex direction="column" alignItems="center" justifyContent="center" py="60px" gap={2}>
+        <Text fontSize="16px" fontWeight="600" color="#1A202C">No access links yet</Text>
+        <Text fontSize="14px" color="gray.500">Access links will appear here once generated for students.</Text>
+      </Flex>
+    );
+  }
+
+  return (
+    <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" overflow="hidden">
+      <Box overflowX="auto">
+        <Box as="table" w="100%" fontSize="sm">
+          <Box as="thead" bg="#F7FAFC">
+            <Box as="tr">
+              {["Student", "Status", "Sent By", "Sent Date", "Link", ""].map((h) => (
+                <Box key={h} as="th" textAlign="left" py="14px" px={4} color="gray.500" fontSize="12px" fontWeight="600" whiteSpace="nowrap">{h}</Box>
+              ))}
+            </Box>
+          </Box>
+          <Box as="tbody">
+            {records.map((record) => {
+              const sc = accessStatusColor(record.status);
+              return (
+                <Box as="tr" key={record.accessId} borderTop="1px solid #E2E8F0">
+                  <Box as="td" py="14px" px={4} fontSize="13px" fontWeight="600" color="#1A202C">
+                    {record.studentId || "—"}
+                  </Box>
+                  <Box as="td" py="14px" px={4}>
+                    <Badge bg={sc.bg} color={sc.color} px={2} py="2px" borderRadius="8px" fontSize="11px" fontWeight="600">
+                      {record.status || "—"}
+                    </Badge>
+                  </Box>
+                  <Box as="td" py="14px" px={4} fontSize="13px" color="gray.600">{record.sentBy || "—"}</Box>
+                  <Box as="td" py="14px" px={4} fontSize="13px" color="gray.600" whiteSpace="nowrap">
+                    {record.sentDate ? dayjs(record.sentDate).format("DD/MM/YY h:mm a") : "—"}
+                  </Box>
+                  <Box as="td" py="14px" px={4} fontSize="13px" color="gray.600" maxW="220px" isTruncated>
+                    {record.accessLink || "—"}
+                  </Box>
+                  <Box as="td" py="14px" px={4}>
+                    <Button
+                      sm
+                      secondary
+                      disabled={!record.accessLink || copyingId === record.accessId}
+                      onClick={() => handleCopy(record)}
+                    >
+                      Copy Link
+                    </Button>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+      </Box>
+    </Box>
   );
 };
 
@@ -425,6 +537,7 @@ const ViewStandaloneExamPage = () => {
     { key: "overview", label: "Overview" },
     { key: "questions", label: "Questions" },
     { key: "submissions", label: "Grading", count: submissionCount },
+    { key: "access-links", label: "Access Links" },
   ];
 
   const paddedTabs = new Set(["submissions"]);
@@ -475,6 +588,7 @@ const ViewStandaloneExamPage = () => {
           <Box p={6}>
             {activeTab === "overview" && <OverviewTab exam={exam} examId={examId} />}
             {activeTab === "questions" && <QuestionsTab examId={examId} />}
+            {activeTab === "access-links" && <AccessLinksTab examId={examId} />}
           </Box>
         )}
       </Box>
