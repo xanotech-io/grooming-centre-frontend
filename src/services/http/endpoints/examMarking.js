@@ -1,8 +1,8 @@
 import { http } from '../http';
 
 export const submitExamMarking = async (examId, body) => {
-  const { data: responseBody } = await http.post(`/v1/exam-marking/submit/${examId}`, body);
-  return { message: responseBody?.message, data: responseBody?.data };
+  const { data: { message, data } } = await http.post(`/v1/exam-marking/submit/${examId}`, body);
+  return { message, data };
 };
 
 export const examManualGrade = async (body) => {
