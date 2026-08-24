@@ -196,11 +196,27 @@ const StandaloneExaminationListingPage = () => {
   });
 
   const fetcher = (props) => async () => {
-    const { examinations, showingDocumentsCount, totalDocumentsCount } =
-      await adminGetStandaloneExaminationListing(props?.params);
+    // Default to newest-first at the request level, not just after the
+    // fact — this listing is paginated, so a client-side-only re-sort
+    // can't surface a just-created exam that the backend's own default
+    // (non-date) ordering placed on a later page than the one actually
+    // fetched. A user-picked sort filter overrides this default.
+    const params = { sort: "desc", date: true, ...props?.params };
 
-    const rows = examinations.map(mapExaminationToRow);
-    console.log(rows);
+    const { examinations, showingDocumentsCount, totalDocumentsCount } =
+      await adminGetStandaloneExaminationListing(params);
+
+    // Belt-and-suspenders in case the backend accepts these params without
+    // fully honoring them for this endpoint.
+    const orderedExaminations = params.date
+      ? [...examinations].sort((a, b) =>
+          params.sort === "asc"
+            ? new Date(a.createdAt) - new Date(b.createdAt)
+            : new Date(b.createdAt) - new Date(a.createdAt),
+        )
+      : examinations;
+
+    const rows = orderedExaminations.map(mapExaminationToRow);
     return { rows, showingDocumentsCount, totalDocumentsCount };
   };
 
