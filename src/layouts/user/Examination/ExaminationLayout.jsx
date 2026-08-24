@@ -169,6 +169,7 @@ const ExaminationLayout = () => {
   }, [examination?.hasCompleted, examination?.submittedAnswers]);
 
   const startTimeRef = useRef(Date.now());
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (questions.length > 0 && !currentQuestion) {
@@ -188,7 +189,8 @@ const ExaminationLayout = () => {
   const [modalCanClose, setModalCanClose] = useState(true);
 
   const handleSubmit = useCallback(async (isAutoSubmit = false) => {
-    if (isViewMode) return;
+    if (isViewMode || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setSubmitStatus({ loading: true });
     try {
       const answers = examination.questions.map((q) => ({
@@ -217,6 +219,24 @@ const ExaminationLayout = () => {
       });
       setSubmitStatus({ success: true });
     } catch (err) {
+      // The request may have already been recorded server-side even though this
+      // client-side call failed (dropped connection, timeout, unexpected response
+      // shape). Re-check before telling the student it failed.
+      try {
+        const { data: { data: recheckData } } = await http.get(`/v1/examination/${course_id}`);
+        const recheckExam = mapExamination(recheckData);
+        if (recheckExam?.hasCompleted) {
+          toast({
+            description: isAutoSubmit ? "Exam auto submitted" : "Examination submitted successfully",
+            position: "top",
+            status: "success",
+          });
+          setSubmitStatus({ success: true });
+          return;
+        }
+      } catch {
+        // ignore recheck failure, fall through to showing the original error
+      }
       toast({
         title: err.statusCode === 403 ? "Maximum attempts reached" : undefined,
         description: err.message,
@@ -224,9 +244,11 @@ const ExaminationLayout = () => {
         status: "error",
       });
       setSubmitStatus({ error: err.message });
+    } finally {
+      isSubmittingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [examination, selectedAnswers, isViewMode]);
+  }, [examination, selectedAnswers, isViewMode, course_id]);
 
   const { isBlocked: isProctoringBlocked } = useLiveProctoring({
     examId: examination?.id,

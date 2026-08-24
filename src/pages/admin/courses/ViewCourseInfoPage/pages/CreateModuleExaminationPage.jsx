@@ -4,14 +4,14 @@ import {
   Flex,
   Alert,
   AlertIcon,
-  Checkbox,
+  // Checkbox,
   BreadcrumbItem,
 } from "@chakra-ui/react";
 import { useToast } from "@chakra-ui/toast";
 import { useForm } from "react-hook-form";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { Switch } from "@chakra-ui/switch";
-import { Select as ChakraSelect } from "@chakra-ui/select";
+// import { Switch } from "@chakra-ui/switch";
+// import { Select as ChakraSelect } from "@chakra-ui/select";
 import {
   Breadcrumb,
   Button,
@@ -64,25 +64,25 @@ const SectionCard = ({ title, children }) => (
   </Box>
 );
 
-const BoolRow = ({ label, description, checked, onChange }) => (
-  <Flex justifyContent="space-between" alignItems="center" py={2}>
-    <Box>
-      <Text fontSize="sm" fontWeight="500">
-        {label}
-      </Text>
-      {description && (
-        <Text fontSize="xs" color="gray.500">
-          {description}
-        </Text>
-      )}
-    </Box>
-    <Switch
-      isChecked={checked}
-      onChange={(e) => onChange(e.target.checked)}
-      colorScheme="purple"
-    />
-  </Flex>
-);
+// const BoolRow = ({ label, description, checked, onChange }) => (
+//   <Flex justifyContent="space-between" alignItems="center" py={2}>
+//     <Box>
+//       <Text fontSize="sm" fontWeight="500">
+//         {label}
+//       </Text>
+//       {description && (
+//         <Text fontSize="xs" color="gray.500">
+//           {description}
+//         </Text>
+//       )}
+//     </Box>
+//     <Switch
+//       isChecked={checked}
+//       onChange={(e) => onChange(e.target.checked)}
+//       colorScheme="purple"
+//     />
+//   </Flex>
+// );
 
 const CreateModuleExaminationPage = () => {
   const { courseId, moduleId, examinationId } = useParams();
@@ -121,7 +121,7 @@ const CreateModuleExaminationPage = () => {
   }, []);
 
   const [isPublished, setIsPublished] = useState(false);
-  const [addToBank, setAddToBank] = useState(false);
+  // const [addToBank, setAddToBank] = useState(false);
   const [loadingExam, setLoadingExam] = useState(false);
   const [retryPolicy, setRetryPolicy] = useState("");
 
@@ -282,7 +282,6 @@ const CreateModuleExaminationPage = () => {
           kind: "ModuleExam",
           body,
           paperConfigBody,
-          addToBank,
           title: data.title,
           fromBankQuestionIds: bankQuestionIdsRef.current,
           // Returning to this form (e.g. via the Overview tab) and
@@ -394,8 +393,8 @@ const CreateModuleExaminationPage = () => {
         </SectionCard>
 
         {/* ── Navigation & Randomization ── */}
-        <SectionCard title="Navigation & Randomization">
-          <Box mb={5}>
+        {/* <SectionCard title="Navigation & Randomization"> */}
+          {/* <Box mb={5}>
             <Text fontSize="sm" fontWeight="500" mb={1}>
               Navigation Mode
             </Text>
@@ -437,7 +436,7 @@ const CreateModuleExaminationPage = () => {
         </SectionCard>
 
         {/* ── UI Settings ── */}
-        <SectionCard title="UI Settings">
+        {/* <SectionCard title="UI Settings">
           <Flex gap={4} mb={4} flexWrap="wrap">
             <Box minW="140px">
               <Text fontSize="sm" fontWeight="500" mb={1}>
@@ -494,9 +493,9 @@ const CreateModuleExaminationPage = () => {
               </ChakraSelect>
             </Box>
           </Flex>
-        </SectionCard>
+        </SectionCard> */}
 
-        {!isEditMode && (
+        {/* {!isEditMode && (
           <Checkbox
             isChecked={addToBank}
             onChange={(e) => setAddToBank(e.target.checked)}
@@ -505,7 +504,7 @@ const CreateModuleExaminationPage = () => {
           >
             Add to Question Bank — automatically save every question created for this examination to the bank
           </Checkbox>
-        )}
+        )} */}
 
         <Flex gap={4} justifyContent="flex-end" mt={2} mb={10}>
           <Button secondary onClick={handleCancel} type="button">
