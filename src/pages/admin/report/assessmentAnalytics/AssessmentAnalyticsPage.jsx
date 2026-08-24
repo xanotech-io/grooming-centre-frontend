@@ -37,8 +37,12 @@ import {
   TabPanel,
   useDisclosure,
   BreadcrumbItem,
+  Wrap,
+  WrapItem,
+  IconButton,
 } from "@chakra-ui/react";
-import { FiRefreshCw, FiAlertTriangle, FiFilter } from "react-icons/fi";
+import { convertFromRaw } from "draft-js";
+import { FiRefreshCw, FiAlertTriangle, FiFilter, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
 import {
@@ -217,6 +221,33 @@ const TYPE_LABELS = {
 
 const fmt = (val, suffix = "") => (val != null ? `${val}${suffix}` : "—");
 
+// question_text arrives either as plain text or a stringified Draft.js
+// ContentState (`{"blocks":[...],"entityMap":{...}}`) depending on which
+// editor created the question — extract plain text for both cases.
+const parseQuestionText = (rawText) => {
+  if (!rawText) return "";
+  if (typeof rawText !== "string") return String(rawText);
+  const trimmed = rawText.trim();
+  if (!trimmed.startsWith("{")) return rawText;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!Array.isArray(parsed?.blocks)) return rawText;
+    return convertFromRaw(parsed).getPlainText(" ").trim() || rawText;
+  } catch {
+    return rawText;
+  }
+};
+
+// e.g. 45 -> "45s", 130 -> "2m 10s"
+const formatSeconds = (seconds) => {
+  if (seconds == null) return "—";
+  const total = Math.round(seconds);
+  if (total < 60) return `${total}s`;
+  const minutes = Math.floor(total / 60);
+  const remainder = total % 60;
+  return remainder ? `${minutes}m ${remainder}s` : `${minutes}m`;
+};
+
 // ─── EntityCombobox ─────────────────────────────────────────────────────────
 
 function EntityCombobox({ fetchFn, value, onSelect, placeholder, isDisabled }) {
@@ -353,45 +384,50 @@ const AssessmentAnalyticsPage = () => {
   const [rows, setRows] = useState([]);
   const [assessmentStats, setAssessmentStats] = useState([]);
   const [standaloneStats, setStandaloneStats] = useState([]);
-  const [, setTotal] = useState(0);
-  const [, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [limit] = useState(50);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
 
+  // assessment_level_stats / standalone_stats are aggregate (per-assessment,
+  // per-exam) rows, documented with camelCase fields — distinct from the
+  // per-question `data` rows. Reused here in the same table shape.
   const assessmentRows = useMemo(() => assessmentStats.map((a) => ({
-    question_id: a.assessment_id,
-    question_text: a.assessment_title ?? a.assessment_id,
-    question_type: a.type ?? "assessment",
+    question_id: a.assessmentId,
+    question_text: a.assessmentTitle ?? a.assessmentId,
+    question_type: "assessment",
     difficulty_level: null,
     derived_difficulty: null,
-    exam_id: a.assessment_id,
-    exam_title: a.assessment_title ?? "—",
+    exam_id: a.assessmentId,
+    exam_title: a.assessmentTitle ?? "—",
     course_id: null,
-    total_attempts: a.total_submissions,
-    correct_response_rate: a.average_score ?? a.pass_rate,
+    total_attempts: a.totalQuestions,
+    correct_response_rate: a.averageSuccessRate,
     average_time_seconds: null,
     discrimination_index: null,
-    status: a.pass_rate != null
-      ? a.pass_rate >= 75 ? "Excellent" : a.pass_rate >= 50 ? "Acceptable" : "Poor"
+    status: a.averageSuccessRate != null
+      ? a.averageSuccessRate >= 75 ? "Excellent" : a.averageSuccessRate >= 50 ? "Acceptable" : "Poor"
       : "Insufficient Data",
   })), [assessmentStats]);
 
   const standaloneRows = useMemo(() => standaloneStats.map((e) => ({
-    question_id: e.exam_id,
-    question_text: e.exam_id,
-    question_type: e.type ?? "standalone",
+    question_id: e.examId,
+    question_text: e.examTitle ?? e.examId,
+    question_type: "standalone",
     difficulty_level: null,
     derived_difficulty: null,
-    exam_id: e.exam_id,
-    exam_title: null,
+    exam_id: e.examId,
+    exam_title: e.examTitle ?? "—",
     course_id: null,
-    total_attempts: e.total_submissions,
-    correct_response_rate: null,
-    average_time_seconds: e.average_completion_time_seconds,
+    total_attempts: e.totalQuestions,
+    correct_response_rate: e.averageSuccessRate,
+    average_time_seconds: null,
     discrimination_index: null,
-    status: !e.total_submissions ? "Insufficient Data" : null,
+    status: e.averageSuccessRate != null
+      ? e.averageSuccessRate >= 75 ? "Excellent" : e.averageSuccessRate >= 50 ? "Acceptable" : "Poor"
+      : "Insufficient Data",
   })), [standaloneStats]);
 
   const [filters, setFilters] = useState({
@@ -524,8 +560,8 @@ const AssessmentAnalyticsPage = () => {
                 onClick={() => { setDetailQuestion(row); openDetail(); }}
               >
                 <Td maxW="280px">
-                  <Tooltip label={row.question_text} placement="top">
-                    <Text fontSize="sm" noOfLines={2}>{row.question_text}</Text>
+                  <Tooltip label={parseQuestionText(row.question_text)} placement="top">
+                    <Text fontSize="sm" noOfLines={2}>{parseQuestionText(row.question_text)}</Text>
                   </Tooltip>
                 </Td>
                 <Td textAlign="center"><Badge colorScheme="gray" fontSize="xs">{TYPE_LABELS[row.question_type] ?? row.question_type}</Badge></Td>
@@ -535,7 +571,7 @@ const AssessmentAnalyticsPage = () => {
                 </Td>
                 <Td isNumeric>{fmt(row.total_attempts)}</Td>
                 <Td isNumeric>{row.correct_response_rate != null ? `${row.correct_response_rate}%` : "—"}</Td>
-                <Td isNumeric>{row.average_time_seconds != null ? `${row.average_time_seconds}s` : "—"}</Td>
+                <Td isNumeric>{formatSeconds(row.average_time_seconds)}</Td>
                 <Td isNumeric>{row.discrimination_index != null ? row.discrimination_index.toFixed(2) : "—"}</Td>
                 <Td textAlign="center"><Badge colorScheme={STATUS_COLORS[row.status] ?? "gray"}>{row.status}</Badge></Td>
               </Tr>
@@ -578,6 +614,32 @@ const AssessmentAnalyticsPage = () => {
           colorScheme={VALIDITY_COLORS[assessmentSummary?.assessment_validity ?? summary?.assessment_validity] ?? "gray"}
         />
       </SimpleGrid>
+
+      {/* Distribution breakdowns */}
+      {summary && (
+        <Flex gap={6} mb={6} wrap="wrap">
+          <Box>
+            <Text fontSize="xs" fontWeight="semibold" color="gray.500" mb={2}>DIFFICULTY DISTRIBUTION</Text>
+            <Wrap>
+              {Object.entries(summary.difficulty_distribution ?? {}).map(([k, v]) => (
+                <WrapItem key={k}>
+                  <Badge colorScheme={DIFFICULTY_COLORS[k] ?? "gray"} px={2} py={1}>{k}: {v}</Badge>
+                </WrapItem>
+              ))}
+            </Wrap>
+          </Box>
+          <Box>
+            <Text fontSize="xs" fontWeight="semibold" color="gray.500" mb={2}>STATUS DISTRIBUTION</Text>
+            <Wrap>
+              {Object.entries(summary.status_distribution ?? {}).map(([k, v]) => (
+                <WrapItem key={k}>
+                  <Badge colorScheme={STATUS_COLORS[k] ?? "gray"} px={2} py={1}>{k}: {v}</Badge>
+                </WrapItem>
+              ))}
+            </Wrap>
+          </Box>
+        </Flex>
+      )}
 
       {/* Filter toggle */}
       <Flex mb={3} alignItems="center">
@@ -681,10 +743,38 @@ const AssessmentAnalyticsPage = () => {
       {/* Tabbed Table */}
       <Tabs index={activeTab} onChange={setActiveTab} variant="enclosed" size="sm">
         <TabList>
-          <Tab>Assessment ({assessmentRows.length})</Tab>
-          <Tab>Standalone ({standaloneRows.length})</Tab>
+          <Tab>Questions ({total})</Tab>
+          <Tab>By Assessment ({assessmentRows.length})</Tab>
+          <Tab>By Standalone Exam ({standaloneRows.length})</Tab>
         </TabList>
         <TabPanels>
+          <TabPanel px={0} pb={0}>
+            <QuestionsTable data={rows} loadingState={loading} />
+            <Flex justifyContent="space-between" alignItems="center" mt={2}>
+              <Text fontSize="sm" color="gray.500">
+                {total === 0 ? "No questions found." : `Showing ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total} questions`}
+              </Text>
+              <Flex gap={2} alignItems="center">
+                <IconButton
+                  aria-label="Previous page"
+                  icon={<FiChevronLeft />}
+                  size="sm"
+                  variant="outline"
+                  isDisabled={page <= 1 || loading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                />
+                <Text fontSize="sm">Page {page} of {totalPages}</Text>
+                <IconButton
+                  aria-label="Next page"
+                  icon={<FiChevronRight />}
+                  size="sm"
+                  variant="outline"
+                  isDisabled={page >= totalPages || loading}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                />
+              </Flex>
+            </Flex>
+          </TabPanel>
           <TabPanel px={0} pb={0}>
             <QuestionsTable data={assessmentRows} loadingState={loading} />
             <Text fontSize="sm" color="gray.500" mt={2}>Total: {assessmentRows.length} assessment{assessmentRows.length !== 1 ? "s" : ""}</Text>
@@ -734,7 +824,7 @@ const AssessmentAnalyticsPage = () => {
               <Box>
                 <Box mb={4} p={3} bg="gray.50" borderRadius="md">
                   <Text fontSize="sm" fontWeight="semibold" mb={1}>Question Text</Text>
-                  <Text fontSize="sm">{detailQuestion.question_text}</Text>
+                  <Text fontSize="sm">{parseQuestionText(detailQuestion.question_text)}</Text>
                 </Box>
 
                 <DetailRow label="Question ID" value={<Text fontSize="xs" fontFamily="mono">{detailQuestion.question_id}</Text>} />
@@ -755,7 +845,7 @@ const AssessmentAnalyticsPage = () => {
                 <DetailRow label="Course ID" value={detailQuestion.course_id ?? "—"} />
                 <DetailRow label="Total Attempts" value={fmt(detailQuestion.total_attempts)} />
                 <DetailRow label="Correct Response Rate" value={detailQuestion.correct_response_rate != null ? `${detailQuestion.correct_response_rate}%` : "—"} />
-                <DetailRow label="Avg Time per Attempt" value={detailQuestion.average_time_seconds != null ? `${detailQuestion.average_time_seconds}s` : "—"} />
+                <DetailRow label="Avg Time per Attempt" value={formatSeconds(detailQuestion.average_time_seconds)} />
                 <DetailRow label="Discrimination Index" value={detailQuestion.discrimination_index != null ? detailQuestion.discrimination_index.toFixed(2) : "—"} />
                 <DetailRow label="Status" value={<Badge colorScheme={STATUS_COLORS[detailQuestion.status] ?? "gray"} px={2} py={1}>{detailQuestion.status}</Badge>} />
 
