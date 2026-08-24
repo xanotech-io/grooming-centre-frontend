@@ -493,7 +493,7 @@ const CreateModuleExaminationPage = () => {
               </ChakraSelect>
             </Box>
           </Flex>
-        </SectionCard> */} 
+        </SectionCard> */}
 
         {/* {!isEditMode && (
           <Checkbox
