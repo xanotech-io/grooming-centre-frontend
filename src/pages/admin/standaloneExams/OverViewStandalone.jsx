@@ -3,7 +3,7 @@ import { Box, Flex, Grid, GridItem } from "@chakra-ui/layout";
 import {
   Alert,
   AlertIcon,
-  Checkbox,
+  // Checkbox,
   IconButton,
   Switch,
   Text,
@@ -723,7 +723,7 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
           </GridItem>
         </Grid>
 
-        <Heading as="h3" size="md" marginTop="32px" marginBottom="8px" color="#1A202C">
+        {/* <Heading as="h3" size="md" marginTop="32px" marginBottom="8px" color="#1A202C">
           Randomization
         </Heading>
         <BoolRow
@@ -737,16 +737,16 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
           description="Answer options for each question are shuffled"
           checked={randomization.option_order}
           onChange={(v) => setRandomization((p) => ({ ...p, option_order: v }))}
-        />
+        /> */}
 
-        <Checkbox
+        {/* <Checkbox
           isChecked={addToBank}
           onChange={(e) => setAddToBank(e.target.checked)}
           colorScheme="purple"
           mt={2}
         >
           Add to Question Bank — automatically save every question created for this exam to the bank
-        </Checkbox>
+        </Checkbox> */}
 
         <Flex marginTop="40px" justifyContent="flex-end" gap="16px">
           <Button
@@ -760,7 +760,7 @@ const CreateStandalonePage = ({ isContinuingPending }) => {
             color="#6b006b"
             _hover={{ bg: "gray.50" }}
           >
-            <FaRegSave />
+            {/* <FaRegSave /> */}
             Cancel
           </Button>
           <Button
