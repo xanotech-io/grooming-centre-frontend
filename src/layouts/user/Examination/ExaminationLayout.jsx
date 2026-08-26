@@ -191,7 +191,7 @@ const ExaminationLayout = () => {
   const handleSubmit = useCallback(async (isAutoSubmit = false) => {
     if (isViewMode || isSubmittingRef.current) return;
     isSubmittingRef.current = true;
-    setSubmitStatus({ loading: true });
+    setSubmitStatus((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const answers = examination.questions.map((q) => ({
         questionId: q.id,
@@ -217,7 +217,7 @@ const ExaminationLayout = () => {
         position: "top",
         status: "success",
       });
-      setSubmitStatus({ success: true });
+      setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: null }));
     } catch (err) {
       // The request may have already been recorded server-side even though this
       // client-side call failed (dropped connection, timeout, unexpected response
@@ -231,7 +231,7 @@ const ExaminationLayout = () => {
             position: "top",
             status: "success",
           });
-          setSubmitStatus({ success: true });
+          setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: null }));
           return;
         }
       } catch {
@@ -243,7 +243,7 @@ const ExaminationLayout = () => {
         position: "top",
         status: "error",
       });
-      setSubmitStatus({ error: err.message });
+      setSubmitStatus((prev) => ({ ...prev, loading: false, error: err.message }));
     } finally {
       isSubmittingRef.current = false;
     }
@@ -351,7 +351,7 @@ const ExaminationLayout = () => {
         {modalContent}
       </CustomModal>
 
-      {isProctoringBlocked && !submitStatus.success && (
+      {isProctoringBlocked && !submitStatus.success && !submitStatus.error && (
         <Flex
           position="fixed"
           top={0}
@@ -367,6 +367,33 @@ const ExaminationLayout = () => {
         >
           <Spinner size="xl" color="white" thickness="4px" />
           <Text color="white" fontWeight="600">Submitting your exam…</Text>
+        </Flex>
+      )}
+
+      {isProctoringBlocked && submitStatus.error && (
+        <Flex
+          position="fixed"
+          top={0}
+          left={0}
+          width="100vw"
+          height="100vh"
+          bg="blackAlpha.700"
+          zIndex={1400}
+          justifyContent="center"
+          alignItems="center"
+          direction="column"
+          gap={4}
+          textAlign="center"
+          px={6}
+        >
+          <Text color="white" fontWeight="600">Your exam couldn't be submitted automatically.</Text>
+          <Text color="white" fontSize="sm">{submitStatus.error}</Text>
+          <HStack spacing={4}>
+            <Button onClick={() => handleSubmit(true)}>Try Again</Button>
+            <Button secondary onClick={() => push(`/courses/details/${course_id}`)}>
+              Back to course
+            </Button>
+          </HStack>
         </Flex>
       )}
 

@@ -61,7 +61,11 @@ const useLiveProctoring = ({ examId, enabled = true, onAutoSubmit } = {}) => {
             duration: null,
             isClosable: false,
           });
-          onAutoSubmitRef.current?.(nextAction, response);
+          try {
+            await onAutoSubmitRef.current?.(nextAction, response);
+          } catch (submitErr) {
+            console.error("[useLiveProctoring] auto-submit failed", submitErr);
+          }
         } else {
           toast({
             title: "Proctoring Warning",
@@ -97,7 +101,11 @@ const useLiveProctoring = ({ examId, enabled = true, onAutoSubmit } = {}) => {
             duration: null,
             isClosable: false,
           });
-          onAutoSubmitRef.current?.("auto_submit_pending_review", null);
+          try {
+            await onAutoSubmitRef.current?.("auto_submit_pending_review", null);
+          } catch (submitErr) {
+            console.error("[useLiveProctoring] auto-submit failed", submitErr);
+          }
         } else {
           toast({
             title: "Proctoring Warning",
