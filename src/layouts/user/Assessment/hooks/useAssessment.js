@@ -68,9 +68,7 @@ const useAssessment = () => {
   // } = useApp();
 
   const handleSubmit = useCallback(async (isAutoSubmit = false) => {
-    setSubmitStatus({
-      loading: true,
-    });
+    setSubmitStatus((prev) => ({ ...prev, loading: true, error: false }));
 
     try {
       if (isExamination) {
@@ -127,7 +125,7 @@ const useAssessment = () => {
         });
       }
 
-      setSubmitStatus({ success: true });
+      setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: false }));
     } catch (error) {
       toast({
         title: error.statusCode === 403 ? "Maximum attempts reached" : undefined,
@@ -136,9 +134,7 @@ const useAssessment = () => {
         status: "error",
       });
 
-      setSubmitStatus({
-        error: error.message,
-      });
+      setSubmitStatus((prev) => ({ ...prev, loading: false, error: error.message }));
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -355,6 +351,7 @@ const useAssessment = () => {
     disablePreviousQuestion,
     selectedAnswers,
     handleSubmitConfirmation,
+    handleSubmit,
     handleQuestionChange,
     handleNextQuestion,
     handlePreviousQuestion,
