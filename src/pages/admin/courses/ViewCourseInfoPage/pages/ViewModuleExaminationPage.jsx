@@ -1,8 +1,12 @@
 import { Route, useHistory, useParams } from "react-router-dom";
 import { Box, Flex, Grid, Badge, BreadcrumbItem, Spinner, Progress } from "@chakra-ui/react";
-import { Breadcrumb, Button, Heading, Link, Text } from "../../../../../components";
+import { Breadcrumb, Button, Heading, Image, Link, RichTextToView, Text } from "../../../../../components";
 import { AdminMainAreaWrapper } from "../../../../../layouts";
-import { adminListModuleExaminations, getManualMarkingStudents } from "../../../../../services";
+import {
+  adminListModuleExaminations,
+  getManualMarkingStudents,
+  requestExaminationDetails,
+} from "../../../../../services";
 import { getDuration } from "../../../../../utils";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useState } from "react";
@@ -166,37 +170,164 @@ const OverviewTab = ({ examination }) => {
 };
 
 /* ─── Questions tab ────────────────────────────────────── */
-const QuestionsTab = ({ courseId, moduleId, examinationId }) => {
-  const history = useHistory();
+const QUESTION_TYPE_LABEL = {
+  MCQ: "Multiple Choice",
+  TrueFalse: "True / False",
+  FillBlank: "Fill in the Blank",
+  Matching: "Matching",
+  ShortAnswer: "Short Answer",
+  Essay: "Essay",
+};
+
+const parsePairs = (pairs) => {
+  if (Array.isArray(pairs)) return pairs;
+  if (typeof pairs === "string") {
+    try {
+      const parsed = JSON.parse(pairs);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const QuestionOptionsList = ({ options }) => {
+  if (!options?.length) return null;
   return (
-    <Flex direction="column" alignItems="center" justifyContent="center" py="60px" gap={4}>
-      <Box
-        w="56px" h="56px" bg="#F0E6FF" borderRadius="50%"
-        display="flex" alignItems="center" justifyContent="center"
-      >
-        <FiEdit color="#6b006b" size={22} />
-      </Box>
-      <Box textAlign="center">
-        <Text fontSize="16px" fontWeight="600" color="#1A202C" mb={1}>Manage Exam Questions</Text>
-        <Text fontSize="14px" color="gray.500">
-          Add, edit, and organise questions for this examination.
-        </Text>
-      </Box>
-      <Button
-        onClick={() =>
-          history.push(
-            // moduleId is required here — QuestionsPage.jsx's realExamKind()
-            // reads it to tell "ModuleExam" apart from a plain course-level
-            // "Exam", and without it every section-config cache lookup
-            // misses, silently rendering as if the exam had no sections at
-            // all (missing Section tabs, no section grouping).
-            `/admin/courses/${courseId}/assessment/${courseId}/questions/new?examination=${examinationId}&moduleId=${moduleId}`
-          )
-        }
-      >
-        Go to Questions
-      </Button>
-    </Flex>
+    <Box mt={3}>
+      {options.map((opt, i) => (
+        <Flex key={opt.id || i} alignItems="center" gap={2} py={1}>
+          <Box
+            w="16px" h="16px" borderRadius="50%" flexShrink={0}
+            border="2px solid"
+            borderColor={opt.isAnswer ? "#38A169" : "#CBD5E0"}
+            bg={opt.isAnswer ? "#38A169" : "transparent"}
+          />
+          <Text fontSize="13px" color={opt.isAnswer ? "#22543D" : "gray.600"} fontWeight={opt.isAnswer ? "600" : "400"}>
+            {opt.name}
+          </Text>
+        </Flex>
+      ))}
+    </Box>
+  );
+};
+
+// Read-only rendering only — no edit/delete affordances here on purpose.
+// Changing a question is a deliberate action reached through "Edit" on the
+// exam itself, not something that should be reachable from this View page.
+const ReadOnlyQuestionCard = ({ index, question }) => {
+  const pairs = question.questionType === "Matching" ? parsePairs(question.pairs) : [];
+  return (
+    <Box bg="white" border="1px solid" borderColor="gray.200" borderRadius="md" p={5} mb={4}>
+      <Flex justifyContent="space-between" alignItems="flex-start" mb={2} gap={3} flexWrap="wrap">
+        <Text fontWeight="600" fontSize="14px" color="gray.700">Question {index + 1}</Text>
+        <Flex gap={2} flexWrap="wrap">
+          {question.section && (
+            <Badge bg="#F0E6FF" color="#6b006b" px={2} py={1} borderRadius="6px" fontSize="11px">
+              {question.section}
+            </Badge>
+          )}
+          <Badge bg="#EDF2F7" color="gray.600" px={2} py={1} borderRadius="6px" fontSize="11px">
+            {QUESTION_TYPE_LABEL[question.questionType] || question.questionType || "—"}
+          </Badge>
+          {question.marks != null && (
+            <Badge bg="#FFF3CD" color="#B7791F" px={2} py={1} borderRadius="6px" fontSize="11px">
+              {question.marks} mark{question.marks === 1 ? "" : "s"}
+            </Badge>
+          )}
+        </Flex>
+      </Flex>
+
+      <RichTextToView text={question.question} fontSize="14px" color="gray.700" />
+
+      {question.file && (
+        <Image mt={3} src={question.file} alt="question" width="100%" height="300px" rounded="md" />
+      )}
+
+      <QuestionOptionsList options={question.options} />
+
+      {question.questionType === "FillBlank" && question.correctAnswer && (
+        <Text mt={3} fontSize="13px" color="gray.600"><b>Correct answer:</b> {question.correctAnswer}</Text>
+      )}
+      {question.questionType === "ShortAnswer" && question.modelAnswer && (
+        <Text mt={3} fontSize="13px" color="gray.600"><b>Model answer:</b> {question.modelAnswer}</Text>
+      )}
+      {pairs.length > 0 && (
+        <Box mt={3}>
+          {pairs.map((p, i) => (
+            <Text key={i} fontSize="13px" color="gray.600">{p.left} → {p.right}</Text>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+const QuestionsTab = ({ courseId }) => {
+  const [questions, setQuestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    // requestExaminationDetails takes courseId, not the exam's own id — same
+    // convention as useExam/useCourseExamPreview/useAssessmentPreview/
+    // useAddExaminationToBank.
+    requestExaminationDetails(courseId, true)
+      .then(({ examination }) => {
+        if (!cancelled) setQuestions(examination?.questions || []);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Failed to load questions for this examination.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  if (loading) {
+    return <Flex justifyContent="center" py="60px"><Spinner size="xl" color="#6b006b" /></Flex>;
+  }
+
+  if (error) {
+    return (
+      <Flex justifyContent="center" py="60px">
+        <Text color="red.500">{error}</Text>
+      </Flex>
+    );
+  }
+
+  if (!questions.length) {
+    return (
+      <Flex direction="column" alignItems="center" justifyContent="center" py="60px" gap={4}>
+        <Box w="56px" h="56px" bg="#F0E6FF" borderRadius="50%" display="flex" alignItems="center" justifyContent="center">
+          <FiEdit color="#6b006b" size={22} />
+        </Box>
+        <Box textAlign="center">
+          <Text fontSize="16px" fontWeight="600" color="#1A202C" mb={1}>No Questions Yet</Text>
+          <Text fontSize="14px" color="gray.500">
+            This examination doesn't have any questions yet — use "Edit" to add some.
+          </Text>
+        </Box>
+      </Flex>
+    );
+  }
+
+  return (
+    <Box>
+      <Text fontSize="13px" color="gray.500" mb={4}>
+        {questions.length} question{questions.length === 1 ? "" : "s"} — view only. Use &quot;Edit&quot; to make changes.
+      </Text>
+      {questions.map((q, i) => (
+        <ReadOnlyQuestionCard key={q.id || i} index={i} question={q} />
+      ))}
+    </Box>
   );
 };
 
@@ -431,7 +562,7 @@ const ViewModuleExaminationPage = () => {
         {/* Tab content */}
         <Box p={activeTab === "grading" ? 0 : 6}>
           {activeTab === "overview" && <OverviewTab examination={examination} />}
-          {activeTab === "questions" && <QuestionsTab courseId={courseId} moduleId={moduleId} examinationId={examinationId} />}
+          {activeTab === "questions" && <QuestionsTab courseId={courseId} />}
           {activeTab === "grading" && <GradingTab examinationId={examinationId} />}
         </Box>
       </Box>
