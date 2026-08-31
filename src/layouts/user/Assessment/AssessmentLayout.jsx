@@ -34,7 +34,6 @@ const AssessmentLayout = () => {
     timerCountdownManger,
     submitStatus,
     handleSubmitConfirmation,
-    handleSubmit,
     handleQuestionChange,
     handleNextQuestion,
     handlePreviousQuestion,
@@ -115,12 +114,7 @@ const AssessmentLayout = () => {
         >
           <Text color="white" fontWeight="600">Your exam couldn't be submitted automatically.</Text>
           <Text color="white" fontSize="sm">{submitStatus.error}</Text>
-          <HStack spacing={4}>
-            <Button onClick={() => handleSubmit(true)}>Try Again</Button>
-            <Button secondary link={`/courses/details/${course_id}`}>
-              Back to course
-            </Button>
-          </HStack>
+          <Text color="white" fontSize="sm">Taking you back to the course…</Text>
         </Flex>
       )}
 
