@@ -494,12 +494,16 @@ const AssessmentAnalyticsPage = () => {
 
   // ── Fetch main report ─────────────────────────────────────────────────────
 
+  const fetchRequestIdRef = useRef(0);
+
   const fetchReport = useCallback(async () => {
+    const requestId = ++fetchRequestIdRef.current;
     setLoading(true);
     try {
       const params = { page, limit };
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = await getAssessmentAnalyticsReport(params);
+      if (requestId !== fetchRequestIdRef.current) return;
       const payload = res?.data ?? res;
       setSummary(payload?.summary ?? null);
       setAssessmentSummary(payload?.assessment_summary ?? null);
@@ -511,6 +515,7 @@ const AssessmentAnalyticsPage = () => {
       setAssessmentStats(Array.isArray(payload?.assessment_level_stats) ? payload.assessment_level_stats : []);
       setStandaloneStats(Array.isArray(payload?.standalone_stats) ? payload.standalone_stats : []);
     } catch {
+      if (requestId !== fetchRequestIdRef.current) return;
       console.warn("[AssessmentAnalytics] GET /assessment-analytics-v2/report failed, using mock");
       const filteredMock = MOCK_QUESTIONS.filter((q) => (
         (!filters.courseId || q.course_id === filters.courseId)
@@ -525,7 +530,9 @@ const AssessmentAnalyticsPage = () => {
       setTotalPages(1);
       setAssessmentStats(MOCK_ASSESSMENT_STATS);
       setStandaloneStats([]);
-    } finally { setLoading(false); }
+    } finally {
+      if (requestId === fetchRequestIdRef.current) setLoading(false);
+    }
   }, [page, limit, filters]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
@@ -733,7 +740,7 @@ const AssessmentAnalyticsPage = () => {
             </FormControl>
           </Grid>
           <Flex mt={3} gap={2}>
-            <Button size="sm" colorScheme="blue" onClick={() => { setPage(1); setShowFilters(false); fetchReport(); }}>Apply Filters</Button>
+            <Button size="sm" colorScheme="blue" onClick={() => { setPage(1); setShowFilters(false); }}>Apply Filters</Button>
             <Button size="sm" variant="outline" onClick={() => {
               setFilters({ courseId: "", moduleId: "", examId: "", assessmentId: "", standaloneExamId: "", questionType: "", difficultyLevel: "", startDate: "", endDate: "" });
               setShowFilters(false);

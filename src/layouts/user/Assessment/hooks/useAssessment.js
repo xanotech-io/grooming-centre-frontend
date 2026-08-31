@@ -304,6 +304,16 @@ const useAssessment = () => {
     onAutoSubmit: () => handleSubmit(true),
   });
 
+  // A proctoring auto-submit is not something the student can retry themselves —
+  // if it still failed, just take them back to the course rather than offering
+  // a manual "Try Again".
+  useEffect(() => {
+    if (!isProctoringBlocked || !submitStatus.error) return undefined;
+    const timeout = setTimeout(() => push(`/courses/details/${course_id}`), 4000);
+    return () => clearTimeout(timeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProctoringBlocked, submitStatus.error]);
+
   const nav = isExamination ? isProctoringBlocked : exitAttempts === totalSteps;
 
   const handleQuestionChange = (question) => setCurrentQuestion(question);

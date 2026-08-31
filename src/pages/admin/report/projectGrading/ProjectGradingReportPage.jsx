@@ -546,9 +546,7 @@ const DetailDrawer = ({ projectId, isOpen, onClose }) => {
                     Avg Grade
                   </Text>
                   <Text fontWeight="bold" fontSize="lg">
-                    {d.averageGrade != null
-                      ? `${Math.round((d.averageGrade / (d.maxGrade ?? 100)) * 100)}%`
-                      : "—"}
+                    {d.averageGrade}
                   </Text>
                 </Box>
               </Grid>

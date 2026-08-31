@@ -285,6 +285,16 @@ const ExaminationLayout = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitStatus.success]);
 
+  // A proctoring auto-submit is not something the student can retry themselves —
+  // if it still failed after the built-in recheck, just take them back to the
+  // course rather than offering a manual "Try Again".
+  useEffect(() => {
+    if (!isProctoringBlocked || !submitStatus.error) return undefined;
+    const timeout = setTimeout(() => push(`/courses/details/${course_id}`), 4000);
+    return () => clearTimeout(timeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProctoringBlocked, submitStatus.error]);
+
   const handleSubmitConfirmation = (e) => {
     e?.preventDefault();
     if (isViewMode) return;
@@ -392,12 +402,7 @@ const ExaminationLayout = () => {
         >
           <Text color="white" fontWeight="600">Your exam couldn't be submitted automatically.</Text>
           <Text color="white" fontSize="sm">{submitStatus.error}</Text>
-          <HStack spacing={4}>
-            <Button onClick={() => handleSubmit(true)}>Try Again</Button>
-            <Button secondary onClick={() => push(`/courses/details/${course_id}`)}>
-              Back to course
-            </Button>
-          </HStack>
+          <Text color="white" fontSize="sm">Taking you back to the course…</Text>
         </Flex>
       )}
 
