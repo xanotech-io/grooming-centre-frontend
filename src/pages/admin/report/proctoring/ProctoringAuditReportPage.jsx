@@ -5,12 +5,15 @@ import { Route } from 'react-router-dom';
 import { BreadcrumbItem } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { AdminMainAreaWrapper } from '../../../../layouts/admin/MainArea/Wrapper';
-import { Breadcrumb, Button, Heading, Link } from '../../../../components';
+import { Breadcrumb, Button, Heading, Link, ExportMenu } from '../../../../components';
 import { getProctoringEvents, getProctoringAuditKpi } from '../../../../services';
 import KpiCards from './components/KpiCards';
 import EventsTable from './components/EventsTable';
 import LogEventModal from './components/LogEventModal';
 import RecordActionModal from './components/RecordActionModal';
+
+const fmtEventName = (obj) => (obj ? `${obj.firstName ?? ''} ${obj.lastName ?? ''}`.trim() || '—' : '—');
+const fmtEventTime = (ts) => (ts ? new Date(ts).toLocaleString() : '—');
 
 const ProctoringAuditReportPage = () => {
   const history = useHistory();
@@ -95,6 +98,31 @@ const ProctoringAuditReportPage = () => {
     loadKpis();
   };
 
+  const csvRows = [
+    [
+      "Student",
+      "Email",
+      "Examination",
+      "Alert Type",
+      "Session Start",
+      "Session End",
+      "Duration (min)",
+      "Status",
+      "Proctor",
+    ],
+    ...events.map((evt) => [
+      fmtEventName(evt.student),
+      evt.student?.email ?? '—',
+      evt.examination?.title ?? '—',
+      evt.alertType ?? '—',
+      fmtEventTime(evt.sessionStart),
+      fmtEventTime(evt.sessionEnd),
+      evt.sessionDurationMinutes ?? '—',
+      evt.status ?? '—',
+      fmtEventName(evt.proctor),
+    ]),
+  ];
+
   return (
     <Box as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       <KpiCards kpis={kpis} isLoading={kpiLoading} />
@@ -103,6 +131,14 @@ const ProctoringAuditReportPage = () => {
         <Flex justify="space-between" align="center" mb={4}>
           <Heading as="h3" size="sm" color="#101928">Proctoring Events</Heading>
           <HStack spacing={3}>
+            {events.length > 0 && (
+              <ExportMenu
+                rows={csvRows}
+                filename="proctoring-audit-report"
+                title="Proctoring Audit Report"
+                size="sm"
+              />
+            )}
             <Button
               size="sm"
               variant="outline"

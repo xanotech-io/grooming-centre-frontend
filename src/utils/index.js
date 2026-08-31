@@ -14,3 +14,4 @@ export * from "./examMetaCache";
 export * from "./optionIndex";
 export * from "./getResultRemark";
 export * from "./geolocation";
+export * from "./exportToCsv";

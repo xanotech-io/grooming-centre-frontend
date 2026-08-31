@@ -28,7 +28,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Button, Heading, Spinner } from "../../../../components";
+import { Button, Heading, Spinner, ExportMenu } from "../../../../components";
 import {
   adminGetTC01CoursePassRateReport,
   adminListCoursesForReport,
@@ -245,6 +245,28 @@ const TC01CoursePassRateReport = () => {
 
   const boxActiveCount = [filters.startDate, filters.endDate].filter(Boolean).length;
 
+  const exportRows = [
+    ["Course Title", "Instructor", "Total Enrolled", "Completed", "Passed", "Failed", "Pass Rate (%)", "Avg. Score"],
+    ...rows.map((row) => {
+      const passRate =
+        row.pass_rate != null
+          ? Number(row.pass_rate)
+          : row.completed > 0
+          ? (row.passed / row.completed) * 100
+          : null;
+      return [
+        row.course_title,
+        row.instructor_name ?? row.instructor,
+        row.total_enrolled,
+        row.completed ?? 0,
+        row.passed ?? 0,
+        row.failed ?? 0,
+        passRate != null ? passRate.toFixed(1) : "",
+        row.average_score,
+      ];
+    }),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       {/* Header */}
@@ -255,7 +277,16 @@ const TC01CoursePassRateReport = () => {
             Academic performance metrics: pass rates, completion rates, and score averages per course
           </ChakraText>
         </Box>
-        <Button secondary onClick={() => fetchReport(page, appliedFilters)} style={{ flexShrink: 0 }}>Refresh</Button>
+        <Flex gap={2} flexShrink={0}>
+          {rows.length > 0 && (
+            <ExportMenu
+              rows={exportRows}
+              filename="tc01-course-pass-rate-report"
+              title="TC01 Course Completion & Pass Rate Report"
+            />
+          )}
+          <Button secondary onClick={() => fetchReport(page, appliedFilters)} style={{ flexShrink: 0 }}>Refresh</Button>
+        </Flex>
       </Flex>
 
       {/* KPI Cards */}

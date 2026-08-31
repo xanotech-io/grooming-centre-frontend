@@ -3,15 +3,13 @@ import {
     Box,
     Flex,
     Text,
-    Button,
     useToast,
     useDisclosure,
     BreadcrumbItem,
 } from '@chakra-ui/react';
 import { Route } from 'react-router-dom';
-import { FiDownload } from 'react-icons/fi';
 import { AdminMainAreaWrapper } from '../../../layouts';
-import { Breadcrumb, Link } from '../../../components';
+import { Breadcrumb, Link, ExportMenu } from '../../../components';
 import {
     adminGetArchiveKPIs,
     adminListArchiveRecords,
@@ -214,6 +212,21 @@ const ArchivedReportsPage = () => {
         setSelectedArchive(null);
     };
 
+    // ── Export ─────────────────────────────────────────────────────────────────
+    const exportRows = [
+        ['Archive ID', 'Report ID', 'Report Name', 'Archived By', 'Archive Date', 'Retrieval Date', 'Status', 'Storage Location'],
+        ...archives.map((r) => [
+            r.archiveId,
+            r.report?.reportId ?? '',
+            r.report?.reportName ?? '',
+            r.archiver ? `${r.archiver.firstName} ${r.archiver.lastName}` : '',
+            r.archiveDate ? new Date(r.archiveDate).toLocaleDateString() : '',
+            r.retrievalDate ? new Date(r.retrievalDate).toLocaleDateString() : '',
+            r.status,
+            r.storageLocation ?? '',
+        ]),
+    ];
+
     return (
         <AdminMainAreaWrapper>
             <Flex justify="space-between" align="center" mb={6}>
@@ -231,19 +244,12 @@ const ArchivedReportsPage = () => {
                         Manage and retrieve historical MIS reports
                     </Text>
                 </Box>
-                <Button
-                    bg="#6b006b"
-                    color="white"
-                    _hover={{ bg: '#550055' }}
-                    borderRadius="8px"
-                    leftIcon={<FiDownload />}
-                    fontWeight="600"
-                    fontSize="14px"
-                    height="42px"
-                    px={6}
-                >
-                    Export Report
-                </Button>
+                <ExportMenu
+                    rows={exportRows}
+                    filename="archived-reports"
+                    title="Archive & Retrieval"
+                    isDisabled={archives.length === 0}
+                />
             </Flex>
 
             {/* KPI Cards */}

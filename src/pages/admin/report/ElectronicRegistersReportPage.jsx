@@ -38,6 +38,7 @@ import {
 } from "react-icons/fi";
 import { useHistory, Route } from "react-router-dom";
 import { AdminMainAreaWrapper } from "../../../layouts";
+import { ExportMenu } from "../../../components";
 import ScheduleReportModal from "./components/ScheduleReportModal";
 
 const SummaryCard = ({ title, value, subtext, subtextColor }) => (
@@ -400,6 +401,19 @@ const ElectronicRegistersReportPage = () => {
     }
   };
 
+  const exportRows = [
+    ["Filter ID", "Filter Name", "Criteria Applied", "Created by", "Date Created", "Remark", "Status"],
+    ...performanceFilterData.map((item) => [
+      item.id,
+      item.name,
+      item.criteria,
+      item.createdBy,
+      item.date,
+      item.remark,
+      item.status,
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box mb={6} mt={6}>
@@ -419,16 +433,12 @@ const ElectronicRegistersReportPage = () => {
             >
               Schedule report
             </Button>
-            <Button
-              bg="#660066"
-              color="white"
-              _hover={{ bg: "#550055" }}
-              h="40px"
-              fontSize="14px"
-              fontWeight="500"
-            >
-              Export Report
-            </Button>
+            <ExportMenu
+              rows={exportRows}
+              filename="student-performance-filter-analysis"
+              title="Student Performance Filter & Analysis"
+              isDisabled={!performanceFilterData.length}
+            />
           </HStack>
         </Flex>
 

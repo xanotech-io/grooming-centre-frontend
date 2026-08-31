@@ -44,7 +44,7 @@ import {
 import { convertFromRaw } from "draft-js";
 import { FiRefreshCw, FiAlertTriangle, FiFilter, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
+import { Breadcrumb, DashboardMetricCard, Link, ExportMenu } from "../../../../components";
 import {
   getAssessmentAnalyticsReport,
   getAssessmentAnalyticsThresholds,
@@ -526,6 +526,21 @@ const AssessmentAnalyticsPage = () => {
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
+  const csvRows = [
+    ["Question", "Type", "Difficulty", "Exam / Assessment", "Attempts", "Success Rate", "Avg Time", "Disc. Index", "Status"],
+    ...rows.map((row) => [
+      parseQuestionText(row.question_text),
+      TYPE_LABELS[row.question_type] ?? row.question_type,
+      row.difficulty_level ?? "—",
+      row.exam_title ?? "—",
+      fmt(row.total_attempts),
+      row.correct_response_rate != null ? `${row.correct_response_rate}%` : "—",
+      formatSeconds(row.average_time_seconds),
+      row.discrimination_index != null ? row.discrimination_index.toFixed(2) : "—",
+      row.status,
+    ]),
+  ];
+
   // ── Questions table ───────────────────────────────────────────────────────
 
   const QuestionsTable = ({ data, loadingState }) => (
@@ -595,7 +610,16 @@ const AssessmentAnalyticsPage = () => {
           <Text fontSize="2xl" fontWeight="bold">Assessment Analytics Report</Text>
           <Text fontSize="sm" color="gray.500">Per-question analysis across course assessments, course exams, and standalone examinations.</Text>
         </Box>
-        <Button size="sm" leftIcon={<FiRefreshCw />} variant="outline" onClick={fetchReport} isLoading={loading}>Refresh</Button>
+        <Flex gap={2}>
+          <ExportMenu
+            rows={csvRows}
+            filename="assessment-analytics-report"
+            title="Assessment Analytics Report"
+            isDisabled={rows.length === 0}
+            size="sm"
+          />
+          <Button size="sm" leftIcon={<FiRefreshCw />} variant="outline" onClick={fetchReport} isLoading={loading}>Refresh</Button>
+        </Flex>
       </Flex>
 
       {/* KPI Cards */}

@@ -14,6 +14,7 @@ import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
+  ExportMenu,
   Heading,
   Link,
   Table,
@@ -460,6 +461,23 @@ const AttendanceReportPage = () => {
     fetchRowItems({ params: lastParamsRef.current });
   };
 
+  const attendanceRows = rows?.data?.rows ?? [];
+
+  const csvRows = [
+    ["Student", "Course", "Lesson / Session", "Session Date", "Status", "Entry Time", "Exit Time", "Duration", "Mode"],
+    ...attendanceRows.map((row) => [
+      row.studentName,
+      row.courseTitle,
+      row.lessonTitle,
+      row.sessionDate && row.sessionDate !== "—" ? dayjs(row.sessionDate).format("DD/MM/YYYY") : "—",
+      row.attendanceStatus,
+      row.entryTime,
+      row.exitTime,
+      row.duration,
+      row.deliveryMode,
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -475,7 +493,15 @@ const AttendanceReportPage = () => {
             </BreadcrumbItem>
           }
         />
-        <Button onClick={fetchRowItems}>Refresh Report</Button>
+        <Flex gap={2}>
+          <ExportMenu
+            rows={csvRows}
+            filename="attendance-report"
+            title="Attendance Report"
+            isDisabled={attendanceRows.length === 0}
+          />
+          <Button onClick={fetchRowItems}>Refresh Report</Button>
+        </Flex>
       </Box>
 
       <Flex

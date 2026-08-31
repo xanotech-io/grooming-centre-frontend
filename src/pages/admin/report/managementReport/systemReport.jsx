@@ -7,6 +7,7 @@ import {
   Text,
   Spinner,
   DashboardMetricCard,
+  ExportMenu,
 } from "../../../../components";
 import { EmptyState } from "../../../../layouts";
 import dayjs from "dayjs";
@@ -156,8 +157,30 @@ const SystemReport = () => {
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
+  const csvRows = [
+    ["User", "Role", "Login (weekly)", "Avg. Duration (mins)", "Device", "Browser Type", "Last Login"],
+    ...rows.map((row) => [
+      row.user,
+      row.role,
+      row.loginWeekly,
+      row.avgDuration,
+      row.device,
+      row.browserType,
+      row.lastLogin,
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
+      <Flex justifyContent="flex-end" mb={4}>
+        {rows.length > 0 && (
+          <ExportMenu
+            rows={csvRows}
+            filename="system-report"
+            title="System Report"
+          />
+        )}
+      </Flex>
       <Box
         display={"grid"}
         gridTemplateColumns="repeat(4, 1fr)"

@@ -37,6 +37,7 @@ import { Route, useHistory } from 'react-router-dom';
 import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 import { AdminMainAreaWrapper } from '../../../layouts';
+import { ExportMenu } from '../../../components';
 import QuestionBankUsageReport from './QuestionBankUsageReport';
 import RandomizationIntegrityReport from './RandomizationIntegrityReport';
 import ProctoringAuditReport from './ProctoringAuditReport';
@@ -141,6 +142,21 @@ const lineChartData = {
   ],
 };
 
+const examinationReportRows = [
+  ['Student ID', 'Name', 'Exam', 'Time (mins)', 'Score (%)', 'Correct', 'Incorrect', 'Rank', 'Status'],
+  ...studentResults.map((r) => [
+    r.id,
+    r.name,
+    r.exam,
+    r.time,
+    r.score,
+    r.correct,
+    r.incorrect,
+    r.rank,
+    r.status,
+  ]),
+];
+
 const ReportListingPage = () => {
   const history = useHistory();
   const { isOpen: isScheduleOpen, onOpen: onScheduleOpen, onClose: onScheduleClose } = useDisclosure();
@@ -164,9 +180,11 @@ const ReportListingPage = () => {
           >
             Schedule report
           </Button>
-          <Button bg="#660066" color="white" _hover={{ bg: "#550055" }} borderRadius="md" size="md" fontSize="16px" fontWeight="600">
-            Export Report
-          </Button>
+          <ExportMenu
+            rows={examinationReportRows}
+            filename="examination-report"
+            title="Exam Result Analysis Report"
+          />
         </HStack>
       </Flex>
 

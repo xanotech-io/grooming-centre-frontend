@@ -27,6 +27,7 @@ import {
 } from '@chakra-ui/react';
 import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { motion } from 'framer-motion';
+import { exportRowsToCsv, exportRowsToExcel, exportRowsToPdf } from '../../../utils';
 
 // Mock Data
 const stats = [
@@ -116,6 +117,49 @@ const reportData = [
     remark: 'Follow up needed',
   },
 ];
+
+const buildExportRows = (row) => [
+  [
+    "Exam ID",
+    "Student ID",
+    "Student Code",
+    "Examination",
+    "Alerts",
+    "Violation",
+    "Timestamp",
+    "Alert Type",
+    "Proctor",
+    "Remark",
+  ],
+  [
+    row.examId,
+    row.studentId,
+    row.studentCode,
+    row.examination,
+    row.alerts,
+    row.violation,
+    row.timestamp,
+    row.alertType,
+    row.proctor,
+    row.remark,
+  ],
+];
+
+const handleExportCSV = (row) => {
+  exportRowsToCsv(buildExportRows(row), `proctoring-audit-${row.studentCode || row.id}.csv`);
+};
+
+const handleExportPDF = (row) => {
+  exportRowsToPdf(
+    buildExportRows(row),
+    `proctoring-audit-${row.studentCode || row.id}.pdf`,
+    `Proctoring Audit - ${row.studentCode || row.id}`,
+  );
+};
+
+const handleExportExcel = (row) => {
+  exportRowsToExcel(buildExportRows(row), `proctoring-audit-${row.studentCode || row.id}.xlsx`);
+};
 
 const ProctoringAuditReport = () => {
   const history = useHistory();
@@ -268,7 +312,9 @@ const ProctoringAuditReport = () => {
                       <MenuButton as={IconButton} icon={<FiMoreVertical />} borderColor="#E4E7EC" border="1px" variant="ghost" size="sm" borderRadius="md" />
                       <MenuList>
                         <MenuItem fontSize="14px" onClick={() => history.push('/admin/report/audit-details')}>View</MenuItem>
-                        <MenuItem fontSize="14px">Export</MenuItem>
+                        <MenuItem fontSize="14px" onClick={() => handleExportCSV(row)}>Export as CSV</MenuItem>
+                        <MenuItem fontSize="14px" onClick={() => handleExportPDF(row)}>Export as PDF</MenuItem>
+                        <MenuItem fontSize="14px" onClick={() => handleExportExcel(row)}>Export as Excel</MenuItem>
                         <MenuItem fontSize="14px" onClick={() => history.push('/admin/audit')}>Archive report</MenuItem>
                       </MenuList>
                     </Menu>

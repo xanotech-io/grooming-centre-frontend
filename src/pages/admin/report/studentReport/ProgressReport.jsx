@@ -7,6 +7,7 @@ import {
   Breadcrumb,
   Link,
   DashboardMetricCard,
+  ExportMenu,
 } from "../../../../components";
 import { Flex, Box } from "@chakra-ui/layout";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
@@ -370,6 +371,33 @@ const ProgressReport = () => {
       })
     : allCourses;
 
+  const exportRows = [
+    [
+      "Course Title",
+      "Instructor",
+      "Modules Completed",
+      "Completion %",
+      "Assessment",
+      "Exam",
+      "Certificate",
+      "Certificate Eligibility",
+      "Status",
+      "Last Access",
+    ],
+    ...courses.map((c) => [
+      c.courseTitle,
+      resolveInstructor(c.instructor),
+      c.modulesCompleted ?? "",
+      c.completionPercentage != null ? `${c.completionPercentage}%` : "",
+      c.assessmentScore != null ? `${c.assessmentScore}%` : "",
+      c.courseExamScore != null ? `${c.courseExamScore}%` : "",
+      c.certificateEarned === "Yes" ? "Earned" : "Not Yet",
+      c.certificateEligible === "Yes" ? "Yes" : "No",
+      c.completionStatus || "Not Started",
+      c.lastAccessDate ? dayjs(c.lastAccessDate).format("DD/MM/YYYY") : "",
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -400,6 +428,13 @@ const ProgressReport = () => {
           <Button secondary onClick={load}>
             Refresh
           </Button>
+          {courses.length > 0 && (
+            <ExportMenu
+              rows={exportRows}
+              filename="student-progress-report"
+              title="Student Progress Report"
+            />
+          )}
         </Flex>
       </Box>
 
