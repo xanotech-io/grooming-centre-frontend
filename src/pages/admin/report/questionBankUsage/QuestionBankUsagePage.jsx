@@ -57,6 +57,7 @@ import {
   Heading,
   Link,
   DashboardMetricCard,
+  ExportMenu,
 } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
@@ -1096,6 +1097,29 @@ const QuestionBankUsagePage = () => {
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const hasFilters = Object.values(filters).some(Boolean);
 
+  const questionBankExportRows = [
+    [
+      "Question",
+      "Type",
+      "Section",
+      "Course",
+      "Exam",
+      "Difficulty",
+      "Correct Rate",
+      "Last Used",
+    ],
+    ...questions.map((q) => [
+      q.question,
+      qtypeLabel[q.questionType] ?? q.questionType,
+      q.section ?? "—",
+      q.course ?? "—",
+      q.examTitle ?? "—",
+      q.difficultyLevel ?? "—",
+      q.correctResponseRate != null ? `${q.correctResponseRate}%` : "—",
+      fmtDate(q.lastUsedDate),
+    ]),
+  ];
+
   const SortTh = ({ col, children, isNumeric }) => (
     <Th
       isNumeric={isNumeric}
@@ -1290,14 +1314,21 @@ const QuestionBankUsagePage = () => {
                 </Text>
               )}
             </Text>
-            <Button
-              size="sm"
-              secondary
-              onClick={() => fetchTable(filters, page, limit, sort)}
-              leftIcon={<FiRefreshCw />}
-            >
-              Refresh
-            </Button>
+            <Flex gap="8px">
+              <ExportMenu
+                rows={questionBankExportRows}
+                filename="question-bank-usage"
+                title="Question Bank Usage Report"
+              />
+              <Button
+                size="sm"
+                secondary
+                onClick={() => fetchTable(filters, page, limit, sort)}
+                leftIcon={<FiRefreshCw />}
+              >
+                Refresh
+              </Button>
+            </Flex>
           </Flex>
 
           {tableLoading ? (

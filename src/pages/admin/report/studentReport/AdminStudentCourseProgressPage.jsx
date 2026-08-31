@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Route, useParams, useHistory } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 import { Badge, useToast } from "@chakra-ui/react";
-import { Button, Text, Spinner, Breadcrumb, Link, Heading } from "../../../../components";
+import { Button, Text, Spinner, Breadcrumb, Link, Heading, ExportMenu } from "../../../../components";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { DashboardMetricCard } from "../../../../components";
@@ -88,12 +88,65 @@ const AdminStudentCourseProgressPage = () => {
   const acq = acquisitionLevel(data?.averageScore);
   const perfStatus = performanceStatus(completionPct, data?.averageScore);
 
+  const courseProgressExportRows = data
+    ? [
+        ["Field", "Value"],
+        ["Course Title", data.courseTitle ?? "—"],
+        ["Student Name", data.studentName ?? "—"],
+        ["Email", data.email ?? "—"],
+        [
+          "Enrollment Date",
+          data.enrollmentDate ? dayjs(data.enrollmentDate).format("DD MMM YYYY") : "—",
+        ],
+        ["Completion %", `${completionPct}%`],
+        [
+          "Modules Completed",
+          data.modulesCompletedRatio ??
+            `${data.modulesCompleted ?? 0}/${data.totalModules ?? 0}`,
+        ],
+        ["Average Score", data.averageScore != null ? `${data.averageScore}%` : "—"],
+        ["Mastery", acq.label],
+        ["Lessons Completed", String(data.totalLessonsCompleted ?? "—")],
+        ["Activity Rate", `${data.activityRate ?? 0} logins/wk`],
+        ["Performance Status", perfStatus.label],
+        ["Completion Status", data.completionStatus ?? "—"],
+        [
+          "Assessment Score",
+          data.assessmentScore != null ? `${data.assessmentScore}%` : "—",
+        ],
+        [
+          "Course Exam Score",
+          data.courseExamScore != null ? `${data.courseExamScore}%` : "—",
+        ],
+        [
+          "Standalone Exam Score",
+          data.standaloneExamScore != null ? `${data.standaloneExamScore}%` : "—",
+        ],
+        ["Latest Score", data.latestScore != null ? `${data.latestScore}%` : "—"],
+        [
+          "Avg Score per Module",
+          data.averageAssessmentScorePerModule != null
+            ? `${data.averageAssessmentScorePerModule}%`
+            : "—",
+        ],
+        [
+          "Last Access",
+          data.lastAccessDate
+            ? dayjs(data.lastAccessDate).format("DD MMM YYYY, HH:mm")
+            : "—",
+        ],
+        ["Certificate Earned", data.certificateEarned === "Yes" ? "Yes" : "No"],
+        ["Certificate ID", data.certificateId ?? "—"],
+        ["Instructor Remarks", data.instructorRemarks ?? "No remarks from instructor yet."],
+      ]
+    : [["Field", "Value"]];
+
   return (
     <AdminMainAreaWrapper>
       {/* Breadcrumb */}
       <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
         <Breadcrumb
-          
+
           item2={
             <BreadcrumbItem>
               <Link href={`/admin/report/studentReport/${studentId}/progress`}>
@@ -107,14 +160,21 @@ const AdminStudentCourseProgressPage = () => {
             </BreadcrumbItem>
           }
         />
-        <Button
-          secondary
-          onClick={() =>
-            history.push(`/admin/report/studentReport/${studentId}/progress`)
-          }
-        >
-          ← Back to Progress
-        </Button>
+        <Flex gap="8px">
+          <ExportMenu
+            rows={courseProgressExportRows}
+            filename="student-course-progress"
+            title="Student Course Progress"
+          />
+          <Button
+            secondary
+            onClick={() =>
+              history.push(`/admin/report/studentReport/${studentId}/progress`)
+            }
+          >
+            ← Back to Progress
+          </Button>
+        </Flex>
       </Box>
 
       {loading ? (

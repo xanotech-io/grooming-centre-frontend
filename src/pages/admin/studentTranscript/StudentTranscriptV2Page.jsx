@@ -53,7 +53,7 @@ import {
 } from "@chakra-ui/react";
 import { FiRefreshCw, FiEye, FiCheck, FiRotateCcw, FiUpload, FiSearch, FiChevronDown, FiX } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { TranscriptCertificateModal } from "../../../components";
+import { ExportMenu, TranscriptCertificateModal } from "../../../components";
 import {
   listTranscriptRequests,
   getTranscript,
@@ -916,6 +916,29 @@ function StudentTranscriptV2Page() {
   const issuedCount = transcripts.filter((t) => t.status === "Issued").length;
   const returnedCount = transcripts.filter((t) => t.status === "Returned").length;
 
+  const transcriptQueueExportRows = [
+    [
+      "Student",
+      "Email",
+      "Type",
+      "Status",
+      "Courses",
+      "Issuance Ref",
+      "Requested",
+      "Issued At",
+    ],
+    ...transcripts.map((t) => [
+      `${t.student?.firstName ?? ""} ${t.student?.lastName ?? ""}`.trim() || "—",
+      t.student?.email ?? "—",
+      t.transcriptType ?? "—",
+      t.status ?? "—",
+      String((t.courseRecords || []).length),
+      t.issuanceReference ?? "—",
+      t.requestDate ? new Date(t.requestDate).toLocaleDateString() : "—",
+      t.issuedAt ? new Date(t.issuedAt).toLocaleDateString() : "—",
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box p={6}>
@@ -926,9 +949,16 @@ function StudentTranscriptV2Page() {
               Instructor posting, admin review queue, and department analytics
             </Text>
           </Box>
-          <Tooltip label="Refresh">
-            <IconButton size="sm" variant="outline" icon={<FiRefreshCw />} onClick={fetchTranscripts} />
-          </Tooltip>
+          <Flex gap="8px" align="center">
+            <ExportMenu
+              rows={transcriptQueueExportRows}
+              filename="student-transcript-review-queue"
+              title="Student Transcript Review Queue"
+            />
+            <Tooltip label="Refresh">
+              <IconButton size="sm" variant="outline" icon={<FiRefreshCw />} onClick={fetchTranscripts} />
+            </Tooltip>
+          </Flex>
         </Flex>
 
         <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4} mb={6}>

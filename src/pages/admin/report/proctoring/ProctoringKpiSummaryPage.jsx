@@ -9,7 +9,7 @@ import { BreadcrumbItem } from '@chakra-ui/react';
 import { FiArrowLeft } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import { AdminMainAreaWrapper } from '../../../../layouts/admin/MainArea/Wrapper';
-import { Breadcrumb, Button, Heading, Link } from '../../../../components';
+import { Breadcrumb, Button, ExportMenu, Heading, Link } from '../../../../components';
 import { getProctoringAuditKpi } from '../../../../services';
 
 const StatCard = ({ label, value, accent }) => (
@@ -64,6 +64,27 @@ const ProctoringKpiSummaryPageContent = () => {
     ? (data.actionBreakdown?.warning_issued ?? 0) + (data.actionBreakdown?.exam_paused ?? 0) + (data.actionBreakdown?.exam_suspended ?? 0)
     : 0;
 
+  const exportRows = [
+    ["Metric", "Value"],
+    ...(data
+      ? [
+          ["Total Events", data.totalEvents ?? ""],
+          ["Unique Students", data.uniqueStudents ?? ""],
+          ["Total Sessions", data.totalSessions ?? ""],
+          ["Suspended Sessions", data.totalSuspendedSessions ?? ""],
+          ["Alerts per 100 Students", data.alertsPer100Students ?? ""],
+          ["Violation Frequency (%)", data.violationFrequency ?? ""],
+          ["Avg Proctor Response (min)", data.avgProctorResponseTimeMinutes ?? ""],
+          ["Alert Breakdown - Warnings", data.alertBreakdown?.warning ?? 0],
+          ["Alert Breakdown - Violations", data.alertBreakdown?.violation ?? 0],
+          ["Alert Breakdown - System Flags", data.alertBreakdown?.system_flag ?? 0],
+          ["Action Breakdown - Warning Issued", data.actionBreakdown?.warning_issued ?? 0],
+          ["Action Breakdown - Exam Paused", data.actionBreakdown?.exam_paused ?? 0],
+          ["Action Breakdown - Exam Suspended", data.actionBreakdown?.exam_suspended ?? 0],
+        ]
+      : []),
+  ];
+
   return (
     <Box as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       <Flex align="center" justify="space-between" mb={6} flexWrap="wrap" gap={3}>
@@ -86,6 +107,11 @@ const ProctoringKpiSummaryPageContent = () => {
             w="150px"
             value={filters.endDate}
             onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
+          />
+          <ExportMenu
+            rows={exportRows}
+            filename="proctoring-kpi-summary"
+            title="Proctoring KPI Summary"
           />
         </HStack>
       </Flex>

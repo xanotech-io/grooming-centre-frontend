@@ -60,6 +60,7 @@ const useAssessment = () => {
     success: false,
     error: false,
     loading: false,
+    isAutoSubmit: false,
   });
 
   const toast = useToast();
@@ -102,7 +103,7 @@ const useAssessment = () => {
       } else {
         const answers = assessment?.questions?.map((q) => ({
           questionId: q.id,
-          answer: selectedAnswers[q.id] ?? null,
+          answer: selectedAnswers[q.id] ?? "",
           timeTaken: 0,
         }));
         const body = {
@@ -125,7 +126,7 @@ const useAssessment = () => {
         });
       }
 
-      setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: false }));
+      setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: false, isAutoSubmit }));
     } catch (error) {
       toast({
         title: error.statusCode === 403 ? "Maximum attempts reached" : undefined,
@@ -197,6 +198,12 @@ const useAssessment = () => {
   // Setup UI after success submission
   useEffect(() => {
     if (submitStatus.success) {
+      if (submitStatus.isAutoSubmit) {
+        timerCountdownManger.handleStopCountdown();
+        handleDelete(course_id);
+        push(`/courses/details/${course_id}`);
+        return;
+      }
       handleAfterSubmit();
     }
 

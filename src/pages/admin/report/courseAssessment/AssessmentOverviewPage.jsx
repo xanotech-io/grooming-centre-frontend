@@ -15,6 +15,7 @@ import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
+  ExportMenu,
   Heading,
   Link,
   Spinner,
@@ -354,6 +355,25 @@ const AssessmentOverviewPage = () => {
   const kpiDifficulty =
     kpis?.difficultyImpact ?? kpis?.questionDifficultyImpactAnalysis ?? "—";
 
+  const exportRows = [
+    ["Student", "Assessment", "Course", "Department", "Module", "Score", "Grade", "Result", "Instructor", "Date Taken", "Duration"],
+    ...results.map((item) => [
+      item.studentName ?? "",
+      item.assessmentTitle ?? "",
+      item.courseTitle ?? "",
+      item.departmentName ?? item.department ?? "",
+      item.moduleTitle ?? item.module ?? "",
+      item.score != null ? `${item.score}%` : "",
+      item.grade ?? "",
+      item.passFail ?? "",
+      item.instructorName ?? item.instructor ?? "",
+      item.dateTaken ?? item.submittedAt
+        ? dayjs(item.dateTaken ?? item.submittedAt).format("DD MMM YYYY")
+        : "",
+      item.timeTakenMinutes != null ? `${item.timeTakenMinutes} min` : "",
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       {/* Breadcrumb */}
@@ -383,9 +403,12 @@ const AssessmentOverviewPage = () => {
             Student performance per assessment, module and course — with overall pass rate overview.
           </Text>
         </Box>
-        <Button secondary onClick={() => fetchOverview({})} isLoading={loading}>
-          Refresh
-        </Button>
+        <Flex gap={2}>
+          <ExportMenu rows={exportRows} filename="assessment-overview-report" title="Assessment & Quiz Result Report" />
+          <Button secondary onClick={() => fetchOverview({})} isLoading={loading}>
+            Refresh
+          </Button>
+        </Flex>
       </Flex>
 
       <AssessmentTabBar />

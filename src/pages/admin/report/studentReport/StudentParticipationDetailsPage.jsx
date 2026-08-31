@@ -6,6 +6,7 @@ import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
+  ExportMenu,
   Heading,
   Link,
   Spinner,
@@ -108,6 +109,24 @@ const StudentParticipationDetailsPage = () => {
     ? new Date(student.last_active_date).toLocaleDateString()
     : "—";
 
+  const participationDetailExportRows = [
+    ["Field", "Value"],
+    ["Student Name", student.student_name ?? "—"],
+    ["Email", student.student_email ?? "—"],
+    ["Participation Score", `${student.participation_score ?? 0}%`],
+    ["Engagement Status", status ?? "—"],
+    ["Alert Triggered", alertTriggered ? "Yes" : "No"],
+    ["Frequency of Access", `${student.frequency_of_access ?? 0}`],
+    ["Days Since Active", `${student.days_since_active ?? 0}`],
+    ["Last Active Date", lastActive],
+    ["Activity Types", activityTypes],
+    ["Login Count", `${student.login_count ?? 0}`],
+    ["Quiz Attempts", `${student.quiz_count ?? 0}`],
+    ["Forum Posts", `${student.forum_count ?? 0}`],
+    ["Assignments Submitted", `${student.assignment_count ?? 0}`],
+    ["Remarks", student.remarks ?? "—"],
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
@@ -125,9 +144,16 @@ const StudentParticipationDetailsPage = () => {
             </BreadcrumbItem>
           }
         />
-        <Button onClick={fetchStudentData} secondary>
-          Refresh
-        </Button>
+        <Flex gap="8px">
+          <ExportMenu
+            rows={participationDetailExportRows}
+            filename="student-participation-details"
+            title="Student Participation Details"
+          />
+          <Button onClick={fetchStudentData} secondary>
+            Refresh
+          </Button>
+        </Flex>
       </Box>
 
       {/* Header */}

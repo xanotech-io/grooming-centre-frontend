@@ -58,8 +58,8 @@ const useLiveProctoring = ({ examId, enabled = true, onAutoSubmit } = {}) => {
               "Proctoring violations were detected and your exam has been submitted.",
             status: "error",
             position: "top",
-            duration: null,
-            isClosable: false,
+            duration: 8000,
+            isClosable: true,
           });
           try {
             await onAutoSubmitRef.current?.(nextAction, response);
@@ -98,8 +98,8 @@ const useLiveProctoring = ({ examId, enabled = true, onAutoSubmit } = {}) => {
               "Repeatedly leaving this screen was detected and your exam has been submitted.",
             status: "error",
             position: "top",
-            duration: null,
-            isClosable: false,
+            duration: 8000,
+            isClosable: true,
           });
           try {
             await onAutoSubmitRef.current?.("auto_submit_pending_review", null);

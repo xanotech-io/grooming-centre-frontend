@@ -3,7 +3,7 @@ import { Route } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 import { BreadcrumbItem, Select, useToast } from "@chakra-ui/react";
 import { Tag } from "@chakra-ui/tag";
-import { Breadcrumb, Heading, Link, Table } from "../../../../components";
+import { Breadcrumb, ExportMenu, Heading, Link, Table } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
 import { adminGetAllStudentTranscripts } from "../../../../services";
@@ -75,6 +75,17 @@ const AllStudentTranscriptsPage = () => {
 
   const fetcher = (props) => async () => fetchTranscripts(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
+  const exportRows = [
+    ["Student Name", "Email", "Status", "Request Date", "Issuance Ref"],
+    ...(rows?.data?.rows ?? []).map((r) => [
+      r.studentName,
+      r.email,
+      r.status,
+      r.requestDate,
+      r.issuanceReference,
+    ]),
+  ];
 
   const handleStatusPill = (value) => {
     const next = statusFilter === value ? "" : value;
@@ -162,6 +173,7 @@ const AllStudentTranscriptsPage = () => {
             </BreadcrumbItem>
           }
         />
+        <ExportMenu rows={exportRows} filename="student-transcripts" title="Student Transcripts" />
       </Box>
 
       <Flex

@@ -2,7 +2,7 @@ import { Route, useParams } from "react-router-dom";
 import { Box, Flex, Grid, HStack } from "@chakra-ui/layout";
 import { Badge } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
-import { Heading, Spinner, Text } from "../../../../components";
+import { ExportMenu, Heading, Spinner, Text } from "../../../../components";
 import { getCourseProgress, adminListModules } from "../../../../services";
 import { maxWidthStyles_userPages } from "../../../../theme/breakpoints";
 import { FaCheckCircle, FaRegCircle } from "react-icons/fa";
@@ -71,12 +71,32 @@ const CourseProgressReportPage = () => {
     if (mp.moduleId) moduleProgressMap[mp.moduleId] = mp;
   });
 
+  const displayModules = modules.length > 0 ? modules : progress.moduleProgress || [];
+  const exportRows = [
+    ["Module", "Status", "Completion (%)", "Lessons Completed", "Completed Date"],
+    ...displayModules.map((mod, idx) => {
+      const mp = moduleProgressMap[mod.id] || mod;
+      const pct = mp.completionPercentage ?? 0;
+      const isModDone = mp.isModuleCompleted ?? pct === 100;
+      return [
+        mod.title || `Module ${idx + 1}`,
+        isModDone ? "Done" : pct > 0 ? "In Progress" : "Not started",
+        pct,
+        mp.completedLessonsCount != null ? `${mp.completedLessonsCount}/${mp.totalLessons}` : "",
+        isModDone && mp.completedAt ? dayjs(mp.completedAt).format("MMM D, YYYY") : "",
+      ];
+    }),
+  ];
+
   return (
     <Box paddingY={{ base: 4, laptop: 8 }} paddingX={{ base: 4, laptop: 8 }}>
       <Box {...maxWidthStyles_userPages}>
-        <Heading as="h2" fontSize="heading.h3" mb={6}>
-          Progress Report
-        </Heading>
+        <Flex justifyContent="space-between" alignItems="center" mb={6} flexWrap="wrap" gap={3}>
+          <Heading as="h2" fontSize="heading.h3" mb={0}>
+            Progress Report
+          </Heading>
+          <ExportMenu rows={exportRows} filename="course-progress-report" title="Course Progress Report" />
+        </Flex>
 
         {/* Overall summary card */}
         <Box
