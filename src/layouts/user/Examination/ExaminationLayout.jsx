@@ -155,7 +155,7 @@ const ExaminationLayout = () => {
 
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [selectedAnswers, setSelectedAnswers] = useState({});
-  const [submitStatus, setSubmitStatus] = useState({ success: false, loading: false, error: null });
+  const [submitStatus, setSubmitStatus] = useState({ success: false, loading: false, error: null, isAutoSubmit: false });
   const [submissionMeta, setSubmissionMeta] = useState({});
 
   useEffect(() => {
@@ -195,7 +195,7 @@ const ExaminationLayout = () => {
     try {
       const answers = examination.questions.map((q) => ({
         questionId: q.id,
-        answer: selectedAnswers[q.id] ?? null,
+        answer: selectedAnswers[q.id] ?? "",
       }));
       const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
       const geolocation = await getGeolocationString();
@@ -217,7 +217,7 @@ const ExaminationLayout = () => {
         position: "top",
         status: "success",
       });
-      setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: null }));
+      setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: null, isAutoSubmit }));
     } catch (err) {
       // The request may have already been recorded server-side even though this
       // client-side call failed (dropped connection, timeout, unexpected response
@@ -231,7 +231,7 @@ const ExaminationLayout = () => {
             position: "top",
             status: "success",
           });
-          setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: null }));
+          setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: null, isAutoSubmit }));
           return;
         }
       } catch {
@@ -263,6 +263,10 @@ const ExaminationLayout = () => {
   useEffect(() => {
     if (submitStatus.success) {
       timerManager.handleStopCountdown();
+      if (submitStatus.isAutoSubmit) {
+        push(`/courses/details/${course_id}`);
+        return;
+      }
       modalManager.onOpen();
       setModalCanClose(false);
       setModalPrompt(null);

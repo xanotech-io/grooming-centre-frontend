@@ -3,7 +3,7 @@ import { Route } from 'react-router-dom';
 import { Box, Flex, useDisclosure, useToast, BreadcrumbItem } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { AdminMainAreaWrapper } from '../../../../layouts/admin/MainArea/Wrapper';
-import { Breadcrumb, Button, Heading, Link } from '../../../../components';
+import { Breadcrumb, Button, ExportMenu, Heading, Link } from '../../../../components';
 import {
   getComplianceNotificationKpis,
   getComplianceNotificationDashboard,
@@ -185,6 +185,20 @@ const ComplianceNotificationsPage = () => {
     }
   };
 
+  const exportRows = [
+    ['Recipient', 'Email', 'Course/Exam', 'Entity Type', 'Compliance Status', 'Overdue Status', 'Due Date', 'Last Delivery'],
+    ...rows.map((r) => [
+      r.recipientName ?? '',
+      r.recipientEmail ?? '',
+      r.courseTitle ?? r.examTitle ?? '',
+      r.entityType ?? '',
+      r.complianceStatus ?? '',
+      r.overdueStatus ?? '',
+      r.dueDate ? new Date(r.dueDate).toLocaleDateString() : '',
+      r.lastDeliveryStatus ?? '',
+    ]),
+  ];
+
   return (
     <Box as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <ComplianceKpiCards kpis={kpis} isLoading={kpiLoading} />
@@ -192,18 +206,21 @@ const ComplianceNotificationsPage = () => {
       <Box bg="white" p={4} borderRadius="lg" border="1px solid" borderColor="gray.200" boxShadow="sm" mb={4}>
         <Flex justify="space-between" align="center">
           <Heading as="h3" size="sm" color="#101928">Compliance Notifications</Heading>
-          <Button
-            size="sm"
-            bg="#660066"
-            color="white"
-            _hover={{ bg: '#550055' }}
-            isLoading={bulkSending}
-            onClick={handleBulkSend}
-          >
-            {selectedIds.length > 0
-              ? `Bulk Send (${selectedIds.length} selected)`
-              : 'Bulk Send (active filters)'}
-          </Button>
+          <Flex gap={2}>
+            <ExportMenu rows={exportRows} filename="compliance-notifications" title="Compliance Notifications" />
+            <Button
+              size="sm"
+              bg="#660066"
+              color="white"
+              _hover={{ bg: '#550055' }}
+              isLoading={bulkSending}
+              onClick={handleBulkSend}
+            >
+              {selectedIds.length > 0
+                ? `Bulk Send (${selectedIds.length} selected)`
+                : 'Bulk Send (active filters)'}
+            </Button>
+          </Flex>
         </Flex>
       </Box>
 

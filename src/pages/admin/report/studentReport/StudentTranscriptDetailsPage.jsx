@@ -27,6 +27,7 @@ import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
+  ExportMenu,
   Heading,
   Link,
   Text,
@@ -396,6 +397,20 @@ const StudentTranscriptDetailsPage = () => {
     ? `${transcript.student?.firstName ?? ""} ${transcript.student?.lastName ?? ""}`.trim()
     : "—";
 
+  const courseRecords = transcript?.courseRecords ?? [];
+  const transcriptRecordsExportRows = [
+    ["Course", "Instructor", "Score", "Grade", "Certificate"],
+    ...courseRecords.map((record) => [
+      record.course?.title ?? "—",
+      record.instructor
+        ? `${record.instructor.firstName} ${record.instructor.lastName}`
+        : "—",
+      record.score != null ? `${record.score}%` : "—",
+      record.grade ?? "—",
+      record.certificateIssued ? "Issued" : "Not Issued",
+    ]),
+  ];
+
   const handleDownload = async () => {
     if (!printRef.current) return;
     setDownloading(true);
@@ -431,6 +446,11 @@ const StudentTranscriptDetailsPage = () => {
 
         {!loading && !error && transcript && (
           <Flex gap="8px">
+            <ExportMenu
+              rows={transcriptRecordsExportRows}
+              filename="student-transcript-course-records"
+              title="Student Transcript - Course Records"
+            />
             <Button
               secondary
               leftIcon={<FiDownload />}

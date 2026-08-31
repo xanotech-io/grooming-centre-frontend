@@ -6,6 +6,7 @@ import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
+  ExportMenu,
   Heading,
   Link,
   Table,
@@ -229,6 +230,34 @@ const ParticipationMonitoringPage = () => {
   const fetcher = (props) => async () => fetchReport(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
+  const participationData = rows?.data?.rows ?? [];
+  const participationExportRows = [
+    [
+      "Student Name",
+      "Email",
+      "Participation (%)",
+      "Activity Type",
+      "Frequency",
+      "Last Active",
+      "Days Inactive",
+      "Status",
+      "Alert",
+      "Remarks",
+    ],
+    ...participationData.map((r) => [
+      r.studentName,
+      r.studentEmail,
+      `${r.participationScore}%`,
+      r.activityType,
+      r.frequencyOfAccess,
+      r.lastActiveDate,
+      r.daysSinceActive,
+      r.engagementStatus,
+      r.alertTriggered ? "Yes" : "No",
+      r.remarks,
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -246,7 +275,16 @@ const ParticipationMonitoringPage = () => {
             </BreadcrumbItem>
           }
         />
-        <Button onClick={fetchRowItems}>Refresh Report</Button>
+        <Flex gap="8px">
+          {participationData.length > 0 && (
+            <ExportMenu
+              rows={participationExportRows}
+              filename="participation-monitoring"
+              title="Student Participation Monitoring Report"
+            />
+          )}
+          <Button onClick={fetchRowItems}>Refresh Report</Button>
+        </Flex>
       </Box>
 
       <Flex

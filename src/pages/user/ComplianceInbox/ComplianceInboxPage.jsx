@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Route } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 import { Badge, Select, useToast } from "@chakra-ui/react";
-import { Button, Heading, Spinner, Text } from "../../../components";
+import { Button, ExportMenu, Heading, Spinner, Text } from "../../../components";
 import { getMyComplianceNotifications } from "../../../services";
 import { useCompliancePush } from "../../../hooks";
 import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
@@ -56,16 +56,34 @@ const ComplianceInboxPage = () => {
     },
   });
 
+  const exportRows = [
+    ["Title", "Message", "Type", "Compliance Status", "Sent At"],
+    ...notifications.map((item) => [
+      item.title ?? item.notificationType ?? "",
+      item.message ?? item.body ?? "",
+      item.notificationType ?? "",
+      item.complianceStatus ?? "",
+      item.sentAt ? dayjs(item.sentAt).format("DD MMM YYYY, h:mm A") : "",
+    ]),
+  ];
+
   return (
     <Box px={{ base: 4, md: 10 }} py={8} {...maxWidthStyles_userPages}>
-      <Box mb={6}>
-        <Heading as="h1" fontSize="heading.h2" mb={1}>
-          Compliance Notifications
-        </Heading>
-        <Text color="accent.3">
-          Track reminders, escalations, and deadlines for your compliance requirements.
-        </Text>
-      </Box>
+      <Flex justifyContent="space-between" alignItems="flex-start" mb={6} flexWrap="wrap" gap={3}>
+        <Box>
+          <Heading as="h1" fontSize="heading.h2" mb={1}>
+            Compliance Notifications
+          </Heading>
+          <Text color="accent.3">
+            Track reminders, escalations, and deadlines for your compliance requirements.
+          </Text>
+        </Box>
+        <ExportMenu
+          rows={exportRows}
+          filename="compliance-notifications"
+          title="Compliance Notifications"
+        />
+      </Flex>
 
       <Box bg="white" border="1px" borderColor="gray.200" borderRadius="md" p={4} mb={6} shadow="sm">
         <Flex gap={3} flexWrap="wrap" alignItems="flex-end">

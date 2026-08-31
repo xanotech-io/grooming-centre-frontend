@@ -4,7 +4,7 @@ import { InputGroup, InputLeftElement, Input } from "@chakra-ui/react";
 import { Route } from "react-router-dom";
 import { BsSearch } from "react-icons/bs";
 import { AiOutlineDown } from "react-icons/ai";
-import { Heading, Table, Breadcrumb, Link, Text, Button } from "../../../../components";
+import { Heading, Table, Breadcrumb, ExportMenu, Link, Text, Button } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { adminGetStudentProgressListing } from "../../../../services";
@@ -213,6 +213,16 @@ const StudentProgressListingPage = () => {
 
   const totalPages = Math.ceil((filteredStudents.length || 0) / PAGE_SIZE);
 
+  const exportRows = [
+    ["Student ID", "Full Name", "Email Address", "Department"],
+    ...filteredStudents.map((s) => [
+      s.userId?.text ?? "",
+      s.fullName?.text ?? "",
+      s.email ?? "",
+      s.department ?? "",
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
@@ -264,6 +274,7 @@ const StudentProgressListingPage = () => {
         </InputGroup>
 
         <SortDropdown sortOrder={sortOrder} onSort={handleSort} />
+        <ExportMenu rows={exportRows} filename="student-progress-listing" title="Student Progress Report" />
       </Flex>
 
       <Box overflowX="auto" width="100%">

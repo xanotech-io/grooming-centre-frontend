@@ -11,7 +11,7 @@ import {
   FaGraduationCap,
   FaAward,
 } from "react-icons/fa";
-import { Button, Heading, Text, TranscriptCertificateModal } from "../../../components";
+import { Button, ExportMenu, Heading, Text, TranscriptCertificateModal } from "../../../components";
 import { studentRequestTranscript } from "../../../services";
 import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
 
@@ -91,6 +91,16 @@ const TranscriptRequestPage = () => {
   if (result) {
     const { transcript, summary } = result;
     const isIssued = transcript.status === "Issued";
+
+    const exportRows = [
+      ["Course", "Score (%)", "Grade", "Certificate"],
+      ...(transcript.courseRecords ?? []).map((record) => [
+        record.courseTitle ?? "",
+        record.score ?? "",
+        record.grade ?? "",
+        record.certificateId || record.certificateIssued ? "Issued" : "Not issued",
+      ]),
+    ];
 
     return (
       <Box px={{ base: 4, md: 10 }} py={8} {...maxWidthStyles_userPages}>
@@ -180,9 +190,16 @@ const TranscriptRequestPage = () => {
           </Grid>
 
           {/* Course records */}
-          <Heading as="h3" fontSize="heading.h4" mb={4}>
-            Course Records
-          </Heading>
+          <Flex justifyContent="space-between" alignItems="center" mb={4} flexWrap="wrap" gap={3}>
+            <Heading as="h3" fontSize="heading.h4" mb={0}>
+              Course Records
+            </Heading>
+            <ExportMenu
+              rows={exportRows}
+              filename="transcript-course-records"
+              title="Transcript Course Records"
+            />
+          </Flex>
           <Box
             bg="white"
             border="1px"

@@ -8,6 +8,7 @@ import {
   Spinner,
   DashboardMetricCard,
   Breadcrumb,
+  ExportMenu,
   Link,
 } from "../../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
@@ -167,6 +168,33 @@ const AssignmentGrading = () => {
   const fetcher = (props) => async () => fetchReports(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
+  const gradingRows = rows?.data?.rows ?? [];
+
+  const exportRows = [
+    [
+      "Assignment",
+      "Course",
+      "Total Submissions",
+      "Graded",
+      "Pending",
+      "Average Grade",
+      "Feedback Provided (%)",
+      "Submission Deadline",
+    ],
+    ...gradingRows.map((row) => [
+      row.assignment || "",
+      row.course || "",
+      row.totalSubmissions ?? "",
+      row.graded ?? "",
+      row.pending ?? "",
+      row.averageGrade ?? "",
+      row.feedbackProvidedPercent ?? "",
+      row.submissionDeadline
+        ? dayjs(row.submissionDeadline).format("DD/MM/YYYY h:mm A")
+        : "",
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -186,6 +214,11 @@ const AssignmentGrading = () => {
               <Link href="#">Assignment Grading</Link>
             </BreadcrumbItem>
           }
+        />
+        <ExportMenu
+          rows={exportRows}
+          filename="assignment-grading-report"
+          title="Assignment Grading Report"
         />
       </Box>
       <Box display={"flex"} justifyContent="space-between" mb={10} gap={4}>
