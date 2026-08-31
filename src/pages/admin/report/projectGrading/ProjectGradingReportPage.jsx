@@ -546,7 +546,9 @@ const DetailDrawer = ({ projectId, isOpen, onClose }) => {
                     Avg Grade
                   </Text>
                   <Text fontWeight="bold" fontSize="lg">
-                    {d.averageGrade ?? "—"} / {d.maxGrade ?? 100}
+                    {d.averageGrade != null
+                      ? `${Math.round((d.averageGrade / (d.maxGrade ?? 100)) * 100)}%`
+                      : "—"}
                   </Text>
                 </Box>
               </Grid>
@@ -1294,7 +1296,7 @@ const ProjectGradingReportPage = () => {
                     </Td>
                     <Td isNumeric>
                       {r.averageGrade != null
-                        ? `${r.averageGrade} / ${r.maxGrade ?? 100}`
+                        ? `${Math.round((r.averageGrade / (r.maxGrade ?? 100)) * 100)}%`
                         : "—"}
                     </Td>
                     <Td>

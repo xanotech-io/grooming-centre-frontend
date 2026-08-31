@@ -37,8 +37,6 @@ import {
   TabPanel,
   useDisclosure,
   BreadcrumbItem,
-  Wrap,
-  WrapItem,
   IconButton,
 } from "@chakra-ui/react";
 import { convertFromRaw } from "draft-js";
@@ -514,10 +512,16 @@ const AssessmentAnalyticsPage = () => {
       setStandaloneStats(Array.isArray(payload?.standalone_stats) ? payload.standalone_stats : []);
     } catch {
       console.warn("[AssessmentAnalytics] GET /assessment-analytics-v2/report failed, using mock");
+      const filteredMock = MOCK_QUESTIONS.filter((q) => (
+        (!filters.courseId || q.course_id === filters.courseId)
+        && (!filters.examId || q.exam_id === filters.examId)
+        && (!filters.questionType || q.question_type === filters.questionType)
+        && (!filters.difficultyLevel || q.difficulty_level === filters.difficultyLevel)
+      ));
       setSummary(MOCK_SUMMARY);
       setAssessmentSummary(null);
-      setRows(MOCK_QUESTIONS);
-      setTotal(MOCK_QUESTIONS.length);
+      setRows(filteredMock);
+      setTotal(filteredMock.length);
       setTotalPages(1);
       setAssessmentStats(MOCK_ASSESSMENT_STATS);
       setStandaloneStats([]);
@@ -638,32 +642,6 @@ const AssessmentAnalyticsPage = () => {
           colorScheme={VALIDITY_COLORS[assessmentSummary?.assessment_validity ?? summary?.assessment_validity] ?? "gray"}
         />
       </SimpleGrid>
-
-      {/* Distribution breakdowns */}
-      {summary && (
-        <Flex gap={6} mb={6} wrap="wrap">
-          <Box>
-            <Text fontSize="xs" fontWeight="semibold" color="gray.500" mb={2}>DIFFICULTY DISTRIBUTION</Text>
-            <Wrap>
-              {Object.entries(summary.difficulty_distribution ?? {}).map(([k, v]) => (
-                <WrapItem key={k}>
-                  <Badge colorScheme={DIFFICULTY_COLORS[k] ?? "gray"} px={2} py={1}>{k}: {v}</Badge>
-                </WrapItem>
-              ))}
-            </Wrap>
-          </Box>
-          <Box>
-            <Text fontSize="xs" fontWeight="semibold" color="gray.500" mb={2}>STATUS DISTRIBUTION</Text>
-            <Wrap>
-              {Object.entries(summary.status_distribution ?? {}).map(([k, v]) => (
-                <WrapItem key={k}>
-                  <Badge colorScheme={STATUS_COLORS[k] ?? "gray"} px={2} py={1}>{k}: {v}</Badge>
-                </WrapItem>
-              ))}
-            </Wrap>
-          </Box>
-        </Flex>
-      )}
 
       {/* Filter toggle */}
       <Flex mb={3} alignItems="center">
