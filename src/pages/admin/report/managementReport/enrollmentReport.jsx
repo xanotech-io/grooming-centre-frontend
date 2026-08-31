@@ -7,6 +7,7 @@ import {
   Text,
   Spinner,
   DashboardMetricCard,
+  ExportMenu,
 } from "../../../../components";
 import { EmptyState } from "../../../../layouts";
 import dayjs from "dayjs";
@@ -152,9 +153,32 @@ const EnrollmentReport = () => {
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
+  const csvRows = [
+    ["Course", "Instructor", "Total", "Approved", "Completed", "Dropped", "Trends"],
+    ...rows.map((row) => [
+      row.course,
+      row.instructor,
+      row.total,
+      row.approved,
+      row.completed,
+      row.dropped,
+      row.trend,
+    ]),
+  ];
+
   return (
     <>
       <AdminMainAreaWrapper>
+        <Flex justifyContent="flex-end" mb={4}>
+          {rows.length > 0 && (
+            <ExportMenu
+              rows={csvRows}
+              filename="enrollment-report"
+              title="Enrollment Report"
+            />
+          )}
+        </Flex>
         <Box
           display={"flex"}
           // width={'100%'}

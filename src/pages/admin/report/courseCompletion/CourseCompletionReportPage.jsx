@@ -33,7 +33,7 @@ import {
   FiChevronUp,
 } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Breadcrumb, Button, Heading, Link, Spinner } from "../../../../components";
+import { Breadcrumb, Button, ExportMenu, Heading, Link, Spinner } from "../../../../components";
 import {
   adminGetEnrollmentStatusStudents,
   adminGetEnrollmentStatusCourses,
@@ -470,6 +470,23 @@ const CourseCompletionReportPage = () => {
     fetchCourses(coursesPage, appliedCourseFilters);
   };
 
+  const studentsExportRows = [
+    ["Student", "Email", "Department", "Instructor", "Course", "Enrolled On", "Student Status", "Engagement", "Last Active", "Progress %", "Dropout"],
+    ...studentsData.map((row) => [
+      row.student_name,
+      row.student_email,
+      row.department_name || "—",
+      row.instructor_name || "—",
+      row.course_title,
+      fmt(row.enrollment_date),
+      row.student_status,
+      row.engagement_status,
+      fmt(row.last_active_date),
+      pct(row.progress_percentage),
+      row.is_dropout ? "Yes" : "No",
+    ]),
+  ];
+
   // ── Filter option lists ───────────────────────────────────────────────────
 
   const courseOptions = courses.map((c) => ({ value: c.id, label: c.title }));
@@ -502,7 +519,16 @@ const CourseCompletionReportPage = () => {
             Enrollment status, pass rates, and completion data in one view
           </ChakraText>
         </Box>
-        <Button secondary onClick={handleRefresh} style={{ flexShrink: 0 }}>Refresh</Button>
+        <Flex gap={2} flexShrink={0}>
+          {studentsData.length > 0 && (
+            <ExportMenu
+              rows={studentsExportRows}
+              filename="course-completion-report"
+              title="Course Completion & Pass Rate Report"
+            />
+          )}
+          <Button secondary onClick={handleRefresh} style={{ flexShrink: 0 }}>Refresh</Button>
+        </Flex>
       </Flex>
 
       {/* KPI Cards */}

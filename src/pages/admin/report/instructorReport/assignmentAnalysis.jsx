@@ -8,6 +8,7 @@ import {
   Spinner,
   DashboardMetricCard,
   Breadcrumb,
+  ExportMenu,
   Link,
 } from "../../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
@@ -222,6 +223,21 @@ const AssignmentAnalysis = () => {
     });
   };
 
+  const assignmentRows = rows?.data?.rows ?? [];
+
+  const assignmentExportRows = [
+    ["Question ID", "Course Title", "Question Type", "Difficulty", "Attempts", "Correct (%)", "Average Time"],
+    ...assignmentRows.map((row) => [
+      row.questionId,
+      row.courseTitle,
+      row.questionType,
+      row.difficulty,
+      row.attempts,
+      row.correctLabel,
+      row.averageTime,
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -242,9 +258,18 @@ const AssignmentAnalysis = () => {
             </BreadcrumbItem>
           }
         />
-        <Button secondary onClick={handleBulkFlagQuestions}>
-          Bulk Flag Questions
-        </Button>
+        <Flex gap={2}>
+          {assignmentRows.length > 0 && (
+            <ExportMenu
+              rows={assignmentExportRows}
+              filename="assignment-analysis-report"
+              title="Assignment Analysis Report"
+            />
+          )}
+          <Button secondary onClick={handleBulkFlagQuestions}>
+            Bulk Flag Questions
+          </Button>
+        </Flex>
       </Box>
       <Box display={"flex"} justifyContent="space-between" gridGap={4} mb={10}>
         <DashboardMetricCard

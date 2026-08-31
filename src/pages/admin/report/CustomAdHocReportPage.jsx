@@ -38,16 +38,28 @@ import {
 } from 'react-icons/fi';
 import { Route, useHistory } from 'react-router-dom';
 import { AdminMainAreaWrapper } from '../../../layouts';
+import { ExportMenu } from '../../../components';
 import ScheduleReportModal from './components/ScheduleReportModal';
 
 const CustomAdHocReportPage = () => {
   const history = useHistory();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [status, setStatus] = useState('Draft'); // 'Draft' or 'Finalized'
-  
+
   const userFields = ['Full name', 'User ID', 'Email address', 'Department'];
   const courseFields = ['Course name', 'Course code', 'Instructor'];
   const enrollmentFields = ['Enrollment date', 'Status', 'Completion date'];
+
+  const resultsData = [
+    { name: 'John Doe', courseCode: 'Microfinance Basics', enrollmentDate: '26/11/2025 - 26/12/2025' },
+    { name: 'John Doe', courseCode: 'Microfinance Basics', enrollmentDate: '26/11/2025 - 26/12/2025' },
+    { name: 'John Doe', courseCode: 'Microfinance Basics', enrollmentDate: '26/11/2025 - 26/12/2025' },
+  ];
+
+  const exportRows = [
+    ['Name', 'Course Code', 'Enrollment Date'],
+    ...resultsData.map((r) => [r.name, r.courseCode, r.enrollmentDate]),
+  ];
 
   return (
     <AdminMainAreaWrapper>
@@ -62,9 +74,12 @@ const CustomAdHocReportPage = () => {
               Schedule report
             </Button>
           )}
-          <Button bg="#660066" color="white" _hover={{ bg: "#550055" }} borderRadius="md" size="md" fontSize="14px" fontWeight="600">
-            Export Report
-          </Button>
+          <ExportMenu
+            rows={exportRows}
+            filename="custom-ad-hoc-report"
+            title="Custom / Ad Hoc Report"
+            isDisabled={!resultsData.length}
+          />
         </HStack>
       </Flex>
 

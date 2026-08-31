@@ -16,6 +16,7 @@ import {
   DashboardMetricCard,
   Breadcrumb,
   Link,
+  ExportMenu,
 } from "../../../../components";
 import {
   BreadcrumbItem,
@@ -578,6 +579,32 @@ const AttendanceReport = () => {
     fetchRowItems({ params: lastParamsRef.current });
   };
 
+  const attendanceReportData = rows?.data?.rows ?? [];
+  const attendanceReportRows = [
+    [
+      "Course",
+      "Lesson / Session",
+      "Session Date",
+      "Status",
+      "Entry Time",
+      "Exit Time",
+      "Duration",
+      "Mode",
+    ],
+    ...attendanceReportData.map((r) => [
+      r.courseTitle?.title ?? "",
+      r.lessonTitle,
+      r.sessionDate && r.sessionDate !== "—"
+        ? dayjs(r.sessionDate).format("DD/MM/YYYY")
+        : r.sessionDate,
+      r.attendanceStatus,
+      r.entryTime,
+      r.exitTime,
+      r.duration,
+      r.deliveryMode,
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -598,7 +625,16 @@ const AttendanceReport = () => {
             </BreadcrumbItem>
           }
         />
-        <Button onClick={recordModal.onOpen}>Record Attendance</Button>
+        <Flex gap="8px">
+          {rows?.data?.rows?.length > 0 && (
+            <ExportMenu
+              rows={attendanceReportRows}
+              filename="attendance-report"
+              title="Attendance Report"
+            />
+          )}
+          <Button onClick={recordModal.onOpen}>Record Attendance</Button>
+        </Flex>
       </Box>
 
       <Box display="flex" justifyContent="space-between" gap={4} mb={8}>

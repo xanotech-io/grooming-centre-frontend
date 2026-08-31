@@ -25,7 +25,7 @@ import {
   FiChevronDown,
 } from 'react-icons/fi';
 import { AdminMainAreaWrapper } from '../../../layouts';
-import { Breadcrumb, Link } from '../../../components';
+import { Breadcrumb, ExportMenu, Link } from '../../../components';
 import ScheduleReportModal from './components/ScheduleReportModal';
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
@@ -156,6 +156,11 @@ const ComplianceSecurityReportPage = () => {
   const toggleRow = (idx) =>
     setSelectedRows((prev) => (prev.includes(idx) ? prev.filter((r) => r !== idx) : [...prev, idx]));
 
+  const exportRows = [
+    ['Event ID', 'User', 'Role', 'Action', 'Module', 'Date', 'Time', 'IP Address', 'Status'],
+    ...filtered.map((r) => [r.id, r.user, r.role, r.action, r.module, r.date, r.time, r.ip, r.status]),
+  ];
+
   const COLUMNS = [
     { label: 'Event ID', flex: '1' },
     { label: 'User', flex: '1' },
@@ -198,18 +203,12 @@ const ComplianceSecurityReportPage = () => {
           >
             Schedule report
           </Button>
-          <Button
-            bg="#6b006b"
-            color="white"
-            _hover={{ bg: '#550055' }}
-            borderRadius="8px"
-            fontWeight="600"
-            fontSize="14px"
-            height="42px"
-            px={6}
-          >
-            Export Report
-          </Button>
+          <ExportMenu
+            rows={exportRows}
+            filename="compliance-security-report"
+            title="Compliance & Security Reports"
+            isDisabled={filtered.length === 0}
+          />
         </HStack>
       </Flex>
 

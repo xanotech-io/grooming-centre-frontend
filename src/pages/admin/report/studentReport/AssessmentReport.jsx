@@ -9,6 +9,7 @@ import {
   DashboardMetricCard,
   Breadcrumb,
   Link,
+  ExportMenu,
 } from "../../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import dayjs from "dayjs";
@@ -278,6 +279,30 @@ const AssessmentReport = () => {
   const fetcher = (props) => async () => fetchReports(studentId, props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
+  const assessmentReportData = rows?.data?.rows ?? [];
+  const assessmentReportRows = [
+    [
+      "Course",
+      "Assessment Title",
+      "Type",
+      "Date Taken",
+      "Score",
+      "Percentage",
+      "Grade",
+      "Result",
+    ],
+    ...assessmentReportData.map((r) => [
+      r.courseName,
+      r.title,
+      r.type,
+      r.dateTaken ? dayjs(r.dateTaken).format("DD/MM/YYYY") : "",
+      r.score,
+      r.percentage,
+      r.grade,
+      r.passFailStatus,
+    ]),
+  ];
+
   return (
     <>
       <AdminMainAreaWrapper>
@@ -299,6 +324,13 @@ const AssessmentReport = () => {
               </BreadcrumbItem>
             }
           />
+          {rows?.data?.rows?.length > 0 && (
+            <ExportMenu
+              rows={assessmentReportRows}
+              filename="assessment-report"
+              title="Assessment & Quizzes Report"
+            />
+          )}
         </Box>
 
         <Box display="flex" justifyContent="space-between" gridGap={4} mb={10}>

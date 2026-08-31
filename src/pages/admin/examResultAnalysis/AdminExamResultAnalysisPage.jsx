@@ -48,7 +48,7 @@ import {
   FiUsers,
   FiBarChart2,
 } from "react-icons/fi";
-import { Heading, Spinner, Text, Button, Breadcrumb, Link } from "../../../components";
+import { Heading, Spinner, Text, Button, Breadcrumb, Link, ExportMenu } from "../../../components";
 import {
   adminGetExamFullReport,
   adminGetExamLeaderboard,
@@ -672,6 +672,23 @@ const AdminExamResultAnalysisPage = () => {
     openDrawer();
   };
 
+  const students = report?.students ?? [];
+  const exportRows = [
+    ["Student", "Email", "Score (%)", "Grade", "Accuracy (%)", "Correct", "Wrong", "Time (min)", "Rank", "Status"],
+    ...students.map((s) => [
+      s.studentName ?? "",
+      s.email ?? "",
+      s.totalScore ?? "",
+      s.grade ?? "",
+      s.accuracy ?? "",
+      s.correctAnswers ?? "",
+      s.wrongAnswers ?? "",
+      s.timeTaken ?? "",
+      s.rank ?? "",
+      s.status ?? "",
+    ]),
+  ];
+
   const tabStyle = {
     fontSize: "14px",
     fontWeight: "500",
@@ -706,16 +723,24 @@ const AdminExamResultAnalysisPage = () => {
             Comprehensive exam performance breakdown for instructors and admins
           </Text>
         </Box>
-        <Button
-          secondary
-          onClick={() => {
-            fetchReport();
-            if (tabIndex === TAB_LEADERBOARD) fetchLeaderboard();
-            if (tabIndex === TAB_ANALYTICS) fetchChartData();
-          }}
-        >
-          Refresh
-        </Button>
+        <Flex gap={3} alignItems="center">
+          <ExportMenu
+            rows={exportRows}
+            filename="exam-result-analysis"
+            title="Exam Result Analysis"
+            isDisabled={students.length === 0}
+          />
+          <Button
+            secondary
+            onClick={() => {
+              fetchReport();
+              if (tabIndex === TAB_LEADERBOARD) fetchLeaderboard();
+              if (tabIndex === TAB_ANALYTICS) fetchChartData();
+            }}
+          >
+            Refresh
+          </Button>
+        </Flex>
       </Flex>
 
       {/* Mini tab bar */}

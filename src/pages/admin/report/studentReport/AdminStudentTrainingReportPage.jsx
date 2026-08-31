@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Route, useParams, useHistory } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/layout";
 import { Badge, useToast } from "@chakra-ui/react";
-import { Button, Text, Spinner, Breadcrumb, Link, Heading } from "../../../../components";
+import { Button, Text, Spinner, Breadcrumb, Link, Heading, ExportMenu } from "../../../../components";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { DashboardMetricCard } from "../../../../components";
@@ -80,6 +80,31 @@ const AdminStudentTrainingReportPage = () => {
   const activity = report?.activityMetrics ?? {};
   const courses = report?.courses ?? [];
 
+  const trainingReportRows = [
+    [
+      "Course",
+      "Modules Completed",
+      "Completion %",
+      "Status",
+      "Assessment Score",
+      "Exam Score",
+      "Average Score",
+      "Certificate",
+      "Last Access",
+    ],
+    ...courses.map((c) => [
+      c.courseTitle,
+      c.modulesCompleted ?? "",
+      c.completionPercentage != null ? `${c.completionPercentage}%` : "",
+      c.completionStatus ?? "",
+      c.assessmentScore != null ? `${c.assessmentScore}%` : "",
+      c.courseExamScore != null ? `${c.courseExamScore}%` : "",
+      c.averageScore != null ? `${c.averageScore}%` : "",
+      c.certificateEarned ?? "",
+      c.lastAccessDate ? dayjs(c.lastAccessDate).format("DD/MM/YYYY") : "",
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       {/* Header */}
@@ -122,6 +147,13 @@ const AdminStudentTrainingReportPage = () => {
           <Button secondary onClick={fetchReport}>
             Refresh
           </Button>
+          {courses.length > 0 && (
+            <ExportMenu
+              rows={trainingReportRows}
+              filename="student-training-report"
+              title="Student Training & Progress Report"
+            />
+          )}
         </Flex>
       </Box>
 

@@ -20,6 +20,7 @@ import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
+  ExportMenu,
   Heading,
   Link,
   Spinner,
@@ -304,6 +305,29 @@ const VisualAnalyticsDashboardPage = () => {
     setPage(next);
     fetchReport(next, buildParams());
   };
+
+  const exportRows = [
+    [
+      "Student Name",
+      "Student Email",
+      "Course",
+      "Score (%)",
+      "Completion (%)",
+      "Achievement Category",
+      "Visual Indicator",
+      "Remarks",
+    ],
+    ...reportRows.map((r) => [
+      r.student_name ?? "—",
+      r.student_email ?? "—",
+      r.course_title ?? "—",
+      r.performance_metric ?? "—",
+      r.completion_rate ?? "—",
+      r.achievement_category ?? "—",
+      r.visual_indicator ?? "—",
+      r.remarks ?? "—",
+    ]),
+  ];
 
   useEffect(() => {
     fetchDashboard({});
@@ -851,6 +875,14 @@ const VisualAnalyticsDashboardPage = () => {
             >
               Filter
             </Button>
+            {reportRows.length > 0 && (
+              <ExportMenu
+                rows={exportRows}
+                filename="visual-analytics-report"
+                title="Visual Analytics Report"
+                size="sm"
+              />
+            )}
           </Flex>
         </Box>
 

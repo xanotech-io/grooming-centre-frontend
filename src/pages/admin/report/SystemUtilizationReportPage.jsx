@@ -18,6 +18,7 @@ import {
   Link,
   Table,
   Text,
+  ExportMenu,
 } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../hooks";
@@ -124,6 +125,29 @@ const SystemUtilizationReportPage = () => {
 
   const fetcher = (props) => async () => fetchReport(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
+  const exportRows = [
+    [
+      "User Name",
+      "Email",
+      "Role",
+      "Logins / Week",
+      "Avg. Session (min)",
+      "Device",
+      "Browser",
+      "Last Login",
+    ],
+    ...rows.map((r) => [
+      r.userName,
+      r.email,
+      r.role,
+      r.loginsPerWeek,
+      r.averageSessionDuration,
+      r.deviceType,
+      r.browserType,
+      r.lastLoginDate,
+    ]),
+  ];
 
   const activeFilterCount = Object.values(appliedFiltersRef.current).filter(Boolean).length;
 
@@ -383,6 +407,13 @@ const SystemUtilizationReportPage = () => {
             durations, and device/browser breakdowns
           </Text>
         </Box>
+        {rows.length > 0 && (
+          <ExportMenu
+            rows={exportRows}
+            filename="system-utilization-report"
+            title="System Utilization Report"
+          />
+        )}
       </Flex>
 
       <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mb={8}>

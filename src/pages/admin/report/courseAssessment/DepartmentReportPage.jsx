@@ -20,6 +20,7 @@ import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
+  ExportMenu,
   Heading,
   Link,
   Spinner,
@@ -217,6 +218,21 @@ const DepartmentReportPage = () => {
   const kpiAverage = kpis?.averageScore ?? kpis?.averageAssessmentScore ?? 0;
   const kpiDifficulty = kpis?.difficultyImpact ?? kpis?.questionDifficultyImpactAnalysis ?? "—";
 
+  const csvRows = [
+    ["Student", "Assessment", "Course", "Score", "Grade", "Result", "Date Taken"],
+    ...results.map((item) => [
+      item.studentName,
+      item.assessmentTitle,
+      item.courseTitle,
+      item.score,
+      item.grade,
+      item.passFail,
+      item.submittedAt ?? item.dateTaken
+        ? dayjs(item.submittedAt ?? item.dateTaken).format("DD MMM YYYY")
+        : "",
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box my={4}>
@@ -230,10 +246,20 @@ const DepartmentReportPage = () => {
       </Box>
 
       <Box borderBottom="1px" borderColor="accent.2" paddingBottom={5} marginBottom={0}>
-        <Heading as="h1" fontSize="heading.h3">Assessment Reports</Heading>
-        <Text fontSize="sm" color="gray.500" mt={1}>
-          Assessment performance data across courses, departments and the organisation.
-        </Text>
+        <Flex justifyContent="space-between" alignItems="flex-start" gap={4}>
+          <Box>
+            <Heading as="h1" fontSize="heading.h3">Assessment Reports</Heading>
+            <Text fontSize="sm" color="gray.500" mt={1}>
+              Assessment performance data across courses, departments and the organisation.
+            </Text>
+          </Box>
+          <ExportMenu
+            rows={csvRows}
+            filename="department-assessment-report"
+            title="Assessment Reports"
+            isDisabled={results.length === 0}
+          />
+        </Flex>
       </Box>
 
       <AssessmentTabBar />

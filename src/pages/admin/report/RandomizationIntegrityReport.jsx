@@ -35,6 +35,7 @@ import { useHistory } from "react-router-dom";
 import { Bar } from "react-chartjs-2";
 import { motion } from "framer-motion";
 import "leaflet/dist/leaflet.css";
+import { ExportMenu } from "../../../components";
 
 // --- Mock Data ---
 
@@ -166,6 +167,27 @@ const chartOptions = {
     },
   },
 };
+
+const randomizationReportRows = [
+  [
+    "Exam ID",
+    "Student",
+    "Randomization Type",
+    "Irregularity Type",
+    "Irregular Attempt",
+    "IP Address",
+    "Timestamp",
+  ],
+  ...irregularitiesData.map((row) => [
+    row.id,
+    row.student,
+    row.type,
+    row.issue,
+    row.count,
+    row.ip,
+    row.time,
+  ]),
+];
 
 const RandomizationIntegrityReport = () => {
   const history = useHistory();
@@ -309,6 +331,13 @@ const RandomizationIntegrityReport = () => {
           >
             Filter
           </Button>
+          {irregularitiesData.length > 0 && (
+            <ExportMenu
+              rows={randomizationReportRows}
+              filename="randomization-integrity-report"
+              title="Randomization & Integrity Report"
+            />
+          )}
         </Flex>
 
         <Table variant="simple" size="sm">

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import { Box } from "@chakra-ui/layout";
-import { Button, Table, Text, Breadcrumb, Link } from "../../../../components";
+import { Button, Table, Text, Breadcrumb, ExportMenu, Link } from "../../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
@@ -113,6 +113,18 @@ const InstructorReport = () => {
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
+  const instructorRows = rows?.data?.rows ?? [];
+
+  const exportRows = [
+    ["User ID", "Full Name", "Email", "Status"],
+    ...instructorRows.map((row) => [
+      row.userId?.text || row.id,
+      row.fullName?.text || "",
+      row.email || "",
+      row.status?.text || "",
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -132,7 +144,12 @@ const InstructorReport = () => {
           <Button secondary onClick={() => {}}>
             Schedule report
           </Button>
-          <Button onClick={() => {}}>Export Dashboard</Button>
+          <ExportMenu
+            rows={exportRows}
+            filename="instructor-report"
+            title="Instructor / Teaching Reports"
+            isDisabled={instructorRows.length === 0}
+          />
         </Box>
       </Box>
 

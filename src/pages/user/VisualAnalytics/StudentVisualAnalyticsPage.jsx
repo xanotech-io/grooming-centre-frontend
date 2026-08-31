@@ -12,7 +12,7 @@ import {
   Legend,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
-import { Button, Heading, Spinner, Text } from "../../../components";
+import { Button, ExportMenu, Heading, Spinner, Text } from "../../../components";
 import { useApp } from "../../../contexts";
 import { getVisualAnalyticsStudentReport } from "../../../services";
 import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
@@ -103,6 +103,24 @@ const StudentVisualAnalyticsPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId]);
 
+  const exportHeaderRow = [
+    "Course",
+    "My Score (%)",
+    "Class Average (%)",
+    "vs Average",
+    "Achievement",
+    "Remarks",
+  ];
+  const exportDataRows = rows.map((row) => [
+    row.course_title ?? "",
+    row.performance_metric ?? "",
+    row.class_average ?? "",
+    row.comparison_to_average ?? "",
+    row.achievement_category ?? "",
+    row.remarks ?? "",
+  ]);
+  const exportRows = [exportHeaderRow, ...exportDataRows];
+
   // First row used for top-level KPIs
   const first = rows[0] ?? null;
   const theme = achievementTheme(first?.achievement_category);
@@ -165,9 +183,18 @@ const StudentVisualAnalyticsPage = () => {
             learning gaps
           </Text>
         </Box>
-        <Button secondary onClick={fetchData}>
-          Refresh
-        </Button>
+        <Flex gap={3} alignItems="center">
+          {rows.length > 0 && (
+            <ExportMenu
+              rows={exportRows}
+              filename="my-performance-analytics"
+              title="My Performance Analytics"
+            />
+          )}
+          <Button secondary onClick={fetchData}>
+            Refresh
+          </Button>
+        </Flex>
       </Box>
 
       {loading ? (

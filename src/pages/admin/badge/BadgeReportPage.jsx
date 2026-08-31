@@ -15,11 +15,11 @@ import {
   Badge,
   BreadcrumbItem,
 } from "@chakra-ui/react";
-import { Button, Heading, Breadcrumb, Link } from "../../../components";
+import { Breadcrumb, ExportMenu, Heading, Link } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { adminGetBadgeReport } from "../../../services";
 import { capitalizeFirstLetter } from "../../../utils";
-import { FiArrowLeft, FiChevronDown, FiChevronRight, FiDownload } from "react-icons/fi";
+import { FiArrowLeft, FiChevronDown, FiChevronRight } from "react-icons/fi";
 
 const statusBadge = (status) => {
   const active = (status || "").toLowerCase() === "active";
@@ -38,7 +38,7 @@ const statusBadge = (status) => {
   );
 };
 
-const exportCSV = (data) => {
+const buildBadgeReportRows = (data) => {
   const rows = [];
   rows.push([
     "Badge ID",
@@ -74,16 +74,7 @@ const exportCSV = (data) => {
       ]);
     });
   });
-  const csv = rows
-    .map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
-    .join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "badge-report.csv";
-  a.click();
-  URL.revokeObjectURL(url);
+  return rows;
 };
 
 const BadgeReportPage = () => {
@@ -110,6 +101,8 @@ const BadgeReportPage = () => {
 
   const toggleRow = (id) =>
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const exportRows = buildBadgeReportRows(report);
 
   return (
     <AdminMainAreaWrapper>
@@ -152,9 +145,11 @@ const BadgeReportPage = () => {
           </Text>
         </Box>
         {report.length > 0 && (
-          <Button secondary leftIcon={<FiDownload />} onClick={() => exportCSV(report)}>
-            Export CSV
-          </Button>
+          <ExportMenu
+            rows={exportRows}
+            filename="badge-report"
+            title="Badge Issuance Report"
+          />
         )}
       </Flex>
 
