@@ -42,6 +42,7 @@ export const WorkflowSubmitModal = ({
   onSuccess,
   onCreate,
   isSuperAdmin = false,
+  skipWorkflowSubmit = false,
 }) => {
   const toast = useToast();
   const { state: appState } = useApp();
@@ -90,43 +91,49 @@ export const WorkflowSubmitModal = ({
       let finalContentTitle = contentTitle;
 
       // Nothing has been created yet in this flow — creation only happens
-      // once approval is submitted. Creation and approval are separate
-      // endpoints: the create/edit call itself takes no supervisor field
-      // (the backend rejects it), so `onCreate` runs as a plain create.
-      // The supervisor is only ever sent below, on the workflow submit call.
+      // once approval is submitted. Creation and approval are normally
+      // separate endpoints: the create/edit call itself takes no supervisor
+      // field (the backend rejects it), so `onCreate` runs as a plain
+      // create and the supervisor is sent below, on the workflow submit
+      // call. `skipWorkflowSubmit` is for callers whose create/edit
+      // endpoint accepts the supervisor id itself (via the id passed into
+      // `onCreate`) and triggers the workflow on its own — for them, also
+      // calling `adminSubmitWorkflow` here would submit the same request twice.
       if (onCreate) {
-        const created = await onCreate();
+        const created = await onCreate(selectedSupervisorId);
         finalContentId = created?.id;
         finalContentTitle = created?.title ?? contentTitle;
       }
 
-      const payload = {
-        request_type: requestType,
-        content_id: finalContentId,
-        content_title: finalContentTitle,
-        submitted_by: appState.user?.id,
-        // Super admin submissions carry no supervisor assignment. The
-        // backend rejects the key outright for them (even set to null),
-        // so it's left out entirely rather than sent as an explicit null.
-        ...(!isSuperAdmin && { supervisor_id: selectedSupervisorId }),
-        submission_date: new Date().toISOString(),
-      };
+      if (!skipWorkflowSubmit) {
+        const payload = {
+          request_type: requestType,
+          content_id: finalContentId,
+          content_title: finalContentTitle,
+          submitted_by: appState.user?.id,
+          // Super admin submissions carry no supervisor assignment. The
+          // backend rejects the key outright for them (even set to null),
+          // so it's left out entirely rather than sent as an explicit null.
+          ...(!isSuperAdmin && { supervisor_id: selectedSupervisorId }),
+          submission_date: new Date().toISOString(),
+        };
 
-      const { message } = await adminSubmitWorkflow(payload);
+        const { message } = await adminSubmitWorkflow(payload);
 
-      const supervisorName = !isSuperAdmin
-        ? supervisorOptions.find((s) => s.value === selectedSupervisorId)?.label
-        : undefined;
+        const supervisorName = !isSuperAdmin
+          ? supervisorOptions.find((s) => s.value === selectedSupervisorId)?.label
+          : undefined;
 
-      toast({
-        description: supervisorName
-          ? `Submitted to ${supervisorName} for approval successfully.`
-          : capitalizeFirstLetter(
-              message ?? 'Submitted for approval successfully.',
-            ),
-        position: 'top',
-        status: 'success',
-      });
+        toast({
+          description: supervisorName
+            ? `Submitted to ${supervisorName} for approval successfully.`
+            : capitalizeFirstLetter(
+                message ?? 'Submitted for approval successfully.',
+              ),
+          position: 'top',
+          status: 'success',
+        });
+      }
 
       onSuccess?.();
       onClose();
