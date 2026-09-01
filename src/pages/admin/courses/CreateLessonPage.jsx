@@ -2,9 +2,7 @@
 import { useToast } from "@chakra-ui/toast";
 import { Flex, Grid, GridItem } from "@chakra-ui/layout";
 import { Route, useParams, useHistory } from "react-router-dom";
-import { FaSitemap } from "react-icons/fa";
 import {
-  Button,
   DateTimePicker,
   Input,
   RichText,
@@ -15,6 +13,7 @@ import {
   Heading,
   Spinner,
   Text,
+  WorkflowSubmitModal,
 } from "../../../components";
 import { CreatePageLayout } from "../../../layouts";
 import { BreadcrumbItem, Box } from "@chakra-ui/react";
@@ -24,7 +23,6 @@ import {
   useIsSuperAdmin,
   useUpload,
   useRichText,
-  useFetch,
 } from "../../../hooks";
 import {
   appendFormData,
@@ -33,13 +31,10 @@ import {
   populateSelectOptions,
 } from "../../../utils";
 import { useApp, useCache } from "../../../contexts";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   adminCreateLesson,
   adminEditLesson,
-  adminGetDepartmentSupervisors,
-  adminGetAllDepartmentSupervisors,
-  adminSubmitWorkflow,
   auditTrailV2PostLog,
 } from "../../../services";
 import useViewLessonInfo from "./hooks/useViewLessonInfo";
@@ -65,7 +60,7 @@ const CreateLessonPage = () => {
   } = useForm();
 
   const {
-    state: { metadata, user },
+    state: { metadata },
     getOneMetadata,
   } = useApp();
   const file = watch("lessonTypeId");
@@ -77,28 +72,11 @@ const CreateLessonPage = () => {
   const fileManager = useUpload({ previewElementId: "file-video" });
   const contentManager = useRichText();
 
-  const { resource: supervisorsResource, handleFetchResource: fetchSupervisors } =
-    useFetch();
-
-  const supervisorFetcher = useCallback(async () => {
-    const { supervisors } = courseId
-      ? await adminGetDepartmentSupervisors(courseId)
-      : await adminGetAllDepartmentSupervisors();
-    return supervisors;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId]);
-
-  useEffect(() => {
-    if (!isSuperAdmin) {
-      fetchSupervisors({ fetcher: supervisorFetcher });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuperAdmin, fetchSupervisors, supervisorFetcher]);
-
-  const supervisors = Array.isArray(supervisorsResource.data) ? supervisorsResource.data : [];
-  const supervisorOptions = supervisors
-    .filter((s) => s.id)
-    .map((s) => ({ label: `${s.firstName} ${s.lastName}`, value: s.id }));
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowContent, setWorkflowContent] = useState(null);
+  const pendingBodyRef = useRef(null);
+  const pendingTitleRef = useRef(null);
+  const resultLessonIdRef = useRef(null);
 
   const { lesson, isLoading, isError } = useViewLessonInfo();
 
@@ -223,6 +201,7 @@ const CreateLessonPage = () => {
   const performEdit = async (body, title) => {
     try {
       const { message, lesson } = await adminEditLesson(lessonId, body);
+      resultLessonIdRef.current = lesson?.id ?? lessonId;
       handleDelete(lesson.id);
       toast({
         description: capitalizeFirstLetter(message),
@@ -257,6 +236,7 @@ const CreateLessonPage = () => {
         body,
         handleUploadProgress,
       );
+      resultLessonIdRef.current = lesson?.id;
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",
@@ -284,8 +264,15 @@ const CreateLessonPage = () => {
     }
   };
 
+  const goToLessonRoute = (lessonIdForRoute) => {
+    const nextRoute = isModuleScoped
+      ? `/admin/courses/${courseId}/module/${moduleId}/lessons`
+      : `/admin/courses/${courseId}/lesson/${lessonIdForRoute}/view`;
+    push(nextRoute);
+  };
+
   // Handle form submission
-  const onSubmit = async (data, shouldSubmitForApproval = false) => {
+  const onSubmit = async (data) => {
     try {
       const startTime =
         startTimeManager.handleGetValueAndValidate("Start Time");
@@ -309,33 +296,31 @@ const CreateLessonPage = () => {
       if (isEditMode) Reflect.deleteProperty(data, "courseId");
 
       const body = appendFormData(data);
+      pendingBodyRef.current = body;
+      pendingTitleRef.current = data.title;
 
-      const result = isEditMode
-        ? await performEdit(body, data.title)
-        : await performCreate(body, data.title);
+      // Super admins never see the "Submit for Approval" modal — the lesson
+      // is created/edited in one step, with an empty supervisor_id since
+      // there's no one to assign it to; the create/edit endpoint itself
+      // triggers the approval workflow, so there's no separate submit call.
+      if (isSuperAdmin) {
+        body.append("supervisor_id", "");
 
-      if (isSuperAdmin && shouldSubmitForApproval) {
-        const { message } = await adminSubmitWorkflow({
-          request_type: "Lesson",
-          content_id: result?.id ?? lessonId,
-          content_title: data.title,
-          submitted_by: user?.id,
-          submission_date: new Date().toISOString(),
-        });
-        toast({
-          description: capitalizeFirstLetter(
-            message ?? "Submitted for approval successfully.",
-          ),
-          position: "top",
-          status: "success",
-        });
+        const result = isEditMode
+          ? await performEdit(body, data.title)
+          : await performCreate(body, data.title);
+
+        goToLessonRoute(result?.id ?? lessonId);
+        return;
       }
 
-      const lessonIdForRoute = result?.id ?? lessonId;
-      const nextRoute = isModuleScoped
-        ? `/admin/courses/${courseId}/module/${moduleId}/lessons`
-        : `/admin/courses/${courseId}/lesson/${lessonIdForRoute}/view`;
-      push(nextRoute);
+      setWorkflowContent({
+        contentId: isEditMode ? lessonId : undefined,
+        contentTitle: data.title,
+        requestType: "Lesson",
+        courseId,
+      });
+      setWorkflowModalOpen(true);
     } catch (error) {
       toast({
         description: capitalizeFirstLetter(error.message),
@@ -509,37 +494,6 @@ const CreateLessonPage = () => {
               onFileSelect={fileManager.handleFileSelect}
               accept={fileManager.accept}
             />
-            {!isSuperAdmin && (
-              <Box marginTop={"30px"}>
-                <Select
-                  id="supervisor_id"
-                  label="Supervisor"
-                  placeholder="Select a supervisor"
-                  options={supervisorOptions}
-                  isLoading={supervisorsResource.loading}
-                  isRequired
-                  error={errors.supervisor_id?.message}
-                  {...register("supervisor_id", {
-                    required: "Please select a supervisor",
-                  })}
-                />
-              </Box>
-            )}
-            {isSuperAdmin && (
-              <Box marginTop={"30px"}>
-                <Button
-                  type="button"
-                  secondary
-                  rightIcon={<FaSitemap />}
-                  isLoading={isSubmitting}
-                  onClick={handleSubmit((data) => onSubmit(data, true))}
-                >
-                  {isEditMode
-                    ? "Update Lesson & Submit for Approval"
-                    : "Add Lesson & Submit for Approval"}
-                </Button>
-              </Box>
-            )}
             {file && (
               <Box marginTop={"30px"} width={"300px"}>
                 <Text fontSize={"17px"} mb={"10px"}>
@@ -573,6 +527,30 @@ const CreateLessonPage = () => {
         </Grid>
 
       </CreatePageLayout>
+
+      {workflowContent && (
+        <WorkflowSubmitModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          isSuperAdmin={isSuperAdmin}
+          skipWorkflowSubmit
+          contentId={workflowContent.contentId}
+          contentTitle={workflowContent.contentTitle}
+          requestType={workflowContent.requestType}
+          courseId={workflowContent.courseId}
+          onCreate={(supervisorId) => {
+            if (supervisorId) {
+              pendingBodyRef.current.append("supervisor_id", supervisorId);
+            }
+            return isEditMode
+              ? performEdit(pendingBodyRef.current, pendingTitleRef.current)
+              : performCreate(pendingBodyRef.current, pendingTitleRef.current);
+          }}
+          onSuccess={() =>
+            goToLessonRoute(resultLessonIdRef.current ?? lessonId)
+          }
+        />
+      )}
     </>
   );
 };
