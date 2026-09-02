@@ -29,6 +29,15 @@ export const getComplianceNotificationDashboard = async (params) => {
   return data;
 };
 
+// GET /api/v1/compliance-notifications/dashboard/export
+export const exportComplianceNotificationDashboard = async (params) => {
+  const response = await http.get(`${BASE_NOTIF}/dashboard/export`, {
+    params,
+    responseType: "blob",
+  });
+  return response.data;
+};
+
 export const getComplianceNotificationHistory = async (params) => {
   const { data } = await http.get(`${BASE_NOTIF}/history`, { params });
   return data;

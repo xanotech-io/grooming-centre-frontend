@@ -5,15 +5,22 @@ import { Route } from 'react-router-dom';
 import { BreadcrumbItem } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { AdminMainAreaWrapper } from '../../../../layouts/admin/MainArea/Wrapper';
-import { Breadcrumb, Button, Heading, Link, ExportMenu } from '../../../../components';
-import { getProctoringEvents, getProctoringAuditKpi } from '../../../../services';
+import { Breadcrumb, Button, Heading, Link } from '../../../../components';
+import { getProctoringEvents, getProctoringAuditKpi, exportProctoringAuditReport } from '../../../../services';
+import { downloadBlob } from '../../../../utils';
 import KpiCards from './components/KpiCards';
 import EventsTable from './components/EventsTable';
 import LogEventModal from './components/LogEventModal';
 import RecordActionModal from './components/RecordActionModal';
 
-const fmtEventName = (obj) => (obj ? `${obj.firstName ?? ''} ${obj.lastName ?? ''}`.trim() || '—' : '—');
-const fmtEventTime = (ts) => (ts ? new Date(ts).toLocaleString() : '—');
+// e.g. "application/vnd.openxmlformats...spreadsheet" -> "xlsx"
+const extFromMimeType = (type) => {
+  if (!type) return 'xlsx';
+  if (type.includes('pdf')) return 'pdf';
+  if (type.includes('csv')) return 'csv';
+  if (type.includes('spreadsheet') || type.includes('excel')) return 'xlsx';
+  return 'xlsx';
+};
 
 const ProctoringAuditReportPage = () => {
   const history = useHistory();
@@ -41,6 +48,8 @@ const ProctoringAuditReportPage = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const logModal = useDisclosure();
   const actionModal = useDisclosure();
+
+  const [exporting, setExporting] = useState(false);
 
   const loadKpis = useCallback(async () => {
     setKpiLoading(true);
@@ -98,30 +107,26 @@ const ProctoringAuditReportPage = () => {
     loadKpis();
   };
 
-  const csvRows = [
-    [
-      "Student",
-      "Email",
-      "Examination",
-      "Alert Type",
-      "Session Start",
-      "Session End",
-      "Duration (min)",
-      "Status",
-      "Proctor",
-    ],
-    ...events.map((evt) => [
-      fmtEventName(evt.student),
-      evt.student?.email ?? '—',
-      evt.examination?.title ?? '—',
-      evt.alertType ?? '—',
-      fmtEventTime(evt.sessionStart),
-      fmtEventTime(evt.sessionEnd),
-      evt.sessionDurationMinutes ?? '—',
-      evt.status ?? '—',
-      fmtEventName(evt.proctor),
-    ]),
-  ];
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = { page, limit };
+      if (filters.search) params.search = filters.search;
+      if (filters.examId) params.examId = filters.examId;
+      if (filters.studentId) params.studentId = filters.studentId;
+      if (filters.alertType) params.alertType = filters.alertType;
+      if (filters.status) params.status = filters.status;
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+
+      const blob = await exportProctoringAuditReport(params);
+      downloadBlob(blob, `proctoring-audit-report.${extFromMimeType(blob.type)}`);
+    } catch {
+      toast({ title: 'Export failed', status: 'error', duration: 3000, isClosable: true });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <Box as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
@@ -132,12 +137,9 @@ const ProctoringAuditReportPage = () => {
           <Heading as="h3" size="sm" color="#101928">Proctoring Events</Heading>
           <HStack spacing={3}>
             {events.length > 0 && (
-              <ExportMenu
-                rows={csvRows}
-                filename="proctoring-audit-report"
-                title="Proctoring Audit Report"
-                size="sm"
-              />
+              <Button size="sm" variant="outline" onClick={handleExport} isLoading={exporting}>
+                Export
+              </Button>
             )}
             <Button
               size="sm"

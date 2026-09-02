@@ -13,7 +13,7 @@ import {
 } from "chart.js";
 import { Bar, Doughnut } from "react-chartjs-2";
 import { FiAward, FiCheck, FiClock, FiTarget, FiTrendingUp, FiX } from "react-icons/fi";
-import { Button, ExportMenu, Heading, Spinner, Text } from "../../../components";
+import { Button, Heading, Spinner, Text } from "../../../components";
 import { studentGetExamResultAnalysis } from "../../../services";
 import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
 import dayjs from "dayjs";
@@ -120,32 +120,6 @@ const StudentExamResultAnalysisPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examId, cohortId]);
 
-  const exportRows = data
-    ? [
-        ["Exam", data.examTitle ?? ""],
-        ["Date", data.examDate ? dayjs(data.examDate).format("DD MMM YYYY, h:mm A") : ""],
-        ["Student", data.studentName ?? ""],
-        ["Email", data.email ?? ""],
-        ["Status", data.status ?? ""],
-        ["Grade", data.grade ?? ""],
-        ["Result Status", data.resultStatus ?? ""],
-        [],
-        ["Metric", "Value"],
-        ["Total Score (%)", data.totalScore ?? ""],
-        ["Accuracy (%)", data.accuracy ?? ""],
-        ["Time Taken (min)", data.timeTaken ?? ""],
-        ["Rank", data.rank ?? ""],
-        ["Percentile", data.percentile ?? ""],
-        ["Correct Answers", data.correctAnswers ?? ""],
-        ["Wrong Answers", data.wrongAnswers ?? ""],
-        ["Auto Score (%)", data.autoScore ?? ""],
-        ["Manual Score (%)", data.manualScore ?? ""],
-        [],
-        ["Section", "Score"],
-        ...(data?.sectionScores ? Object.entries(data.sectionScores) : []),
-      ]
-    : [];
-
   // ── Section score bar chart ───────────────────────────────────────────────
 
   const sectionEntries = data?.sectionScores ? Object.entries(data.sectionScores) : [];
@@ -213,18 +187,9 @@ const StudentExamResultAnalysisPage = () => {
             Detailed breakdown of your exam performance
           </Text>
         </Box>
-        <Flex gap={3} alignItems="center">
-          {data && (
-            <ExportMenu
-              rows={exportRows}
-              filename="exam-result-analysis"
-              title="Exam Result Analysis"
-            />
-          )}
-          <Button secondary onClick={fetchData} isLoading={loading}>
-            Refresh
-          </Button>
-        </Flex>
+        <Button secondary onClick={fetchData} isLoading={loading}>
+          Refresh
+        </Button>
       </Box>
 
       {loading ? (

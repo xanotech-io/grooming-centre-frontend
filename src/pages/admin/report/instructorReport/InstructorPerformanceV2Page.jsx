@@ -42,7 +42,7 @@ import {
 import { FiDownload, FiFilter, FiRefreshCw, FiChevronDown, FiX } from "react-icons/fi";
 import dayjs from "dayjs";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Breadcrumb, DashboardMetricCard, ExportMenu, Link } from "../../../../components";
+import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
 import {
   getInstructorPerformanceReportV2,
   getInstructorPerformanceDrillDown,
@@ -482,35 +482,6 @@ const InstructorPerformanceV2Page = () => {
 
   const activeFiltersCount = Object.entries(filters).filter(([k, v]) => k !== "period" && v).length;
 
-  const exportRows = [
-    [
-      "Instructor",
-      "Department",
-      "Courses Delivered",
-      "Enrolled",
-      "Completed",
-      "Completion %",
-      "Assessment Score",
-      "Exam Score",
-      "Project Score",
-      "Combined",
-      "Grading Days",
-    ],
-    ...rows.map((row) => [
-      row.instructor_name || "",
-      row.department || "",
-      row.courses_delivered ?? "",
-      row.total_enrolled ?? "",
-      row.total_completed ?? "",
-      row.completion_rate ?? "",
-      row.average_assessment_score ?? "",
-      row.average_exam_score ?? "",
-      row.average_project_score ?? "",
-      row.average_score ?? "",
-      row.grading_timeliness_days ?? "",
-    ]),
-  ];
-
   return (
     <AdminMainAreaWrapper>
       <Flex justify="space-between" align="center" mb={6}>
@@ -527,11 +498,6 @@ const InstructorPerformanceV2Page = () => {
         <Flex gap={2}>
           <Button size="sm" leftIcon={<FiRefreshCw />} variant="outline" onClick={fetchReport} isLoading={loading}>Refresh</Button>
           <Button size="sm" leftIcon={<FiDownload />} colorScheme="blue" onClick={openExport}>Export</Button>
-          <ExportMenu
-            rows={exportRows}
-            filename="instructor-performance-v2-report"
-            title="Instructor Performance Report"
-          />
         </Flex>
       </Flex>
 

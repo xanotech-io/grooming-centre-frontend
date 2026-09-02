@@ -7,7 +7,6 @@ import {
   Text,
   Spinner,
   DashboardMetricCard,
-  ExportMenu,
 } from "../../../../components";
 import { useTableRows } from "../../../../hooks";
 import { useToast } from "@chakra-ui/react";
@@ -251,32 +250,6 @@ const ComplianceReport = () => {
   const fetcher = (props) => async () => fetchAttendanceReports(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
-  const complianceReportData = rows?.data?.rows ?? [];
-  const complianceReportRows = [
-    [
-      "Learner ID",
-      "Learner Name",
-      "Company Department",
-      "Supervisor",
-      "Tasks",
-      "Attendance",
-      "Completion Status",
-      "Updated At",
-      "Competency",
-    ],
-    ...complianceReportData.map((r) => [
-      r.learnerId,
-      r.learnerName,
-      r.companyDepartment,
-      r.supervisorName,
-      r.tasksCompleted,
-      r.attendance,
-      r.completionStatus,
-      r.updatedAt ? r.updatedAt.slice(0, 10) : "",
-      r.competencyRating,
-    ]),
-  ];
-
   return (
     <>
       <AdminMainAreaWrapper>
@@ -317,13 +290,6 @@ const ComplianceReport = () => {
           <Button secondary onClick={handleAddFeedback}>
             Add Supervisor Feedback
           </Button>
-          {(rows?.data?.rows?.length ?? 0) > 0 && (
-            <ExportMenu
-              rows={complianceReportRows}
-              filename="ojt-compliance-report"
-              title="OJT Compliance Report"
-            />
-          )}
         </Flex>
 
         {loading && rows.length === 0 ? (

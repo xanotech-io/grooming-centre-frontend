@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Route } from "react-router-dom";
 import { Box, Flex, Grid, SimpleGrid } from "@chakra-ui/layout";
 import { Badge, Select, useToast } from "@chakra-ui/react";
-import { Button, ExportMenu, Heading, Spinner, Text } from "../../../components";
+import { Button, Heading, Spinner, Text } from "../../../components";
 import { studentGetMyAssessmentResults } from "../../../services";
 import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
 import dayjs from "dayjs";
@@ -101,32 +101,16 @@ const MyAssessmentResultsPage = () => {
     return true;
   });
 
-  const exportRows = [
-    ["Assessment", "Course", "Date", "Score (%)", "Grade", "Result", "Feedback"],
-    ...displayedResults.map((item) => [
-      item.assessmentTitle ?? "",
-      item.courseTitle ?? "",
-      item.submittedAt ? dayjs(item.submittedAt).format("DD MMM YYYY") : "",
-      item.score ?? "",
-      item.grade ?? "",
-      item.passFail ?? "",
-      item.instructorFeedback ?? "",
-    ]),
-  ];
-
   return (
     <Box px={{ base: 4, md: 10 }} py={8} {...maxWidthStyles_userPages}>
-      <Flex justifyContent="space-between" alignItems="flex-start" mb={6} flexWrap="wrap" gap={3}>
-        <Box>
-          <Heading as="h1" fontSize="heading.h2" mb={1}>
-            My Assessment Results
-          </Heading>
-          <Text color="accent.3">
-            View your quiz and examination performance across all courses.
-          </Text>
-        </Box>
-        <ExportMenu rows={exportRows} filename="my-assessment-results" title="My Assessment Results" />
-      </Flex>
+      <Box mb={6}>
+        <Heading as="h1" fontSize="heading.h2" mb={1}>
+          My Assessment Results
+        </Heading>
+        <Text color="accent.3">
+          View your quiz and examination performance across all courses.
+        </Text>
+      </Box>
 
       {/* KPI Summary */}
       {kpis && (

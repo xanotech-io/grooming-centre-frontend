@@ -7,6 +7,15 @@ export const getAssessmentAnalyticsReport = async (params) => {
   return data;
 };
 
+// GET /api/v1/assessment-analytics-v2/report/export
+export const exportAssessmentAnalyticsReport = async (params) => {
+  const response = await http.get(`${BASE}/report/export`, {
+    params,
+    responseType: "blob",
+  });
+  return response.data;
+};
+
 export const getAssessmentAnalyticsByExam = async (examId, params) => {
   const { data } = await http.get(`${BASE}/exam/${examId}`, { params });
   return data;

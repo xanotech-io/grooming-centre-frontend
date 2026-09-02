@@ -48,13 +48,15 @@ import {
   FiUsers,
   FiBarChart2,
 } from "react-icons/fi";
-import { Heading, Spinner, Text, Button, Breadcrumb, Link, ExportMenu } from "../../../components";
+import { Heading, Spinner, Text, Button, Breadcrumb, Link } from "../../../components";
 import {
   adminGetExamFullReport,
   adminGetExamLeaderboard,
   adminGetExamChartData,
   adminGetStudentExamResultAnalysis,
+  adminExportExamFullReport,
 } from "../../../services";
+import { downloadBlob } from "../../../utils";
 import { AdminMainAreaWrapper } from "../../../layouts";
 import dayjs from "dayjs";
 
@@ -69,6 +71,13 @@ const rankBadgeStyles = (rank) => {
   if (rank === 2) return { bg: "#C0C0C0", color: "#4A4A4A" };
   if (rank === 3) return { bg: "#CD7F32", color: "#5C3208" };
   return { bg: "#EDF2F7", color: "#4A5568" };
+};
+
+const getExportExtension = (mimeType = "") => {
+  if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return "xlsx";
+  if (mimeType.includes("pdf")) return "pdf";
+  if (mimeType.includes("csv")) return "csv";
+  return "xlsx";
 };
 
 const gradeColor = (grade = "") => {
@@ -613,6 +622,9 @@ const AdminExamResultAnalysisPage = () => {
   const [chartLoading, setChartLoading] = useState(false);
   const [chartError, setChartError] = useState(null);
 
+  // Export
+  const [exporting, setExporting] = useState(false);
+
   const fetchReport = async () => {
     setReportLoading(true);
     setReportError(null);
@@ -673,21 +685,19 @@ const AdminExamResultAnalysisPage = () => {
   };
 
   const students = report?.students ?? [];
-  const exportRows = [
-    ["Student", "Email", "Score (%)", "Grade", "Accuracy (%)", "Correct", "Wrong", "Time (min)", "Rank", "Status"],
-    ...students.map((s) => [
-      s.studentName ?? "",
-      s.email ?? "",
-      s.totalScore ?? "",
-      s.grade ?? "",
-      s.accuracy ?? "",
-      s.correctAnswers ?? "",
-      s.wrongAnswers ?? "",
-      s.timeTaken ?? "",
-      s.rank ?? "",
-      s.status ?? "",
-    ]),
-  ];
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await adminExportExamFullReport(examId);
+      downloadBlob(blob, `exam-result-analysis-${examId}.${getExportExtension(blob.type)}`);
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to export report";
+      toast({ status: "error", description: msg, duration: 4000, isClosable: true, position: "top" });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const tabStyle = {
     fontSize: "14px",
@@ -724,12 +734,14 @@ const AdminExamResultAnalysisPage = () => {
           </Text>
         </Box>
         <Flex gap={3} alignItems="center">
-          <ExportMenu
-            rows={exportRows}
-            filename="exam-result-analysis"
-            title="Exam Result Analysis"
-            isDisabled={students.length === 0}
-          />
+          <Button
+            secondary
+            isLoading={exporting}
+            isDisabled={exporting || students.length === 0}
+            onClick={handleExport}
+          >
+            Export
+          </Button>
           <Button
             secondary
             onClick={() => {

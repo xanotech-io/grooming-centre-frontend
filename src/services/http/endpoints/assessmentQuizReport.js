@@ -65,6 +65,15 @@ export const adminGetAssessmentOverview = async (params = {}) => {
   return data;
 };
 
+// GET /api/v1/assessment-quiz-report-v2/overview/export
+export const adminExportAssessmentOverview = async (params = {}) => {
+  const response = await http.get(
+    `/v1/assessment-quiz-report-v2/overview/export`,
+    { params, responseType: "blob" },
+  );
+  return response.data;
+};
+
 // GET /api/v1/assessment-quiz-report-v2/department
 export const supervisorGetDepartmentReport = async (params = {}) => {
   const { data } = await http.get(
