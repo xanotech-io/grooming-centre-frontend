@@ -4,7 +4,7 @@ import { Box, Flex, useDisclosure, useToast } from '@chakra-ui/react';
 import { BreadcrumbItem } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { AdminMainAreaWrapper } from '../../../../layouts/admin/MainArea/Wrapper';
-import { Breadcrumb, Button, ExportMenu, Heading, Link } from '../../../../components';
+import { Breadcrumb, Button, Heading, Link } from '../../../../components';
 import { auditTrailV2GetLogs, auditTrailV2GetReport } from '../../../../services/http/endpoints/auditTrailV2';
 import AuditKpiCards from './components/AuditKpiCards';
 import AuditLogsTable from './components/AuditLogsTable';
@@ -88,27 +88,6 @@ const AuditTrailReportPage = () => {
     loadKpis();
   };
 
-  const fmtName = (user) =>
-    user ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email || '—' : '—';
-  const fmtTime = (ts) => (ts ? new Date(ts).toLocaleString() : '—');
-  const exportRows = [
-    ['Event ID', 'User', 'Email', 'Role', 'Event Type', 'Module', 'IP Address', 'Device', 'Source', 'Timestamp', 'Status', 'Remarks'],
-    ...logs.map((log) => [
-      log.id,
-      fmtName(log.user),
-      log.user?.email ?? '—',
-      log.userRole ?? '—',
-      log.eventType ?? '—',
-      log.module ?? '—',
-      log.ipAddress ?? '—',
-      log.device ?? '—',
-      log.source ?? '—',
-      fmtTime(log.timestamp),
-      log.status ?? '—',
-      log.remarks ?? '—',
-    ]),
-  ];
-
   return (
     <Box as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <AuditKpiCards kpis={kpis} isLoading={kpiLoading} />
@@ -116,23 +95,15 @@ const AuditTrailReportPage = () => {
       <Box bg="white" p={4} borderRadius="lg" border="1px solid" borderColor="gray.200" boxShadow="sm" mb={4}>
         <Flex justify="space-between" align="center">
           <Heading as="h3" size="sm" color="#101928">Audit Logs</Heading>
-          <Flex gap={2}>
-            <ExportMenu
-              rows={exportRows}
-              filename="audit-trail-report"
-              title="Audit Trail Report"
-              isDisabled={logs.length === 0}
-            />
-            <Button
-              size="sm"
-              bg="#660066"
-              color="white"
-              _hover={{ bg: '#550055' }}
-              onClick={logModal.onOpen}
-            >
-              + Log Event
-            </Button>
-          </Flex>
+          <Button
+            size="sm"
+            bg="#660066"
+            color="white"
+            _hover={{ bg: '#550055' }}
+            onClick={logModal.onOpen}
+          >
+            + Log Event
+          </Button>
         </Flex>
       </Box>
 

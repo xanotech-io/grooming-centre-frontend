@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useHistory, Route } from "react-router-dom";
 import { Box, Flex, SimpleGrid } from "@chakra-ui/layout";
 import { Badge, useToast } from "@chakra-ui/react";
-import { Button, ExportMenu, Heading, Spinner, Text } from "../../../components";
+import { Button, Heading, Spinner, Text } from "../../../components";
 import { studentGetMyCourseProgress } from "../../../services";
 import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
 import dayjs from "dayjs";
@@ -110,59 +110,19 @@ const StudentCourseProgressPage = () => {
   const perfStatus = performanceStatus(data?.completionPercentage, data?.averageScore);
   const completionPct = data?.completionPercentage ?? 0;
 
-  const exportRows = data
-    ? [
-        ["Metric", "Value"],
-        ["Course", data.courseTitle ?? ""],
-        ["Completion (%)", completionPct],
-        ["Completion Status", data.completionStatus ?? ""],
-        ["Performance Status", perfStatus.label],
-        [
-          "Modules Completed",
-          data.modulesCompletedRatio ?? `${data.modulesCompleted ?? 0}/${data.totalModules ?? 0}`,
-        ],
-        ["Lessons Completed", data.totalLessonsCompleted ?? ""],
-        ["Assessment Score (%)", data.assessmentScore ?? ""],
-        ["Course Exam Score (%)", data.courseExamScore ?? ""],
-        ["Standalone Exam Score (%)", data.standaloneExamScore ?? ""],
-        ["Latest Score (%)", data.latestScore ?? ""],
-        ["Average Score - overall (%)", data.averageScore ?? ""],
-        ["Avg Score per Module (%)", data.averageAssessmentScorePerModule ?? ""],
-        ["Acquisition Level", acq.label],
-        ["Activity Rate (logins/wk)", data.activityRate ?? ""],
-        [
-          "Last Access",
-          data.lastAccessDate ? dayjs(data.lastAccessDate).format("DD MMM YYYY, HH:mm") : "",
-        ],
-        ["Enrollment Date", data.enrollmentDate ? dayjs(data.enrollmentDate).format("DD MMM YYYY") : ""],
-        ["Certificate Earned", data.certificateEarned === "Yes" ? "Yes" : "Not yet"],
-        ["Certificate ID", data.certificateId ?? ""],
-        ["Instructor Remarks", data.instructorRemarks ?? ""],
-      ]
-    : [];
-
   return (
     <Box px={{ base: 4, md: 10 }} py={8} {...maxWidthStyles_userPages}>
       {/* Back + header */}
-      <Flex alignItems="center" justifyContent="space-between" mb={6} flexWrap="wrap" gap={3}>
-        <Flex alignItems="center" gap={3}>
-          <Button secondary onClick={() => history.push("/my-progress")}>
-            ← Back
-          </Button>
-          <Box>
-            <Heading as="h1" fontSize="heading.h2" mb={0}>
-              {data?.courseTitle ?? "Course Progress"}
-            </Heading>
-            <Text color="accent.3">Detailed progress report for this course</Text>
-          </Box>
-        </Flex>
-        {data && (
-          <ExportMenu
-            rows={exportRows}
-            filename="student-course-progress-detail"
-            title="Course Progress Detail"
-          />
-        )}
+      <Flex alignItems="center" gap={3} mb={6} flexWrap="wrap">
+        <Button secondary onClick={() => history.push("/my-progress")}>
+          ← Back
+        </Button>
+        <Box>
+          <Heading as="h1" fontSize="heading.h2" mb={0}>
+            {data?.courseTitle ?? "Course Progress"}
+          </Heading>
+          <Text color="accent.3">Detailed progress report for this course</Text>
+        </Box>
       </Flex>
 
       {loading ? (

@@ -4,7 +4,7 @@ import { Box, Flex } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/react";
 import { Tag } from "@chakra-ui/tag";
 import dayjs from "dayjs";
-import { Button, Text, Spinner, Breadcrumb, Link, Heading, ExportMenu } from "../../../../components";
+import { Button, Text, Spinner, Breadcrumb, Link, Heading } from "../../../../components";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { DashboardMetricCard } from "../../../../components";
@@ -61,18 +61,6 @@ const AdminStudentCourseAttendancePage = () => {
   const records = data?.records ?? [];
   const kpis = data?.kpis ?? null;
 
-  const courseAttendanceExportRows = [
-    ["Session Date", "Lesson / Session", "Status", "Entry Time", "Exit Time", "Mode"],
-    ...records.map((record) => [
-      record.sessionDate ? dayjs(record.sessionDate).format("DD/MM/YYYY") : "—",
-      record.lessonTitle ?? record.lesson?.title ?? "—",
-      record.attendanceStatus ?? record.status ?? "—",
-      record.entryTime ?? "—",
-      record.exitTime ?? "—",
-      record.deliveryMode ?? "—",
-    ]),
-  ];
-
   return (
     <AdminMainAreaWrapper>
       <Box display="flex" justifyContent="space-between" alignItems="center" my={4}>
@@ -90,21 +78,14 @@ const AdminStudentCourseAttendancePage = () => {
             </BreadcrumbItem>
           }
         />
-        <Flex gap="8px">
-          <ExportMenu
-            rows={courseAttendanceExportRows}
-            filename="student-course-attendance"
-            title="Student Course Attendance"
-          />
-          <Button
-            secondary
-            onClick={() =>
-              history.push(`/admin/report/studentReport/${studentId}/attendance`)
-            }
-          >
-            ← Back to Attendance
-          </Button>
-        </Flex>
+        <Button
+          secondary
+          onClick={() =>
+            history.push(`/admin/report/studentReport/${studentId}/attendance`)
+          }
+        >
+          ← Back to Attendance
+        </Button>
       </Box>
 
       {loading ? (

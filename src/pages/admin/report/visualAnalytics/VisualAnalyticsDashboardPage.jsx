@@ -20,7 +20,6 @@ import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
-  ExportMenu,
   Heading,
   Link,
   Spinner,
@@ -29,9 +28,20 @@ import {
 import {
   getVisualAnalyticsDashboard,
   getVisualAnalyticsReport,
+  exportVisualAnalyticsReport,
   adminGetCourseListing,
   adminListModules,
 } from "../../../../services";
+import { downloadBlob } from "../../../../utils";
+
+// e.g. "application/vnd.openxmlformats...spreadsheet" -> "xlsx"
+const extFromMimeType = (type) => {
+  if (!type) return "xlsx";
+  if (type.includes("pdf")) return "pdf";
+  if (type.includes("csv")) return "csv";
+  if (type.includes("spreadsheet") || type.includes("excel")) return "xlsx";
+  return "xlsx";
+};
 
 ChartJS.register(
   ArcElement,
@@ -208,6 +218,7 @@ const VisualAnalyticsDashboardPage = () => {
 
   const [courses, setCourses] = useState([]);
   const [modules, setModules] = useState([]);
+  const [exporting, setExporting] = useState(false);
 
   const [filters, setFilters] = useState({
     courseId: "",
@@ -306,28 +317,22 @@ const VisualAnalyticsDashboardPage = () => {
     fetchReport(next, buildParams());
   };
 
-  const exportRows = [
-    [
-      "Student Name",
-      "Student Email",
-      "Course",
-      "Score (%)",
-      "Completion (%)",
-      "Achievement Category",
-      "Visual Indicator",
-      "Remarks",
-    ],
-    ...reportRows.map((r) => [
-      r.student_name ?? "—",
-      r.student_email ?? "—",
-      r.course_title ?? "—",
-      r.performance_metric ?? "—",
-      r.completion_rate ?? "—",
-      r.achievement_category ?? "—",
-      r.visual_indicator ?? "—",
-      r.remarks ?? "—",
-    ]),
-  ];
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportVisualAnalyticsReport(buildParams());
+      downloadBlob(blob, `visual-analytics-report.${extFromMimeType(blob.type)}`);
+    } catch (err) {
+      toast({
+        status: "error",
+        description: err?.message || "Failed to export report",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     fetchDashboard({});
@@ -876,12 +881,9 @@ const VisualAnalyticsDashboardPage = () => {
               Filter
             </Button>
             {reportRows.length > 0 && (
-              <ExportMenu
-                rows={exportRows}
-                filename="visual-analytics-report"
-                title="Visual Analytics Report"
-                size="sm"
-              />
+              <Button size="sm" onClick={handleExport} isLoading={exporting}>
+                Export
+              </Button>
             )}
           </Flex>
         </Box>

@@ -34,7 +34,18 @@ import {
   getVisualAnalyticsStudentReport,
   getInstructorPerformanceReportV2,
   getInstructorPerformanceDrillDown,
+  exportPerformanceAnalyticsReport,
 } from "../../../services";
+import { downloadBlob } from "../../../utils";
+
+// e.g. "application/vnd.openxmlformats...spreadsheet" -> "xlsx"
+const extFromMimeType = (type) => {
+  if (!type) return "xlsx";
+  if (type.includes("pdf")) return "pdf";
+  if (type.includes("csv")) return "csv";
+  if (type.includes("spreadsheet") || type.includes("excel")) return "xlsx";
+  return "xlsx";
+};
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
 
@@ -954,15 +965,42 @@ function InstructorTab() {
 // ─── Page Shell ────────────────────────────────────────────────────────────────
 
 function PerformanceDrillDownPage() {
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = { page: 1, limit: 20 };
+      const blob = await exportPerformanceAnalyticsReport(params);
+      downloadBlob(blob, `performance-analytics-report.${extFromMimeType(blob.type)}`);
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err?.message || "Unable to export performance report",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <AdminMainAreaWrapper>
       <Box p={6}>
-        <Box mb={6}>
-          <Heading size="md" color="gray.800">Performance Analytics</Heading>
-          <Text fontSize="sm" color="gray.500" mt={1}>
-            Drill-down analytics across users, groups, departments and courses
-          </Text>
-        </Box>
+        <Flex mb={6} justify="space-between" align="flex-start">
+          <Box>
+            <Heading size="md" color="gray.800">Performance Analytics</Heading>
+            <Text fontSize="sm" color="gray.500" mt={1}>
+              Drill-down analytics across users, groups, departments and courses
+            </Text>
+          </Box>
+          <Button size="sm" colorScheme="blue" onClick={handleExport} isLoading={exporting}>
+            Export
+          </Button>
+        </Flex>
 
         <Tabs variant="enclosed" colorScheme="blue">
           <TabList>

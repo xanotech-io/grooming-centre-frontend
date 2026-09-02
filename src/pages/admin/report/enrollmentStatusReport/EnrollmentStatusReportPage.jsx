@@ -41,7 +41,7 @@ import {
 import { Bar, Line } from "react-chartjs-2";
 import { FiUserCheck, FiTrendingUp, FiActivity,  FiAlertCircle, FiBarChart2, FiFilter, FiChevronDown, FiX } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Breadcrumb, Button, ExportMenu, Heading, Link, Spinner } from "../../../../components";
+import { Breadcrumb, Button, Heading, Link, Spinner } from "../../../../components";
 import {
   adminGetEnrollmentStatusStudents,
   adminGetEnrollmentStatusCourses,
@@ -523,23 +523,6 @@ const EnrollmentStatusReportPage = () => {
     fetchTrends(defaultTrendFilters);
   };
 
-  const studentsExportRows = [
-    ["Student", "Email", "Department", "Course", "Enrolled On", "Student Status", "Engagement", "Last Active", "Days Since Active", "Progress %", "Dropout"],
-    ...studentsData.map((row) => [
-      row.student_name,
-      row.student_email,
-      row.department_name || "—",
-      row.course_title,
-      fmt(row.enrollment_date),
-      row.student_status,
-      row.engagement_status,
-      fmt(row.last_active_date),
-      row.days_since_active ?? "—",
-      pct(row.progress_percentage),
-      row.dropout_flag ? "Yes" : "No",
-    ]),
-  ];
-
   // ── Active filter counts ──────────────────────────────────────────────────────
 
   const studentBoxActiveCount = Object.values(studentFilters).filter(Boolean).length;
@@ -602,18 +585,9 @@ const EnrollmentStatusReportPage = () => {
             Real-time view of student enrollment activity across all courses
           </ChakraText>
         </Box>
-        <Flex gap={2} flexShrink={0}>
-          {studentsData.length > 0 && (
-            <ExportMenu
-              rows={studentsExportRows}
-              filename="enrollment-status-report"
-              title="Enrollment Status Report"
-            />
-          )}
-          <Button secondary onClick={handleRefresh} style={{ flexShrink: 0 }}>
-            Refresh
-          </Button>
-        </Flex>
+        <Button secondary onClick={handleRefresh} style={{ flexShrink: 0 }}>
+          Refresh
+        </Button>
       </Flex>
 
       {/* KPI Summary Cards */}

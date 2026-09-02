@@ -8,7 +8,6 @@ import {
   Spinner,
   DashboardMetricCard,
   Breadcrumb,
-  ExportMenu,
   Link,
 } from "../../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
@@ -168,31 +167,6 @@ const CourseCompletion = () => {
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
-  const courseCompletionRows = rows?.data?.rows ?? [];
-
-  const exportRows = [
-    [
-      "Course",
-      "Instructor",
-      "Total Enrolled",
-      "Completed",
-      "Passed",
-      "Failed",
-      "Pass (%)",
-      "Average Score",
-    ],
-    ...courseCompletionRows.map((row) => [
-      row.course || "",
-      row.instructor || "",
-      row.totalEnrolled ?? "",
-      row.completed ?? "",
-      row.passed ?? "",
-      row.failed ?? "",
-      row.passPercentage ?? "",
-      row.averageScore ?? "",
-    ]),
-  ];
-
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -212,11 +186,6 @@ const CourseCompletion = () => {
               <Link href="#">Course Completion</Link>
             </BreadcrumbItem>
           }
-        />
-        <ExportMenu
-          rows={exportRows}
-          filename="course-completion-report"
-          title="Course Completion Report"
         />
       </Box>
       <Box display={"flex"} justifyContent="space-between" gridGap={4} mb={10}>

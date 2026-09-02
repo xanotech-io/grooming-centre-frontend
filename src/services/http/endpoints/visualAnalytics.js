@@ -18,6 +18,15 @@ export const getVisualAnalyticsReport = async (params = {}) => {
   return response?.data;
 };
 
+// GET /api/v1/visual-analytics-v2/report/export
+export const exportVisualAnalyticsReport = async (params = {}) => {
+  const response = await http.get("/v1/visual-analytics-v2/report/export", {
+    params,
+    responseType: "blob",
+  });
+  return response.data;
+};
+
 // GET /api/v1/visual-analytics-v2/report/{studentId}
 export const getVisualAnalyticsStudentReport = async (studentId, params = {}) => {
   const response = await http.get(`/v1/visual-analytics-v2/report/${studentId}`, { params });

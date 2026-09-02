@@ -10,7 +10,7 @@ import { BreadcrumbItem } from '@chakra-ui/react';
 import { FiArrowLeft } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import { AdminMainAreaWrapper } from '../../../../layouts/admin/MainArea/Wrapper';
-import { Breadcrumb, Button, ExportMenu, Heading, Link } from '../../../../components';
+import { Breadcrumb, Button, Heading, Link } from '../../../../components';
 import { getExamSessionAudit } from '../../../../services';
 import AlertTypeBadge from './components/AlertTypeBadge';
 import RecordActionModal from './components/RecordActionModal';
@@ -72,50 +72,13 @@ const ExamSessionAuditPageContent = () => {
 
   const { examTitle, kpis, sessions } = data;
 
-  const exportRows = [
-    [
-      "Student",
-      "Student Email",
-      "Alert Type",
-      "Description",
-      "Timestamp",
-      "Status",
-      "Action Taken",
-    ],
-    ...(sessions ?? []).flatMap((session) =>
-      (session.events ?? []).map((evt) => {
-        const lastAction = evt.actions?.[evt.actions.length - 1];
-        return [
-          fmtName(session.student),
-          session.student?.email || "",
-          evt.alertType || "",
-          evt.description || "",
-          fmtTime(evt.eventTimestamp),
-          evt.status
-            ? evt.status.charAt(0).toUpperCase() + evt.status.slice(1)
-            : "",
-          lastAction
-            ? ACTION_LABELS[lastAction.actionTaken] ?? lastAction.actionTaken
-            : "",
-        ];
-      }),
-    ),
-  ];
-
   return (
     <Box as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-      <Flex align="center" justify="space-between" mb={6} gap={3}>
-        <Flex align="center" gap={3}>
-          <Button size="sm" variant="ghost" leftIcon={<FiArrowLeft />} onClick={() => history.goBack()}>
-            Back
-          </Button>
-          <Text fontSize="18px" fontWeight="700" color="#101928">{examTitle}</Text>
-        </Flex>
-        <ExportMenu
-          rows={exportRows}
-          filename="exam-session-audit-report"
-          title="Exam Session Audit Report"
-        />
+      <Flex align="center" gap={3} mb={6}>
+        <Button size="sm" variant="ghost" leftIcon={<FiArrowLeft />} onClick={() => history.goBack()}>
+          Back
+        </Button>
+        <Text fontSize="18px" fontWeight="700" color="#101928">{examTitle}</Text>
       </Flex>
 
       {/* KPI Cards */}

@@ -7,7 +7,6 @@ import {
   Text,
   Spinner,
   DashboardMetricCard,
-  ExportMenu,
 } from "../../../../components";
 import { EmptyState } from "../../../../layouts";
 import dayjs from "dayjs";
@@ -175,40 +174,8 @@ const CourseRoasterReport = () => {
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
-  const csvRows = [
-    [
-      "Student Name",
-      "Student ID",
-      "Email address",
-      "Course",
-      "Enrollment Date",
-      "Status",
-      "Attendance",
-      "Score",
-    ],
-    ...rows.map((row) => [
-      row.studentName,
-      row.id,
-      row.email,
-      row.course,
-      row.enrollmentDate,
-      row.status,
-      row.attendance,
-      row.score,
-    ]),
-  ];
-
   return (
     <AdminMainAreaWrapper>
-      <Flex justifyContent="flex-end" mb={4}>
-        {rows.length > 0 && (
-          <ExportMenu
-            rows={csvRows}
-            filename="course-roaster-report"
-            title="Course Roaster Report"
-          />
-        )}
-      </Flex>
       <Box
         display={"flex"}
         justifyContent="space-between"

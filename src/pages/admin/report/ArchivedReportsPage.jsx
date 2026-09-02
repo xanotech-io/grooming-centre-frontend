@@ -9,7 +9,7 @@ import {
 } from '@chakra-ui/react';
 import { Route } from 'react-router-dom';
 import { AdminMainAreaWrapper } from '../../../layouts';
-import { Breadcrumb, Link, ExportMenu } from '../../../components';
+import { Breadcrumb, Link } from '../../../components';
 import {
     adminGetArchiveKPIs,
     adminListArchiveRecords,
@@ -212,21 +212,6 @@ const ArchivedReportsPage = () => {
         setSelectedArchive(null);
     };
 
-    // ── Export ─────────────────────────────────────────────────────────────────
-    const exportRows = [
-        ['Archive ID', 'Report ID', 'Report Name', 'Archived By', 'Archive Date', 'Retrieval Date', 'Status', 'Storage Location'],
-        ...archives.map((r) => [
-            r.archiveId,
-            r.report?.reportId ?? '',
-            r.report?.reportName ?? '',
-            r.archiver ? `${r.archiver.firstName} ${r.archiver.lastName}` : '',
-            r.archiveDate ? new Date(r.archiveDate).toLocaleDateString() : '',
-            r.retrievalDate ? new Date(r.retrievalDate).toLocaleDateString() : '',
-            r.status,
-            r.storageLocation ?? '',
-        ]),
-    ];
-
     return (
         <AdminMainAreaWrapper>
             <Flex justify="space-between" align="center" mb={6}>
@@ -235,22 +220,14 @@ const ArchivedReportsPage = () => {
               />
             </Flex>
             {/* Header */}
-            <Flex justifyContent="space-between" alignItems="center" mb={6} mt={6}>
-                <Box>
-                    <Text fontSize="26px" fontWeight="700" color="#101928">
-                        Archive & Retrieval
-                    </Text>
-                    <Text fontSize="14px" color="#667085" mt={1}>
-                        Manage and retrieve historical MIS reports
-                    </Text>
-                </Box>
-                <ExportMenu
-                    rows={exportRows}
-                    filename="archived-reports"
-                    title="Archive & Retrieval"
-                    isDisabled={archives.length === 0}
-                />
-            </Flex>
+            <Box mb={6} mt={6}>
+                <Text fontSize="26px" fontWeight="700" color="#101928">
+                    Archive & Retrieval
+                </Text>
+                <Text fontSize="14px" color="#667085" mt={1}>
+                    Manage and retrieve historical MIS reports
+                </Text>
+            </Box>
 
             {/* KPI Cards */}
             <ArchiveKPICards kpis={kpis} isLoading={kpisLoading} />

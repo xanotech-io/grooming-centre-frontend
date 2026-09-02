@@ -14,7 +14,6 @@ import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
-  ExportMenu,
   Heading,
   Link,
   Table,
@@ -22,8 +21,20 @@ import {
 } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
-import { getAttendanceReport, adminGetStudents } from "../../../../services";
+import {
+  getAttendanceReport,
+  exportAttendanceReport,
+  adminGetStudents,
+} from "../../../../services";
+import { downloadBlob } from "../../../../utils";
 import dayjs from "dayjs";
+
+const getExportExtension = (mimeType = "") => {
+  if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return "xlsx";
+  if (mimeType.includes("pdf")) return "pdf";
+  if (mimeType.includes("csv")) return "csv";
+  return "xlsx";
+};
 
 const statusColorMap = {
   Present: "green",
@@ -276,6 +287,7 @@ const AttendanceReportPage = () => {
 
   const [filters, setFilters] = useState(defaultFilters);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const filterParamsRef = useRef({});
   const lastParamsRef = useRef({});
@@ -463,20 +475,22 @@ const AttendanceReportPage = () => {
 
   const attendanceRows = rows?.data?.rows ?? [];
 
-  const csvRows = [
-    ["Student", "Course", "Lesson / Session", "Session Date", "Status", "Entry Time", "Exit Time", "Duration", "Mode"],
-    ...attendanceRows.map((row) => [
-      row.studentName,
-      row.courseTitle,
-      row.lessonTitle,
-      row.sessionDate && row.sessionDate !== "—" ? dayjs(row.sessionDate).format("DD/MM/YYYY") : "—",
-      row.attendanceStatus,
-      row.entryTime,
-      row.exitTime,
-      row.duration,
-      row.deliveryMode,
-    ]),
-  ];
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportAttendanceReport(filterParamsRef.current);
+      downloadBlob(blob, `student-attendance-report.${getExportExtension(blob.type)}`);
+    } catch (err) {
+      toast({
+        status: "error",
+        description: err.message || "Unable to export attendance report",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <AdminMainAreaWrapper>
@@ -494,12 +508,14 @@ const AttendanceReportPage = () => {
           }
         />
         <Flex gap={2}>
-          <ExportMenu
-            rows={csvRows}
-            filename="attendance-report"
-            title="Attendance Report"
-            isDisabled={attendanceRows.length === 0}
-          />
+          <Button
+            secondary
+            isLoading={exporting}
+            isDisabled={exporting || attendanceRows.length === 0}
+            onClick={handleExport}
+          >
+            Export
+          </Button>
           <Button onClick={fetchRowItems}>Refresh Report</Button>
         </Flex>
       </Box>

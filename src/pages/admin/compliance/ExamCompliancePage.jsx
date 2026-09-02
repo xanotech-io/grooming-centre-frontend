@@ -62,7 +62,7 @@ import {
 } from "react-icons/fi";
 import dayjs from "dayjs";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-import { Breadcrumb, Link, DashboardMetricCard, ExportMenu } from "../../../components";
+import { Breadcrumb, Link, DashboardMetricCard } from "../../../components";
 import {
   getComplianceNotificationKpis,
   getComplianceNotifications,
@@ -507,24 +507,6 @@ const LogTableTab = ({ onOpenDetail, refreshKey }) => {
 
   const activeFilterCount = [filters.complianceStatus, filters.completionStatus, filters.notificationType, filters.deliveryStatus, filters.entityType, filters.escalationFlag, filters.startDate, filters.endDate].filter(Boolean).length;
 
-  const exportRows = [
-    ["Recipient", "Course / Exam", "Entity", "Compliance", "Completion", "Type", "Channel", "Delivery", "Sent At", "Due Date", "Reminder Count", "Escalated"],
-    ...rows.map((r) => [
-      `${r.recipient?.firstName ?? ""} ${r.recipient?.lastName ?? ""}`.trim(),
-      r.entityTitle ?? "",
-      r.entityType ?? "",
-      r.complianceStatus ?? "",
-      r.completionStatus ?? "",
-      r.notificationType ?? "",
-      r.notificationChannel ?? "",
-      r.deliveryStatus ?? "",
-      fmtDateTime(r.sentAt),
-      fmtDate(r.dueDate),
-      r.reminderCount ?? "",
-      r.escalationFlag ? "Yes" : "No",
-    ]),
-  ];
-
   return (
     <Box>
       <Flex align="center" justify="space-between" mb={3}>
@@ -538,10 +520,7 @@ const LogTableTab = ({ onOpenDetail, refreshKey }) => {
         >
           Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
         </Button>
-        <Flex gap={2}>
-          <Button size="sm" colorScheme="blue" leftIcon={<FiRefreshCw />} onClick={fetchData}>Refresh</Button>
-          <ExportMenu rows={exportRows} filename="compliance-notification-log" title="Compliance Notification Log" />
-        </Flex>
+        <Button size="sm" colorScheme="blue" leftIcon={<FiRefreshCw />} onClick={fetchData}>Refresh</Button>
       </Flex>
 
       <Collapse in={filtersOpen} animateOpacity>

@@ -8,7 +8,6 @@ import {
   Breadcrumb,
   Link,
   DashboardMetricCard,
-  ExportMenu,
 } from "../../../../components";
 import {
   BreadcrumbItem,
@@ -453,28 +452,6 @@ const TranscriptReport = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safeStudentId]);
 
-  const transcriptRows = rows?.data?.rows ?? [];
-  const exportRows = [
-    [
-      "Course Code",
-      "Course Title",
-      "Academic Year",
-      "Score",
-      "Grade",
-      "Grade Points",
-      "Credits",
-    ],
-    ...transcriptRows.map((r) => [
-      r.courseCode,
-      r.courseTitle,
-      r.academicYear,
-      r.score,
-      r.grade,
-      r.gradePoints,
-      r.credits,
-    ]),
-  ];
-
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -512,13 +489,6 @@ const TranscriptReport = () => {
             Request Official
           </Button>
           <Button onClick={handleVerifyTranscript}>Verify Transcript</Button>
-          {(rows?.data?.rows?.length ?? 0) > 0 && (
-            <ExportMenu
-              rows={exportRows}
-              filename="transcript-report"
-              title="Transcript Report"
-            />
-          )}
         </Flex>
       </Box>
 

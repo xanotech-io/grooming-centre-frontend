@@ -6,19 +6,11 @@ import {
   Button,
   Heading,
   Breadcrumb,
-  ExportMenu,
   Link,
   Text,
 } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { BreadcrumbItem } from "@chakra-ui/react";
-
-const REPORT_TYPE_LABELS = {
-  courseCompletion: "Course Completion and Pass Rate",
-  instructorPerformance: "Instructor Performance",
-  assignmentGrading: "Assignment Grading Summary",
-  assignmentAnalysis: "Assessment Item Analysis",
-};
 
 const InstructorReportDetails = () => {
   const { instructorId } = useParams();
@@ -32,14 +24,6 @@ const InstructorReportDetails = () => {
       `/admin/report/instructorReport/${instructorId}/${selectedReportType}`,
     );
   };
-
-  const exportRows = [
-    ["Instructor ID", "Report Type"],
-    [
-      instructorId,
-      REPORT_TYPE_LABELS[selectedReportType] || selectedReportType,
-    ],
-  ];
 
   return (
     <AdminMainAreaWrapper>
@@ -61,17 +45,9 @@ const InstructorReportDetails = () => {
             </BreadcrumbItem>
           }
         />
-        <Box display="flex" gap="8px">
-          <Button secondary onClick={() => {}}>
-            Schedule report
-          </Button>
-          <ExportMenu
-            rows={exportRows}
-            filename="instructor-report-details"
-            title="Instructor Report Details"
-            isDisabled={!instructorId}
-          />
-        </Box>
+        <Button secondary onClick={() => {}}>
+          Schedule report
+        </Button>
       </Box>
 
       <Box bg="white" p={6} borderRadius="lg" boxShadow="sm" mt={4}>

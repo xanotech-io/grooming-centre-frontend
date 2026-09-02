@@ -37,7 +37,6 @@ import { Route, useHistory } from 'react-router-dom';
 import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 import { AdminMainAreaWrapper } from '../../../layouts';
-import { ExportMenu } from '../../../components';
 import QuestionBankUsageReport from './QuestionBankUsageReport';
 import RandomizationIntegrityReport from './RandomizationIntegrityReport';
 import ProctoringAuditReport from './ProctoringAuditReport';
@@ -142,21 +141,6 @@ const lineChartData = {
   ],
 };
 
-const examinationReportRows = [
-  ['Student ID', 'Name', 'Exam', 'Time (mins)', 'Score (%)', 'Correct', 'Incorrect', 'Rank', 'Status'],
-  ...studentResults.map((r) => [
-    r.id,
-    r.name,
-    r.exam,
-    r.time,
-    r.score,
-    r.correct,
-    r.incorrect,
-    r.rank,
-    r.status,
-  ]),
-];
-
 const ReportListingPage = () => {
   const history = useHistory();
   const { isOpen: isScheduleOpen, onOpen: onScheduleOpen, onClose: onScheduleClose } = useDisclosure();
@@ -166,26 +150,19 @@ const ReportListingPage = () => {
 
       <Flex justifyContent="space-between" alignItems="center" mb={6} mt={6}>
         <ReportTypeDropdown currentKey="examination" />
-        <HStack spacing={4}>
-          <Button
-            variant="outline"
-            colorScheme="#660066"
-            borderColor="#660066"
-            borderRadius="md"
-            size="md"
-            fontSize="16px"
-            fontWeight="600"
-            color="#660066"
-            onClick={onScheduleOpen}
-          >
-            Schedule report
-          </Button>
-          <ExportMenu
-            rows={examinationReportRows}
-            filename="examination-report"
-            title="Exam Result Analysis Report"
-          />
-        </HStack>
+        <Button
+          variant="outline"
+          colorScheme="#660066"
+          borderColor="#660066"
+          borderRadius="md"
+          size="md"
+          fontSize="16px"
+          fontWeight="600"
+          color="#660066"
+          onClick={onScheduleOpen}
+        >
+          Schedule report
+        </Button>
       </Flex>
 
       {/* Tabs */}

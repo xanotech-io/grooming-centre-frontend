@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link as RouterLink, Route } from "react-router-dom";
 import { Box, Flex, Grid, SimpleGrid } from "@chakra-ui/layout";
 import { Badge, useToast } from "@chakra-ui/react";
-import { Button, ExportMenu, Heading, Spinner, Text } from "../../../components";
+import { Button, Heading, Spinner, Text } from "../../../components";
 import {
   studentGetMyProgressReport,
   studentGetMyProgressKPIs,
@@ -116,46 +116,17 @@ const StudentProgressReportPage = () => {
   const summary = report?.summary ?? {};
   const courses = report?.courses ?? [];
 
-  const exportHeaderRow = [
-    "Course",
-    "Modules Completed",
-    "Completion (%)",
-    "Status",
-    "Avg Score (%)",
-    "Mastery",
-    "Certificate",
-  ];
-  const exportDataRows = courses.map((course) => [
-    course.courseTitle ?? "",
-    course.modulesCompletedRatio ?? `${course.modulesCompleted ?? 0}/${course.totalModules ?? 0}`,
-    course.completionPercentage ?? "",
-    course.completionStatus ?? "",
-    course.averageScore ?? "",
-    acquisitionLevel(course.averageScore).label,
-    course.certificateEarned === "Yes" ? "Earned" : "Not yet",
-  ]);
-  const exportRows = [exportHeaderRow, ...exportDataRows];
-
   return (
     <Box px={{ base: 4, md: 10 }} py={8} {...maxWidthStyles_userPages}>
       {/* Page header */}
-      <Flex justifyContent="space-between" alignItems="flex-start" mb={6} flexWrap="wrap" gap={3}>
-        <Box>
-          <Heading as="h1" fontSize="heading.h2" mb={1}>
-            My Learning Progress
-          </Heading>
-          <Text color="accent.3">
-            Track your academic journey, performance, and engagement across all enrolled courses.
-          </Text>
-        </Box>
-        {courses.length > 0 && (
-          <ExportMenu
-            rows={exportRows}
-            filename="my-learning-progress"
-            title="My Learning Progress"
-          />
-        )}
-      </Flex>
+      <Box mb={6}>
+        <Heading as="h1" fontSize="heading.h2" mb={1}>
+          My Learning Progress
+        </Heading>
+        <Text color="accent.3">
+          Track your academic journey, performance, and engagement across all enrolled courses.
+        </Text>
+      </Box>
 
       {loading ? (
         <Flex h="400px" justifyContent="center" alignItems="center" flexDirection="column">

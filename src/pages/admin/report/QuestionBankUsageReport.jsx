@@ -27,7 +27,6 @@ import { FiSearch, FiFilter, FiMoreVertical, FiChevronLeft, FiChevronRight } fro
 import { Bar, Line } from 'react-chartjs-2';
 // import colors from '../../../theme/colors';
 import { motion } from 'framer-motion';
-import { ExportMenu } from '../../../components';
 
 // --- Mock Data ---
 
@@ -120,27 +119,6 @@ const chartOptions = {
 //     },
 // };
 
-const csvRows = [
-  [
-    "Question ID",
-    "Course",
-    "Difficulty",
-    "Average Time (secs)",
-    "Correct (%)",
-    "Used (Times)",
-    "Reliability",
-  ],
-  ...tableData.map((row) => [
-    row.id,
-    row.course,
-    row.difficulty,
-    row.time,
-    row.correct,
-    row.used,
-    row.reliability,
-  ]),
-];
-
 const QuestionBankUsageReport = () => {
   return (
     <Box as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
@@ -223,14 +201,6 @@ const QuestionBankUsageReport = () => {
             <Button leftIcon={<FiFilter />} variant="outline" size="sm" borderRadius="md" fontWeight="500">
                 Filter
             </Button>
-            {tableData.length > 0 && (
-                <ExportMenu
-                    rows={csvRows}
-                    filename="question-bank-usage-report"
-                    title="Question Bank Usage Report"
-                    size="sm"
-                />
-            )}
         </Flex>
 
         <Table variant="simple" size="sm">

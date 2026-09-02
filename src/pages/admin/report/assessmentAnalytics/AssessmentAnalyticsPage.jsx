@@ -42,15 +42,26 @@ import {
 import { convertFromRaw } from "draft-js";
 import { FiRefreshCw, FiAlertTriangle, FiFilter, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Breadcrumb, DashboardMetricCard, Link, ExportMenu } from "../../../../components";
+import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
 import {
   getAssessmentAnalyticsReport,
   getAssessmentAnalyticsThresholds,
+  exportAssessmentAnalyticsReport,
   adminGetCourseListing,
   adminGetStandaloneExaminationListing,
   adminListModules,
   adminListModuleAssessments,
 } from "../../../../services";
+import { downloadBlob } from "../../../../utils";
+
+// e.g. "application/vnd.openxmlformats...spreadsheet" -> "xlsx"
+const extFromMimeType = (type) => {
+  if (!type) return "xlsx";
+  if (type.includes("pdf")) return "pdf";
+  if (type.includes("csv")) return "csv";
+  if (type.includes("spreadsheet") || type.includes("excel")) return "xlsx";
+  return "xlsx";
+};
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
 
@@ -388,6 +399,7 @@ const AssessmentAnalyticsPage = () => {
   const [limit] = useState(50);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
+  const [exporting, setExporting] = useState(false);
 
   // assessment_level_stats / standalone_stats are aggregate (per-assessment,
   // per-exam) rows, documented with camelCase fields — distinct from the
@@ -537,20 +549,19 @@ const AssessmentAnalyticsPage = () => {
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
-  const csvRows = [
-    ["Question", "Type", "Difficulty", "Exam / Assessment", "Attempts", "Success Rate", "Avg Time", "Disc. Index", "Status"],
-    ...rows.map((row) => [
-      parseQuestionText(row.question_text),
-      TYPE_LABELS[row.question_type] ?? row.question_type,
-      row.difficulty_level ?? "—",
-      row.exam_title ?? "—",
-      fmt(row.total_attempts),
-      row.correct_response_rate != null ? `${row.correct_response_rate}%` : "—",
-      formatSeconds(row.average_time_seconds),
-      row.discrimination_index != null ? row.discrimination_index.toFixed(2) : "—",
-      row.status,
-    ]),
-  ];
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = { page, limit };
+      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
+      const blob = await exportAssessmentAnalyticsReport(params);
+      downloadBlob(blob, `assessment-analytics-report.${extFromMimeType(blob.type)}`);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // ── Questions table ───────────────────────────────────────────────────────
 
@@ -622,13 +633,7 @@ const AssessmentAnalyticsPage = () => {
           <Text fontSize="sm" color="gray.500">Per-question analysis across course assessments, course exams, and standalone examinations.</Text>
         </Box>
         <Flex gap={2}>
-          <ExportMenu
-            rows={csvRows}
-            filename="assessment-analytics-report"
-            title="Assessment Analytics Report"
-            isDisabled={rows.length === 0}
-            size="sm"
-          />
+          <Button size="sm" onClick={handleExport} isLoading={exporting} isDisabled={rows.length === 0}>Export</Button>
           <Button size="sm" leftIcon={<FiRefreshCw />} variant="outline" onClick={fetchReport} isLoading={loading}>Refresh</Button>
         </Flex>
       </Flex>

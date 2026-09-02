@@ -8,19 +8,10 @@ import {
   Breadcrumb,
   Link,
   Text,
-  ExportMenu,
 } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { adminGetStudentProgressV2 } from "../../../../services";
-
-const REPORT_TYPE_LABELS = {
-  progress: "Progress report",
-  transcript: "Transcript report",
-  attendance: "Attendance report",
-  assessment: "Assessment & Quizzes",
-  compliance: "Compliance & Training",
-};
 
 const StudentReportDetails = () => {
   const { studentId } = useParams();
@@ -71,22 +62,6 @@ const StudentReportDetails = () => {
     );
   };
 
-  const selectedCourseLabel =
-    courseOptions.find((c) => c.id === selectedCourse)?.title ||
-    (selectedCourse ? selectedCourse : "All Courses");
-  const dashboardRows = [
-    ["Student ID", "Report Type", "Selected Course"],
-    [
-      safeStudentId,
-      REPORT_TYPE_LABELS[selectedReportType] || selectedReportType,
-      selectedCourseLabel,
-    ],
-    [],
-    ["Available Courses"],
-    ["Course ID", "Course Title"],
-    ...courseOptions.map((c) => [c.id, c.title]),
-  ];
-
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -103,15 +78,7 @@ const StudentReportDetails = () => {
             </BreadcrumbItem>
           }
         />
-        <Box display="flex" gap="8px">
-          <Button secondary>Schedule report</Button>
-          <ExportMenu
-            rows={dashboardRows}
-            filename="student-report-details"
-            title="Student Report Details"
-            isDisabled={!safeStudentId}
-          />
-        </Box>
+        <Button secondary>Schedule report</Button>
       </Box>
 
       <Box bg="white" p={6} borderRadius="lg" boxShadow="sm" mt={4}>
