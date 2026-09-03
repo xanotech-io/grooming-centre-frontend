@@ -152,6 +152,7 @@ const EnrollmentReport = () => {
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
   return (
     <>
       <AdminMainAreaWrapper>

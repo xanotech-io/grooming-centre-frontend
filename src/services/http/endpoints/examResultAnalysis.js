@@ -34,3 +34,12 @@ export const adminGetExamFullReport = async (examId, params = {}) => {
   const response = await http.get(`/v1/exam-result-analysis-v2/${examId}/report`, { params });
   return response?.data;
 };
+
+// GET /api/v1/exam-result-analysis-v2/{examId}/report/export
+export const adminExportExamFullReport = async (examId, params = {}) => {
+  const response = await http.get(`/v1/exam-result-analysis-v2/${examId}/report/export`, {
+    params,
+    responseType: "blob",
+  });
+  return response.data;
+};

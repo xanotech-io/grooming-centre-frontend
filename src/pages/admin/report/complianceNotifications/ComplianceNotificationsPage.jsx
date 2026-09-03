@@ -7,6 +7,7 @@ import { Breadcrumb, Button, Heading, Link } from '../../../../components';
 import {
   getComplianceNotificationKpis,
   getComplianceNotificationDashboard,
+  exportComplianceNotificationDashboard,
   sendComplianceNotification,
   evaluateComplianceNotifications,
   escalateComplianceNotification,
@@ -14,9 +15,17 @@ import {
   adminGetDepartmentListing,
   adminListCoursesForReport,
 } from '../../../../services';
+import { downloadBlob } from '../../../../utils';
 import ComplianceKpiCards from './components/ComplianceKpiCards';
 import ComplianceNotificationsTable from './components/ComplianceNotificationsTable';
 import ComplianceHistoryModal from './components/ComplianceHistoryModal';
+
+const getExportExtension = (mimeType = '') => {
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return 'xlsx';
+  if (mimeType.includes('pdf')) return 'pdf';
+  if (mimeType.includes('csv')) return 'csv';
+  return 'xlsx';
+};
 
 const INITIAL_FILTERS = {
   departmentId: '',
@@ -53,6 +62,7 @@ const ComplianceNotificationsPage = () => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectedRecipient, setSelectedRecipient] = useState(null);
   const [bulkSending, setBulkSending] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const activeParams = useCallback(() => {
     const params = {};
@@ -185,6 +195,18 @@ const ComplianceNotificationsPage = () => {
     }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportComplianceNotificationDashboard(activeParams());
+      downloadBlob(blob, `compliance-notifications-dashboard.${getExportExtension(blob.type)}`);
+    } catch {
+      toast({ title: 'Failed to export compliance notifications', status: 'error', duration: 3000, isClosable: true });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <Box as={motion.div} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <ComplianceKpiCards kpis={kpis} isLoading={kpiLoading} />
@@ -192,18 +214,30 @@ const ComplianceNotificationsPage = () => {
       <Box bg="white" p={4} borderRadius="lg" border="1px solid" borderColor="gray.200" boxShadow="sm" mb={4}>
         <Flex justify="space-between" align="center">
           <Heading as="h3" size="sm" color="#101928">Compliance Notifications</Heading>
-          <Button
-            size="sm"
-            bg="#660066"
-            color="white"
-            _hover={{ bg: '#550055' }}
-            isLoading={bulkSending}
-            onClick={handleBulkSend}
-          >
-            {selectedIds.length > 0
-              ? `Bulk Send (${selectedIds.length} selected)`
-              : 'Bulk Send (active filters)'}
-          </Button>
+          <Flex gap={2}>
+            <Button
+              size="sm"
+              variant="outline"
+              borderColor="gray.300"
+              isLoading={exporting}
+              isDisabled={exporting}
+              onClick={handleExport}
+            >
+              Export
+            </Button>
+            <Button
+              size="sm"
+              bg="#660066"
+              color="white"
+              _hover={{ bg: '#550055' }}
+              isLoading={bulkSending}
+              onClick={handleBulkSend}
+            >
+              {selectedIds.length > 0
+                ? `Bulk Send (${selectedIds.length} selected)`
+                : 'Bulk Send (active filters)'}
+            </Button>
+          </Flex>
         </Flex>
       </Box>
 

@@ -155,7 +155,7 @@ const ExaminationLayout = () => {
 
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [selectedAnswers, setSelectedAnswers] = useState({});
-  const [submitStatus, setSubmitStatus] = useState({ success: false, loading: false, error: null });
+  const [submitStatus, setSubmitStatus] = useState({ success: false, loading: false, error: null, isAutoSubmit: false });
   const [submissionMeta, setSubmissionMeta] = useState({});
 
   useEffect(() => {
@@ -169,6 +169,7 @@ const ExaminationLayout = () => {
   }, [examination?.hasCompleted, examination?.submittedAnswers]);
 
   const startTimeRef = useRef(Date.now());
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (questions.length > 0 && !currentQuestion) {
@@ -188,12 +189,13 @@ const ExaminationLayout = () => {
   const [modalCanClose, setModalCanClose] = useState(true);
 
   const handleSubmit = useCallback(async (isAutoSubmit = false) => {
-    if (isViewMode) return;
-    setSubmitStatus({ loading: true });
+    if (isViewMode || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setSubmitStatus((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const answers = examination.questions.map((q) => ({
         questionId: q.id,
-        answer: selectedAnswers[q.id] ?? null,
+        answer: selectedAnswers[q.id] ?? "",
       }));
       const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
       const geolocation = await getGeolocationString();
@@ -215,18 +217,38 @@ const ExaminationLayout = () => {
         position: "top",
         status: "success",
       });
-      setSubmitStatus({ success: true });
+      setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: null, isAutoSubmit }));
     } catch (err) {
+      // The request may have already been recorded server-side even though this
+      // client-side call failed (dropped connection, timeout, unexpected response
+      // shape). Re-check before telling the student it failed.
+      try {
+        const { data: { data: recheckData } } = await http.get(`/v1/examination/${course_id}`);
+        const recheckExam = mapExamination(recheckData);
+        if (recheckExam?.hasCompleted) {
+          toast({
+            description: isAutoSubmit ? "Exam auto submitted" : "Examination submitted successfully",
+            position: "top",
+            status: "success",
+          });
+          setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: null, isAutoSubmit }));
+          return;
+        }
+      } catch {
+        // ignore recheck failure, fall through to showing the original error
+      }
       toast({
         title: err.statusCode === 403 ? "Maximum attempts reached" : undefined,
         description: err.message,
         position: "top",
         status: "error",
       });
-      setSubmitStatus({ error: err.message });
+      setSubmitStatus((prev) => ({ ...prev, loading: false, error: err.message }));
+    } finally {
+      isSubmittingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [examination, selectedAnswers, isViewMode]);
+  }, [examination, selectedAnswers, isViewMode, course_id]);
 
   const { isBlocked: isProctoringBlocked } = useLiveProctoring({
     examId: examination?.id,
@@ -241,6 +263,10 @@ const ExaminationLayout = () => {
   useEffect(() => {
     if (submitStatus.success) {
       timerManager.handleStopCountdown();
+      if (submitStatus.isAutoSubmit) {
+        push(`/courses/details/${course_id}`);
+        return;
+      }
       modalManager.onOpen();
       setModalCanClose(false);
       setModalPrompt(null);
@@ -258,6 +284,16 @@ const ExaminationLayout = () => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitStatus.success]);
+
+  // A proctoring auto-submit is not something the student can retry themselves —
+  // if it still failed after the built-in recheck, just take them back to the
+  // course rather than offering a manual "Try Again".
+  useEffect(() => {
+    if (!isProctoringBlocked || !submitStatus.error) return undefined;
+    const timeout = setTimeout(() => push(`/courses/details/${course_id}`), 4000);
+    return () => clearTimeout(timeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProctoringBlocked, submitStatus.error]);
 
   const handleSubmitConfirmation = (e) => {
     e?.preventDefault();
@@ -329,7 +365,7 @@ const ExaminationLayout = () => {
         {modalContent}
       </CustomModal>
 
-      {isProctoringBlocked && !submitStatus.success && (
+      {isProctoringBlocked && !submitStatus.success && !submitStatus.error && (
         <Flex
           position="fixed"
           top={0}
@@ -345,6 +381,28 @@ const ExaminationLayout = () => {
         >
           <Spinner size="xl" color="white" thickness="4px" />
           <Text color="white" fontWeight="600">Submitting your exam…</Text>
+        </Flex>
+      )}
+
+      {isProctoringBlocked && submitStatus.error && (
+        <Flex
+          position="fixed"
+          top={0}
+          left={0}
+          width="100vw"
+          height="100vh"
+          bg="blackAlpha.700"
+          zIndex={1400}
+          justifyContent="center"
+          alignItems="center"
+          direction="column"
+          gap={4}
+          textAlign="center"
+          px={6}
+        >
+          <Text color="white" fontWeight="600">Your exam couldn't be submitted automatically.</Text>
+          <Text color="white" fontSize="sm">{submitStatus.error}</Text>
+          <Text color="white" fontSize="sm">Taking you back to the course…</Text>
         </Flex>
       )}
 

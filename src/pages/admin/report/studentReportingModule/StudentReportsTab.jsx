@@ -146,85 +146,83 @@ const StudentReportsTab = () => {
       {/* Filter Bar */}
       <Box bg="white" border="1px solid #E4E7EC" borderRadius="xl" overflow="hidden" mb={4}>
         <Box p={4} borderBottom="1px solid #F2F4F7">
-          <Flex justify="space-between" align="center" flexWrap="wrap" gap={3}>
-            <HStack spacing={3} flexWrap="wrap">
-              <InputGroup w="280px" size="sm">
-                <InputLeftElement pointerEvents="none">
-                  <FiSearch color="#667085" size={14} />
-                </InputLeftElement>
-                <Input
-                  placeholder="Search by name, email, department…"
-                  value={search}
-                  onChange={handleSearch}
-                  borderRadius="md"
-                  fontSize="13px"
-                />
-              </InputGroup>
-
-              <Select
-                size="sm"
-                w="170px"
-                borderRadius="md"
-                fontSize="13px"
-                value={enrollmentStatus}
-                onChange={(e) => applyFilter("enrollmentStatus", e.target.value)}
-                placeholder="Enrollment Status"
-              >
-                <option value="Enrolled">Enrolled</option>
-                <option value="Active">Active</option>
-                <option value="Completed">Completed</option>
-                <option value="Deactivated">Deactivated</option>
-              </Select>
-
-              <Select
-                size="sm"
-                w="170px"
-                borderRadius="md"
-                fontSize="13px"
-                value={engagementStatus}
-                onChange={(e) => applyFilter("engagementStatus", e.target.value)}
-                placeholder="Engagement"
-              >
-                <option value="Active">Active</option>
-                <option value="Irregular">Irregular</option>
-                <option value="Inactive">Inactive</option>
-              </Select>
-
+          <HStack spacing={3} flexWrap="wrap">
+            <InputGroup w="280px" size="sm">
+              <InputLeftElement pointerEvents="none">
+                <FiSearch color="#667085" size={14} />
+              </InputLeftElement>
               <Input
-                type="date"
-                size="sm"
-                w="145px"
+                placeholder="Search by name, email, department…"
+                value={search}
+                onChange={handleSearch}
                 borderRadius="md"
                 fontSize="13px"
-                value={startDate}
-                onChange={(e) => applyFilter("startDate", e.target.value)}
-                placeholder="Start date"
               />
-              <Input
-                type="date"
-                size="sm"
-                w="145px"
-                borderRadius="md"
-                fontSize="13px"
-                value={endDate}
-                onChange={(e) => applyFilter("endDate", e.target.value)}
-                placeholder="End date"
-              />
+            </InputGroup>
 
-              {hasFilters && (
-                <Text
-                  fontSize="12px"
-                  color="#660066"
-                  cursor="pointer"
-                  fontWeight="500"
-                  onClick={handleReset}
-                  _hover={{ textDecoration: "underline" }}
-                >
-                  Reset filters
-                </Text>
-              )}
-            </HStack>
-          </Flex>
+            <Select
+              size="sm"
+              w="170px"
+              borderRadius="md"
+              fontSize="13px"
+              value={enrollmentStatus}
+              onChange={(e) => applyFilter("enrollmentStatus", e.target.value)}
+              placeholder="Enrollment Status"
+            >
+              <option value="Enrolled">Enrolled</option>
+              <option value="Active">Active</option>
+              <option value="Completed">Completed</option>
+              <option value="Deactivated">Deactivated</option>
+            </Select>
+
+            <Select
+              size="sm"
+              w="170px"
+              borderRadius="md"
+              fontSize="13px"
+              value={engagementStatus}
+              onChange={(e) => applyFilter("engagementStatus", e.target.value)}
+              placeholder="Engagement"
+            >
+              <option value="Active">Active</option>
+              <option value="Irregular">Irregular</option>
+              <option value="Inactive">Inactive</option>
+            </Select>
+
+            <Input
+              type="date"
+              size="sm"
+              w="145px"
+              borderRadius="md"
+              fontSize="13px"
+              value={startDate}
+              onChange={(e) => applyFilter("startDate", e.target.value)}
+              placeholder="Start date"
+            />
+            <Input
+              type="date"
+              size="sm"
+              w="145px"
+              borderRadius="md"
+              fontSize="13px"
+              value={endDate}
+              onChange={(e) => applyFilter("endDate", e.target.value)}
+              placeholder="End date"
+            />
+
+            {hasFilters && (
+              <Text
+                fontSize="12px"
+                color="#660066"
+                cursor="pointer"
+                fontWeight="500"
+                onClick={handleReset}
+                _hover={{ textDecoration: "underline" }}
+              >
+                Reset filters
+              </Text>
+            )}
+          </HStack>
         </Box>
 
         {/* Table */}

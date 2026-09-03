@@ -150,24 +150,19 @@ const ReportListingPage = () => {
 
       <Flex justifyContent="space-between" alignItems="center" mb={6} mt={6}>
         <ReportTypeDropdown currentKey="examination" />
-        <HStack spacing={4}>
-          <Button
-            variant="outline"
-            colorScheme="#660066"
-            borderColor="#660066"
-            borderRadius="md"
-            size="md"
-            fontSize="16px"
-            fontWeight="600"
-            color="#660066"
-            onClick={onScheduleOpen}
-          >
-            Schedule report
-          </Button>
-          <Button bg="#660066" color="white" _hover={{ bg: "#550055" }} borderRadius="md" size="md" fontSize="16px" fontWeight="600">
-            Export Report
-          </Button>
-        </HStack>
+        <Button
+          variant="outline"
+          colorScheme="#660066"
+          borderColor="#660066"
+          borderRadius="md"
+          size="md"
+          fontSize="16px"
+          fontWeight="600"
+          color="#660066"
+          onClick={onScheduleOpen}
+        >
+          Schedule report
+        </Button>
       </Flex>
 
       {/* Tabs */}

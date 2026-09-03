@@ -73,14 +73,9 @@ const ManagementReport = () => {
           }
         />
 
-        <Box display={"flex"} gap="8px">
-          <Button secondary link={`/admin/announcement/edit/?announcement=new`}>
-            Schedule report
-          </Button>
-          <Button link={`/admin/announcement/edit/?announcement=new`}>
-            Export Dashboard
-          </Button>
-        </Box>
+        <Button secondary link={`/admin/announcement/edit/?announcement=new`}>
+          Schedule report
+        </Button>
       </Box>
 
       <Box className={classes.tabsContainer}>

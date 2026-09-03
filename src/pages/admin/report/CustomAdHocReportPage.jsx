@@ -44,7 +44,7 @@ const CustomAdHocReportPage = () => {
   const history = useHistory();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [status, setStatus] = useState('Draft'); // 'Draft' or 'Finalized'
-  
+
   const userFields = ['Full name', 'User ID', 'Email address', 'Department'];
   const courseFields = ['Course name', 'Course code', 'Instructor'];
   const enrollmentFields = ['Enrollment date', 'Status', 'Completion date'];

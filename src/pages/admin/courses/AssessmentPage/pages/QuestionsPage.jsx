@@ -220,6 +220,65 @@ const createBankQuestionForReal = (data, { isStandaloneExamination, isExaminatio
   return adminCreateAssessmentQuestion(finalBody);
 };
 
+const normalizeQuestionText = (text) => (text || "").replace(/\s+/g, " ").trim().toLowerCase();
+
+// Bank questions carry no unique id in the create payload above — the
+// backend's "already exists" check keys off the question text itself.
+// Picking the same bank question twice (e.g. into two different sections —
+// nothing here or in SelectBankQuestionsModal remembers what was already
+// picked) silently queues an invisible duplicate that only ever surfaces as
+// a failure at submit time. Filter it out up front instead, against both
+// what's already queued/real and the rest of this same batch.
+const filterDuplicateQuestions = (items, existingTexts, getText) => {
+  const seen = new Set(existingTexts);
+  const kept = [];
+  let duplicates = 0;
+  for (const item of items) {
+    const key = normalizeQuestionText(getText(item));
+    if (key && seen.has(key)) {
+      duplicates += 1;
+      continue;
+    }
+    if (key) seen.add(key);
+    kept.push(item);
+  }
+  return { kept, duplicates };
+};
+
+// Submits a queue of already-built question payloads one at a time. A
+// duplicate ("already exists") response is treated as a no-op — the
+// question is already there — instead of aborting the whole batch; any
+// other error still aborts so the admin can see and fix it, but everything
+// saved before that point is recorded in `savedSet` so a retry only redoes
+// what's left.
+const saveQueuedBatch = async (queuedItems, savedSet, saveOne) => {
+  let duplicates = 0;
+  const failures = [];
+  for (const queued of queuedItems) {
+    if (savedSet.has(queued)) continue;
+    try {
+      await saveOne(queued);
+      savedSet.add(queued);
+    } catch (err) {
+      const message = err?.response?.data?.message || err?.message || "";
+      if (/already exists/i.test(message)) {
+        savedSet.add(queued);
+        duplicates += 1;
+      } else {
+        failures.push({ queued, message });
+      }
+    }
+  }
+  if (failures.length) {
+    throw new Error(
+      `${failures.length} question${failures.length === 1 ? "" : "s"} failed to save${
+        duplicates ? ` (${duplicates} duplicate${duplicates === 1 ? "" : "s"} skipped)` : ""
+      } — the rest were saved; fix and resubmit to finish the remaining ${failures.length === 1 ? "one" : "ones"}.`,
+    );
+  }
+  return { duplicates };
+};
+
 // ── Section-level locks & weightage ─────────────────────────────────────────
 // A section's constraints can come from two different places:
 //  - the exam's own `configuredSections` (ExamPaperConfigPage.jsx) — an exact
@@ -1663,14 +1722,16 @@ const CreateQuestionPage = ({
       quotaFilterCtx,
       getBankQuestionType,
     );
-    const items = kept.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    const builtItems = kept.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    const queuedTexts = (queuedSource?.questions || []).map((q) => normalizeQuestionText(q.data?.question));
+    const { kept: items, duplicates } = filterDuplicateQuestions(builtItems, queuedTexts, (q) => q.data.question);
     if (!items.length) {
-      if (skippedForQuota) {
-        toast({
-          description: `Skipped ${skippedForQuota} question${skippedForQuota === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
-          position: "top",
-          status: "warning",
-        });
+      const skippedParts = [
+        skippedForQuota ? `${skippedForQuota} already at the configured Quantity for that type` : null,
+        duplicates ? `${duplicates} already queued for this section` : null,
+      ].filter(Boolean);
+      if (skippedParts.length) {
+        toast({ description: `Skipped ${skippedParts.join(", ")}.`, position: "top", status: "warning" });
       }
       return;
     }
@@ -1684,7 +1745,7 @@ const CreateQuestionPage = ({
     toast({
       description: overLimit
         ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
-        : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)} They'll be created once you submit for approval.`,
+        : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)}${duplicates ? ` ${duplicates} skipped — already queued.` : ""} They'll be created once you submit for approval.`,
       position: "top",
       status: overLimit ? "warning" : "success",
     });
@@ -1705,32 +1766,37 @@ const CreateQuestionPage = ({
       quotaFilterCtx,
       getBankQuestionType,
     );
-    const items = kept.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    const builtItems = kept.map(buildQueuedItemFromBankQuestion).filter(Boolean);
+    const existingTexts = (assessmentManager.assessment?.questions || []).map((q) =>
+      normalizeQuestionText(q.question),
+    );
+    const { kept: items, duplicates } = filterDuplicateQuestions(builtItems, existingTexts, (q) => q.data.question);
     if (!items.length) {
-      if (skippedForQuota) {
-        toast({
-          description: `Skipped ${skippedForQuota} question${skippedForQuota === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
-          position: "top",
-          status: "warning",
-        });
+      const skippedParts = [
+        skippedForQuota ? `${skippedForQuota} already at the configured Quantity for that type` : null,
+        duplicates ? `${duplicates} already added to this ${isExamination ? "exam" : "assessment"}` : null,
+      ].filter(Boolean);
+      if (skippedParts.length) {
+        toast({ description: `Skipped ${skippedParts.join(", ")}.`, position: "top", status: "warning" });
       }
       return;
     }
     try {
-      for (const item of items) {
-        await createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination });
-      }
+      const { duplicates: dupesAtSave } = await saveQueuedBatch(items, savedQueueItemsRef.current, (item) =>
+        createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination }),
+      );
       assessmentManager.handleFetch(true);
+      const allSkipped = duplicates + dupesAtSave;
       toast({
         description: overLimit
           ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
-          : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)}`,
+          : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)}${allSkipped ? ` ${allSkipped} skipped — already added.` : ""}`,
         position: "top",
         status: overLimit ? "warning" : "success",
       });
     } catch (err) {
       toast({
-        description: err?.response?.data?.message || "Failed to add question(s) from the bank",
+        description: err?.message || err?.response?.data?.message || "Failed to add question(s) from the bank",
         position: "top",
         status: "error",
       });
@@ -1852,21 +1918,12 @@ const CreateQuestionPage = ({
   const [workflowContent, setWorkflowContent] = useState(null);
   const pendingCreateBothRef = useRef(null);
   const createdParentRef = useRef(null);
+  const savedQueueItemsRef = useRef(new WeakSet());
   // Set by the "Add more questions" button (beside "Create/Update and
   // Submit") so onSubmit below knows to queue this question locally instead
   // of opening the approval modal — only the latter button should ever
   // trigger a supervisor-approval submission.
   const addAnotherRef = useRef(false);
-  // Set by "Create and Submit" on a brand-new pending assessment/exam's
-  // question form (see the button below) alongside `addAnotherRef` — the
-  // approval modal's own createBoth/editBoth flow had issues at one point,
-  // so this button was changed to just navigate to the question listing
-  // instead of submitting at all, silently discarding whatever was on the
-  // form. Re-using the same "queue this question" path `addAnotherRef`
-  // already handles keeps that fix intact while this flag only changes
-  // where onSubmit navigates to afterward: the listing page (so the admin
-  // can review/submit from there) instead of another blank form.
-  const createAndSubmitRef = useRef(false);
   // Set by the "Create and Submit" button on the plain add-question page
   // (a new question on an already-real assessment/exam) — saves the
   // question as normal, then opens the same approval modal used elsewhere,
@@ -2104,11 +2161,22 @@ const CreateQuestionPage = ({
           const createBoth = async () => {
             const parent = await performCreateParent();
             createdParentRef.current = parent;
-            for (const queued of pendingCreate.questions || []) {
-              await saveQuestion(parent.id, queued.data);
-              if (queued.addToBank || pendingCreate.addToBank) {
-                await addQuestionToBank(queued.bank);
-              }
+            const { duplicates } = await saveQueuedBatch(
+              pendingCreate.questions || [],
+              savedQueueItemsRef.current,
+              async (queued) => {
+                await saveQuestion(parent.id, queued.data);
+                if (queued.addToBank || pendingCreate.addToBank) {
+                  await addQuestionToBank(queued.bank);
+                }
+              },
+            );
+            if (duplicates) {
+              toast({
+                description: `${duplicates} duplicate question${duplicates === 1 ? "" : "s"} skipped — the rest were saved.`,
+                position: "top",
+                status: "warning",
+              });
             }
             // No `maybeAddToBank()` here — that call is for the *current*
             // form's question, and this branch only runs when the current
@@ -2134,11 +2202,22 @@ const CreateQuestionPage = ({
           const editBoth = async () => {
             const parent = await performEditParent();
             createdParentRef.current = parent;
-            for (const queued of pendingEdit.questions || []) {
-              await saveQuestion(undefined, queued.data);
-              if (queued.addToBank) {
-                await addQuestionToBank(queued.bank);
-              }
+            const { duplicates } = await saveQueuedBatch(
+              pendingEdit.questions || [],
+              savedQueueItemsRef.current,
+              async (queued) => {
+                await saveQuestion(undefined, queued.data);
+                if (queued.addToBank) {
+                  await addQuestionToBank(queued.bank);
+                }
+              },
+            );
+            if (duplicates) {
+              toast({
+                description: `${duplicates} duplicate question${duplicates === 1 ? "" : "s"} skipped — the rest were saved.`,
+                position: "top",
+                status: "warning",
+              });
             }
             return { id: parent.id };
           };
@@ -2473,19 +2552,6 @@ const CreateQuestionPage = ({
           // text (which risked getting resubmitted as a duplicate).
           questionRichTextManager.handleInitData(null);
           setBankApplyKey((k) => k + 1);
-          // "Create and Submit" queues this question just like "Add more
-          // questions" does, but always lands on the listing page afterward
-          // instead of offering another blank form.
-          if (createAndSubmitRef.current) {
-            createAndSubmitRef.current = false;
-            toast({
-              description: "Question added. It'll be created once you submit this for approval.",
-              position: "top",
-              status: "success",
-            });
-            goToQueuedListing();
-            return;
-          }
           // This question is safely queued either way — only decide here
           // whether there's room left to offer another blank form, so
           // hitting the limit never costs the question just filled out.
@@ -2514,11 +2580,22 @@ const CreateQuestionPage = ({
         const createBoth = async () => {
           const parent = await performCreateParent();
           createdParentRef.current = parent;
-          for (const queued of pendingCreate.questions || []) {
-            await saveQuestion(parent.id, queued.data);
-            if (queued.addToBank || pendingCreate.addToBank) {
-              await addQuestionToBank(queued.bank);
-            }
+          const { duplicates } = await saveQueuedBatch(
+            pendingCreate.questions || [],
+            savedQueueItemsRef.current,
+            async (queued) => {
+              await saveQuestion(parent.id, queued.data);
+              if (queued.addToBank || pendingCreate.addToBank) {
+                await addQuestionToBank(queued.bank);
+              }
+            },
+          );
+          if (duplicates) {
+            toast({
+              description: `${duplicates} duplicate question${duplicates === 1 ? "" : "s"} skipped — the rest were saved.`,
+              position: "top",
+              status: "warning",
+            });
           }
           await saveQuestion(parent.id);
           // The exam-level "auto add every question" flag was just set on
@@ -2592,11 +2669,22 @@ const CreateQuestionPage = ({
         const editBoth = async () => {
           const parent = await performEditParent();
           createdParentRef.current = parent;
-          for (const queued of pendingEdit.questions || []) {
-            await saveQuestion(undefined, queued.data);
-            if (queued.addToBank) {
-              await addQuestionToBank(queued.bank);
-            }
+          const { duplicates } = await saveQueuedBatch(
+            pendingEdit.questions || [],
+            savedQueueItemsRef.current,
+            async (queued) => {
+              await saveQuestion(undefined, queued.data);
+              if (queued.addToBank) {
+                await addQuestionToBank(queued.bank);
+              }
+            },
+          );
+          if (duplicates) {
+            toast({
+              description: `${duplicates} duplicate question${duplicates === 1 ? "" : "s"} skipped — the rest were saved.`,
+              position: "top",
+              status: "warning",
+            });
           }
           await saveQuestion();
           return { id: parent.id };
@@ -3062,7 +3150,7 @@ const CreateQuestionPage = ({
                     disabled={isExistingQuestion && !isEditMode}
                     id={`option-${num}`}
                     label={`Option 0${num}`}
-                    {...register(`option-${num}`, { required: true })}
+                    {...register(`option-${num}`)}
                     placeholder={`Enter option ${num} here`}
                   />
                 </Flex>
@@ -3270,16 +3358,14 @@ const CreateQuestionPage = ({
         )}
         <Button
           type="submit"
-          onClick={() => {
-            // A brand-new pending assessment/exam's "Create and Submit"
-            // queues this question the same way "Add more questions" does
-            // (see the `addAnotherRef.current` branch in onSubmit), then
-            // lands on the question listing page instead of another blank
-            // form — it used to just navigate away without saving the
-            // current form's question at all, silently discarding it.
-            if (isPendingCreation && !isEditingQueued) {
-              addAnotherRef.current = true;
-              createAndSubmitRef.current = true;
+          onClick={(e) => {
+            // "Create and Submit"/"Update and Submit" on a brand-new pending
+            // assessment/exam behaves exactly like the "See All" sidebar
+            // link: always navigate to the question listing, without saving
+            // or validating whatever is currently on the form.
+            if ((isPendingCreation || isPendingEditSubmit) && !isEditingQueued) {
+              e.preventDefault();
+              goToQueuedListing();
               return;
             }
             addAnotherRef.current = false;
@@ -3581,14 +3667,18 @@ const QuestionListingPage = ({
       quotaFilterCtx,
       getBankQuestionType,
     );
-    const items = kept.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
+    const builtItems = kept.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
+    const queuedTexts = ((isPendingCreation ? pendingCreate.questions : pendingEdit.questions) || []).map((q) =>
+      normalizeQuestionText(q.data?.question),
+    );
+    const { kept: items, duplicates } = filterDuplicateQuestions(builtItems, queuedTexts, (q) => q.data.question);
     if (!items.length) {
-      if (skippedForQuota) {
-        toast({
-          description: `Skipped ${skippedForQuota} question${skippedForQuota === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
-          position: "top",
-          status: "warning",
-        });
+      const skippedParts = [
+        skippedForQuota ? `${skippedForQuota} already at the configured Quantity for that type` : null,
+        duplicates ? `${duplicates} already queued` : null,
+      ].filter(Boolean);
+      if (skippedParts.length) {
+        toast({ description: `Skipped ${skippedParts.join(", ")}.`, position: "top", status: "warning" });
       }
       return;
     }
@@ -3602,7 +3692,7 @@ const QuestionListingPage = ({
     toast({
       description: overLimit
         ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
-        : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)} They'll be created once you submit for approval.`,
+        : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)}${duplicates ? ` ${duplicates} skipped — already queued.` : ""} They'll be created once you submit for approval.`,
       position: "top",
       status: overLimit ? "warning" : "success",
     });
@@ -3620,32 +3710,35 @@ const QuestionListingPage = ({
       quotaFilterCtx,
       getBankQuestionType,
     );
-    const items = kept.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
+    const builtItems = kept.map((bq) => buildBankQueueItem(bq, bankQueueCtx)).filter(Boolean);
+    const existingTexts = (assessment?.questions || []).map((q) => normalizeQuestionText(q.question));
+    const { kept: items, duplicates } = filterDuplicateQuestions(builtItems, existingTexts, (q) => q.data.question);
     if (!items.length) {
-      if (skippedForQuota) {
-        toast({
-          description: `Skipped ${skippedForQuota} question${skippedForQuota === 1 ? "" : "s"} — already at the configured Quantity for that type.`,
-          position: "top",
-          status: "warning",
-        });
+      const skippedParts = [
+        skippedForQuota ? `${skippedForQuota} already at the configured Quantity for that type` : null,
+        duplicates ? `${duplicates} already added to this ${isExamination ? "exam" : "assessment"}` : null,
+      ].filter(Boolean);
+      if (skippedParts.length) {
+        toast({ description: `Skipped ${skippedParts.join(", ")}.`, position: "top", status: "warning" });
       }
       return;
     }
     try {
-      for (const item of items) {
-        await createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination });
-      }
+      const { duplicates: dupesAtSave } = await saveQueuedBatch(items, savedQueueItemsRef.current, (item) =>
+        createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination }),
+      );
       handleFetch(true);
+      const allSkipped = duplicates + dupesAtSave;
       toast({
         description: overLimit
           ? `Only added ${items.length} of ${bankQuestions.length} — ${overLimitDescription}`
-          : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)}`,
+          : `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${quotaSkippedToast(skippedForQuota)}${allSkipped ? ` ${allSkipped} skipped — already added.` : ""}`,
         position: "top",
         status: overLimit ? "warning" : "success",
       });
     } catch (err) {
       toast({
-        description: err?.response?.data?.message || "Failed to add question(s) from the bank",
+        description: err?.message || err?.response?.data?.message || "Failed to add question(s) from the bank",
         position: "top",
         status: "error",
       });
@@ -3740,9 +3833,8 @@ const QuestionListingPage = ({
       createdParentRef.current ||
       (isPendingCreation ? await performCreateParent() : await performEditParent());
     createdParentRef.current = parent;
-    for (const queued of queuedQuestions) {
-      if (savedQueueItemsRef.current.has(queued)) continue;
-      await createBankQuestionForReal(
+    const { duplicates } = await saveQueuedBatch(queuedQuestions, savedQueueItemsRef.current, (queued) =>
+      createBankQuestionForReal(
         isPendingCreation
           ? {
               ...queued.data,
@@ -3754,8 +3846,14 @@ const QuestionListingPage = ({
             }
           : queued.data,
         { isStandaloneExamination, isExamination },
-      );
-      savedQueueItemsRef.current.add(queued);
+      ),
+    );
+    if (duplicates) {
+      toast({
+        description: `${duplicates} duplicate question${duplicates === 1 ? "" : "s"} skipped — the rest were saved.`,
+        position: "top",
+        status: "warning",
+      });
     }
     return { id: parent.id };
   };

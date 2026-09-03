@@ -268,7 +268,6 @@ const ProctoringAuditReport = () => {
                       <MenuButton as={IconButton} icon={<FiMoreVertical />} borderColor="#E4E7EC" border="1px" variant="ghost" size="sm" borderRadius="md" />
                       <MenuList>
                         <MenuItem fontSize="14px" onClick={() => history.push('/admin/report/audit-details')}>View</MenuItem>
-                        <MenuItem fontSize="14px">Export</MenuItem>
                         <MenuItem fontSize="14px" onClick={() => history.push('/admin/audit')}>Archive report</MenuItem>
                       </MenuList>
                     </Menu>

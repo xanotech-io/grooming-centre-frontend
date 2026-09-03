@@ -67,3 +67,12 @@ export const adminGetStudentProgressListing = async (params) => {
     totalDocumentsCount: Array.isArray(data) ? rows.length : (data.count ?? data.total ?? rows.length),
   };
 };
+
+// GET /api/v1/student-progress-v2/progress/export
+export const adminExportStudentProgressListing = async (params) => {
+  const response = await http.get(`${BASE}/progress/export`, {
+    params,
+    responseType: "blob",
+  });
+  return response.data;
+};

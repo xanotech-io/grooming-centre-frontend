@@ -30,6 +30,15 @@ export const getProctoringAuditKpi = async (params = {}) => {
   return data.data;
 };
 
+// GET /api/v1/proctoring-v2/audit-report/export
+export const exportProctoringAuditReport = async (params = {}) => {
+  const response = await http.get('/v1/proctoring-v2/audit-report/export', {
+    params,
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
 // POST /api/v1/proctoring-v2/screen-warning
 export const postScreenWarning = async (body) => {
   const { data } = await http.post('/v1/proctoring-v2/screen-warning', body);

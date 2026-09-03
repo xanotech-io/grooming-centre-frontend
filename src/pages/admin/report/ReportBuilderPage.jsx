@@ -12,6 +12,7 @@ import {
 } from 'react-icons/fi';
 import { Route } from 'react-router-dom';
 import { AdminMainAreaWrapper } from '../../../layouts';
+import { ExportMenu } from '../../../components';
 import {
   reportBuilderGetCatalog,
   reportBuilderCreateConfig,
@@ -324,6 +325,18 @@ const ReportBuilderPage = () => {
     !searchQuery || c.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const exportRows = [
+    ['Report Name', 'Description', 'Data Source', 'Status', 'Access Count', 'Last Accessed'],
+    ...filteredConfigs.map(cfg => [
+      cfg.name,
+      cfg.description ?? '',
+      DATA_SOURCE_LABELS[cfg.dataSource] ?? cfg.dataSource ?? '',
+      cfg.status ?? '',
+      cfg.accessCount ?? 0,
+      cfg.lastAccessedAt ? new Date(cfg.lastAccessedAt).toLocaleDateString('en-GB') : '',
+    ]),
+  ];
+
   // ── LIST VIEW ─────────────────────────────────────────────────
   if (view === 'list') {
     return (
@@ -335,13 +348,16 @@ const ReportBuilderPage = () => {
               Create, save, and execute custom cross-module reports
             </Text>
           </Box>
-          <Button
-            bg="#660066" color="white" _hover={{ bg: '#550055' }}
-            leftIcon={<FiPlus />} borderRadius="md" h="44px" fontSize="14px" fontWeight="600"
-            onClick={() => openBuilder()}
-          >
-            New Report
-          </Button>
+          <HStack spacing={3}>
+            <ExportMenu rows={exportRows} filename="report-builder-configs" title="Report Builder Configurations" />
+            <Button
+              bg="#660066" color="white" _hover={{ bg: '#550055' }}
+              leftIcon={<FiPlus />} borderRadius="md" h="44px" fontSize="14px" fontWeight="600"
+              onClick={() => openBuilder()}
+            >
+              New Report
+            </Button>
+          </HStack>
         </Flex>
 
         {/* KPI Cards */}

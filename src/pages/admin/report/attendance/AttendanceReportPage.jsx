@@ -21,8 +21,20 @@ import {
 } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
-import { getAttendanceReport, adminGetStudents } from "../../../../services";
+import {
+  getAttendanceReport,
+  exportAttendanceReport,
+  adminGetStudents,
+} from "../../../../services";
+import { downloadBlob } from "../../../../utils";
 import dayjs from "dayjs";
+
+const getExportExtension = (mimeType = "") => {
+  if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return "xlsx";
+  if (mimeType.includes("pdf")) return "pdf";
+  if (mimeType.includes("csv")) return "csv";
+  return "xlsx";
+};
 
 const statusColorMap = {
   Present: "green",
@@ -275,6 +287,7 @@ const AttendanceReportPage = () => {
 
   const [filters, setFilters] = useState(defaultFilters);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const filterParamsRef = useRef({});
   const lastParamsRef = useRef({});
@@ -460,6 +473,25 @@ const AttendanceReportPage = () => {
     fetchRowItems({ params: lastParamsRef.current });
   };
 
+  const attendanceRows = rows?.data?.rows ?? [];
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportAttendanceReport(filterParamsRef.current);
+      downloadBlob(blob, `student-attendance-report.${getExportExtension(blob.type)}`);
+    } catch (err) {
+      toast({
+        status: "error",
+        description: err.message || "Unable to export attendance report",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -475,7 +507,17 @@ const AttendanceReportPage = () => {
             </BreadcrumbItem>
           }
         />
-        <Button onClick={fetchRowItems}>Refresh Report</Button>
+        <Flex gap={2}>
+          <Button
+            secondary
+            isLoading={exporting}
+            isDisabled={exporting || attendanceRows.length === 0}
+            onClick={handleExport}
+          >
+            Export
+          </Button>
+          <Button onClick={fetchRowItems}>Refresh Report</Button>
+        </Flex>
       </Box>
 
       <Flex

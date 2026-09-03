@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Route } from "react-router-dom";
 import { Box, Flex, SimpleGrid } from "@chakra-ui/layout";
 import { BreadcrumbItem, Tag, useToast } from "@chakra-ui/react";
@@ -13,7 +13,20 @@ import {
 } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
-import { adminGetParticipationMonitoringReport } from "../../../../services";
+import {
+  adminGetParticipationMonitoringReport,
+  exportParticipationMonitoringReport,
+} from "../../../../services";
+import { downloadBlob } from "../../../../utils";
+
+// e.g. "application/vnd.openxmlformats...spreadsheet" -> "xlsx"
+const extFromMimeType = (type) => {
+  if (!type) return "xlsx";
+  if (type.includes("pdf")) return "pdf";
+  if (type.includes("csv")) return "csv";
+  if (type.includes("spreadsheet") || type.includes("excel")) return "xlsx";
+  return "xlsx";
+};
 
 const engagementColorMap = {
   Active: "green",
@@ -45,8 +58,11 @@ const ParticipationMonitoringPage = () => {
   const toast = useToast();
   const [totalCount, setTotalCount] = useState(0);
   const [kpis, setKpis] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const lastParamsRef = useRef({});
 
   const fetchReport = async (params = {}) => {
+    lastParamsRef.current = params;
     try {
       const result = await adminGetParticipationMonitoringReport(params);
       const reportData = result?.data ?? {};
@@ -229,6 +245,25 @@ const ParticipationMonitoringPage = () => {
   const fetcher = (props) => async () => fetchReport(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
+  const participationData = rows?.data?.rows ?? [];
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportParticipationMonitoringReport(lastParamsRef.current);
+      downloadBlob(blob, `participation-monitoring-report.${extFromMimeType(blob.type)}`);
+    } catch (err) {
+      toast({
+        status: "error",
+        description: err.message || "Unable to export participation report",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -246,7 +281,14 @@ const ParticipationMonitoringPage = () => {
             </BreadcrumbItem>
           }
         />
-        <Button onClick={fetchRowItems}>Refresh Report</Button>
+        <Flex gap="8px">
+          {participationData.length > 0 && (
+            <Button onClick={handleExport} isLoading={exporting}>
+              Export
+            </Button>
+          )}
+          <Button onClick={fetchRowItems}>Refresh Report</Button>
+        </Flex>
       </Box>
 
       <Flex

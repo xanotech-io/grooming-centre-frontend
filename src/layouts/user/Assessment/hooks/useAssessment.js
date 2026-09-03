@@ -60,6 +60,7 @@ const useAssessment = () => {
     success: false,
     error: false,
     loading: false,
+    isAutoSubmit: false,
   });
 
   const toast = useToast();
@@ -68,9 +69,7 @@ const useAssessment = () => {
   // } = useApp();
 
   const handleSubmit = useCallback(async (isAutoSubmit = false) => {
-    setSubmitStatus({
-      loading: true,
-    });
+    setSubmitStatus((prev) => ({ ...prev, loading: true, error: false }));
 
     try {
       if (isExamination) {
@@ -104,7 +103,7 @@ const useAssessment = () => {
       } else {
         const answers = assessment?.questions?.map((q) => ({
           questionId: q.id,
-          answer: selectedAnswers[q.id] ?? null,
+          answer: selectedAnswers[q.id] ?? "",
           timeTaken: 0,
         }));
         const body = {
@@ -127,7 +126,7 @@ const useAssessment = () => {
         });
       }
 
-      setSubmitStatus({ success: true });
+      setSubmitStatus((prev) => ({ ...prev, loading: false, success: true, error: false, isAutoSubmit }));
     } catch (error) {
       toast({
         title: error.statusCode === 403 ? "Maximum attempts reached" : undefined,
@@ -136,9 +135,7 @@ const useAssessment = () => {
         status: "error",
       });
 
-      setSubmitStatus({
-        error: error.message,
-      });
+      setSubmitStatus((prev) => ({ ...prev, loading: false, error: error.message }));
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -201,6 +198,12 @@ const useAssessment = () => {
   // Setup UI after success submission
   useEffect(() => {
     if (submitStatus.success) {
+      if (submitStatus.isAutoSubmit) {
+        timerCountdownManger.handleStopCountdown();
+        handleDelete(course_id);
+        push(`/courses/details/${course_id}`);
+        return;
+      }
       handleAfterSubmit();
     }
 
@@ -301,6 +304,16 @@ const useAssessment = () => {
     onAutoSubmit: () => handleSubmit(true),
   });
 
+  // A proctoring auto-submit is not something the student can retry themselves —
+  // if it still failed, just take them back to the course rather than offering
+  // a manual "Try Again".
+  useEffect(() => {
+    if (!isProctoringBlocked || !submitStatus.error) return undefined;
+    const timeout = setTimeout(() => push(`/courses/details/${course_id}`), 4000);
+    return () => clearTimeout(timeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProctoringBlocked, submitStatus.error]);
+
   const nav = isExamination ? isProctoringBlocked : exitAttempts === totalSteps;
 
   const handleQuestionChange = (question) => setCurrentQuestion(question);
@@ -355,6 +368,7 @@ const useAssessment = () => {
     disablePreviousQuestion,
     selectedAnswers,
     handleSubmitConfirmation,
+    handleSubmit,
     handleQuestionChange,
     handleNextQuestion,
     handlePreviousQuestion,

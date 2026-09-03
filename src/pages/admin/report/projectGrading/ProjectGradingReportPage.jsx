@@ -63,6 +63,7 @@ import {
   adminListModules,
   getModuleProjects,
 } from "../../../../services";
+import { exportRowsToPdf } from "../../../../utils";
 import dayjs from "dayjs";
 
 // ─── Mock Data (fallback when API is unavailable) ─────────────────────────────
@@ -545,7 +546,7 @@ const DetailDrawer = ({ projectId, isOpen, onClose }) => {
                     Avg Grade
                   </Text>
                   <Text fontWeight="bold" fontSize="lg">
-                    {d.averageGrade ?? "—"} / {d.maxGrade ?? 100}
+                    {d.averageGrade}
                   </Text>
                 </Box>
               </Grid>
@@ -860,6 +861,12 @@ const ProjectGradingReportPage = () => {
           wb,
           `project-grading-report-${dayjs().format("YYYY-MM-DD")}.xlsx`,
         );
+      } else if (format === "pdf") {
+        exportRowsToPdf(
+          [headers, ...data.map(rowMapper)],
+          `project-grading-report-${dayjs().format("YYYY-MM-DD")}.pdf`,
+          "Project Grading Report",
+        );
       }
     } catch {
       toast({
@@ -937,6 +944,7 @@ const ProjectGradingReportPage = () => {
             <MenuList>
               <MenuItem onClick={() => handleExport("csv")}>Export CSV</MenuItem>
               <MenuItem onClick={() => handleExport("xlsx")}>Export Excel</MenuItem>
+              <MenuItem onClick={() => handleExport("pdf")}>Export PDF</MenuItem>
             </MenuList>
           </Menu>
         </Flex>
@@ -1286,7 +1294,7 @@ const ProjectGradingReportPage = () => {
                     </Td>
                     <Td isNumeric>
                       {r.averageGrade != null
-                        ? `${r.averageGrade} / ${r.maxGrade ?? 100}`
+                        ? `${Math.round((r.averageGrade / (r.maxGrade ?? 100)) * 100)}%`
                         : "—"}
                     </Td>
                     <Td>

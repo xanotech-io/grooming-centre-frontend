@@ -24,15 +24,24 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import {
   adminGetAssessmentListing,
   adminGetAssessmentOverview,
+  adminExportAssessmentOverview,
   adminGetAssessmentReportInstructorFilters,
   adminGetAssessmentReportStudentFilters,
   adminGetDepartmentListing,
   adminListCoursesForReport,
   adminListModules,
 } from "../../../../services";
+import { downloadBlob } from "../../../../utils";
 import dayjs from "dayjs";
 
 const PAGE_SIZE = 20;
+
+const getExportExtension = (mimeType = "") => {
+  if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return "xlsx";
+  if (mimeType.includes("pdf")) return "pdf";
+  if (mimeType.includes("csv")) return "csv";
+  return "xlsx";
+};
 
 const passFailColorMap = { Pass: "green", Fail: "red" };
 const gradeColorMap = { A: "green", B: "blue", C: "yellow", F: "red" };
@@ -237,6 +246,7 @@ const AssessmentOverviewPage = () => {
 
   // Pagination
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
   const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
   const pageSlice = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -354,6 +364,27 @@ const AssessmentOverviewPage = () => {
   const kpiDifficulty =
     kpis?.difficultyImpact ?? kpis?.questionDifficultyImpactAnalysis ?? "—";
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = {};
+      if (courseId) params.courseId = courseId;
+      if (moduleId) params.moduleId = moduleId;
+      if (assessmentId) params.assessmentId = assessmentId;
+      if (departmentId) params.departmentId = departmentId;
+      if (studentId) params.studentId = studentId;
+      if (instructorId) params.instructorId = instructorId;
+      const blob = await adminExportAssessmentOverview(params);
+      downloadBlob(blob, `assessment-quiz-overview-report.${getExportExtension(blob.type)}`);
+    } catch (err) {
+      const message =
+        err?.response?.data?.message || err.message || "Unable to export overview report";
+      toast({ status: "error", description: message, duration: 4000, isClosable: true });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <AdminMainAreaWrapper>
       {/* Breadcrumb */}
@@ -383,9 +414,14 @@ const AssessmentOverviewPage = () => {
             Student performance per assessment, module and course — with overall pass rate overview.
           </Text>
         </Box>
-        <Button secondary onClick={() => fetchOverview({})} isLoading={loading}>
-          Refresh
-        </Button>
+        <Flex gap={2}>
+          <Button secondary onClick={handleExport} isLoading={exporting} isDisabled={exporting}>
+            Export
+          </Button>
+          <Button secondary onClick={() => fetchOverview({})} isLoading={loading}>
+            Refresh
+          </Button>
+        </Flex>
       </Flex>
 
       <AssessmentTabBar />

@@ -28,9 +28,20 @@ import {
 import {
   getVisualAnalyticsDashboard,
   getVisualAnalyticsReport,
+  exportVisualAnalyticsReport,
   adminGetCourseListing,
   adminListModules,
 } from "../../../../services";
+import { downloadBlob } from "../../../../utils";
+
+// e.g. "application/vnd.openxmlformats...spreadsheet" -> "xlsx"
+const extFromMimeType = (type) => {
+  if (!type) return "xlsx";
+  if (type.includes("pdf")) return "pdf";
+  if (type.includes("csv")) return "csv";
+  if (type.includes("spreadsheet") || type.includes("excel")) return "xlsx";
+  return "xlsx";
+};
 
 ChartJS.register(
   ArcElement,
@@ -207,6 +218,7 @@ const VisualAnalyticsDashboardPage = () => {
 
   const [courses, setCourses] = useState([]);
   const [modules, setModules] = useState([]);
+  const [exporting, setExporting] = useState(false);
 
   const [filters, setFilters] = useState({
     courseId: "",
@@ -303,6 +315,23 @@ const VisualAnalyticsDashboardPage = () => {
   const handlePageChange = (next) => {
     setPage(next);
     fetchReport(next, buildParams());
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportVisualAnalyticsReport(buildParams());
+      downloadBlob(blob, `visual-analytics-report.${extFromMimeType(blob.type)}`);
+    } catch (err) {
+      toast({
+        status: "error",
+        description: err?.message || "Failed to export report",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setExporting(false);
+    }
   };
 
   useEffect(() => {
@@ -851,6 +880,11 @@ const VisualAnalyticsDashboardPage = () => {
             >
               Filter
             </Button>
+            {reportRows.length > 0 && (
+              <Button size="sm" onClick={handleExport} isLoading={exporting}>
+                Export
+              </Button>
+            )}
           </Flex>
         </Box>
 

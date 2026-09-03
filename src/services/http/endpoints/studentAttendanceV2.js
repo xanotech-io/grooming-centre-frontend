@@ -12,6 +12,15 @@ export const getAttendanceReport = async (params) => {
   return data;
 };
 
+// GET /api/v1/student-attendance-v2/report/export
+export const exportAttendanceReport = async (params) => {
+  const response = await http.get("/v1/student-attendance-v2/report/export", {
+    params,
+    responseType: "blob",
+  });
+  return response.data;
+};
+
 // GET /api/v1/student-attendance-v2/{studentId}
 export const getStudentAttendanceV2 = async (studentId, params) => {
   const { data } = await http.get(`/v1/student-attendance-v2/${studentId}`, { params });

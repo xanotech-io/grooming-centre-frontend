@@ -29,7 +29,7 @@ import {
 } from "../../../../../utils";
 import { MultiSelect } from "react-multi-select-component";
 import { useApp } from "../../../../../contexts";
-import { Checkbox, Tag, TagCloseButton, TagLabel } from "@chakra-ui/react";
+import { Tag, TagCloseButton, TagLabel } from "@chakra-ui/react";
 
 const CreateAssessmentPage = ({ users }) => {
   const { id: courseId, assessmentId } = useParams();
@@ -52,7 +52,7 @@ const CreateAssessmentPage = ({ users }) => {
   const supportsSectionAuthoring = !isStandaloneExamination && !isExamination;
 
   const [standaloneExamType, setStandaloneExamType] = useState("departments");
-  const [addToBank, setAddToBank] = useState(false);
+  // const [addToBank, setAddToBank] = useState(false);
 
   const { push } = useHistory();
   const toast = useToast();
@@ -188,7 +188,7 @@ const CreateAssessmentPage = ({ users }) => {
             : "Assessment",
         body,
         markingTemplateId,
-        addToBank: isModuleAssessment ? addToBank : undefined,
+        // addToBank: isModuleAssessment ? addToBank : undefined,
         title: data.title,
         fromBankQuestionIds: bankQuestionIdsRef.current,
       });
@@ -481,7 +481,7 @@ const CreateAssessmentPage = ({ users }) => {
             )}
           </Box>
 
-          {isModuleAssessment && (
+          {/* {isModuleAssessment && (
             <Checkbox
               isChecked={addToBank}
               onChange={(e) => setAddToBank(e.target.checked)}
@@ -490,7 +490,7 @@ const CreateAssessmentPage = ({ users }) => {
             >
               Add to Question Bank — automatically save every question created for this assessment to the bank
             </Checkbox>
-          )}
+          )} */}
         </Box>
         <Flex paddingY={10} marginX={6} justifyContent="space-between">
           <Button secondary onClick={handleCancel}>

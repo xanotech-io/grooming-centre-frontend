@@ -3,13 +3,11 @@ import {
     Box,
     Flex,
     Text,
-    Button,
     useToast,
     useDisclosure,
     BreadcrumbItem,
 } from '@chakra-ui/react';
 import { Route } from 'react-router-dom';
-import { FiDownload } from 'react-icons/fi';
 import { AdminMainAreaWrapper } from '../../../layouts';
 import { Breadcrumb, Link } from '../../../components';
 import {
@@ -222,29 +220,14 @@ const ArchivedReportsPage = () => {
               />
             </Flex>
             {/* Header */}
-            <Flex justifyContent="space-between" alignItems="center" mb={6} mt={6}>
-                <Box>
-                    <Text fontSize="26px" fontWeight="700" color="#101928">
-                        Archive & Retrieval
-                    </Text>
-                    <Text fontSize="14px" color="#667085" mt={1}>
-                        Manage and retrieve historical MIS reports
-                    </Text>
-                </Box>
-                <Button
-                    bg="#6b006b"
-                    color="white"
-                    _hover={{ bg: '#550055' }}
-                    borderRadius="8px"
-                    leftIcon={<FiDownload />}
-                    fontWeight="600"
-                    fontSize="14px"
-                    height="42px"
-                    px={6}
-                >
-                    Export Report
-                </Button>
-            </Flex>
+            <Box mb={6} mt={6}>
+                <Text fontSize="26px" fontWeight="700" color="#101928">
+                    Archive & Retrieval
+                </Text>
+                <Text fontSize="14px" color="#667085" mt={1}>
+                    Manage and retrieve historical MIS reports
+                </Text>
+            </Box>
 
             {/* KPI Cards */}
             <ArchiveKPICards kpis={kpis} isLoading={kpisLoading} />

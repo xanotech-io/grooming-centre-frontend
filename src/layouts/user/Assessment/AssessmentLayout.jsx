@@ -77,7 +77,7 @@ const AssessmentLayout = () => {
         />
       )}
 
-      {isProctoringBlocked && !submitStatus.success && (
+      {isProctoringBlocked && !submitStatus.success && !submitStatus.error && (
         <Flex
           position="fixed"
           top={0}
@@ -93,6 +93,28 @@ const AssessmentLayout = () => {
         >
           <Spinner size="xl" color="white" thickness="4px" />
           <Text color="white" fontWeight="600">Submitting your exam…</Text>
+        </Flex>
+      )}
+
+      {isProctoringBlocked && submitStatus.error && (
+        <Flex
+          position="fixed"
+          top={0}
+          left={0}
+          width="100vw"
+          height="100vh"
+          bg="blackAlpha.700"
+          zIndex={1400}
+          justifyContent="center"
+          alignItems="center"
+          direction="column"
+          gap={4}
+          textAlign="center"
+          px={6}
+        >
+          <Text color="white" fontWeight="600">Your exam couldn't be submitted automatically.</Text>
+          <Text color="white" fontSize="sm">{submitStatus.error}</Text>
+          <Text color="white" fontSize="sm">Taking you back to the course…</Text>
         </Flex>
       )}
 

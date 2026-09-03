@@ -8,19 +8,21 @@ import {
   Breadcrumb,
   Link,
 } from "../../../components";
-import { BreadcrumbItem, Tag } from "@chakra-ui/react";
+import { BreadcrumbItem, Tag, useToast } from "@chakra-ui/react";
 import { FaSortAmountUpAlt } from "react-icons/fa";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
   deleteStandaloneExamination,
   adminGetStandaloneExaminationListing,
+  adminEditStandaloneExamination,
+  adminGetStandaloneExamById,
 } from "../../../services";
 import { getDuration } from "../../../utils";
 import dayjs from "dayjs";
 import { useTableRows } from "../../../hooks";
 import { useAddStandaloneExamToBank } from "../examQuestionBank/useAddStandaloneExamToBank";
 
-const buildTableProps = ({ onAddToBank }) => ({
+const buildTableProps = ({ onAddToBank, onPublish, onUnpublish }) => ({
   filterControls: [
     {
       triggerText: "Sort",
@@ -147,8 +149,21 @@ const buildTableProps = ({ onAddToBank }) => ({
           `/admin/standalone-exams/view/${examination.id}?tab=submissions`,
       },
       {
+        text: "Access Links",
+        link: (examination) =>
+          `/admin/standalone-exams/view/${examination.id}?tab=access-links`,
+      },
+      {
         text: "Add to Question Bank",
         onClick: onAddToBank,
+      },
+      {
+        text: "Publish",
+        onClick: onPublish,
+      },
+      {
+        text: "Unpublish",
+        onClick: onUnpublish,
       },
       {
         isDelete: true,
@@ -163,15 +178,8 @@ const buildTableProps = ({ onAddToBank }) => ({
 });
 
 const StandaloneExaminationListingPage = () => {
+  const toast = useToast();
   const { addStandaloneExamToBank } = useAddStandaloneExamToBank();
-
-  const tableProps = buildTableProps({
-    onAddToBank: (examination) =>
-      addStandaloneExamToBank({
-        examinationId: examination.id,
-        examinationTitle: examination.title?.text,
-      }),
-  });
 
   const mapExaminationToRow = (examination) => ({
     id: examination.id,
@@ -188,15 +196,74 @@ const StandaloneExaminationListingPage = () => {
   });
 
   const fetcher = (props) => async () => {
-    const { examinations, showingDocumentsCount, totalDocumentsCount } =
-      await adminGetStandaloneExaminationListing(props?.params);
+    // Default to newest-first at the request level, not just after the
+    // fact — this listing is paginated, so a client-side-only re-sort
+    // can't surface a just-created exam that the backend's own default
+    // (non-date) ordering placed on a later page than the one actually
+    // fetched. A user-picked sort filter overrides this default.
+    const params = { sort: "desc", date: true, ...props?.params };
 
-    const rows = examinations.map(mapExaminationToRow);
-    console.log(rows);
+    const { examinations, showingDocumentsCount, totalDocumentsCount } =
+      await adminGetStandaloneExaminationListing(params);
+
+    // Belt-and-suspenders in case the backend accepts these params without
+    // fully honoring them for this endpoint.
+    const orderedExaminations = params.date
+      ? [...examinations].sort((a, b) =>
+          params.sort === "asc"
+            ? new Date(a.createdAt) - new Date(b.createdAt)
+            : new Date(b.createdAt) - new Date(a.createdAt),
+        )
+      : examinations;
+
+    const rows = orderedExaminations.map(mapExaminationToRow);
     return { rows, showingDocumentsCount, totalDocumentsCount };
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
+  const setPublishStatus = async (examination, isPublished) => {
+    try {
+      // The backend re-validates retryCount/retryPolicy together on every
+      // edit, so a PATCH that only carries `isPublished` gets rejected
+      // whenever the exam already has retries configured — refetch and
+      // resend those two fields alongside the status change.
+      const { examination: current } = await adminGetStandaloneExamById(
+        examination.id,
+      );
+      const retryCount = Number(current.retryCount) || 0;
+
+      await adminEditStandaloneExamination(examination.id, {
+        isPublished,
+        retryCount,
+        ...(retryCount > 0 ? { retryPolicy: current.retryPolicy } : {}),
+      });
+      toast({
+        title: isPublished ? "Examination published" : "Examination unpublished",
+        status: "success",
+        duration: 3000,
+      });
+      fetchRowItems();
+    } catch (error) {
+      toast({
+        title:
+          error?.response?.data?.message ||
+          `Failed to ${isPublished ? "publish" : "unpublish"} examination`,
+        status: "error",
+        duration: 3000,
+      });
+    }
+  };
+
+  const tableProps = buildTableProps({
+    onAddToBank: (examination) =>
+      addStandaloneExamToBank({
+        examinationId: examination.id,
+        examinationTitle: examination.title?.text,
+      }),
+    onPublish: (examination) => setPublishStatus(examination, true),
+    onUnpublish: (examination) => setPublishStatus(examination, false),
+  });
 
   return (
     <AdminMainAreaWrapper>

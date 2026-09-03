@@ -54,7 +54,7 @@ import {
 } from "../../../../services";
 import { MOCK_SUBMISSIONS } from "../../../../services/http/endpoints/submissionsReport";
 import SubmissionGradingModal from "./SubmissionGradingModal";
-import { isSubmissionGraded, submissionStatusLabel } from "../../../../utils";
+import { isSubmissionGraded, submissionStatusLabel, exportRowsToPdf } from "../../../../utils";
 import dayjs from "dayjs";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -564,6 +564,12 @@ const SubmissionsReportPage = () => {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Submissions");
         XLSX.writeFile(wb, `submissions-report-${dayjs().format("YYYY-MM-DD")}.xlsx`);
+      } else if (format === "pdf") {
+        exportRowsToPdf(
+          [headers, ...filtered.map(rowMapper)],
+          `submissions-report-${dayjs().format("YYYY-MM-DD")}.pdf`,
+          "Submissions Report",
+        );
       }
     } catch {
       toast({ title: "Export failed", status: "error", duration: 3000, isClosable: true });
@@ -639,6 +645,7 @@ const SubmissionsReportPage = () => {
             <MenuList>
               <MenuItem onClick={() => handleExport("csv")}>Export CSV</MenuItem>
               <MenuItem onClick={() => handleExport("xlsx")}>Export Excel</MenuItem>
+              <MenuItem onClick={() => handleExport("pdf")}>Export PDF</MenuItem>
             </MenuList>
           </Menu>
         </Flex>

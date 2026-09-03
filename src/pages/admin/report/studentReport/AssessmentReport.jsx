@@ -281,12 +281,7 @@ const AssessmentReport = () => {
   return (
     <>
       <AdminMainAreaWrapper>
-        <Box
-          display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-          my={4}
-        >
+        <Box my={4}>
           <Breadcrumb
             item2={
               <BreadcrumbItem>

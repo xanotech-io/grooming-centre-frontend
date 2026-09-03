@@ -29,7 +29,7 @@ export const links = [
     text: "Users & Access",
     icon: <HiUsers />,
     links: [
-      { href: "/admin/users?page=1&limit=10", text: "users" },
+      { href: "/admin/users?page=1&limit=10", text: "users", roles: ["super admin"] },
       { href: "/admin/departments?page=1&limit=10", text: "departments" },
       // { href: "/admin/role", text: "roles" },
       { href: "/admin/custom-fields", text: "Custom Fields" },

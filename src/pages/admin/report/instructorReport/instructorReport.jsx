@@ -128,12 +128,9 @@ const InstructorReport = () => {
             </BreadcrumbItem>
           }
         />
-        <Box display="flex" gap="8px">
-          <Button secondary onClick={() => {}}>
-            Schedule report
-          </Button>
-          <Button onClick={() => {}}>Export Dashboard</Button>
-        </Box>
+        <Button secondary onClick={() => {}}>
+          Schedule report
+        </Button>
       </Box>
 
       <Table

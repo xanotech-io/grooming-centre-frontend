@@ -113,7 +113,7 @@ const StudentCourseProgressPage = () => {
   return (
     <Box px={{ base: 4, md: 10 }} py={8} {...maxWidthStyles_userPages}>
       {/* Back + header */}
-      <Flex alignItems="center" gap={3} mb={6}>
+      <Flex alignItems="center" gap={3} mb={6} flexWrap="wrap">
         <Button secondary onClick={() => history.push("/my-progress")}>
           ← Back
         </Button>

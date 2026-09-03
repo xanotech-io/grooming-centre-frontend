@@ -78,10 +78,7 @@ const StudentReportDetails = () => {
             </BreadcrumbItem>
           }
         />
-        <Box display="flex" gap="8px">
-          <Button secondary>Schedule report</Button>
-          <Button>Export Dashboard</Button>
-        </Box>
+        <Button secondary>Schedule report</Button>
       </Box>
 
       <Box bg="white" p={6} borderRadius="lg" boxShadow="sm" mt={4}>
