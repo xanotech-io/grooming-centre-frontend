@@ -289,7 +289,7 @@ const StandaloneExaminationListingPage = () => {
         </Heading>
 
         <Box display={"flex"} gap="8px">
-          <Button link={`/admin/exam-question-bank`} secondary>Question Bank</Button>
+          {/* <Button link={`/admin/exam-question-bank`} secondary>Question Bank</Button> */}
 
           <Button link={`/admin/exam-paper-config-presets`} secondary>Exam Template Library</Button>
 
