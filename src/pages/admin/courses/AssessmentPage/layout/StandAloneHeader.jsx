@@ -154,7 +154,7 @@ const StandAloneHeader = () => {
         </Flex>
 
         <Flex gap="10px">
-          <Button
+          {/* <Button
             secondary
             onClick={() => {
               // No exam/shell to attach questions to yet at all (haven't even
@@ -175,7 +175,7 @@ const StandAloneHeader = () => {
             }}
           >
             Question Bank
-          </Button>
+          </Button> */}
           {examinationId && (
             <Button
               secondary

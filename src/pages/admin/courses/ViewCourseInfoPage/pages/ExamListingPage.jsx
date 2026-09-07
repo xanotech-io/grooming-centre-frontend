@@ -164,9 +164,9 @@ const ExamListingPage = () => {
         </Heading>
 
         <Flex gap="8px">
-          <Button secondary link={`/admin/exam-question-bank?courseId=${courseId}`}>
+          {/* <Button secondary link={`/admin/exam-question-bank?courseId=${courseId}`}>
             Question Bank
-          </Button>
+          </Button> */}
           <Button
             link={`/admin/courses/${courseId}/assessment/new/overview?examination=new`}
           >

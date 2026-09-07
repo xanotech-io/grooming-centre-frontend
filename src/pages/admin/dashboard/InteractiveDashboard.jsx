@@ -11,12 +11,13 @@ import {
   Legend,
   Filler,
 } from 'chart.js';
-import { Bar, Doughnut, Line } from 'react-chartjs-2';
-import { useCallback, useEffect, useState } from 'react';
+import { Bar, Doughnut } from 'react-chartjs-2';
+import {
+  useCallback, useEffect, useRef, useState,
+} from 'react';
 import { Route } from 'react-router-dom';
 import {
   Box, Flex, Grid, SimpleGrid,
-  Badge,
   Tab, TabList, TabPanel, TabPanels, Tabs,
   Select,
   Input,
@@ -34,12 +35,10 @@ import { FiDownload, FiAlertTriangle } from 'react-icons/fi';
 import { AdminMainAreaWrapper } from '../../../layouts/admin/MainArea/Wrapper';
 import {
   adminGetDashboardFilters,
-  adminGetAcademicDashboardV2,
-  adminGetAdministrativeDashboard,
-  adminGetPerformanceDashboard,
-  adminGetAttendanceDashboard,
+  adminGetDashboardV2,
   adminGetDashboardKPIs,
   adminExportDashboard,
+  adminEndDashboardInteraction,
 } from '../../../services';
 import { Text, Heading, Breadcrumb, Link } from '../../../components';
 
@@ -61,20 +60,9 @@ const BAR_OPTIONS = {
   },
 };
 
-const LINE_OPTIONS = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
-  scales: {
-    x: { grid: { display: false } },
-    y: { beginAtZero: true, grid: { borderDash: [4, 4] } },
-  },
-};
-
 const DOUGHNUT_OPTIONS = { maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false } } };
 
 const BRAND = '#660066';
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // ─── KPI Card ───────────────────────────────────────────────────────────────
 
@@ -125,6 +113,105 @@ const ErrorPane = ({ message, onRetry }) => (
   </Flex>
 );
 
+// ─── Generic visualization renderers ───────────────────────────────────────
+// The API's `visualizations` entries only guarantee { type, title, data: [...] }
+// — row shape isn't documented, so label/value columns are picked from
+// whatever keys are actually present rather than hardcoded field names.
+
+const findViz = (visualizations, type) => (visualizations ?? []).find((v) => v.type === type);
+
+const rowsOf = (viz) => (Array.isArray(viz?.data) ? viz.data.filter(Boolean) : []);
+
+const LABEL_KEY_CANDIDATES = ['label', 'name', 'title', 'course', 'courseTitle', 'department', 'category', 'month', 'day', 'date', 'range'];
+const VALUE_KEY_CANDIDATES = ['value', 'count', 'total', 'rate', 'score', 'completionRate', 'enrollmentCount', 'logins', 'percentage'];
+
+const guessLabelKey = (row) => LABEL_KEY_CANDIDATES.find((k) => row[k] !== undefined)
+  ?? Object.keys(row).find((k) => typeof row[k] === 'string');
+
+const guessValueKey = (row, labelKey) => VALUE_KEY_CANDIDATES.find((k) => row[k] !== undefined)
+  ?? Object.keys(row).find((k) => k !== labelKey && typeof row[k] === 'number');
+
+const PIE_COLORS = [BRAND, '#00A143', '#F97316', '#CC0C0C', '#0083E2', '#E4E7EC'];
+
+const GenericBarChart = ({ viz, color = BRAND }) => {
+  const rows = rowsOf(viz);
+  if (rows.length === 0) return <EmptyPane />;
+  const labelKey = guessLabelKey(rows[0]);
+  const valueKey = guessValueKey(rows[0], labelKey);
+  const chartData = {
+    labels: rows.map((r) => String(r[labelKey] ?? '')),
+    datasets: [{
+      label: viz.title,
+      data: rows.map((r) => Number(r[valueKey]) || 0),
+      backgroundColor: color,
+      borderRadius: 4,
+    }],
+  };
+  return <Bar data={chartData} options={BAR_OPTIONS} />;
+};
+
+const GenericPieChart = ({ viz }) => {
+  const rows = rowsOf(viz);
+  if (rows.length === 0) return <EmptyPane />;
+  const labelKey = guessLabelKey(rows[0]);
+  const valueKey = guessValueKey(rows[0], labelKey);
+  const chartData = {
+    labels: rows.map((r) => String(r[labelKey] ?? '')),
+    datasets: [{
+      data: rows.map((r) => Number(r[valueKey]) || 0),
+      backgroundColor: PIE_COLORS,
+      borderWidth: 0,
+    }],
+  };
+  return (
+    <>
+      <Box h="180px" display="flex" justifyContent="center">
+        <Doughnut data={chartData} options={DOUGHNUT_OPTIONS} />
+      </Box>
+      <VStack align="stretch" mt={3} spacing={1}>
+        {rows.map((r, i) => (
+          <DonutLegend key={r[labelKey] ?? i} color={PIE_COLORS[i % PIE_COLORS.length]} label={String(r[labelKey])} value={r[valueKey]} />
+        ))}
+      </VStack>
+    </>
+  );
+};
+
+const humanizeKey = (key) => key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
+
+const formatCell = (key, value) => {
+  if (value == null || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') return /rate|percentage|percent/i.test(key) ? `${value}%` : value.toLocaleString();
+  return String(value);
+};
+
+const GenericTable = ({ viz, emptyMessage = 'No data available.' }) => {
+  const rows = rowsOf(viz);
+  if (rows.length === 0) return <EmptyPane message={emptyMessage} />;
+  const columns = Object.keys(rows[0]);
+  return (
+    <Table variant="simple" size="sm">
+      <Thead bg="#F9FAFB">
+        <Tr>
+          {columns.map((c) => (
+            <Th key={c} textTransform="none" fontSize="12px" fontWeight="500" color="#667085" py={3}>{humanizeKey(c)}</Th>
+          ))}
+        </Tr>
+      </Thead>
+      <Tbody>
+        {rows.map((row, i) => (
+          <Tr key={row.id ?? i}>
+            {columns.map((c) => (
+              <Td key={c} fontSize="13px">{formatCell(c, row[c])}</Td>
+            ))}
+          </Tr>
+        ))}
+      </Tbody>
+    </Table>
+  );
+};
+
 // ─── Filters bar ────────────────────────────────────────────────────────────
 
 const FiltersBar = ({ filters, filterOptions, onChange, onExport, exporting }) => (
@@ -170,12 +257,40 @@ const FiltersBar = ({ filters, filterOptions, onChange, onExport, exporting }) =
   </Flex>
 );
 
+// ─── Dashboard interaction tracking ─────────────────────────────────────────
+// Each GET /dashboard-v2?type=... response carries an interactionId. It must
+// be ended (PATCH .../interaction/{id}/end) whenever the user leaves that
+// view — a fresh load replacing it, or the tab/page unmounting — otherwise
+// the "Average User Engagement Duration" KPI has nothing to measure.
+
+const useTrackDashboardInteraction = () => {
+  const interactionIdRef = useRef(null);
+
+  const setInteractionId = useCallback((newId) => {
+    const prevId = interactionIdRef.current;
+    interactionIdRef.current = newId ?? null;
+    if (prevId && prevId !== newId) adminEndDashboardInteraction(prevId);
+  }, []);
+
+  useEffect(() => {
+    const endCurrent = () => adminEndDashboardInteraction(interactionIdRef.current);
+    window.addEventListener('pagehide', endCurrent);
+    return () => {
+      window.removeEventListener('pagehide', endCurrent);
+      endCurrent();
+    };
+  }, []);
+
+  return setInteractionId;
+};
+
 // ─── ACADEMIC TAB ────────────────────────────────────────────────────────────
 
 const AcademicTab = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const setInteractionId = useTrackDashboardInteraction();
 
   const load = useCallback(() => {
     setLoading(true);
@@ -185,35 +300,17 @@ const AcademicTab = ({ filters }) => {
     if (filters.courseId) params.courseId = filters.courseId;
     if (filters.startDate) params.startDate = filters.startDate;
     if (filters.endDate) params.endDate = filters.endDate;
-    adminGetAcademicDashboardV2(params)
-      .then(({ dashboard }) => setData(dashboard))
+    adminGetDashboardV2('academic', params)
+      .then(({ dashboard }) => { setData(dashboard); setInteractionId(dashboard?.interactionId); })
       .catch((err) => setError(err?.response?.data?.message || err.message || 'Failed to load.'))
       .finally(() => setLoading(false));
-  }, [filters.departmentId, filters.courseId, filters.startDate, filters.endDate]);
+  }, [filters.departmentId, filters.courseId, filters.startDate, filters.endDate, setInteractionId]);
 
   useEffect(() => { load(); }, [load]);
 
   const kpis = data?.kpis ?? {};
-  const lowCompletion = (data?.lowCompletionCourses ?? []).filter(Boolean);
-
-  const barData = {
-    labels: MONTH_LABELS,
-    datasets: [{
-      label: 'Completion Rate',
-      data: data?.visualizations?.find((v) => v.type === 'BarChart')?.data?.values ?? Array(12).fill(0),
-      backgroundColor: BRAND,
-      borderRadius: 4,
-    }],
-  };
-
-  const doughnutData = {
-    labels: ['Completed', 'In Progress', 'Not Started'],
-    datasets: [{
-      data: [kpis.courseCompletionRate ?? 60, 100 - (kpis.courseCompletionRate ?? 60) - 10, 10],
-      backgroundColor: ['#660066', '#F97316', '#E4E7EC'],
-      borderWidth: 0,
-    }],
-  };
+  const barViz = findViz(data?.visualizations, 'BarChart');
+  const tableViz = findViz(data?.visualizations, 'Table');
 
   if (error) return <ErrorPane message={error} onRetry={load} />;
 
@@ -235,54 +332,21 @@ const AcademicTab = ({ filters }) => {
         ].map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
       </SimpleGrid>
 
-      <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={5} mb={6}>
-        <ChartCard title="Course Completion Trend">
-          <Bar data={barData} options={BAR_OPTIONS} />
-        </ChartCard>
-        <ChartCard title="Enrollment Distribution">
-          <Box h="180px" display="flex" justifyContent="center">
-            <Doughnut data={doughnutData} options={DOUGHNUT_OPTIONS} />
-          </Box>
-          <VStack align="stretch" mt={3} spacing={1}>
-            <DonutLegend color="#660066" label="Completed" value={`${kpis.courseCompletionRate ?? '—'}%`} />
-            <DonutLegend color="#F97316" label="In Progress" value="—" />
-            <DonutLegend color="#E4E7EC" label="Not Started" value="—" />
-          </VStack>
-        </ChartCard>
-      </Grid>
+      <ChartCard title={barViz?.title ?? 'Top Courses by Enrollment'} h="280px">
+        {loading ? <Skeleton h="220px" /> : <GenericBarChart viz={barViz} />}
+      </ChartCard>
 
-      {/* Low completion courses */}
-      <Box bg="white" borderRadius="xl" border="1px solid #E4E7EC" overflow="hidden" mb={6}>
+      <Box bg="white" borderRadius="xl" border="1px solid #E4E7EC" overflow="hidden" mt={6}>
         <Box p={4} borderBottom="1px solid #F2F4F7">
           <Flex align="center" gap={2}>
             <FiAlertTriangle color="#D97706" />
-            <CText fontSize="15px" fontWeight="600" color="#101928">Low Completion Courses (Below 30%)</CText>
+            <CText fontSize="15px" fontWeight="600" color="#101928">{tableViz?.title ?? 'Low Completion Courses'}</CText>
           </Flex>
         </Box>
         {loading ? (
           <Box p={4}><Skeleton h="40px" mb={2} /><Skeleton h="40px" /></Box>
-        ) : lowCompletion.length === 0 ? (
-          <EmptyPane message="No low-completion courses found." />
         ) : (
-          <Table variant="simple" size="sm">
-            <Thead bg="#FFF8F0">
-              <Tr>
-                {['Course', 'Completion %', 'Enrollments', 'Status'].map((h) => (
-                  <Th key={h} textTransform="none" fontSize="12px" fontWeight="500" color="#667085" py={3}>{h}</Th>
-                ))}
-              </Tr>
-            </Thead>
-            <Tbody>
-              {lowCompletion.map((c, i) => (
-                <Tr key={i}>
-                  <Td fontSize="13px" fontWeight="500">{c.title ?? c.courseTitle ?? c.course ?? '—'}</Td>
-                  <Td fontSize="13px" color="#D97706" fontWeight="600">{c.completionRate != null ? `${c.completionRate}%` : '—'}</Td>
-                  <Td fontSize="13px">{c.enrollmentCount ?? c.enrolled ?? '—'}</Td>
-                  <Td><Badge colorScheme="orange" fontSize="11px" borderRadius="full" px={3}>Low</Badge></Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
+          <GenericTable viz={tableViz} emptyMessage="No low-completion courses found." />
         )}
       </Box>
     </>
@@ -295,6 +359,7 @@ const AdministrativeTab = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const setInteractionId = useTrackDashboardInteraction();
 
   const load = useCallback(() => {
     setLoading(true);
@@ -303,47 +368,17 @@ const AdministrativeTab = ({ filters }) => {
     if (filters.departmentId) params.departmentId = filters.departmentId;
     if (filters.startDate) params.startDate = filters.startDate;
     if (filters.endDate) params.endDate = filters.endDate;
-    adminGetAdministrativeDashboard(params)
-      .then(({ dashboard }) => setData(dashboard))
+    adminGetDashboardV2('administrative', params)
+      .then(({ dashboard }) => { setData(dashboard); setInteractionId(dashboard?.interactionId); })
       .catch((err) => setError(err?.response?.data?.message || err.message || 'Failed to load.'))
       .finally(() => setLoading(false));
-  }, [filters.departmentId, filters.startDate, filters.endDate]);
+  }, [filters.departmentId, filters.startDate, filters.endDate, setInteractionId]);
 
   useEffect(() => { load(); }, [load]);
 
   const kpis = data?.kpis ?? {};
-
-  const deptBarData = {
-    labels: (data?.departmentPerformance ?? []).map((d) => d.department ?? d.name ?? ''),
-    datasets: [{
-      label: 'Completion Rate',
-      data: (data?.departmentPerformance ?? []).map((d) => d.completionRate ?? d.value ?? 0),
-      backgroundColor: BRAND,
-      borderRadius: 4,
-    }],
-  };
-
-  const userStatusData = {
-    labels: ['Active', 'Pending', 'Inactive'],
-    datasets: [{
-      data: [kpis.activeUsers ?? 80, 15, 5],
-      backgroundColor: ['#00A143', '#F97316', '#CC0C0C'],
-      borderWidth: 0,
-    }],
-  };
-
-  const enrollmentTrendData = {
-    labels: MONTH_LABELS,
-    datasets: [{
-      label: 'New Enrollments',
-      data: data?.enrollmentTrend ?? Array(12).fill(0),
-      borderColor: BRAND,
-      backgroundColor: 'rgba(102,0,102,0.1)',
-      tension: 0.4,
-      fill: true,
-      pointRadius: 3,
-    }],
-  };
+  const barViz = findViz(data?.visualizations, 'BarChart');
+  const tableViz = findViz(data?.visualizations, 'Table');
 
   if (error) return <ErrorPane message={error} onRetry={load} />;
 
@@ -365,27 +400,20 @@ const AdministrativeTab = ({ filters }) => {
         ].map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
       </SimpleGrid>
 
-      <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={5} mb={6}>
-        <ChartCard title="Enrollment Trend">
-          <Line data={enrollmentTrendData} options={LINE_OPTIONS} />
-        </ChartCard>
-        <ChartCard title="User Account Status">
-          <Box h="180px" display="flex" justifyContent="center">
-            <Doughnut data={userStatusData} options={DOUGHNUT_OPTIONS} />
-          </Box>
-          <VStack align="stretch" mt={3} spacing={1}>
-            <DonutLegend color="#00A143" label="Active" value={kpis.activeUsers ?? '—'} />
-            <DonutLegend color="#F97316" label="Pending" value="—" />
-            <DonutLegend color="#CC0C0C" label="Inactive" value="—" />
-          </VStack>
-        </ChartCard>
-      </Grid>
+      <ChartCard title={barViz?.title ?? 'Department Performance'} h="280px">
+        {loading ? <Skeleton h="220px" /> : <GenericBarChart viz={barViz} />}
+      </ChartCard>
 
-      {(data?.departmentPerformance ?? []).length > 0 && (
-        <ChartCard title="Department Performance">
-          <Bar data={deptBarData} options={BAR_OPTIONS} />
-        </ChartCard>
-      )}
+      <Box bg="white" borderRadius="xl" border="1px solid #E4E7EC" overflow="hidden" mt={6}>
+        <Box p={4} borderBottom="1px solid #F2F4F7">
+          <CText fontSize="15px" fontWeight="600" color="#101928">{tableViz?.title ?? 'Course Popularity Index'}</CText>
+        </Box>
+        {loading ? (
+          <Box p={4}><Skeleton h="40px" mb={2} /><Skeleton h="40px" /></Box>
+        ) : (
+          <GenericTable viz={tableViz} />
+        )}
+      </Box>
     </>
   );
 };
@@ -396,6 +424,7 @@ const PerformanceTab = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const setInteractionId = useTrackDashboardInteraction();
 
   const load = useCallback(() => {
     setLoading(true);
@@ -403,30 +432,18 @@ const PerformanceTab = ({ filters }) => {
     const params = {};
     if (filters.departmentId) params.departmentId = filters.departmentId;
     if (filters.courseId) params.courseId = filters.courseId;
-    adminGetPerformanceDashboard(params)
-      .then(({ dashboard }) => setData(dashboard))
+    adminGetDashboardV2('performance', params)
+      .then(({ dashboard }) => { setData(dashboard); setInteractionId(dashboard?.interactionId); })
       .catch((err) => setError(err?.response?.data?.message || err.message || 'Failed to load.'))
       .finally(() => setLoading(false));
-  }, [filters.departmentId, filters.courseId]);
+  }, [filters.departmentId, filters.courseId, setInteractionId]);
 
   useEffect(() => { load(); }, [load]);
 
   const kpis = data?.kpis ?? {};
-  const fb = kpis.feedbackRating ?? {};
-  const topPerformers = data?.topPerformers ?? [];
-
-  const trendData = {
-    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-    datasets: [{
-      label: 'Avg Score',
-      data: data?.performanceTrend ?? [60, 65, 72, 80],
-      borderColor: BRAND,
-      backgroundColor: 'rgba(102,0,102,0.1)',
-      tension: 0.4,
-      fill: true,
-      pointRadius: 4,
-    }],
-  };
+  const cps = kpis.combinedPerformanceScore ?? {};
+  const tableViz = findViz(data?.visualizations, 'Table');
+  const barViz = findViz(data?.visualizations, 'BarChart');
 
   if (error) return <ErrorPane message={error} onRetry={load} />;
 
@@ -436,54 +453,29 @@ const PerformanceTab = ({ filters }) => {
         {[
           { title: 'Quiz Average', value: kpis.quizAverageScore != null ? `${kpis.quizAverageScore}%` : null },
           { title: 'Exam Average', value: kpis.examAverageScore != null ? `${kpis.examAverageScore}%` : null },
-          { title: 'Assessment Rating', value: fb.averageAssessmentScore != null ? `${fb.averageAssessmentScore}%` : null },
-          { title: 'Attendance Rating', value: fb.averageAttendanceScore != null ? `${fb.averageAttendanceScore}%` : null },
-          { title: 'Examination Rating', value: fb.averageExaminationScore != null ? `${fb.averageExaminationScore}%` : null },
+          { title: 'Feedback Rating', value: kpis.feedbackAvailable ? kpis.feedbackRating : 'Not available' },
+        ].map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
+      </SimpleGrid>
+      <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={4} mb={6}>
+        {[
+          { title: 'Assessment Score', value: cps.averageAssessmentScore != null ? `${cps.averageAssessmentScore}%` : null },
+          { title: 'Attendance Score', value: cps.averageAttendanceScore != null ? `${cps.averageAttendanceScore}%` : null },
+          { title: 'Examination Score', value: cps.averageExaminationScore != null ? `${cps.averageExaminationScore}%` : null },
         ].map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
       </SimpleGrid>
 
-      <ChartCard title="Performance Trend" h="280px">
-        <Line data={trendData} options={LINE_OPTIONS} />
+      <ChartCard title={barViz?.title ?? 'Score Distribution'} h="280px">
+        {loading ? <Skeleton h="220px" /> : <GenericBarChart viz={barViz} />}
       </ChartCard>
 
       <Box bg="white" borderRadius="xl" border="1px solid #E4E7EC" overflow="hidden" mt={6}>
         <Box p={4} borderBottom="1px solid #F2F4F7">
-          <CText fontSize="15px" fontWeight="600" color="#101928">Top 10 Performers</CText>
+          <CText fontSize="15px" fontWeight="600" color="#101928">{tableViz?.title ?? 'Top Performers'}</CText>
         </Box>
         {loading ? (
           <Box p={4}>{[...Array(5)].map((_, i) => <Skeleton key={i} h="40px" mb={2} />)}</Box>
-        ) : topPerformers.length === 0 ? (
-          <EmptyPane message="No performance data available." />
         ) : (
-          <Table variant="simple" size="sm">
-            <Thead bg="#F9FAFB">
-              <Tr>
-                {['Rank', 'Student', 'Department', 'Avg Score', 'Attendance', 'Exams Passed'].map((h) => (
-                  <Th key={h} textTransform="none" fontSize="12px" fontWeight="500" color="#667085" py={3}>{h}</Th>
-                ))}
-              </Tr>
-            </Thead>
-            <Tbody>
-              {topPerformers.slice(0, 10).map((s, i) => (
-                <Tr key={s.id ?? i}>
-                  <Td>
-                    <Badge
-                      bg={i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : '#F2F4F7'}
-                      color={i < 3 ? '#101928' : '#667085'}
-                      borderRadius="full" px={3} fontSize="12px" fontWeight="700"
-                    >
-                      #{i + 1}
-                    </Badge>
-                  </Td>
-                  <Td fontSize="13px" fontWeight="500">{[s.firstName, s.lastName].filter(Boolean).join(' ') || s.name || '—'}</Td>
-                  <Td fontSize="13px" color="#667085">{s.department ?? '—'}</Td>
-                  <Td fontSize="13px" fontWeight="600" color="#101928">{s.averageScore != null ? `${s.averageScore}%` : '—'}</Td>
-                  <Td fontSize="13px">{s.attendance != null ? `${s.attendance}%` : '—'}</Td>
-                  <Td fontSize="13px">{s.examsPassed ?? '—'}</Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
+          <GenericTable viz={tableViz} emptyMessage="No performance data available." />
         )}
       </Box>
     </>
@@ -496,6 +488,7 @@ const AttendanceTab = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const setInteractionId = useTrackDashboardInteraction();
 
   const load = useCallback(() => {
     setLoading(true);
@@ -504,48 +497,18 @@ const AttendanceTab = ({ filters }) => {
     if (filters.departmentId) params.departmentId = filters.departmentId;
     if (filters.startDate) params.startDate = filters.startDate;
     if (filters.endDate) params.endDate = filters.endDate;
-    adminGetAttendanceDashboard(params)
-      .then(({ dashboard }) => setData(dashboard))
+    adminGetDashboardV2('attendance', params)
+      .then(({ dashboard }) => { setData(dashboard); setInteractionId(dashboard?.interactionId); })
       .catch((err) => setError(err?.response?.data?.message || err.message || 'Failed to load.'))
       .finally(() => setLoading(false));
-  }, [filters.departmentId, filters.startDate, filters.endDate]);
+  }, [filters.departmentId, filters.startDate, filters.endDate, setInteractionId]);
 
   useEffect(() => { load(); }, [load]);
 
   const kpis = data?.kpis ?? {};
   const lf = kpis.loginFrequency ?? {};
-
-  const attendanceTrendData = {
-    labels: MONTH_LABELS,
-    datasets: [{
-      label: 'Attendance %',
-      data: data?.attendanceTrend ?? Array(12).fill(0),
-      borderColor: '#00A143',
-      backgroundColor: 'rgba(0,161,67,0.1)',
-      tension: 0.4,
-      fill: true,
-      pointRadius: 3,
-    }],
-  };
-
-  const loginBarData = {
-    labels: MONTH_LABELS,
-    datasets: [{
-      label: 'Monthly Logins',
-      data: data?.loginTrend ?? Array(12).fill(0),
-      backgroundColor: BRAND,
-      borderRadius: 4,
-    }],
-  };
-
-  const deviceData = {
-    labels: ['Desktop', 'Mobile'],
-    datasets: [{
-      data: [data?.deviceBreakdown?.desktop ?? 70, data?.deviceBreakdown?.mobile ?? 30],
-      backgroundColor: [BRAND, '#F97316'],
-      borderWidth: 0,
-    }],
-  };
+  const pieViz = findViz(data?.visualizations, 'PieChart');
+  const barViz = findViz(data?.visualizations, 'BarChart');
 
   if (error) return <ErrorPane message={error} onRetry={load} />;
 
@@ -562,23 +525,13 @@ const AttendanceTab = ({ filters }) => {
       </SimpleGrid>
 
       <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={5} mb={6}>
-        <ChartCard title="Attendance Trend">
-          <Line data={attendanceTrendData} options={LINE_OPTIONS} />
+        <ChartCard title={barViz?.title ?? 'Login Frequency'} h="280px">
+          {loading ? <Skeleton h="220px" /> : <GenericBarChart viz={barViz} />}
         </ChartCard>
-        <ChartCard title="Logins by Device">
-          <Box h="180px" display="flex" justifyContent="center">
-            <Doughnut data={deviceData} options={DOUGHNUT_OPTIONS} />
-          </Box>
-          <VStack align="stretch" mt={3} spacing={1}>
-            <DonutLegend color={BRAND} label="Desktop" value={`${data?.deviceBreakdown?.desktop ?? 70}%`} />
-            <DonutLegend color="#F97316" label="Mobile" value={`${data?.deviceBreakdown?.mobile ?? 30}%`} />
-          </VStack>
+        <ChartCard title={pieViz?.title ?? 'Present vs Absent'}>
+          {loading ? <Skeleton h="180px" /> : <GenericPieChart viz={pieViz} />}
         </ChartCard>
       </Grid>
-
-      <ChartCard title="Monthly Login Activity" h="280px">
-        <Bar data={loginBarData} options={BAR_OPTIONS} />
-      </ChartCard>
     </>
   );
 };
