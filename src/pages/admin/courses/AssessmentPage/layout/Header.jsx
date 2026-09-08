@@ -212,20 +212,11 @@ const Header = () => {
             ))}
           </Flex>
           <Flex justifyContent="end" gap={2}>
-            <Button
-              secondary
-              {...(isActiveLink("questions")
-                ? { onClick: openBankPicker }
-                : {
-                    link: isStandaloneExamination
-                      ? "/admin/exam-question-bank"
-                      : `/admin/exam-question-bank?courseId=${courseId}${
-                          moduleId ? `&moduleId=${moduleId}` : ""
-                        }`,
-                  })}
-            >
-              Question Bank
-            </Button>
+            {isActiveLink("questions") ? (
+              <Button secondary onClick={openBankPicker}>
+                Question Bank
+              </Button>
+            ) : null}
             <Button
               width="180px"
               leftIcon={<IoArrowBack />}
