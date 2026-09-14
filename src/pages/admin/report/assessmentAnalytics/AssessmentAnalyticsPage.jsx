@@ -454,6 +454,9 @@ const AssessmentAnalyticsPage = () => {
 
   const [showFilters, setShowFilters] = useState(false);
 
+  const reportTypeByTab = ["exam", "assessment", "standalone"];
+  const reportType = reportTypeByTab[activeTab] ?? "exam";
+
   // Question detail drawer
   const { isOpen: isDetailOpen, onOpen: openDetail, onClose: closeDetail } = useDisclosure();
   const [detailQuestion, setDetailQuestion] = useState(null);
@@ -512,7 +515,7 @@ const AssessmentAnalyticsPage = () => {
     const requestId = ++fetchRequestIdRef.current;
     setLoading(true);
     try {
-      const params = { page, limit };
+      const params = { page, limit, type: reportType };
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = await getAssessmentAnalyticsReport(params);
       if (requestId !== fetchRequestIdRef.current) return;
@@ -545,14 +548,14 @@ const AssessmentAnalyticsPage = () => {
     } finally {
       if (requestId === fetchRequestIdRef.current) setLoading(false);
     }
-  }, [page, limit, filters]);
+  }, [page, limit, filters, reportType]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
   const handleExport = async () => {
     setExporting(true);
     try {
-      const params = { page, limit };
+      const params = { page, limit, type: reportType };
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const blob = await exportAssessmentAnalyticsReport(params);
       downloadBlob(blob, `assessment-analytics-report.${extFromMimeType(blob.type)}`);
@@ -755,7 +758,15 @@ const AssessmentAnalyticsPage = () => {
       )}
 
       {/* Tabbed Table */}
-      <Tabs index={activeTab} onChange={setActiveTab} variant="enclosed" size="sm">
+      <Tabs
+        index={activeTab}
+        onChange={(index) => {
+          setActiveTab(index);
+          setPage(1);
+        }}
+        variant="enclosed"
+        size="sm"
+      >
         <TabList>
           <Tab>Questions ({total})</Tab>
           <Tab>By Assessment ({assessmentRows.length})</Tab>
