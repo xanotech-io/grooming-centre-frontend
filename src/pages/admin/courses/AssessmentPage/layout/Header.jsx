@@ -7,10 +7,11 @@ import { useQueryParams, useGoBack } from "../../../../../hooks";
 import colors from "../../../../../theme/colors";
 import useAssessmentStore from "../../../../../store/assessmentStore";
 
-const buildQuery = (examinationId, moduleId) => {
+const buildQuery = (examinationId, moduleId, mode) => {
   const params = new URLSearchParams();
   if (examinationId) params.set("examination", examinationId);
   if (moduleId) params.set("moduleId", moduleId);
+  if (mode) params.set("mode", mode);
   const query = params.toString();
   return query ? `?${query}` : "";
 };
@@ -19,7 +20,7 @@ const links = [
   {
     matcher: (courseId, assessmentId) =>
       `/admin/courses/${courseId}/assessment/${assessmentId}/overview`,
-    href: (courseId, assessmentId, examinationId, moduleId) =>
+    href: (courseId, assessmentId, examinationId, moduleId, mode) =>
       // Module-scoped exams have no editable "overview" inside this shell —
       // the AssessmentPage/OverviewPage route only renders a read-only
       // ExaminationOverview summary for them (or, for a still-unsaved "new"
@@ -29,7 +30,8 @@ const links = [
         ? `/admin/courses/${courseId}/module/${moduleId}/examinations/edit/${examinationId}`
         : `/admin/courses/${courseId}/assessment/${assessmentId}/overview${buildQuery(
             examinationId,
-            moduleId
+            moduleId,
+            mode
           )}`,
     text: "Overview",
   },
@@ -39,30 +41,33 @@ const links = [
     // Unlike Overview, Course Exam has no dedicated Template page of its
     // own — TemplatePage.jsx is shared by both Course Exam and Assessment,
     // so this tab always points here, no special-casing needed.
-    href: (courseId, assessmentId, examinationId, moduleId) =>
+    href: (courseId, assessmentId, examinationId, moduleId, mode) =>
       `/admin/courses/${courseId}/assessment/${assessmentId}/template${buildQuery(
         examinationId,
-        moduleId
+        moduleId,
+        mode
       )}`,
     text: "Template / Marking Scheme",
   },
   {
     matcher: (courseId, assessmentId) =>
       `courses/${courseId}/assessment/${assessmentId}/questions`,
-    href: (courseId, assessmentId, examinationId, moduleId) =>
+    href: (courseId, assessmentId, examinationId, moduleId, mode) =>
       `/admin/courses/${courseId}/assessment/${assessmentId}/questions/new${buildQuery(
         examinationId,
-        moduleId
+        moduleId,
+        mode
       )}`,
     text: "Questions",
   },
   {
     matcher: (courseId, assessmentId) =>
       `/admin/courses/${courseId}/assessment/${assessmentId}/grading`,
-    href: (courseId, assessmentId, examinationId, moduleId) =>
+    href: (courseId, assessmentId, examinationId, moduleId, mode) =>
       `/admin/courses/${courseId}/assessment/${assessmentId}/grading${buildQuery(
         examinationId,
-        moduleId
+        moduleId,
+        mode
       )}`,
     text: "Grading",
   },
@@ -76,6 +81,7 @@ const Header = () => {
   const queryParams = useQueryParams();
   const examinationId = queryParams.get("examination");
   const moduleId = queryParams.get("moduleId");
+  const isViewMode = queryParams.get("mode") === "view";
   const isExamination = examinationId;
   const isStandaloneExamination =
     courseId === "not-set" && assessmentId === "not-set" && examinationId
@@ -197,7 +203,7 @@ const Header = () => {
             {links.map((link) => (
               <li key={link.text}>
                 <Link
-                  href={link.href(courseId, assessmentId, examinationId, moduleId)}
+                  href={link.href(courseId, assessmentId, examinationId, moduleId, isViewMode ? "view" : null)}
                   style={{
                     color: isActiveLink(link.matcher(courseId, assessmentId))
                       ? colors.black
@@ -212,7 +218,7 @@ const Header = () => {
             ))}
           </Flex>
           <Flex justifyContent="end" gap={2}>
-            {isActiveLink("questions") ? (
+            {isActiveLink("questions") && !isViewMode ? (
               <Button secondary onClick={openBankPicker}>
                 Question Bank
               </Button>

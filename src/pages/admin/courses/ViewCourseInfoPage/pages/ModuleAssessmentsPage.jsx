@@ -109,9 +109,14 @@ const ModuleAssessmentsPage = () => {
     options: {
       action: [
         {
-          text: "View",
+          text: "Edit",
           link: (assessment) =>
             `/admin/courses/${courseId}/assessment/${assessment.id}/overview?moduleId=${moduleId}`,
+        },
+        {
+          text: "View",
+          link: (assessment) =>
+            `/admin/courses/${courseId}/assessment/${assessment.id}/overview?moduleId=${moduleId}&mode=view`,
         },
         {
           text: "Submission",
