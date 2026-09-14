@@ -77,8 +77,33 @@ const MOCK_THRESHOLDS = {
     Acceptable: "0.20 – 0.29",
     Poor: "< 0.20",
   },
+  status: {
+    "Too Easy": "Correct response rate > 95%",
+    Excellent: "Discrimination index > 0.4",
+    Good: "Discrimination index 0.3 – 0.39",
+    Acceptable: "Discrimination index 0.2 – 0.29",
+    Poor: "Discrimination index < 0.2",
+    "Too Hard": "Correct response rate < 20%",
+  },
+  reliability: {
+    High: "Cronbach's Alpha ≥ 0.8",
+    Moderate: "Cronbach's Alpha 0.6 – 0.79",
+    Low: "Cronbach's Alpha < 0.6",
+  },
   status_labels: ["Too Easy", "Too Hard", "Excellent", "Good", "Acceptable", "Poor", "Insufficient Data"],
   validity_labels: ["High", "Moderate", "Low", "Insufficient Data"],
+};
+
+const normalizeThresholds = (raw) => {
+  if (!raw || typeof raw !== "object") return MOCK_THRESHOLDS;
+  return {
+    difficulty: raw.difficulty ?? raw.difficulty_thresholds ?? {},
+    discrimination: raw.discrimination ?? raw.discrimination_index ?? {},
+    status: raw.status ?? raw.question_status ?? {},
+    reliability: raw.reliability ?? {},
+    status_labels: raw.status_labels ?? MOCK_THRESHOLDS.status_labels,
+    validity_labels: raw.validity_labels ?? MOCK_THRESHOLDS.validity_labels,
+  };
 };
 
 const MOCK_SUMMARY = {
@@ -257,6 +282,46 @@ const formatSeconds = (seconds) => {
   return remainder ? `${minutes}m ${remainder}s` : `${minutes}m`;
 };
 
+const getSuccessRateValue = (item) => (
+  item?.averageSuccessRate
+  ?? item?.average_success_rate
+  ?? item?.averageSuccess
+  ?? item?.average_success
+  ?? null
+);
+
+const getAttemptsValue = (item) => (
+  item?.totalAttempts
+  ?? item?.total_attempts
+  ?? item?.attemptCount
+  ?? item?.attempt_count
+  ?? item?.totalQuestions
+  ?? item?.total_questions
+  ?? 0
+);
+
+const toAggregateTableRow = (item, rowType) => {
+  const successRate = getSuccessRateValue(item);
+  return {
+    question_id: item?.assessmentId ?? item?.examId ?? item?.id ?? item?.assessment_id ?? item?.exam_id,
+    question_text: item?.assessmentTitle ?? item?.examTitle ?? item?.title ?? item?.assessment_title ?? item?.exam_title ?? "—",
+    question_type: rowType,
+    difficulty_level: null,
+    derived_difficulty: null,
+    exam_id: item?.assessmentId ?? item?.examId ?? item?.id ?? item?.assessment_id ?? item?.exam_id,
+    exam_title: item?.assessmentTitle ?? item?.examTitle ?? item?.title ?? item?.assessment_title ?? item?.exam_title ?? "—",
+    course_id: item?.courseId ?? item?.course_id ?? null,
+    total_questions: item?.totalQuestions ?? item?.total_questions ?? null,
+    total_attempts: getAttemptsValue(item),
+    correct_response_rate: successRate,
+    average_time_seconds: null,
+    discrimination_index: null,
+    status: successRate != null
+      ? successRate >= 75 ? "Excellent" : successRate >= 50 ? "Acceptable" : "Poor"
+      : "Insufficient Data",
+  };
+};
+
 // ─── EntityCombobox ─────────────────────────────────────────────────────────
 
 function EntityCombobox({ fetchFn, value, onSelect, placeholder, isDisabled }) {
@@ -404,41 +469,15 @@ const AssessmentAnalyticsPage = () => {
   // assessment_level_stats / standalone_stats are aggregate (per-assessment,
   // per-exam) rows, documented with camelCase fields — distinct from the
   // per-question `data` rows. Reused here in the same table shape.
-  const assessmentRows = useMemo(() => assessmentStats.map((a) => ({
-    question_id: a.assessmentId,
-    question_text: a.assessmentTitle ?? a.assessmentId,
-    question_type: "assessment",
-    difficulty_level: null,
-    derived_difficulty: null,
-    exam_id: a.assessmentId,
-    exam_title: a.assessmentTitle ?? "—",
-    course_id: null,
-    total_attempts: a.totalQuestions,
-    correct_response_rate: a.averageSuccessRate,
-    average_time_seconds: null,
-    discrimination_index: null,
-    status: a.averageSuccessRate != null
-      ? a.averageSuccessRate >= 75 ? "Excellent" : a.averageSuccessRate >= 50 ? "Acceptable" : "Poor"
-      : "Insufficient Data",
-  })), [assessmentStats]);
+  const assessmentRows = useMemo(
+    () => assessmentStats.map((a) => toAggregateTableRow(a, "assessment")),
+    [assessmentStats]
+  );
 
-  const standaloneRows = useMemo(() => standaloneStats.map((e) => ({
-    question_id: e.examId,
-    question_text: e.examTitle ?? e.examId,
-    question_type: "standalone",
-    difficulty_level: null,
-    derived_difficulty: null,
-    exam_id: e.examId,
-    exam_title: e.examTitle ?? "—",
-    course_id: null,
-    total_attempts: e.totalQuestions,
-    correct_response_rate: e.averageSuccessRate,
-    average_time_seconds: null,
-    discrimination_index: null,
-    status: e.averageSuccessRate != null
-      ? e.averageSuccessRate >= 75 ? "Excellent" : e.averageSuccessRate >= 50 ? "Acceptable" : "Poor"
-      : "Insufficient Data",
-  })), [standaloneStats]);
+  const standaloneRows = useMemo(
+    () => standaloneStats.map((e) => toAggregateTableRow(e, "standalone")),
+    [standaloneStats]
+  );
 
   const [filters, setFilters] = useState({
     courseId: "",
@@ -456,6 +495,89 @@ const AssessmentAnalyticsPage = () => {
 
   const reportTypeByTab = ["exam", "assessment", "standalone"];
   const reportType = reportTypeByTab[activeTab] ?? "exam";
+
+  const kpiData = useMemo(() => {
+    const toNumberOrNull = (value) => {
+      if (value == null) return null;
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    };
+
+    const sum = (items, extractor) => items.reduce((acc, item) => {
+      const value = toNumberOrNull(extractor(item));
+      return acc + (value ?? 0);
+    }, 0);
+
+    const summaryScore = toNumberOrNull(
+      assessmentSummary?.average_score
+      ?? assessmentSummary?.averageScore
+      ?? summary?.average_success_rate
+      ?? summary?.averageSuccessRate
+    );
+
+    let computedScore = null;
+    if (summaryScore != null) {
+      computedScore = summaryScore;
+    } else {
+      const scoredRows = rows
+        .map((row) => ({
+          rate: toNumberOrNull(row?.correct_response_rate ?? row?.averageSuccessRate ?? row?.average_success_rate),
+          attempts: toNumberOrNull(row?.total_attempts ?? row?.totalAttempts ?? row?.attemptCount) ?? 0,
+        }))
+        .filter((row) => row.rate != null);
+
+      const weightedAttemptSum = scoredRows.reduce((acc, row) => acc + (row.attempts > 0 ? row.attempts : 0), 0);
+      if (weightedAttemptSum > 0) {
+        computedScore = scoredRows.reduce((acc, row) => acc + (row.rate * (row.attempts > 0 ? row.attempts : 0)), 0) / weightedAttemptSum;
+      } else if (scoredRows.length > 0) {
+        computedScore = scoredRows.reduce((acc, row) => acc + row.rate, 0) / scoredRows.length;
+      }
+    }
+
+    const reliabilityIndex = toNumberOrNull(summary?.reliability_index ?? summary?.reliabilityIndex);
+    const derivedValidity = reliabilityIndex == null
+      ? null
+      : reliabilityIndex >= 0.8
+        ? "High"
+        : reliabilityIndex >= 0.6
+          ? "Moderate"
+          : "Low";
+
+    const entityTitle = reportType === "standalone"
+      ? "Total Standalone Exams"
+      : reportType === "assessment"
+        ? "Total Assessments"
+        : "Total Exams";
+
+    const totalEntities = assessmentSummary?.total_assessments
+      ?? assessmentSummary?.totalAssessments
+      ?? (reportType === "assessment" || reportType === "standalone" ? total : null);
+
+    const totalQuestions = assessmentSummary?.total_questions
+      ?? assessmentSummary?.totalQuestions
+      ?? summary?.total_questions
+      ?? summary?.totalQuestions
+      ?? sum(rows, (row) => row?.total_questions ?? row?.totalQuestions);
+
+    const totalSubmissions = assessmentSummary?.total_submissions
+      ?? assessmentSummary?.totalSubmissions
+      ?? sum(rows, (row) => row?.total_attempts ?? row?.totalAttempts ?? row?.attemptCount);
+
+    const validity = assessmentSummary?.assessment_validity
+      ?? assessmentSummary?.assessmentValidity
+      ?? summary?.assessment_validity
+      ?? summary?.assessmentValidity
+      ?? derivedValidity;
+
+    return {
+      entityTitle,
+      totalEntities,
+      totalQuestions,
+      totalSubmissions,
+      averageScore: computedScore,
+      validity,
+    };
+  }, [assessmentSummary, rows, reportType, summary, total]);
 
   // Question detail drawer
   const { isOpen: isDetailOpen, onOpen: openDetail, onClose: closeDetail } = useDisclosure();
@@ -503,8 +625,8 @@ const AssessmentAnalyticsPage = () => {
 
   useEffect(() => {
     getAssessmentAnalyticsThresholds()
-      .then((res) => setThresholds(res?.data ?? res))
-      .catch(() => setThresholds(MOCK_THRESHOLDS));
+      .then((res) => setThresholds(normalizeThresholds(res?.data ?? res)))
+      .catch(() => setThresholds(normalizeThresholds(MOCK_THRESHOLDS)));
   }, []);
 
   // ── Fetch main report ─────────────────────────────────────────────────────
@@ -523,12 +645,26 @@ const AssessmentAnalyticsPage = () => {
       setSummary(payload?.summary ?? null);
       setAssessmentSummary(payload?.assessment_summary ?? null);
       const list = Array.isArray(payload?.data) ? payload.data : [];
-      setRows(list);
+      const hasQuestionShape = list.some((row) => row?.question_id || row?.question_text || row?.question_type);
+      const normalizedRows = hasQuestionShape ? list : list.map((row) => toAggregateTableRow(row, reportType));
+      setRows(normalizedRows);
       setTotal(payload?.total ?? list.length);
       const computed = Math.ceil((payload?.total ?? list.length) / limit) || 1;
       setTotalPages(payload?.totalPages ?? computed);
-      setAssessmentStats(Array.isArray(payload?.assessment_level_stats) ? payload.assessment_level_stats : []);
-      setStandaloneStats(Array.isArray(payload?.standalone_stats) ? payload.standalone_stats : []);
+      const assessmentStatsFromPayload = Array.isArray(payload?.assessment_level_stats) ? payload.assessment_level_stats : [];
+      const standaloneStatsFromPayload = Array.isArray(payload?.standalone_stats) ? payload.standalone_stats : [];
+
+      if (reportType === "assessment" && assessmentStatsFromPayload.length === 0 && !hasQuestionShape) {
+        setAssessmentStats(list);
+      } else {
+        setAssessmentStats(assessmentStatsFromPayload);
+      }
+
+      if (reportType === "standalone" && standaloneStatsFromPayload.length === 0 && !hasQuestionShape) {
+        setStandaloneStats(list);
+      } else {
+        setStandaloneStats(standaloneStatsFromPayload);
+      }
     } catch {
       if (requestId !== fetchRequestIdRef.current) return;
       console.warn("[AssessmentAnalytics] GET /assessment-analytics-v2/report failed, using mock");
@@ -548,14 +684,14 @@ const AssessmentAnalyticsPage = () => {
     } finally {
       if (requestId === fetchRequestIdRef.current) setLoading(false);
     }
-  }, [page, limit, filters, reportType]);
+  }, [ reportType,page, limit, filters,]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
   const handleExport = async () => {
     setExporting(true);
     try {
-      const params = { page, limit, type: reportType };
+      const params = { type: reportType,  page, limit,  };
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const blob = await exportAssessmentAnalyticsReport(params);
       downloadBlob(blob, `assessment-analytics-report.${extFromMimeType(blob.type)}`);
@@ -643,18 +779,18 @@ const AssessmentAnalyticsPage = () => {
 
       {/* KPI Cards */}
       <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mb={6}>
-        <DashboardMetricCard title="Total Assessments" value={loading ? "..." : assessmentSummary?.total_assessments ?? "—"} />
-        <DashboardMetricCard title="Total Questions" value={loading ? "..." : assessmentSummary?.total_questions ?? summary?.total_questions ?? "—"} />
-        <DashboardMetricCard title="Total Submissions" value={loading ? "..." : assessmentSummary?.total_submissions ?? "—"} />
+        <DashboardMetricCard title={kpiData.entityTitle} value={loading ? "..." : kpiData.totalEntities ?? "—"} />
+        <DashboardMetricCard title="Total Questions" value={loading ? "..." : kpiData.totalQuestions ?? "—"} />
+        <DashboardMetricCard title="Total Submissions" value={loading ? "..." : kpiData.totalSubmissions ?? "—"} />
         <DashboardMetricCard
           title="Avg Score"
-          value={loading ? "..." : assessmentSummary?.average_score != null ? `${assessmentSummary.average_score}%` : (summary?.average_success_rate != null ? `${summary.average_success_rate}%` : "—")}
-          colorScheme={(assessmentSummary?.average_score ?? summary?.average_success_rate) < 60 ? "red" : (assessmentSummary?.average_score ?? summary?.average_success_rate) < 75 ? "yellow" : "green"}
+          value={loading ? "..." : kpiData.averageScore != null ? `${kpiData.averageScore.toFixed(1)}%` : "—"}
+          colorScheme={kpiData.averageScore == null ? "gray" : kpiData.averageScore < 60 ? "red" : kpiData.averageScore < 75 ? "yellow" : "green"}
         />
         <DashboardMetricCard
           title="Assessment Validity"
-          value={loading ? "..." : assessmentSummary?.assessment_validity ?? summary?.assessment_validity ?? "—"}
-          colorScheme={VALIDITY_COLORS[assessmentSummary?.assessment_validity ?? summary?.assessment_validity] ?? "gray"}
+          value={loading ? "..." : kpiData.validity ?? "—"}
+          colorScheme={VALIDITY_COLORS[kpiData.validity] ?? "gray"}
         />
       </SimpleGrid>
 
@@ -768,9 +904,9 @@ const AssessmentAnalyticsPage = () => {
         size="sm"
       >
         <TabList>
-          <Tab>Questions ({total})</Tab>
-          <Tab>By Assessment ({assessmentRows.length})</Tab>
-          <Tab>By Standalone Exam ({standaloneRows.length})</Tab>
+          <Tab>Course Exam</Tab>
+          <Tab>Assessment</Tab>
+          <Tab>Standalone Exam</Tab>
         </TabList>
         <TabPanels>
           <TabPanel px={0} pb={0}>
@@ -830,6 +966,24 @@ const AssessmentAnalyticsPage = () => {
               {Object.entries(thresholds.discrimination ?? {}).map(([k, v]) => (
                 <Flex key={k} gap={2} alignItems="center" mb={1}>
                   <Badge colorScheme={STATUS_COLORS[k] ?? "gray"} minW="80px" textAlign="center">{k}</Badge>
+                  <Text fontSize="xs" color="gray.600">{v}</Text>
+                </Flex>
+              ))}
+            </Box>
+            <Box>
+              <Text fontSize="xs" fontWeight="semibold" mb={1}>Question Status</Text>
+              {Object.entries(thresholds.status ?? {}).map(([k, v]) => (
+                <Flex key={k} gap={2} alignItems="center" mb={1}>
+                  <Badge colorScheme={STATUS_COLORS[k] ?? "gray"} minW="80px" textAlign="center">{k}</Badge>
+                  <Text fontSize="xs" color="gray.600">{v}</Text>
+                </Flex>
+              ))}
+            </Box>
+            <Box>
+              <Text fontSize="xs" fontWeight="semibold" mb={1}>Reliability</Text>
+              {Object.entries(thresholds.reliability ?? {}).map(([k, v]) => (
+                <Flex key={k} gap={2} alignItems="center" mb={1}>
+                  <Badge colorScheme={VALIDITY_COLORS[k] ?? "gray"} minW="80px" textAlign="center">{k}</Badge>
                   <Text fontSize="xs" color="gray.600">{v}</Text>
                 </Flex>
               ))}
