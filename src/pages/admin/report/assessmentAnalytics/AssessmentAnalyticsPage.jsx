@@ -30,11 +30,6 @@ import {
   FormLabel,
   Grid,
   Spinner,
-  Tabs,
-  TabList,
-  Tab,
-  TabPanels,
-  TabPanel,
   useDisclosure,
   BreadcrumbItem,
   IconButton,
@@ -45,7 +40,7 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
 import {
   getAssessmentAnalyticsReport,
-  getAssessmentAnalyticsThresholds,
+  // getAssessmentAnalyticsThresholds,
   exportAssessmentAnalyticsReport,
   adminGetCourseListing,
   adminGetStandaloneExaminationListing,
@@ -65,46 +60,46 @@ const extFromMimeType = (type) => {
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
 
-const MOCK_THRESHOLDS = {
-  difficulty: {
-    Easy: "> 80% correct response rate",
-    Medium: "50% – 80% correct response rate",
-    Hard: "< 50% correct response rate",
-  },
-  discrimination: {
-    Excellent: "> 0.4",
-    Good: "0.30 – 0.39",
-    Acceptable: "0.20 – 0.29",
-    Poor: "< 0.20",
-  },
-  status: {
-    "Too Easy": "Correct response rate > 95%",
-    Excellent: "Discrimination index > 0.4",
-    Good: "Discrimination index 0.3 – 0.39",
-    Acceptable: "Discrimination index 0.2 – 0.29",
-    Poor: "Discrimination index < 0.2",
-    "Too Hard": "Correct response rate < 20%",
-  },
-  reliability: {
-    High: "Cronbach's Alpha ≥ 0.8",
-    Moderate: "Cronbach's Alpha 0.6 – 0.79",
-    Low: "Cronbach's Alpha < 0.6",
-  },
-  status_labels: ["Too Easy", "Too Hard", "Excellent", "Good", "Acceptable", "Poor", "Insufficient Data"],
-  validity_labels: ["High", "Moderate", "Low", "Insufficient Data"],
-};
+// const MOCK_THRESHOLDS = {
+//   difficulty: {
+//     Easy: "> 80% correct response rate",
+//     Medium: "50% – 80% correct response rate",
+//     Hard: "< 50% correct response rate",
+//   },
+//   discrimination: {
+//     Excellent: "> 0.4",
+//     Good: "0.30 – 0.39",
+//     Acceptable: "0.20 – 0.29",
+//     Poor: "< 0.20",
+//   },
+//   status: {
+//     "Too Easy": "Correct response rate > 95%",
+//     Excellent: "Discrimination index > 0.4",
+//     Good: "Discrimination index 0.3 – 0.39",
+//     Acceptable: "Discrimination index 0.2 – 0.29",
+//     Poor: "Discrimination index < 0.2",
+//     "Too Hard": "Correct response rate < 20%",
+//   },
+//   reliability: {
+//     High: "Cronbach's Alpha ≥ 0.8",
+//     Moderate: "Cronbach's Alpha 0.6 – 0.79",
+//     Low: "Cronbach's Alpha < 0.6",
+//   },
+//   status_labels: ["Too Easy", "Too Hard", "Excellent", "Good", "Acceptable", "Poor", "Insufficient Data"],
+//   validity_labels: ["High", "Moderate", "Low", "Insufficient Data"],
+// };
 
-const normalizeThresholds = (raw) => {
-  if (!raw || typeof raw !== "object") return MOCK_THRESHOLDS;
-  return {
-    difficulty: raw.difficulty ?? raw.difficulty_thresholds ?? {},
-    discrimination: raw.discrimination ?? raw.discrimination_index ?? {},
-    status: raw.status ?? raw.question_status ?? {},
-    reliability: raw.reliability ?? {},
-    status_labels: raw.status_labels ?? MOCK_THRESHOLDS.status_labels,
-    validity_labels: raw.validity_labels ?? MOCK_THRESHOLDS.validity_labels,
-  };
-};
+// const normalizeThresholds = (raw) => {
+//   if (!raw || typeof raw !== "object") return MOCK_THRESHOLDS;
+//   return {
+//     difficulty: raw.difficulty ?? raw.difficulty_thresholds ?? {},
+//     discrimination: raw.discrimination ?? raw.discrimination_index ?? {},
+//     status: raw.status ?? raw.question_status ?? {},
+//     reliability: raw.reliability ?? {},
+//     status_labels: raw.status_labels ?? MOCK_THRESHOLDS.status_labels,
+//     validity_labels: raw.validity_labels ?? MOCK_THRESHOLDS.validity_labels,
+//   };
+// };
 
 const MOCK_SUMMARY = {
   total_questions: 50,
@@ -314,7 +309,11 @@ const toAggregateTableRow = (item, rowType) => {
     total_questions: item?.totalQuestions ?? item?.total_questions ?? null,
     total_attempts: getAttemptsValue(item),
     correct_response_rate: successRate,
-    average_time_seconds: null,
+    average_time_seconds: (
+      item?.average_time_seconds
+      ?? item?.averageTimeSeconds
+      ?? (item?.executionTimeMs != null ? Number(item.executionTimeMs) / 1000 : null)
+    ),
     discrimination_index: null,
     status: successRate != null
       ? successRate >= 75 ? "Excellent" : successRate >= 50 ? "Acceptable" : "Poor"
@@ -450,7 +449,7 @@ const DetailRow = ({ label, value }) => (
 const AssessmentAnalyticsPage = () => {
 
   // Thresholds
-  const [thresholds, setThresholds] = useState(null);
+  // const [thresholds, setThresholds] = useState(null);
 
   // Main report
   const [summary, setSummary] = useState(null);
@@ -462,9 +461,10 @@ const AssessmentAnalyticsPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [limit] = useState(50);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(0);
+  const [loading, setLoading] = useState(false);
+  // const [activeTab, setActiveTab] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [selectedType, setSelectedType] = useState(null); // 'exam' | 'assessment' | 'standalone'
 
   // assessment_level_stats / standalone_stats are aggregate (per-assessment,
   // per-exam) rows, documented with camelCase fields — distinct from the
@@ -493,8 +493,8 @@ const AssessmentAnalyticsPage = () => {
 
   const [showFilters, setShowFilters] = useState(false);
 
-  const reportTypeByTab = ["exam", "assessment", "standalone"];
-  const reportType = reportTypeByTab[activeTab] ?? "exam";
+  // const reportTypeByTab = ["exam", "assessment", "standalone"];
+  const reportType = selectedType; // require explicit selection before reporting
 
   const kpiData = useMemo(() => {
     const toNumberOrNull = (value) => {
@@ -602,17 +602,17 @@ const AssessmentAnalyticsPage = () => {
     return (res?.assessments ?? []).map((a) => ({ id: a.id, label: a.title }));
   }, [filters.moduleId]);
 
-  const fetchExamOptions = useCallback(async () => {
-    const uniqueExams = [];
-    const seen = new Set();
-    rows.forEach((r) => {
-      if (r.exam_id && r.exam_title && !seen.has(r.exam_id)) {
-        seen.add(r.exam_id);
-        uniqueExams.push({ id: r.exam_id, label: r.exam_title });
-      }
-    });
-    return uniqueExams;
-  }, [rows]);
+  // const fetchExamOptions = useCallback(async () => {
+  //   const uniqueExams = [];
+  //   const seen = new Set();
+  //   rows.forEach((r) => {
+  //     if (r.exam_id && r.exam_title && !seen.has(r.exam_id)) {
+  //       seen.add(r.exam_id);
+  //       uniqueExams.push({ id: r.exam_id, label: r.exam_title });
+  //     }
+  //   });
+  //   return uniqueExams;
+  // }, [rows]);
 
   const fetchStandaloneOptions = useCallback(async (query) => {
     const res = await adminGetStandaloneExaminationListing({ search: query, limit: 50 });
@@ -623,28 +623,48 @@ const AssessmentAnalyticsPage = () => {
 
   // ── Fetch thresholds once ─────────────────────────────────────────────────
 
-  useEffect(() => {
-    getAssessmentAnalyticsThresholds()
-      .then((res) => setThresholds(normalizeThresholds(res?.data ?? res)))
-      .catch(() => setThresholds(normalizeThresholds(MOCK_THRESHOLDS)));
-  }, []);
+  // useEffect(() => {
+  //   getAssessmentAnalyticsThresholds()
+  //     .then((res) => setThresholds(normalizeThresholds(res?.data ?? res)))
+  //     .catch(() => setThresholds(normalizeThresholds(MOCK_THRESHOLDS)));
+  // }, []);
 
   // ── Fetch main report ─────────────────────────────────────────────────────
 
   const fetchRequestIdRef = useRef(0);
 
   const fetchReport = useCallback(async () => {
+    // require explicit selection of type and an identifier for the selected entity
+    const idForType = (
+      reportType === "exam" ? filters.courseId
+      : reportType === "assessment" ? filters.assessmentId
+      : reportType === "standalone" ? filters.standaloneExamId
+      : null
+    );
+    if (!reportType || !idForType) return;
+
     const requestId = ++fetchRequestIdRef.current;
     setLoading(true);
     try {
       const params = { page, limit, type: reportType };
+      // attach the dynamic id param expected by the backend (lowercase key)
+      const idKey = reportType === "exam" ? "courseid" : reportType === "assessment" ? "assessmentid" : "examid";
+      params[idKey] = idForType;
+      // include other filters as-is
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = await getAssessmentAnalyticsReport(params);
       if (requestId !== fetchRequestIdRef.current) return;
       const payload = res?.data ?? res;
       setSummary(payload?.summary ?? null);
       setAssessmentSummary(payload?.assessment_summary ?? null);
-      const list = Array.isArray(payload?.data) ? payload.data : [];
+      const rawList = Array.isArray(payload?.data) ? payload.data : [];
+      // Prefer executionTimeMs from the API for average time (ms -> seconds)
+      const list = rawList.map((r) => {
+        const avgSec = (
+          r?.average_time_seconds ?? r?.averageTimeSeconds ?? (r?.executionTimeMs != null ? Number(r.executionTimeMs) / 1000 : null)
+        );
+        return { ...r, average_time_seconds: avgSec, averageTimeSeconds: avgSec };
+      });
       const hasQuestionShape = list.some((row) => row?.question_id || row?.question_text || row?.question_type);
       const normalizedRows = hasQuestionShape ? list : list.map((row) => toAggregateTableRow(row, reportType));
       setRows(normalizedRows);
@@ -686,12 +706,21 @@ const AssessmentAnalyticsPage = () => {
     }
   }, [ reportType,page, limit, filters,]);
 
-  useEffect(() => { fetchReport(); }, [fetchReport]);
+  // Re-fetch when selected type, selected id, or pagination changes
+  useEffect(() => { fetchReport(); }, [fetchReport, selectedType, filters.courseId, filters.assessmentId, filters.standaloneExamId, page]);
 
   const handleExport = async () => {
     setExporting(true);
     try {
-      const params = { type: reportType,  page, limit,  };
+      const params = { type: reportType,  page, limit };
+      const idForType = (
+        reportType === "exam" ? filters.courseId
+        : reportType === "assessment" ? filters.assessmentId
+        : reportType === "standalone" ? filters.standaloneExamId
+        : null
+      );
+      const idKey = reportType === "exam" ? "courseid" : reportType === "assessment" ? "assessmentid" : "examid";
+      if (idForType) params[idKey] = idForType;
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const blob = await exportAssessmentAnalyticsReport(params);
       downloadBlob(blob, `assessment-analytics-report.${extFromMimeType(blob.type)}`);
@@ -711,12 +740,12 @@ const AssessmentAnalyticsPage = () => {
           <Tr>
             <Th w="280px">Question</Th>
             <Th textAlign="center" whiteSpace="nowrap">Type</Th>
-            <Th textAlign="center" whiteSpace="nowrap">Difficulty</Th>
+            {/* <Th textAlign="center" whiteSpace="nowrap">Difficulty</Th> */}
             <Th>Exam / Assessment</Th>
             <Th isNumeric whiteSpace="nowrap">Attempts</Th>
             <Th isNumeric whiteSpace="nowrap">Success Rate</Th>
             <Th isNumeric whiteSpace="nowrap">Avg Time</Th>
-            <Th isNumeric whiteSpace="nowrap">Disc. Index</Th>
+            {/* <Th isNumeric whiteSpace="nowrap">Disc. Index</Th> */}
             <Th textAlign="center" whiteSpace="nowrap">Status</Th>
           </Tr>
         </Thead>
@@ -741,14 +770,14 @@ const AssessmentAnalyticsPage = () => {
                   </Tooltip>
                 </Td>
                 <Td textAlign="center"><Badge colorScheme="gray" fontSize="xs">{TYPE_LABELS[row.question_type] ?? row.question_type}</Badge></Td>
-                <Td textAlign="center"><Badge colorScheme={DIFFICULTY_COLORS[row.difficulty_level] ?? "gray"}>{row.difficulty_level ?? "—"}</Badge></Td>
+                {/* <Td textAlign="center"><Badge colorScheme={DIFFICULTY_COLORS[row.difficulty_level] ?? "gray"}>{row.difficulty_level ?? "—"}</Badge></Td> */}
                 <Td>
                   <Text fontSize="xs">{row.exam_title ?? "—"}</Text>
                 </Td>
                 <Td isNumeric>{fmt(row.total_attempts)}</Td>
                 <Td isNumeric>{row.correct_response_rate != null ? `${row.correct_response_rate}%` : "—"}</Td>
-                <Td isNumeric>{formatSeconds(row.average_time_seconds)}</Td>
-                <Td isNumeric>{row.discrimination_index != null ? row.discrimination_index.toFixed(2) : "—"}</Td>
+                <Td isNumeric>{formatSeconds(row.average_time_seconds ?? row.averageTimeSeconds ?? (row.executionTimeMs != null ? Number(row.executionTimeMs) / 1000 : null))}</Td>
+                {/* <Td isNumeric>{row.discrimination_index != null ? row.discrimination_index.toFixed(2) : "—"}</Td> */}
                 <Td textAlign="center"><Badge colorScheme={STATUS_COLORS[row.status] ?? "gray"}>{row.status}</Badge></Td>
               </Tr>
             ))
@@ -776,6 +805,7 @@ const AssessmentAnalyticsPage = () => {
           <Button size="sm" leftIcon={<FiRefreshCw />} variant="outline" onClick={fetchReport} isLoading={loading}>Refresh</Button>
         </Flex>
       </Flex>
+      
 
       {/* KPI Cards */}
       <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mb={6}>
@@ -813,60 +843,89 @@ const AssessmentAnalyticsPage = () => {
         <Box bg="gray.50" border="1px" borderColor="gray.200" p={4} borderRadius="md" mb={4}>
           <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }} gap={3}>
             <FormControl>
-              <FormLabel fontSize="xs">Course</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchCourseOptions}
-                value={filters.courseId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "", moduleId: "", assessmentId: "" }))}
-                placeholder="Search course..."
-              />
+              <FormLabel fontSize="xs">Report Type</FormLabel>
+              <Select
+                size="sm"
+                placeholder="Select type"
+                value={selectedType || ""}
+                onChange={(e) => {
+                  const val = e.target.value || null;
+                  setSelectedType(val);
+                  setFilters((p) => ({ ...p, courseId: "", moduleId: "", assessmentId: "", examId: "", standaloneExamId: "" }));
+                  setPage(1);
+                }}
+              >
+                <option value="exam">Exam</option>
+                <option value="assessment">Assessment</option>
+                <option value="standalone">Standalone</option>
+              </Select>
             </FormControl>
-            <FormControl>
-              <FormLabel fontSize="xs">Module</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchModuleOptions}
-                value={filters.moduleId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, moduleId: opt ? opt.id : "", assessmentId: "" }))}
-                placeholder={filters.courseId ? "Select module..." : "Select a course first"}
-                isDisabled={!filters.courseId}
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel fontSize="xs">Assessment</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchAssessmentOptions}
-                value={filters.assessmentId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, assessmentId: opt ? opt.id : "" }))}
-                placeholder={filters.moduleId ? "Select assessment..." : "Select a module first"}
-                isDisabled={!filters.moduleId}
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel fontSize="xs">Exam</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchExamOptions}
-                value={filters.examId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, examId: opt ? opt.id : "" }))}
-                placeholder="Search exam..."
-              />
-            </FormControl>
-           
-            <FormControl>
-              <FormLabel fontSize="xs">Standalone Exam</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchStandaloneOptions}
-                value={filters.standaloneExamId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, standaloneExamId: opt ? opt.id : "" }))}
-                placeholder="Search standalone exam..."
-              />
-            </FormControl>
-            <FormControl>
+
+            {selectedType === "assessment" && (
+              <>
+                <FormControl>
+                  <FormLabel fontSize="xs">Course</FormLabel>
+                  <EntityCombobox
+                    fetchFn={fetchCourseOptions}
+                    value={filters.courseId}
+                    onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "", moduleId: "", assessmentId: "" }))}
+                    placeholder="Search course..."
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="xs">Module</FormLabel>
+                  <EntityCombobox
+                    fetchFn={fetchModuleOptions}
+                    value={filters.moduleId}
+                    onSelect={(opt) => setFilters((p) => ({ ...p, moduleId: opt ? opt.id : "", assessmentId: "" }))}
+                    placeholder={filters.courseId ? "Select module..." : "Select a course first"}
+                    isDisabled={!filters.courseId}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="xs">Assessment</FormLabel>
+                  <EntityCombobox
+                    fetchFn={fetchAssessmentOptions}
+                    value={filters.assessmentId}
+                    onSelect={(opt) => setFilters((p) => ({ ...p, assessmentId: opt ? opt.id : "" }))}
+                    placeholder={filters.moduleId ? "Select assessment..." : "Select a module first"}
+                    isDisabled={!filters.moduleId}
+                  />
+                </FormControl>
+              </>
+            )}
+
+            {selectedType === "exam" && (
+              <FormControl>
+                <FormLabel fontSize="xs">Course</FormLabel>
+                <EntityCombobox
+                  fetchFn={fetchCourseOptions}
+                  value={filters.courseId}
+                  onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "" }))}
+                  placeholder="Search course..."
+                />
+              </FormControl>
+            )}
+
+            {selectedType === "standalone" && (
+              <FormControl>
+                <FormLabel fontSize="xs">Standalone Exam</FormLabel>
+                <EntityCombobox
+                  fetchFn={fetchStandaloneOptions}
+                  value={filters.standaloneExamId}
+                  onSelect={(opt) => setFilters((p) => ({ ...p, standaloneExamId: opt ? opt.id : "" }))}
+                  placeholder="Search standalone exam..."
+                />
+              </FormControl>
+            )}
+
+            {/* <FormControl>
               <FormLabel fontSize="xs">Question Type</FormLabel>
               <Select size="sm" placeholder="Any" value={filters.questionType} onChange={(e) => setFilters((p) => ({ ...p, questionType: e.target.value }))}>
                 {Object.entries(TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </Select>
-            </FormControl>
-            <FormControl>
+            </FormControl> */}
+            {/* <FormControl>
               <FormLabel fontSize="xs">Difficulty Level</FormLabel>
               <Select size="sm" placeholder="Any" value={filters.difficultyLevel} onChange={(e) => setFilters((p) => ({ ...p, difficultyLevel: e.target.value }))}>
                 <option value="Easy">Easy</option>
@@ -881,7 +940,7 @@ const AssessmentAnalyticsPage = () => {
             <FormControl>
               <FormLabel fontSize="xs">End Date</FormLabel>
               <Input size="sm" type="date" value={filters.endDate} onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))} />
-            </FormControl>
+            </FormControl> */}
           </Grid>
           <Flex mt={3} gap={2}>
             <Button size="sm" colorScheme="blue" onClick={() => { setPage(1); setShowFilters(false); }}>Apply Filters</Button>
@@ -893,104 +952,58 @@ const AssessmentAnalyticsPage = () => {
         </Box>
       )}
 
-      {/* Tabbed Table */}
-      <Tabs
-        index={activeTab}
-        onChange={(index) => {
-          setActiveTab(index);
-          setPage(1);
-        }}
-        variant="enclosed"
-        size="sm"
-      >
-        <TabList>
-          <Tab>Course Exam</Tab>
-          <Tab>Assessment</Tab>
-          <Tab>Standalone Exam</Tab>
-        </TabList>
-        <TabPanels>
-          <TabPanel px={0} pb={0}>
-            <QuestionsTable data={rows} loadingState={loading} />
-            <Flex justifyContent="space-between" alignItems="center" mt={2}>
-              <Text fontSize="sm" color="gray.500">
-                {total === 0 ? "No questions found." : `Showing ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total} questions`}
-              </Text>
-              <Flex gap={2} alignItems="center">
-                <IconButton
-                  aria-label="Previous page"
-                  icon={<FiChevronLeft />}
-                  size="sm"
-                  variant="outline"
-                  isDisabled={page <= 1 || loading}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                />
-                <Text fontSize="sm">Page {page} of {totalPages}</Text>
-                <IconButton
-                  aria-label="Next page"
-                  icon={<FiChevronRight />}
-                  size="sm"
-                  variant="outline"
-                  isDisabled={page >= totalPages || loading}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                />
-              </Flex>
-            </Flex>
-          </TabPanel>
-          <TabPanel px={0} pb={0}>
-            <QuestionsTable data={assessmentRows} loadingState={loading} />
-            <Text fontSize="sm" color="gray.500" mt={2}>Total: {assessmentRows.length} assessment{assessmentRows.length !== 1 ? "s" : ""}</Text>
-          </TabPanel>
-          <TabPanel px={0} pb={0}>
-            <QuestionsTable data={standaloneRows} loadingState={loading} />
-            <Text fontSize="sm" color="gray.500" mt={2}>Total: {standaloneRows.length} standalone exam{standaloneRows.length !== 1 ? "s" : ""}</Text>
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
+      {/* Report view - requires selected type and selected item id */}
+      <Box>
+        {(!selectedType || (selectedType === "exam" && !filters.courseId) || (selectedType === "assessment" && !filters.assessmentId) || (selectedType === "standalone" && !filters.standaloneExamId)) ? (
+          <Box bg="white" p={8} borderRadius="md" border="1px" borderColor="gray.100" textAlign="center">
+            <Text fontSize="md" color="gray.600">Select a report type and specific item to view analytics.</Text>
+          </Box>
+        ) : (
+          <>
+            {selectedType === "assessment" ? (
+              <>
+                <QuestionsTable data={assessmentRows} loadingState={loading} />
+                <Text fontSize="sm" color="gray.500" mt={2}>Total: {assessmentRows.length} assessment{assessmentRows.length !== 1 ? "s" : ""}</Text>
+              </>
+            ) : selectedType === "standalone" ? (
+              <>
+                <QuestionsTable data={standaloneRows} loadingState={loading} />
+                <Text fontSize="sm" color="gray.500" mt={2}>Total: {standaloneRows.length} standalone exam{standaloneRows.length !== 1 ? "s" : ""}</Text>
+              </>
+            ) : (
+              <>
+                <QuestionsTable data={rows} loadingState={loading} />
+                <Flex justifyContent="space-between" alignItems="center" mt={2}>
+                  <Text fontSize="sm" color="gray.500">
+                    {total === 0 ? "No questions found." : `Showing ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total} questions`}
+                  </Text>
+                  <Flex gap={2} alignItems="center">
+                    <IconButton
+                      aria-label="Previous page"
+                      icon={<FiChevronLeft />}
+                      size="sm"
+                      variant="outline"
+                      isDisabled={page <= 1 || loading}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    />
+                    <Text fontSize="sm">Page {page} of {totalPages}</Text>
+                    <IconButton
+                      aria-label="Next page"
+                      icon={<FiChevronRight />}
+                      size="sm"
+                      variant="outline"
+                      isDisabled={page >= totalPages || loading}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    />
+                  </Flex>
+                </Flex>
+              </>
+            )}
+          </>
+        )}
+      </Box>
 
-      {/* ── Thresholds legend ─────────────────────────────────────────────────── */}
-      {thresholds && (
-        <Box mt={8} p={4} bg="gray.50" borderRadius="md" border="1px" borderColor="gray.200">
-          <Text fontSize="xs" fontWeight="semibold" color="gray.500" mb={3}>CLASSIFICATION THRESHOLDS</Text>
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <Box>
-              <Text fontSize="xs" fontWeight="semibold" mb={1}>Derived Difficulty</Text>
-              {Object.entries(thresholds.difficulty ?? {}).map(([k, v]) => (
-                <Flex key={k} gap={2} alignItems="center" mb={1}>
-                  <Badge colorScheme={DIFFICULTY_COLORS[k] ?? "gray"} minW="60px" textAlign="center">{k}</Badge>
-                  <Text fontSize="xs" color="gray.600">{v}</Text>
-                </Flex>
-              ))}
-            </Box>
-            <Box>
-              <Text fontSize="xs" fontWeight="semibold" mb={1}>Discrimination Index</Text>
-              {Object.entries(thresholds.discrimination ?? {}).map(([k, v]) => (
-                <Flex key={k} gap={2} alignItems="center" mb={1}>
-                  <Badge colorScheme={STATUS_COLORS[k] ?? "gray"} minW="80px" textAlign="center">{k}</Badge>
-                  <Text fontSize="xs" color="gray.600">{v}</Text>
-                </Flex>
-              ))}
-            </Box>
-            <Box>
-              <Text fontSize="xs" fontWeight="semibold" mb={1}>Question Status</Text>
-              {Object.entries(thresholds.status ?? {}).map(([k, v]) => (
-                <Flex key={k} gap={2} alignItems="center" mb={1}>
-                  <Badge colorScheme={STATUS_COLORS[k] ?? "gray"} minW="80px" textAlign="center">{k}</Badge>
-                  <Text fontSize="xs" color="gray.600">{v}</Text>
-                </Flex>
-              ))}
-            </Box>
-            <Box>
-              <Text fontSize="xs" fontWeight="semibold" mb={1}>Reliability</Text>
-              {Object.entries(thresholds.reliability ?? {}).map(([k, v]) => (
-                <Flex key={k} gap={2} alignItems="center" mb={1}>
-                  <Badge colorScheme={VALIDITY_COLORS[k] ?? "gray"} minW="80px" textAlign="center">{k}</Badge>
-                  <Text fontSize="xs" color="gray.600">{v}</Text>
-                </Flex>
-              ))}
-            </Box>
-          </SimpleGrid>
-        </Box>
-      )}
+      
 
       {/* ── Question Detail Drawer ────────────────────────────────────────────── */}
       <Drawer isOpen={isDetailOpen} onClose={closeDetail} size="md" placement="right">
@@ -1024,8 +1037,8 @@ const AssessmentAnalyticsPage = () => {
                 <DetailRow label="Course ID" value={detailQuestion.course_id ?? "—"} />
                 <DetailRow label="Total Attempts" value={fmt(detailQuestion.total_attempts)} />
                 <DetailRow label="Correct Response Rate" value={detailQuestion.correct_response_rate != null ? `${detailQuestion.correct_response_rate}%` : "—"} />
-                <DetailRow label="Avg Time per Attempt" value={formatSeconds(detailQuestion.average_time_seconds)} />
-                <DetailRow label="Discrimination Index" value={detailQuestion.discrimination_index != null ? detailQuestion.discrimination_index.toFixed(2) : "—"} />
+                <DetailRow label="Avg Time per Attempt" value={formatSeconds(detailQuestion.average_time_seconds ?? detailQuestion.averageTimeSeconds ?? (detailQuestion.executionTimeMs != null ? Number(detailQuestion.executionTimeMs) / 1000 : null))} />
+                {/* <DetailRow label="Discrimination Index" value={detailQuestion.discrimination_index != null ? detailQuestion.discrimination_index.toFixed(2) : "—"} /> */}
                 <DetailRow label="Status" value={<Badge colorScheme={STATUS_COLORS[detailQuestion.status] ?? "gray"} px={2} py={1}>{detailQuestion.status}</Badge>} />
 
                 {detailQuestion.status === "Poor" || detailQuestion.status === "Too Hard" || detailQuestion.status === "Insufficient Data" ? (
