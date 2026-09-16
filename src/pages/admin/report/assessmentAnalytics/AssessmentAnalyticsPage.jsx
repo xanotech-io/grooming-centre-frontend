@@ -40,10 +40,10 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
 import {
   getAssessmentAnalyticsReport,
-  // getAssessmentAnalyticsThresholds,
   exportAssessmentAnalyticsReport,
   adminGetCourseListing,
   adminGetStandaloneExaminationListing,
+  adminGetExaminationListing,
   adminListModules,
   adminListModuleAssessments,
 } from "../../../../services";
@@ -219,10 +219,7 @@ const MOCK_QUESTIONS = [
   },
 ];
 
-const MOCK_ASSESSMENT_STATS = [
-  { assessmentId: "a-001", assessmentTitle: "Module 1 Assessment", totalQuestions: 10, averageSuccessRate: 74.5 },
-  { assessmentId: "a-002", assessmentTitle: "Module 2 Assessment", totalQuestions: 12, averageSuccessRate: 81.2 },
-];
+
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -295,16 +292,36 @@ const getAttemptsValue = (item) => (
   ?? 0
 );
 
+const getReportArray = (payload) => {
+  if (!payload || typeof payload !== "object") return [];
+
+  const candidates = [
+    payload?.data,
+    payload?.rows,
+    payload?.items,
+    payload?.results,
+    payload?.data?.data,
+    payload?.data?.rows,
+    payload?.data?.items,
+    payload?.data?.results,
+  ];
+
+  const list = candidates.find(Array.isArray);
+  return Array.isArray(list) ? list : [];
+};
+
 const toAggregateTableRow = (item, rowType) => {
   const successRate = getSuccessRateValue(item);
+  const entityId = item?.parent_id ?? item?.assessmentId ?? item?.examId ?? item?.id ?? item?.assessment_id ?? item?.exam_id ?? null;
+  const entityTitle = item?.parent_title ?? item?.assessmentTitle ?? item?.examTitle ?? item?.title ?? item?.assessment_title ?? item?.exam_title ?? "—";
   return {
-    question_id: item?.assessmentId ?? item?.examId ?? item?.id ?? item?.assessment_id ?? item?.exam_id,
-    question_text: item?.assessmentTitle ?? item?.examTitle ?? item?.title ?? item?.assessment_title ?? item?.exam_title ?? "—",
+    question_id: entityId,
+    question_text: entityTitle,
     question_type: rowType,
     difficulty_level: null,
     derived_difficulty: null,
-    exam_id: item?.assessmentId ?? item?.examId ?? item?.id ?? item?.assessment_id ?? item?.exam_id,
-    exam_title: item?.assessmentTitle ?? item?.examTitle ?? item?.title ?? item?.assessment_title ?? item?.exam_title ?? "—",
+    exam_id: entityId,
+    exam_title: entityTitle,
     course_id: item?.courseId ?? item?.course_id ?? null,
     total_questions: item?.totalQuestions ?? item?.total_questions ?? null,
     total_attempts: getAttemptsValue(item),
@@ -455,8 +472,8 @@ const AssessmentAnalyticsPage = () => {
   const [summary, setSummary] = useState(null);
   const [assessmentSummary, setAssessmentSummary] = useState(null);
   const [rows, setRows] = useState([]);
-  const [assessmentStats, setAssessmentStats] = useState([]);
-  const [standaloneStats, setStandaloneStats] = useState([]);
+  // const [assessmentStats, setAssessmentStats] = useState([]);
+  // const [standaloneStats, setStandaloneStats] = useState([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
@@ -469,15 +486,15 @@ const AssessmentAnalyticsPage = () => {
   // assessment_level_stats / standalone_stats are aggregate (per-assessment,
   // per-exam) rows, documented with camelCase fields — distinct from the
   // per-question `data` rows. Reused here in the same table shape.
-  const assessmentRows = useMemo(
-    () => assessmentStats.map((a) => toAggregateTableRow(a, "assessment")),
-    [assessmentStats]
-  );
+  // const assessmentRows = useMemo(
+  //   () => assessmentStats.map((a) => toAggregateTableRow(a, "assessment")),
+  //   [assessmentStats]
+  // );
 
-  const standaloneRows = useMemo(
-    () => standaloneStats.map((e) => toAggregateTableRow(e, "standalone")),
-    [standaloneStats]
-  );
+  // const standaloneRows = useMemo(
+  //   () => standaloneStats.map((e) => toAggregateTableRow(e, "standalone")),
+  //   [standaloneStats]
+  // );
 
   const [filters, setFilters] = useState({
     courseId: "",
@@ -513,6 +530,8 @@ const AssessmentAnalyticsPage = () => {
       ?? assessmentSummary?.averageScore
       ?? summary?.average_success_rate
       ?? summary?.averageSuccessRate
+      ?? summary?.average_score
+      ?? summary?.averageScore
     );
 
     let computedScore = null;
@@ -549,9 +568,11 @@ const AssessmentAnalyticsPage = () => {
         ? "Total Assessments"
         : "Total Exams";
 
-    const totalEntities = assessmentSummary?.total_assessments
+    const totalEntities = reportType === "assessment"
+      ? 1
+      : assessmentSummary?.total_assessments
       ?? assessmentSummary?.totalAssessments
-      ?? (reportType === "assessment" || reportType === "standalone" ? total : null);
+      ?? (reportType === "standalone" ? total : null);
 
     const totalQuestions = assessmentSummary?.total_questions
       ?? assessmentSummary?.totalQuestions
@@ -561,6 +582,8 @@ const AssessmentAnalyticsPage = () => {
 
     const totalSubmissions = assessmentSummary?.total_submissions
       ?? assessmentSummary?.totalSubmissions
+      ?? summary?.total_attempts
+      ?? summary?.totalAttempts
       ?? sum(rows, (row) => row?.total_attempts ?? row?.totalAttempts ?? row?.attemptCount);
 
     const validity = assessmentSummary?.assessment_validity
@@ -602,17 +625,15 @@ const AssessmentAnalyticsPage = () => {
     return (res?.assessments ?? []).map((a) => ({ id: a.id, label: a.title }));
   }, [filters.moduleId]);
 
-  // const fetchExamOptions = useCallback(async () => {
-  //   const uniqueExams = [];
-  //   const seen = new Set();
-  //   rows.forEach((r) => {
-  //     if (r.exam_id && r.exam_title && !seen.has(r.exam_id)) {
-  //       seen.add(r.exam_id);
-  //       uniqueExams.push({ id: r.exam_id, label: r.exam_title });
-  //     }
-  //   });
-  //   return uniqueExams;
-  // }, [rows]);
+  const fetchExamOptions = useCallback(async () => {
+    if (!filters.courseId) return [];
+    try {
+      const res = await adminGetExaminationListing(filters.courseId);
+      return (res?.examinations ?? []).map((e) => ({ id: e.id, label: e.title }));
+    } catch {
+      return [];
+    }
+  }, [filters.courseId]);
 
   const fetchStandaloneOptions = useCallback(async (query) => {
     const res = await adminGetStandaloneExaminationListing({ search: query, limit: 50 });
@@ -636,10 +657,10 @@ const AssessmentAnalyticsPage = () => {
   const fetchReport = useCallback(async () => {
     // require explicit selection of type and an identifier for the selected entity
     const idForType = (
-      reportType === "exam" ? filters.courseId
-      : reportType === "assessment" ? filters.assessmentId
-      : reportType === "standalone" ? filters.standaloneExamId
-      : null
+      reportType === "exam" ? filters.examId
+        : reportType === "assessment" ? filters.assessmentId
+          : reportType === "standalone" ? filters.standaloneExamId
+            : null
     );
     if (!reportType || !idForType) return;
 
@@ -648,43 +669,39 @@ const AssessmentAnalyticsPage = () => {
     try {
       const params = { page, limit, type: reportType };
       // attach the dynamic id param expected by the backend (lowercase key)
-      const idKey = reportType === "exam" ? "courseid" : reportType === "assessment" ? "assessmentid" : "examid";
+      const idKey = reportType === "exam" ? "examid" : reportType === "assessment" ? "assessmentid" : "examid";
       params[idKey] = idForType;
       // include other filters as-is
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = await getAssessmentAnalyticsReport(params);
       if (requestId !== fetchRequestIdRef.current) return;
       const payload = res?.data ?? res;
-      setSummary(payload?.summary ?? null);
-      setAssessmentSummary(payload?.assessment_summary ?? null);
-      const rawList = Array.isArray(payload?.data) ? payload.data : [];
+      const rawList = getReportArray(payload);
+      const summarySource = payload?.summary ?? payload?.data?.summary ?? null;
+      const assessmentSummarySource = payload?.assessment_summary ?? payload?.data?.assessment_summary ?? summarySource;
+
+      setSummary(summarySource);
+      setAssessmentSummary(assessmentSummarySource);
+
       // Prefer executionTimeMs from the API for average time (ms -> seconds)
       const list = rawList.map((r) => {
         const avgSec = (
           r?.average_time_seconds ?? r?.averageTimeSeconds ?? (r?.executionTimeMs != null ? Number(r.executionTimeMs) / 1000 : null)
         );
-        return { ...r, average_time_seconds: avgSec, averageTimeSeconds: avgSec };
+        return {
+          ...r,
+          parent_id: r?.parent_id ?? r?.assessment_id ?? r?.exam_id ?? r?.id ?? null,
+          parent_title: r?.parent_title ?? r?.assessment_title ?? r?.exam_title ?? r?.title ?? null,
+          average_time_seconds: avgSec,
+          averageTimeSeconds: avgSec,
+        };
       });
       const hasQuestionShape = list.some((row) => row?.question_id || row?.question_text || row?.question_type);
       const normalizedRows = hasQuestionShape ? list : list.map((row) => toAggregateTableRow(row, reportType));
       setRows(normalizedRows);
-      setTotal(payload?.total ?? list.length);
-      const computed = Math.ceil((payload?.total ?? list.length) / limit) || 1;
+      setTotal(payload?.total ?? payload?.recordCount ?? list.length);
+      const computed = Math.ceil((payload?.total ?? payload?.recordCount ?? list.length) / limit) || 1;
       setTotalPages(payload?.totalPages ?? computed);
-      const assessmentStatsFromPayload = Array.isArray(payload?.assessment_level_stats) ? payload.assessment_level_stats : [];
-      const standaloneStatsFromPayload = Array.isArray(payload?.standalone_stats) ? payload.standalone_stats : [];
-
-      if (reportType === "assessment" && assessmentStatsFromPayload.length === 0 && !hasQuestionShape) {
-        setAssessmentStats(list);
-      } else {
-        setAssessmentStats(assessmentStatsFromPayload);
-      }
-
-      if (reportType === "standalone" && standaloneStatsFromPayload.length === 0 && !hasQuestionShape) {
-        setStandaloneStats(list);
-      } else {
-        setStandaloneStats(standaloneStatsFromPayload);
-      }
     } catch {
       if (requestId !== fetchRequestIdRef.current) return;
       console.warn("[AssessmentAnalytics] GET /assessment-analytics-v2/report failed, using mock");
@@ -699,12 +716,10 @@ const AssessmentAnalyticsPage = () => {
       setRows(filteredMock);
       setTotal(filteredMock.length);
       setTotalPages(1);
-      setAssessmentStats(MOCK_ASSESSMENT_STATS);
-      setStandaloneStats([]);
     } finally {
       if (requestId === fetchRequestIdRef.current) setLoading(false);
     }
-  }, [ reportType,page, limit, filters,]);
+  }, [reportType, page, limit, filters,]);
 
   // Re-fetch when selected type, selected id, or pagination changes
   useEffect(() => { fetchReport(); }, [fetchReport, selectedType, filters.courseId, filters.assessmentId, filters.standaloneExamId, page]);
@@ -712,14 +727,14 @@ const AssessmentAnalyticsPage = () => {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const params = { type: reportType,  page, limit };
+      const params = { type: reportType, page, limit };
       const idForType = (
-        reportType === "exam" ? filters.courseId
-        : reportType === "assessment" ? filters.assessmentId
-        : reportType === "standalone" ? filters.standaloneExamId
-        : null
+        reportType === "exam" ? filters.examId
+          : reportType === "assessment" ? filters.assessmentId
+            : reportType === "standalone" ? filters.standaloneExamId
+              : null
       );
-      const idKey = reportType === "exam" ? "courseid" : reportType === "assessment" ? "assessmentid" : "examid";
+      const idKey = reportType === "exam" ? "examid" : reportType === "assessment" ? "assessmentid" : "examid";
       if (idForType) params[idKey] = idForType;
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const blob = await exportAssessmentAnalyticsReport(params);
@@ -772,7 +787,7 @@ const AssessmentAnalyticsPage = () => {
                 <Td textAlign="center"><Badge colorScheme="gray" fontSize="xs">{TYPE_LABELS[row.question_type] ?? row.question_type}</Badge></Td>
                 {/* <Td textAlign="center"><Badge colorScheme={DIFFICULTY_COLORS[row.difficulty_level] ?? "gray"}>{row.difficulty_level ?? "—"}</Badge></Td> */}
                 <Td>
-                  <Text fontSize="xs">{row.exam_title ?? "—"}</Text>
+                  <Text fontSize="xs">{row.parent_title ?? row.assessment_title ?? row.exam_title ?? row.title ?? "—"}</Text>
                 </Td>
                 <Td isNumeric>{fmt(row.total_attempts)}</Td>
                 <Td isNumeric>{row.correct_response_rate != null ? `${row.correct_response_rate}%` : "—"}</Td>
@@ -805,7 +820,7 @@ const AssessmentAnalyticsPage = () => {
           <Button size="sm" leftIcon={<FiRefreshCw />} variant="outline" onClick={fetchReport} isLoading={loading}>Refresh</Button>
         </Flex>
       </Flex>
-      
+
 
       {/* KPI Cards */}
       <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mb={6}>
@@ -896,15 +911,27 @@ const AssessmentAnalyticsPage = () => {
             )}
 
             {selectedType === "exam" && (
-              <FormControl>
-                <FormLabel fontSize="xs">Course</FormLabel>
-                <EntityCombobox
-                  fetchFn={fetchCourseOptions}
-                  value={filters.courseId}
-                  onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "" }))}
-                  placeholder="Search course..."
-                />
-              </FormControl>
+              <>
+                <FormControl>
+                  <FormLabel fontSize="xs">Course</FormLabel>
+                  <EntityCombobox
+                    fetchFn={fetchCourseOptions}
+                    value={filters.courseId}
+                    onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "", examId: "" }))}
+                    placeholder="Search course..."
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="xs">Exam</FormLabel>
+                  <EntityCombobox
+                    fetchFn={fetchExamOptions}
+                    value={filters.examId}
+                    onSelect={(opt) => setFilters((p) => ({ ...p, examId: opt ? opt.id : "" }))}
+                    placeholder={filters.courseId ? "Select exam..." : "Select a course first"}
+                    isDisabled={!filters.courseId}
+                  />
+                </FormControl>
+              </>
             )}
 
             {selectedType === "standalone" && (
@@ -954,56 +981,42 @@ const AssessmentAnalyticsPage = () => {
 
       {/* Report view - requires selected type and selected item id */}
       <Box>
-        {(!selectedType || (selectedType === "exam" && !filters.courseId) || (selectedType === "assessment" && !filters.assessmentId) || (selectedType === "standalone" && !filters.standaloneExamId)) ? (
+        {(!selectedType || (selectedType === "exam" && !filters.examId) || (selectedType === "assessment" && !filters.assessmentId) || (selectedType === "standalone" && !filters.standaloneExamId)) ? (
           <Box bg="white" p={8} borderRadius="md" border="1px" borderColor="gray.100" textAlign="center">
             <Text fontSize="md" color="gray.600">Select a report type and specific item to view analytics.</Text>
           </Box>
         ) : (
           <>
-            {selectedType === "assessment" ? (
-              <>
-                <QuestionsTable data={assessmentRows} loadingState={loading} />
-                <Text fontSize="sm" color="gray.500" mt={2}>Total: {assessmentRows.length} assessment{assessmentRows.length !== 1 ? "s" : ""}</Text>
-              </>
-            ) : selectedType === "standalone" ? (
-              <>
-                <QuestionsTable data={standaloneRows} loadingState={loading} />
-                <Text fontSize="sm" color="gray.500" mt={2}>Total: {standaloneRows.length} standalone exam{standaloneRows.length !== 1 ? "s" : ""}</Text>
-              </>
-            ) : (
-              <>
-                <QuestionsTable data={rows} loadingState={loading} />
-                <Flex justifyContent="space-between" alignItems="center" mt={2}>
-                  <Text fontSize="sm" color="gray.500">
-                    {total === 0 ? "No questions found." : `Showing ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total} questions`}
-                  </Text>
-                  <Flex gap={2} alignItems="center">
-                    <IconButton
-                      aria-label="Previous page"
-                      icon={<FiChevronLeft />}
-                      size="sm"
-                      variant="outline"
-                      isDisabled={page <= 1 || loading}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    />
-                    <Text fontSize="sm">Page {page} of {totalPages}</Text>
-                    <IconButton
-                      aria-label="Next page"
-                      icon={<FiChevronRight />}
-                      size="sm"
-                      variant="outline"
-                      isDisabled={page >= totalPages || loading}
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    />
-                  </Flex>
-                </Flex>
-              </>
-            )}
+            <QuestionsTable data={rows} loadingState={loading} />
+            <Flex justifyContent="space-between" alignItems="center" mt={2}>
+              <Text fontSize="sm" color="gray.500">
+                {total === 0 ? "No questions found." : `Showing ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total} questions`}
+              </Text>
+              <Flex gap={2} alignItems="center">
+                <IconButton
+                  aria-label="Previous page"
+                  icon={<FiChevronLeft />}
+                  size="sm"
+                  variant="outline"
+                  isDisabled={page <= 1 || loading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                />
+                <Text fontSize="sm">Page {page} of {totalPages}</Text>
+                <IconButton
+                  aria-label="Next page"
+                  icon={<FiChevronRight />}
+                  size="sm"
+                  variant="outline"
+                  isDisabled={page >= totalPages || loading}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                />
+              </Flex>
+            </Flex>
           </>
         )}
       </Box>
 
-      
+
 
       {/* ── Question Detail Drawer ────────────────────────────────────────────── */}
       <Drawer isOpen={isDetailOpen} onClose={closeDetail} size="md" placement="right">
@@ -1033,7 +1046,7 @@ const AssessmentAnalyticsPage = () => {
                     </Flex>
                   }
                 />
-                <DetailRow label="Exam / Assessment" value={detailQuestion.exam_title ?? "—"} />
+                <DetailRow label="Exam / Assessment" value={detailQuestion.parent_title ?? detailQuestion.assessment_title ?? detailQuestion.exam_title ?? detailQuestion.title ?? "—"} />
                 <DetailRow label="Course ID" value={detailQuestion.course_id ?? "—"} />
                 <DetailRow label="Total Attempts" value={fmt(detailQuestion.total_attempts)} />
                 <DetailRow label="Correct Response Rate" value={detailQuestion.correct_response_rate != null ? `${detailQuestion.correct_response_rate}%` : "—"} />
