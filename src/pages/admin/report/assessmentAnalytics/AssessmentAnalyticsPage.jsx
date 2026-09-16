@@ -37,7 +37,7 @@ import {
 import { convertFromRaw } from "draft-js";
 import { FiRefreshCw, FiAlertTriangle, FiFilter, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
+import { Breadcrumb, DashboardMetricCard, Link, ServerExportMenu } from "../../../../components";
 import {
   getAssessmentAnalyticsReport,
   exportAssessmentAnalyticsReport,
@@ -724,10 +724,10 @@ const AssessmentAnalyticsPage = () => {
   // Re-fetch when selected type, selected id, or pagination changes
   useEffect(() => { fetchReport(); }, [fetchReport, selectedType, filters.courseId, filters.assessmentId, filters.standaloneExamId, page]);
 
-  const handleExport = async () => {
+  const handleExport = async (format) => {
     setExporting(true);
     try {
-      const params = { type: reportType, page, limit };
+      const params = { type: reportType, page, limit, exportFormat: format };
       const idForType = (
         reportType === "exam" ? filters.examId
           : reportType === "assessment" ? filters.assessmentId
@@ -816,7 +816,7 @@ const AssessmentAnalyticsPage = () => {
           <Text fontSize="sm" color="gray.500">Per-question analysis across course assessments, course exams, and standalone examinations.</Text>
         </Box>
         <Flex gap={2}>
-          <Button size="sm" onClick={handleExport} isLoading={exporting} isDisabled={rows.length === 0}>Export</Button>
+          <ServerExportMenu onExport={handleExport} isLoading={exporting} isDisabled={rows.length === 0} />
           <Button size="sm" leftIcon={<FiRefreshCw />} variant="outline" onClick={fetchReport} isLoading={loading}>Refresh</Button>
         </Flex>
       </Flex>
