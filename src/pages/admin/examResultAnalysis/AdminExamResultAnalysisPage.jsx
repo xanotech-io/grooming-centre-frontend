@@ -48,7 +48,7 @@ import {
   FiUsers,
   FiBarChart2,
 } from "react-icons/fi";
-import { Heading, Spinner, Text, Button, Breadcrumb, Link } from "../../../components";
+import { Heading, Spinner, Text, Button, Breadcrumb, Link, ServerExportMenu } from "../../../components";
 import {
   adminGetExamFullReport,
   adminGetExamLeaderboard,
@@ -686,10 +686,10 @@ const AdminExamResultAnalysisPage = () => {
 
   const students = report?.students ?? [];
 
-  const handleExport = async () => {
+  const handleExport = async (format) => {
     setExporting(true);
     try {
-      const blob = await adminExportExamFullReport(examId);
+      const blob = await adminExportExamFullReport(examId, { exportFormat: format });
       downloadBlob(blob, `exam-result-analysis-${examId}.${getExportExtension(blob.type)}`);
     } catch (err) {
       const msg = err?.response?.data?.message || err?.message || "Failed to export report";
@@ -734,14 +734,11 @@ const AdminExamResultAnalysisPage = () => {
           </Text>
         </Box>
         <Flex gap={3} alignItems="center">
-          <Button
-            secondary
+          <ServerExportMenu
+            onExport={handleExport}
             isLoading={exporting}
             isDisabled={exporting || students.length === 0}
-            onClick={handleExport}
-          >
-            Export
-          </Button>
+          />
           <Button
             secondary
             onClick={() => {

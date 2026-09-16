@@ -47,3 +47,4 @@ export * from './ExamReviewResultCard/ExamReviewResultCard';
 export * from './EntityCombobox/EntityCombobox';
 export * from './NotificationBell';
 export * from './ExportMenu/ExportMenu';
+export * from './ExportMenu/ServerExportMenu';
