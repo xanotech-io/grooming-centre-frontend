@@ -13,7 +13,7 @@ export const exportAssessmentAnalyticsReport = async (params) => {
     params,
     responseType: "blob",
   });
-  return response.data;
+  return response;
 };
 
 export const getAssessmentAnalyticsByExam = async (examId, params) => {

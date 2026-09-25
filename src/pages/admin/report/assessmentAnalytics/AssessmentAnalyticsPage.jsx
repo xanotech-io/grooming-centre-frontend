@@ -31,6 +31,7 @@ import {
   Grid,
   Spinner,
   useDisclosure,
+  useToast,
   BreadcrumbItem,
   IconButton,
 } from "@chakra-ui/react";
@@ -47,15 +48,38 @@ import {
   adminListModules,
   adminListModuleAssessments,
 } from "../../../../services";
-import { downloadBlob } from "../../../../utils";
+import { downloadBlob, exportRowsToCsv, exportRowsToExcel, exportRowsToPdf } from "../../../../utils";
 
 // e.g. "application/vnd.openxmlformats...spreadsheet" -> "xlsx"
 const extFromMimeType = (type) => {
-  if (!type) return "xlsx";
+  if (!type) return null;
   if (type.includes("pdf")) return "pdf";
   if (type.includes("csv")) return "csv";
   if (type.includes("spreadsheet") || type.includes("excel")) return "xlsx";
+  return null;
+};
+
+const normalizeExportFormat = (format) => {
+  if (!format) return "xlsx";
+  const value = String(format).toLowerCase();
+  if (value === "excel" || value === "xlsx") return "xlsx";
+  if (value === "pdf") return "pdf";
+  if (value === "csv") return "csv";
   return "xlsx";
+};
+
+const fileFormatForApi = (normalizedFormat) => {
+  if (normalizedFormat === "xlsx") return "EXCEL";
+  return normalizedFormat.toUpperCase();
+};
+
+const isErrorLikeExportType = (contentType = "") => {
+  const value = contentType.toLowerCase();
+  return (
+    value.includes("application/json")
+    || value.includes("text/plain")
+    || value.includes("text/html")
+  );
 };
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
@@ -464,6 +488,7 @@ const DetailRow = ({ label, value }) => (
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const AssessmentAnalyticsPage = () => {
+  const toast = useToast();
 
   // Thresholds
   // const [thresholds, setThresholds] = useState(null);
@@ -726,8 +751,19 @@ const AssessmentAnalyticsPage = () => {
 
   const handleExport = async (format) => {
     setExporting(true);
+    const normalizedFormat = normalizeExportFormat(format);
+    let serverExportSuccess = false;
+
     try {
-      const params = { type: reportType, page, limit, exportFormat: format };
+      const apiFormat = fileFormatForApi(normalizedFormat);
+      const params = {
+        type: reportType,
+        page,
+        limit,
+        exportFormat: apiFormat,
+        format: apiFormat,
+        fileFormat: apiFormat,
+      };
       const idForType = (
         reportType === "exam" ? filters.examId
           : reportType === "assessment" ? filters.assessmentId
@@ -737,13 +773,72 @@ const AssessmentAnalyticsPage = () => {
       const idKey = reportType === "exam" ? "examid" : reportType === "assessment" ? "assessmentid" : "examid";
       if (idForType) params[idKey] = idForType;
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
-      const blob = await exportAssessmentAnalyticsReport(params);
-      downloadBlob(blob, `assessment-analytics-report.${extFromMimeType(blob.type)}`);
+      const response = await exportAssessmentAnalyticsReport(params);
+      const blob = response?.data;
+      const contentType = (response?.headers?.["content-type"] || blob?.type || "").toLowerCase();
+
+      if (blob && !isErrorLikeExportType(contentType)) {
+        const extension = extFromMimeType(contentType) || normalizedFormat;
+        downloadBlob(blob, `assessment-analytics-report.${extension}`);
+        serverExportSuccess = true;
+      }
     } catch (err) {
-      console.error(err);
-    } finally {
-      setExporting(false);
+      console.warn("[AssessmentAnalytics] Server export unavailable/failed, using client fallback", err);
     }
+
+    if (!serverExportSuccess) {
+      try {
+        const exportHeaders = [
+          "Question",
+          "Type",
+          "Exam / Assessment",
+          "Attempts",
+          "Success Rate (%)",
+          "Avg Time",
+          "Status",
+        ];
+
+        const exportDataRows = (rows || []).map((row) => [
+          parseQuestionText(row.question_text),
+          TYPE_LABELS[row.question_type] ?? row.question_type ?? "—",
+          row.parent_title ?? row.assessment_title ?? row.exam_title ?? row.title ?? "—",
+          row.total_attempts ?? 0,
+          row.correct_response_rate != null ? `${row.correct_response_rate}%` : "—",
+          formatSeconds(row.average_time_seconds ?? row.averageTimeSeconds ?? (row.executionTimeMs != null ? Number(row.executionTimeMs) / 1000 : null)),
+          row.status ?? "—",
+        ]);
+
+        const exportTable = [exportHeaders, ...exportDataRows];
+        const fileName = `assessment-analytics-report.${normalizedFormat}`;
+
+        if (normalizedFormat === "csv") {
+          exportRowsToCsv(exportTable, fileName);
+        } else if (normalizedFormat === "pdf") {
+          exportRowsToPdf(exportTable, fileName, "Assessment Analytics Report");
+        } else {
+          exportRowsToExcel(exportTable, fileName);
+        }
+
+        toast({
+          status: "success",
+          description: `Report exported as ${normalizedFormat.toUpperCase()} successfully`,
+          duration: 3000,
+          isClosable: true,
+          position: "top",
+        });
+      } catch (clientErr) {
+        console.error("Client export failed", clientErr);
+        toast({
+          status: "error",
+          description: clientErr?.message || "Failed to export report",
+          duration: 4000,
+          isClosable: true,
+          position: "top",
+        });
+      }
+    }
+
+    setExporting(false);
   };
 
   // ── Questions table ───────────────────────────────────────────────────────
