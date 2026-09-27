@@ -33,6 +33,9 @@ export const uploadExamQuestionBatch = async ({
   sections, // [{section_name, weightage, questionCount}] — sectioned/hybrid
   totalMarks, // sum of section weightages — sectioned/hybrid
   markingTemplateId, // unsectioned/hybrid
+  retryCount,
+  retryPolicy,
+  passThreshold,
 }) => {
   const formData = new FormData();
   formData.append("file", file);
@@ -53,6 +56,9 @@ export const uploadExamQuestionBatch = async ({
     formData.append("startTime", startTime);
     formData.append("endTime", endTime);
     formData.append("examType", examType);
+    if (retryCount != null) formData.append("retryCount", retryCount);
+    if (retryPolicy) formData.append("retryPolicy", retryPolicy);
+    if (passThreshold != null) formData.append("passThreshold", passThreshold);
     // The documented shape is a strict either/or ("if sectioned" / "if not
     // sectioned"), but a hybrid exam genuinely needs both halves — send
     // whichever of these two actually has data instead of hard-branching on

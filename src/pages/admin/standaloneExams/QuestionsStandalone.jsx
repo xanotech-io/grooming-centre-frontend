@@ -247,15 +247,15 @@ const buildBankQuestionData = (bankQuestion, examinationId, sectionTitle) => {
   const options = isObjective
     ? mappedType === "TrueFalse"
       ? ["True", "False"].map((label, idx) => ({
-          name: label,
-          isAnswer: bankQuestion.correctAnswer === label,
-          optionIndex: idx + 1,
-        }))
+        name: label,
+        isAnswer: bankQuestion.correctAnswer === label,
+        optionIndex: idx + 1,
+      }))
       : (bankQuestion.options || []).map((o, idx) => ({
-          name: o.text,
-          isAnswer: !!o.isCorrect,
-          optionIndex: idx + 1,
-        }))
+        name: o.text,
+        isAnswer: !!o.isCorrect,
+        optionIndex: idx + 1,
+      }))
     : [];
 
   const typeSpecificFields = isObjective
@@ -326,8 +326,7 @@ const saveQueuedBatch = async (queuedItems, savedSet, saveOne) => {
   }
   if (failures.length) {
     throw new Error(
-      `${failures.length} question${failures.length === 1 ? "" : "s"} failed to save${
-        duplicates ? ` (${duplicates} duplicate${duplicates === 1 ? "" : "s"} skipped)` : ""
+      `${failures.length} question${failures.length === 1 ? "" : "s"} failed to save${duplicates ? ` (${duplicates} duplicate${duplicates === 1 ? "" : "s"} skipped)` : ""
       } — the rest were saved; fix and resubmit to finish the remaining ${failures.length === 1 ? "one" : "ones"}.`,
     );
   }
@@ -394,7 +393,14 @@ const QuestionsStandalone = () => {
   // own local state) so the "Upload & Batch Import Questions" button here —
   // a sibling of CreateQuestionPage, not a descendant — knows which Section
   // tab is currently active and can target the upload at it.
-  const [selectedSectionId, setSelectedSectionId] = useState("");
+  const pendingSectionId = useQueryParams().get("section");
+  const [selectedSectionId, setSelectedSectionId] = useState(pendingSectionId || "");
+
+  useEffect(() => {
+    if (pendingSectionId) {
+      setSelectedSectionId(pendingSectionId);
+    }
+  }, [pendingSectionId]);
 
   // Used for an already-real exam ("Add more questions") — the
   // isPendingCreation case builds its own link fresh inside
@@ -679,13 +685,12 @@ const QuestionsStandalone = () => {
             >
               <Heading fontSize="heading.h5">List Of Questions</Heading>
               <Link
-                href={`${getQuestionListingLink(isExamination)}${
-                  isPendingCreation
-                    ? "&submitForApproval=1"
-                    : isPendingEditSubmit
-                      ? "&editSubmit=1"
-                      : ""
-                }`}
+                href={`${getQuestionListingLink(isExamination)}${isPendingCreation
+                  ? "&submitForApproval=1"
+                  : isPendingEditSubmit
+                    ? "&editSubmit=1"
+                    : ""
+                  }`}
               >
                 <Text bold color="primary.base">
                   See All
@@ -744,10 +749,10 @@ const QuestionsStandalone = () => {
 const ButtonNavItem = ({ number, answered, isCurrent, link, disabled }) => {
   const styleProps = answered
     ? {
-        backgroundColor: "primary.base",
-        color: "white",
-        borderColor: "transparent",
-      }
+      backgroundColor: "primary.base",
+      color: "white",
+      borderColor: "transparent",
+    }
     : { borderColor: "primary.base" };
 
   const content = (
@@ -898,9 +903,9 @@ const CreateQuestionPage = ({
   const amountOfQuestions =
     Number(
       pendingCreate?.body?.amountOfQuestions ??
-        pendingEdit?.body?.amountOfQuestions ??
-        assessmentManager.assessment?.questionCount ??
-        assessmentManager.assessment?.amountOfQuestions,
+      pendingEdit?.body?.amountOfQuestions ??
+      assessmentManager.assessment?.questionCount ??
+      assessmentManager.assessment?.amountOfQuestions,
     ) || null;
 
   // Plain "Add Question" on an already-real exam, once it already has as
@@ -1060,7 +1065,7 @@ const CreateQuestionPage = ({
     // carrying a stale value from whatever was originally fetched.
     const editBody = body?.examType === "hybrid" ? { ...body, totalMarks: undefined } : body;
     await adminEditStandaloneExamination(contentId, editBody);
-    if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+    if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => { });
     cacheExamMetaFromBody(contentId, body);
     return { id: contentId };
   };
@@ -1130,26 +1135,26 @@ const CreateQuestionPage = ({
     ? {}
     : isPendingCreation
       ? (pendingCreate?.questions || []).reduce((acc, q, i) => {
-          // Editing this exact queued slot doesn't add a new question —
-          // exclude it so its own type doesn't count against its own
-          // remaining quota.
-          if (isEditingQueued && i === queuedIndex) return acc;
-          // A hybrid section's own questions draw from that section's
-          // weightage, never the template's standalone-quantity pool.
-          if (q.data?.section) return acc;
-          const t = inferQueuedQuestionType(q.data);
-          if (t) acc[t] = (acc[t] || 0) + 1;
-          return acc;
-        }, {})
+        // Editing this exact queued slot doesn't add a new question —
+        // exclude it so its own type doesn't count against its own
+        // remaining quota.
+        if (isEditingQueued && i === queuedIndex) return acc;
+        // A hybrid section's own questions draw from that section's
+        // weightage, never the template's standalone-quantity pool.
+        if (q.data?.section) return acc;
+        const t = inferQueuedQuestionType(q.data);
+        if (t) acc[t] = (acc[t] || 0) + 1;
+        return acc;
+      }, {})
       : (assessmentManager.assessment?.questions || []).reduce((acc, q) => {
-          // Editing this exact question in place doesn't add a new one —
-          // exclude it so its own type doesn't count against its own
-          // remaining quota.
-          if (isEditMode && question && q.id === question.id) return acc;
-          if (q.section) return acc;
-          if (q.questionType) acc[q.questionType] = (acc[q.questionType] || 0) + 1;
-          return acc;
-        }, {});
+        // Editing this exact question in place doesn't add a new one —
+        // exclude it so its own type doesn't count against its own
+        // remaining quota.
+        if (isEditMode && question && q.id === question.id) return acc;
+        if (q.section) return acc;
+        if (q.questionType) acc[q.questionType] = (acc[q.questionType] || 0) + 1;
+        return acc;
+      }, {});
   const typeQuota = (type) => {
     const raw = standaloneQuestionCounts[type];
     return raw !== undefined && raw !== null && raw !== "" ? Number(raw) : null;
@@ -1416,9 +1421,8 @@ const CreateQuestionPage = ({
           await adminCreateStandaloneExaminationQuestion(data);
         }
         toast({
-          description: `${items.length} question${items.length === 1 ? "" : "s"} added.${
-            duplicates ? ` ${duplicates} skipped — already added to this exam.` : ""
-          }`,
+          description: `${items.length} question${items.length === 1 ? "" : "s"} added.${duplicates ? ` ${duplicates} skipped — already added to this exam.` : ""
+            }`,
           position: "top",
           status: "success",
         });
@@ -1465,9 +1469,8 @@ const CreateQuestionPage = ({
     }
 
     toast({
-      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${
-        skipped ? ` ${skipped} skipped — already at the configured Quantity for that type.` : ""
-      }${duplicates ? ` ${duplicates} skipped — already queued for this exam.` : ""} They'll be created once you submit for approval.`,
+      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${skipped ? ` ${skipped} skipped — already at the configured Quantity for that type.` : ""
+        }${duplicates ? ` ${duplicates} skipped — already queued for this exam.` : ""} They'll be created once you submit for approval.`,
       position: "top",
       status: "success",
     });
@@ -1804,10 +1807,10 @@ const CreateQuestionPage = ({
         ? { options }
         : questionType === "FillBlank"
           ? {
-              questionType: "FillBlank",
-              correctAnswer: data.correctAnswer,
-              ...(acceptVariants.length > 0 && { acceptVariants }),
-            }
+            questionType: "FillBlank",
+            correctAnswer: data.correctAnswer,
+            ...(acceptVariants.length > 0 && { acceptVariants }),
+          }
           : questionType === "Matching"
             ? { questionType: "Matching", pairs: JSON.stringify(matchingPairs) }
             : questionType === "ShortAnswer"
@@ -1893,10 +1896,10 @@ const CreateQuestionPage = ({
             countForSection(sectionTitle) >= sectionQuestionCounts[sectionTitle];
           const nextSection = sectionJustCompleted
             ? templateSections.find(
-                (name) =>
-                  name !== sectionTitle &&
-                  !(sectionQuestionCounts[name] > 0 && countForSection(name) >= sectionQuestionCounts[name]),
-              )
+              (name) =>
+                name !== sectionTitle &&
+                !(sectionQuestionCounts[name] > 0 && countForSection(name) >= sectionQuestionCounts[name]),
+            )
             : null;
 
           // This question is safely queued either way — only decide here
@@ -2437,7 +2440,7 @@ const CreateQuestionPage = ({
                   key={type}
                   display={
                     (allowedTypesForSection && !allowedTypesForSection.includes(type)) ||
-                    (usingTemplateTypeRestriction && typeAtCapacity(type))
+                      (usingTemplateTypeRestriction && typeAtCapacity(type))
                       ? "none"
                       : undefined
                   }
@@ -2750,7 +2753,7 @@ const CreateQuestionPage = ({
           !(
             amountOfQuestions &&
             ((isPendingCreation ? pendingCreate?.questions : pendingEdit?.questions)?.length || 0) >=
-              amountOfQuestions
+            amountOfQuestions
           ) && (
             <Button
               type="submit"
@@ -2926,11 +2929,11 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
       : null;
   const queuedTypeCounts = usingTemplateTypeRestriction
     ? queuedQuestions.reduce((acc, q) => {
-        if (q.data?.section) return acc;
-        const t = inferQueuedQuestionType(q.data);
-        if (t) acc[t] = (acc[t] || 0) + 1;
-        return acc;
-      }, {})
+      if (q.data?.section) return acc;
+      const t = inferQueuedQuestionType(q.data);
+      if (t) acc[t] = (acc[t] || 0) + 1;
+      return acc;
+    }, {})
     : {};
   const typeQuota = (type) => {
     const raw = standaloneQuestionCounts[type];
@@ -2983,9 +2986,8 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
       setPendingEdit({ ...pendingEdit, questions: [...queuedQuestions, ...items] });
     }
     toast({
-      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${
-        skipped ? ` ${skipped} skipped — already at the configured Quantity for that type.` : ""
-      }${duplicates ? ` ${duplicates} skipped — already queued for this exam.` : ""} They'll be created once you submit for approval.`,
+      description: `${items.length} question${items.length === 1 ? "" : "s"} added from the bank.${skipped ? ` ${skipped} skipped — already at the configured Quantity for that type.` : ""
+        }${duplicates ? ` ${duplicates} skipped — already queued for this exam.` : ""} They'll be created once you submit for approval.`,
       position: "top",
       status: "success",
     });
@@ -3032,7 +3034,7 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
     // carrying a stale value from whatever was originally fetched.
     const editBody = body?.examType === "hybrid" ? { ...body, totalMarks: undefined } : body;
     await adminEditStandaloneExamination(contentId, editBody);
-    if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+    if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => { });
     cacheExamMetaFromBody(contentId, body);
     return { id: contentId };
   };
@@ -3173,6 +3175,28 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
                         {sectionQueued.map(renderQueuedCard)}
                       </>
                     )}
+                    <Box pb={4} pt={3} display="flex" gap={3} flexWrap="wrap">
+                      <Button
+                        link={`/admin/standalone-exams/questions/?examination=${isExamination}&section=${name}${isPendingCreation ? "&submitForApproval=1" : isPendingEditSubmit ? "&editSubmit=1" : ""
+                          }`}
+                        size="sm"
+                        ghost
+                      >
+                        + Add Question to this Section
+                      </Button>
+                      <Button
+                        link={buildBatchUploadLink({
+                          examinationId: isExamination || undefined,
+                          standalone: true,
+                          section: name,
+                          createTarget: isPendingCreation ? true : undefined,
+                        })}
+                        size="sm"
+                        secondary
+                      >
+                        Upload & Batch Import to Section
+                      </Button>
+                    </Box>
                   </Box>
                 </Box>
               );
@@ -3202,13 +3226,22 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
           </>
         )}
 
-      <Box paddingTop={10} display="flex" gap={3}>
+      <Box paddingTop={10} display="flex" gap={3} flexWrap="wrap">
         <Button
-          link={`/admin/standalone-exams/questions/?examination=${isExamination}${
-            isPendingCreation ? "&submitForApproval=1" : isPendingEditSubmit ? "&editSubmit=1" : ""
-          }`}
+          link={`/admin/standalone-exams/questions/?examination=${isExamination}${isPendingCreation ? "&submitForApproval=1" : isPendingEditSubmit ? "&editSubmit=1" : ""
+            }`}
         >
           Add more questions
+        </Button>
+        <Button
+          secondary
+          link={buildBatchUploadLink({
+            examinationId: isExamination || undefined,
+            standalone: true,
+            createTarget: isPendingCreation ? true : undefined,
+          })}
+        >
+          Upload & Batch Import Questions
         </Button>
         {(isPendingCreation || isPendingEditSubmit) && hasQueuedQuestions && (
           <Button ghost onClick={handleOpenCreateAndSubmit}>

@@ -361,7 +361,7 @@ const BatchUploadPage = () => {
           setTypeRestriction({ mode: "quantity", supportedTypes, quantity, markDistribution, usedCounts });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
@@ -440,23 +440,26 @@ const BatchUploadPage = () => {
         section: context.section,
         ...(context.createTarget
           ? {
-              createTargetType: kind === "Assessment" ? "assessment" : "examination",
-              title: body.title ?? pendingTitle,
-              courseId: body.courseId,
-              moduleId: body.moduleId,
-              duration: body.duration,
-              startTime: body.startTime,
-              endTime: body.endTime,
-              examType: body.examType,
-              sections: toBatchUploadSections(paperConfigBody?.configuredSections || []),
-              totalMarks: body.totalMarks,
-              markingTemplateId: body.markingTemplateId,
-            }
+            createTargetType: kind === "Assessment" ? "assessment" : "examination",
+            title: body.title ?? pendingTitle,
+            courseId: body.courseId,
+            moduleId: body.moduleId,
+            duration: body.duration,
+            startTime: body.startTime,
+            endTime: body.endTime,
+            examType: body.examType,
+            sections: toBatchUploadSections(paperConfigBody?.configuredSections || []),
+            totalMarks: body?.totalMarks,
+            markingTemplateId: body?.markingTemplateId,
+            retryCount: body?.retryCount,
+            retryPolicy: body?.retryPolicy,
+            passThreshold: body?.passThreshold,
+          }
           : {
-              courseId: context.courseId,
-              examinationId: context.examinationId,
-              assessmentId: context.assessmentId,
-            }),
+            courseId: context.courseId,
+            examinationId: context.examinationId,
+            assessmentId: context.assessmentId,
+          }),
       });
       const raw = res?.data ?? res;
       const uploadId = raw.uploadId ?? raw.id;
@@ -602,8 +605,8 @@ const BatchUploadPage = () => {
             row.section === context.section
               ? row
               : updateExamQuestionBatchRow(uploadId, row.rowId, { section: context.section })
-                  .then((r) => normalizeStagedRow({ ...(r?.data ?? r), rowId: row.rowId }))
-                  .catch(() => row),
+                .then((r) => normalizeStagedRow({ ...(r?.data ?? r), rowId: row.rowId }))
+                .catch(() => row),
           ),
         );
       } else if (rows.length > 0) {
@@ -620,8 +623,8 @@ const BatchUploadPage = () => {
             !row.section
               ? row
               : updateExamQuestionBatchRow(uploadId, row.rowId, { section: "" })
-                  .then((r) => normalizeStagedRow({ ...(r?.data ?? r), rowId: row.rowId }))
-                  .catch(() => row),
+                .then((r) => normalizeStagedRow({ ...(r?.data ?? r), rowId: row.rowId }))
+                .catch(() => row),
           ),
         );
       }
@@ -634,7 +637,7 @@ const BatchUploadPage = () => {
         if (rows.length > remaining) {
           const overflow = rows.slice(remaining);
           rows = rows.slice(0, remaining);
-          await Promise.all(overflow.map((row) => deleteExamQuestionBatchRow(uploadId, row.rowId).catch(() => {})));
+          await Promise.all(overflow.map((row) => deleteExamQuestionBatchRow(uploadId, row.rowId).catch(() => { })));
           toast({
             title: `${overflow.length} question${overflow.length === 1 ? "" : "s"} skipped — already at the ${overallLimit.amount} question limit configured for this ${contextLabel(effectiveContext).toLowerCase()}`,
             status: "warning",
@@ -670,7 +673,7 @@ const BatchUploadPage = () => {
             const atCapacity = typeRestriction.sectionCap != null && usedInSection >= typeRestriction.sectionCap;
             if (notSupported || atCapacity) {
               skipped += 1;
-              await deleteExamQuestionBatchRow(uploadId, row.rowId).catch(() => {});
+              await deleteExamQuestionBatchRow(uploadId, row.rowId).catch(() => { });
               continue;
             }
             usedInSection += 1;
@@ -684,7 +687,7 @@ const BatchUploadPage = () => {
             const atCapacity = !notSupported && (runningCounts[row.questionType] || 0) >= quota;
             if (notSupported || atCapacity) {
               skipped += 1;
-              await deleteExamQuestionBatchRow(uploadId, row.rowId).catch(() => {});
+              await deleteExamQuestionBatchRow(uploadId, row.rowId).catch(() => { });
               continue;
             }
             runningCounts[row.questionType] = (runningCounts[row.questionType] || 0) + 1;
@@ -695,9 +698,8 @@ const BatchUploadPage = () => {
         rows = kept;
         if (skipped) {
           toast({
-            title: `${skipped} question${skipped === 1 ? "" : "s"} skipped — not an allowed question type for this ${
-              typeRestriction.mode === "section" ? "section" : "exam"
-            }, or already at its configured limit`,
+            title: `${skipped} question${skipped === 1 ? "" : "s"} skipped — not an allowed question type for this ${typeRestriction.mode === "section" ? "section" : "exam"
+              }, or already at its configured limit`,
             status: "warning",
             duration: 6000,
             isClosable: true,
@@ -764,140 +766,140 @@ const BatchUploadPage = () => {
         )}
 
         <Flex direction="column" gap="20px">
-        {/* Step 1: Download Template */}
-        <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" p="24px">
-          <Flex alignItems="center" gap="10px" mb="12px">
-            <Box w="24px" h="24px" bg="#6b006b" borderRadius="50%" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
-              <Text fontSize="11px" fontWeight="700" color="white">1</Text>
-            </Box>
-            <Text fontSize="14px" fontWeight="600" color="#1A202C">Download the Question Template</Text>
-          </Flex>
-          <Text fontSize="13px" color="gray.500" mb="16px">
-            Fill in the Questions sheet. <Text as="span" fontWeight="600" color="#C53030">Do not rename column headers</Text> — the parser maps columns by exact header name and altered headers will cause the entire file to fail.
-          </Text>
-          <Flex gap="10px" flexWrap="wrap">
-            <Button leftIcon={<FiDownload />} isLoading={downloading} onClick={handleDownloadTemplate}>
-              Download Template
-            </Button>
-            <Button
-              secondary
-              rightIcon={showColumnGuide ? <FiChevronUp /> : <FiChevronDown />}
-              onClick={() => setShowColumnGuide((p) => !p)}
-            >
-              Column Guide
-            </Button>
-          </Flex>
-
-          <Collapse in={showColumnGuide} animateOpacity>
-            <Box mt="16px" border="1px solid #E2E8F0" borderRadius="8px" overflow="hidden">
-              <TableContainer>
-                <Table size="sm" variant="simple">
-                  <Thead bg="#F7FAFC">
-                    <Tr>
-                      {["Column", "Required?", "Applies To", "Description"].map((h) => (
-                        <Th key={h} py="10px" fontSize="11px" color="gray.500" fontWeight="600" textTransform="none">{h}</Th>
-                      ))}
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {COLUMNS.map((c) => {
-                      const rs = REQ_STYLE[c.required] ?? REQ_STYLE.Optional;
-                      return (
-                        <Tr key={c.col}>
-                          <Td py="8px"><Text fontFamily="mono" fontSize="12px" color="#6b006b">{c.col}</Text></Td>
-                          <Td py="8px">
-                            <Box bg={rs.bg} color={rs.color} px="6px" py="1px" borderRadius="4px" display="inline-block" fontSize="10px" fontWeight="600">
-                              {c.required}
-                            </Box>
-                          </Td>
-                          <Td py="8px"><Text fontSize="12px" color="gray.500">{c.applies}</Text></Td>
-                          <Td py="8px"><Text fontSize="12px" color="gray.600">{c.desc}</Text></Td>
-                        </Tr>
-                      );
-                    })}
-                  </Tbody>
-                </Table>
-              </TableContainer>
-            </Box>
-          </Collapse>
-        </Box>
-
-        {/* Step 2: Upload */}
-        <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" p="24px">
-          <Flex alignItems="center" gap="10px" mb="20px">
-            <Box w="24px" h="24px" bg="#6b006b" borderRadius="50%" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
-              <Text fontSize="11px" fontWeight="700" color="white">2</Text>
-            </Box>
-            <Text fontSize="14px" fontWeight="600" color="#1A202C">Upload Your File</Text>
-          </Flex>
-
-          <FormControl mb="20px" maxW="280px">
-            <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-              Default Difficulty
-              <Text as="span" fontSize="12px" color="gray.400" fontWeight="400" ml="6px">
-                — applied to rows where difficulty is blank
-              </Text>
-            </FormLabel>
-            <Select
-              size="sm"
-              borderRadius="6px"
-              value={defaultDifficulty}
-              onChange={(e) => setDefaultDifficulty(e.target.value)}
-              placeholder="Leave blank"
-            >
-              <option value="EASY">Easy</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HARD">Hard</option>
-            </Select>
-          </FormControl>
-
-          <Flex direction="column" gap="12px">
-            <Box>
-              <Text fontSize="13px" fontWeight="500" color="gray.600" mb="6px">
-                Question File <Text as="span" color="red.500">*</Text>
-              </Text>
-              <FileUploadZone
-                accept=".xlsx,.csv"
-                file={file}
-                onChange={handleFileChange}
-                label="Click to select your .xlsx or .csv file"
-                accept_label=".xlsx and .csv files only"
-              />
-            </Box>
-
-            <Box>
-              <Text fontSize="13px" fontWeight="500" color="gray.600" mb="6px">
-                Media ZIP <Text as="span" fontSize="12px" color="gray.400" fontWeight="400">(optional)</Text>
-              </Text>
-              <FileUploadZone
-                accept=".zip"
-                file={mediaZip}
-                onChange={handleZipChange}
-                label="Click to select your media .zip archive"
-                accept_label=".zip files only"
-                help="Include image files referenced in the media_reference column"
-              />
-            </Box>
-          </Flex>
-
-          <Box bg="#EBF4FF" border="1px solid #90CDF4" borderRadius="8px" p="12px" mt="20px">
-            <Text fontSize="12px" color="#2C5282">
-              After upload, the parsed questions are staged for review — nothing is added to the question bank until you confirm the import on the next screen.
+          {/* Step 1: Download Template */}
+          <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" p="24px">
+            <Flex alignItems="center" gap="10px" mb="12px">
+              <Box w="24px" h="24px" bg="#6b006b" borderRadius="50%" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                <Text fontSize="11px" fontWeight="700" color="white">1</Text>
+              </Box>
+              <Text fontSize="14px" fontWeight="600" color="#1A202C">Download the Question Template</Text>
+            </Flex>
+            <Text fontSize="13px" color="gray.500" mb="16px">
+              Fill in the Questions sheet. <Text as="span" fontWeight="600" color="#C53030">Do not rename column headers</Text> — the parser maps columns by exact header name and altered headers will cause the entire file to fail.
             </Text>
+            <Flex gap="10px" flexWrap="wrap">
+              <Button leftIcon={<FiDownload />} isLoading={downloading} onClick={handleDownloadTemplate}>
+                Download Template
+              </Button>
+              <Button
+                secondary
+                rightIcon={showColumnGuide ? <FiChevronUp /> : <FiChevronDown />}
+                onClick={() => setShowColumnGuide((p) => !p)}
+              >
+                Column Guide
+              </Button>
+            </Flex>
+
+            <Collapse in={showColumnGuide} animateOpacity>
+              <Box mt="16px" border="1px solid #E2E8F0" borderRadius="8px" overflow="hidden">
+                <TableContainer>
+                  <Table size="sm" variant="simple">
+                    <Thead bg="#F7FAFC">
+                      <Tr>
+                        {["Column", "Required?", "Applies To", "Description"].map((h) => (
+                          <Th key={h} py="10px" fontSize="11px" color="gray.500" fontWeight="600" textTransform="none">{h}</Th>
+                        ))}
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {COLUMNS.map((c) => {
+                        const rs = REQ_STYLE[c.required] ?? REQ_STYLE.Optional;
+                        return (
+                          <Tr key={c.col}>
+                            <Td py="8px"><Text fontFamily="mono" fontSize="12px" color="#6b006b">{c.col}</Text></Td>
+                            <Td py="8px">
+                              <Box bg={rs.bg} color={rs.color} px="6px" py="1px" borderRadius="4px" display="inline-block" fontSize="10px" fontWeight="600">
+                                {c.required}
+                              </Box>
+                            </Td>
+                            <Td py="8px"><Text fontSize="12px" color="gray.500">{c.applies}</Text></Td>
+                            <Td py="8px"><Text fontSize="12px" color="gray.600">{c.desc}</Text></Td>
+                          </Tr>
+                        );
+                      })}
+                    </Tbody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            </Collapse>
           </Box>
 
-          <Flex justifyContent="flex-end" mt="24px">
-            <Button
-              leftIcon={uploading ? <Spinner size="xs" /> : <FiUpload />}
-              isDisabled={!file}
-              isLoading={uploading}
-              loadingText="Processing..."
-              onClick={handleSubmit}
-            >
-              Upload &amp; Review
-            </Button>
-          </Flex>
-        </Box>
+          {/* Step 2: Upload */}
+          <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" p="24px">
+            <Flex alignItems="center" gap="10px" mb="20px">
+              <Box w="24px" h="24px" bg="#6b006b" borderRadius="50%" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                <Text fontSize="11px" fontWeight="700" color="white">2</Text>
+              </Box>
+              <Text fontSize="14px" fontWeight="600" color="#1A202C">Upload Your File</Text>
+            </Flex>
+
+            <FormControl mb="20px" maxW="280px">
+              <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
+                Default Difficulty
+                <Text as="span" fontSize="12px" color="gray.400" fontWeight="400" ml="6px">
+                  — applied to rows where difficulty is blank
+                </Text>
+              </FormLabel>
+              <Select
+                size="sm"
+                borderRadius="6px"
+                value={defaultDifficulty}
+                onChange={(e) => setDefaultDifficulty(e.target.value)}
+                placeholder="Leave blank"
+              >
+                <option value="EASY">Easy</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HARD">Hard</option>
+              </Select>
+            </FormControl>
+
+            <Flex direction="column" gap="12px">
+              <Box>
+                <Text fontSize="13px" fontWeight="500" color="gray.600" mb="6px">
+                  Question File <Text as="span" color="red.500">*</Text>
+                </Text>
+                <FileUploadZone
+                  accept=".xlsx,.csv"
+                  file={file}
+                  onChange={handleFileChange}
+                  label="Click to select your .xlsx or .csv file"
+                  accept_label=".xlsx and .csv files only"
+                />
+              </Box>
+
+              <Box>
+                <Text fontSize="13px" fontWeight="500" color="gray.600" mb="6px">
+                  Media ZIP <Text as="span" fontSize="12px" color="gray.400" fontWeight="400">(optional)</Text>
+                </Text>
+                <FileUploadZone
+                  accept=".zip"
+                  file={mediaZip}
+                  onChange={handleZipChange}
+                  label="Click to select your media .zip archive"
+                  accept_label=".zip files only"
+                  help="Include image files referenced in the media_reference column"
+                />
+              </Box>
+            </Flex>
+
+            <Box bg="#EBF4FF" border="1px solid #90CDF4" borderRadius="8px" p="12px" mt="20px">
+              <Text fontSize="12px" color="#2C5282">
+                After upload, the parsed questions are staged for review — nothing is added to the question bank until you confirm the import on the next screen.
+              </Text>
+            </Box>
+
+            <Flex justifyContent="flex-end" mt="24px">
+              <Button
+                leftIcon={uploading ? <Spinner size="xs" /> : <FiUpload />}
+                isDisabled={!file}
+                isLoading={uploading}
+                loadingText="Processing..."
+                onClick={handleSubmit}
+              >
+                Upload &amp; Review
+              </Button>
+            </Flex>
+          </Box>
         </Flex>
       </Box>
     </AdminMainAreaWrapper>
