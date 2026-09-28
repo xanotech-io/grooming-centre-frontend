@@ -36,6 +36,7 @@ import {
   adminCreateLesson,
   adminEditLesson,
   auditTrailV2PostLog,
+  adminSubmitWorkflow,
 } from "../../../services";
 import useViewLessonInfo from "./hooks/useViewLessonInfo";
 
@@ -60,7 +61,7 @@ const CreateLessonPage = () => {
   } = useForm();
 
   const {
-    state: { metadata },
+    state: { metadata, user },
     getOneMetadata,
   } = useApp();
   const file = watch("lessonTypeId");
@@ -230,13 +231,25 @@ const CreateLessonPage = () => {
     }
   };
 
-  const performCreate = async (body, title) => {
+  const performCreate = async (body, title, submitForApproval = false) => {
     try {
       const { message, lesson } = await adminCreateLesson(
         body,
         handleUploadProgress,
       );
       resultLessonIdRef.current = lesson?.id;
+
+      if (submitForApproval) {
+        await adminSubmitWorkflow({
+          request_type: "Lesson",
+          content_id: lesson?.id,
+          content_title: title ?? lesson?.title,
+          submitted_by: user?.id,
+          supervisor_id: "",
+          submission_date: new Date().toISOString(),
+        });
+      }
+
       toast({
         description: capitalizeFirstLetter(message),
         position: "top",
@@ -300,15 +313,13 @@ const CreateLessonPage = () => {
       pendingTitleRef.current = data.title;
 
       // Super admins never see the "Submit for Approval" modal — the lesson
-      // is created/edited in one step, with an empty supervisor_id since
-      // there's no one to assign it to; the create/edit endpoint itself
-      // triggers the approval workflow, so there's no separate submit call.
+      // is created directly, then the workflow submission is fired separately
+      // with an empty supervisor_id so the backend can queue it without an
+      // assigned supervisor.
       if (isSuperAdmin) {
-        body.append("supervisor_id", "");
-
         const result = isEditMode
           ? await performEdit(body, data.title)
-          : await performCreate(body, data.title);
+          : await performCreate(body, data.title, true);
 
         goToLessonRoute(result?.id ?? lessonId);
         return;
