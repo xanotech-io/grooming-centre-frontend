@@ -2,15 +2,16 @@ import { Box, Flex } from "@chakra-ui/layout";
 import { useState } from "react";
 import { Route, useParams } from "react-router-dom";
 import {
+  Breadcrumb,
   Button,
+  DashboardMetricCard,
+  ExportMenu,
+  Link,
   Table,
   Text,
-  Spinner,
-  DashboardMetricCard,
-  Breadcrumb,
-  Link,
 } from "../../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
+import { Spinner } from "@chakra-ui/react";
 import { EmptyState } from "../../../../layouts";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { useTableRows } from "../../../../hooks";
@@ -147,6 +148,29 @@ const InstructorPerformance = () => {
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
 
+  const flatRows = Array.isArray(rows?.data?.rows) ? rows.data.rows : Array.isArray(rows) ? rows : [];
+
+  const exportRows = [
+    [
+      "Instructor",
+      "Department",
+      "Courses Delivered",
+      "Completion Rate (%)",
+      "Average Score (%)",
+      "Feedback Rating",
+      "Grading Timeliness (Days)",
+    ],
+    ...flatRows.map((r) => [
+      r.instructor,
+      r.department,
+      r.coursesDelivered,
+      r.completionRate,
+      r.averageScore,
+      r.feedbackRating,
+      r.gradingTimelinessDays,
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Box
@@ -166,6 +190,12 @@ const InstructorPerformance = () => {
               <Link href="#">Instructor Performance</Link>
             </BreadcrumbItem>
           }
+        />
+        <ExportMenu
+          rows={exportRows}
+          filename="instructor-performance-report"
+          title="Instructor Performance Report"
+          isDisabled={flatRows.length === 0}
         />
       </Box>
       <Box display={"flex"} justifyContent="space-between" gridGap={4} mb={10}>

@@ -6,6 +6,7 @@ import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
+  ExportMenu,
   Heading,
   Link,
   Table,
@@ -15,18 +16,7 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import { useTableRows } from "../../../../hooks";
 import {
   adminGetParticipationMonitoringReport,
-  exportParticipationMonitoringReport,
 } from "../../../../services";
-import { downloadBlob } from "../../../../utils";
-
-// e.g. "application/vnd.openxmlformats...spreadsheet" -> "xlsx"
-const extFromMimeType = (type) => {
-  if (!type) return "xlsx";
-  if (type.includes("pdf")) return "pdf";
-  if (type.includes("csv")) return "csv";
-  if (type.includes("spreadsheet") || type.includes("excel")) return "xlsx";
-  return "xlsx";
-};
 
 const engagementColorMap = {
   Active: "green",
@@ -58,7 +48,6 @@ const ParticipationMonitoringPage = () => {
   const toast = useToast();
   const [totalCount, setTotalCount] = useState(0);
   const [kpis, setKpis] = useState(null);
-  const [exporting, setExporting] = useState(false);
   const lastParamsRef = useRef({});
 
   const fetchReport = async (params = {}) => {
@@ -247,22 +236,32 @@ const ParticipationMonitoringPage = () => {
 
   const participationData = rows?.data?.rows ?? [];
 
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const blob = await exportParticipationMonitoringReport(lastParamsRef.current);
-      downloadBlob(blob, `participation-monitoring-report.${extFromMimeType(blob.type)}`);
-    } catch (err) {
-      toast({
-        status: "error",
-        description: err.message || "Unable to export participation report",
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setExporting(false);
-    }
-  };
+  const exportRows = [
+    [
+      "Student Name",
+      "Email",
+      "Participation (%)",
+      "Activity Type",
+      "Frequency",
+      "Last Active",
+      "Days Inactive",
+      "Status",
+      "Alert",
+      "Remarks",
+    ],
+    ...participationData.map((r) => [
+      r.studentName,
+      r.studentEmail,
+      r.participationScore != null ? `${r.participationScore}%` : "0%",
+      r.activityType,
+      r.frequencyOfAccess,
+      r.lastActiveDate,
+      r.daysSinceActive,
+      r.engagementStatus,
+      r.alertTriggered ? "Yes" : "No",
+      r.remarks,
+    ]),
+  ];
 
   return (
     <AdminMainAreaWrapper>
@@ -282,11 +281,12 @@ const ParticipationMonitoringPage = () => {
           }
         />
         <Flex gap="8px">
-          {participationData.length > 0 && (
-            <Button onClick={handleExport} isLoading={exporting}>
-              Export
-            </Button>
-          )}
+          <ExportMenu
+            rows={exportRows}
+            filename="participation-monitoring-report"
+            title="Student Participation Monitoring Report"
+            isDisabled={participationData.length === 0}
+          />
           <Button onClick={fetchRowItems}>Refresh Report</Button>
         </Flex>
       </Box>

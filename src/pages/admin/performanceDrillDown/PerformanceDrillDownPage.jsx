@@ -20,7 +20,7 @@ import {
   FiSearch, FiTrendingUp, FiUser,
 } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
-// import { Breadcrumb, Link } from "../../../components";
+import { ExportMenu } from "../../../components";
 import {
   getPerformanceFilters,
   createPerformanceFilter,
@@ -34,18 +34,7 @@ import {
   getVisualAnalyticsStudentReport,
   getInstructorPerformanceReportV2,
   getInstructorPerformanceDrillDown,
-  exportPerformanceAnalyticsReport,
 } from "../../../services";
-import { downloadBlob } from "../../../utils";
-
-// e.g. "application/vnd.openxmlformats...spreadsheet" -> "xlsx"
-const extFromMimeType = (type) => {
-  if (!type) return "xlsx";
-  if (type.includes("pdf")) return "pdf";
-  if (type.includes("csv")) return "csv";
-  if (type.includes("spreadsheet") || type.includes("excel")) return "xlsx";
-  return "xlsx";
-};
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
 
@@ -965,27 +954,48 @@ function InstructorTab() {
 // ─── Page Shell ────────────────────────────────────────────────────────────────
 
 function PerformanceDrillDownPage() {
-  const toast = useToast();
-  const [exporting, setExporting] = useState(false);
+  const [reportRows, setReportRows] = useState([]);
 
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const params = { page: 1, limit: 20 };
-      const blob = await exportPerformanceAnalyticsReport(params);
-      downloadBlob(blob, `performance-analytics-report.${extFromMimeType(blob.type)}`);
-    } catch (err) {
-      toast({
-        title: "Export failed",
-        description: err?.message || "Unable to export performance report",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setExporting(false);
-    }
-  };
+  useEffect(() => {
+    getVisualAnalyticsReport({ page: 1, limit: 100 })
+      .then((res) => {
+        const payload = res?.data || res;
+        const items = Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+            ? payload
+            : MOCK_VISUAL_REPORT;
+        setReportRows(items);
+      })
+      .catch(() => setReportRows(MOCK_VISUAL_REPORT));
+  }, []);
+
+  const exportRows = [
+    [
+      "Student Name",
+      "Email",
+      "Course Title",
+      "Performance Metric (%)",
+      "Completion Rate (%)",
+      "Achievement Category",
+      "Visual Indicator",
+      "Comparison to Class Avg",
+      "Chart Type",
+      "Remarks",
+    ],
+    ...reportRows.map((r) => [
+      r.student_name,
+      r.student_email,
+      r.course_title,
+      r.performance_metric != null ? `${r.performance_metric}%` : "—",
+      r.completion_rate != null ? `${r.completion_rate}%` : "—",
+      r.achievement_category,
+      r.visual_indicator,
+      r.comparison_to_average,
+      r.chart_type,
+      r.remarks,
+    ]),
+  ];
 
   return (
     <AdminMainAreaWrapper>
@@ -997,9 +1007,12 @@ function PerformanceDrillDownPage() {
               Drill-down analytics across users, groups, departments and courses
             </Text>
           </Box>
-          <Button size="sm" colorScheme="blue" onClick={handleExport} isLoading={exporting}>
-            Export
-          </Button>
+          <ExportMenu
+            rows={exportRows}
+            filename="performance-analytics-report"
+            title="Performance Analytics Report"
+            isDisabled={reportRows.length === 0}
+          />
         </Flex>
 
         <Tabs variant="enclosed" colorScheme="blue">
