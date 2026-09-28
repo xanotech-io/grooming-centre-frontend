@@ -14,6 +14,7 @@ import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
+  ExportMenu,
   Heading,
   Link,
   Table,
@@ -23,18 +24,9 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import { useTableRows } from "../../../../hooks";
 import {
   getAttendanceReport,
-  exportAttendanceReport,
   adminGetStudents,
 } from "../../../../services";
-import { downloadBlob } from "../../../../utils";
 import dayjs from "dayjs";
-
-const getExportExtension = (mimeType = "") => {
-  if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return "xlsx";
-  if (mimeType.includes("pdf")) return "pdf";
-  if (mimeType.includes("csv")) return "csv";
-  return "xlsx";
-};
 
 const statusColorMap = {
   Present: "green",
@@ -287,7 +279,6 @@ const AttendanceReportPage = () => {
 
   const [filters, setFilters] = useState(defaultFilters);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
 
   const filterParamsRef = useRef({});
   const lastParamsRef = useRef({});
@@ -295,7 +286,7 @@ const AttendanceReportPage = () => {
   useEffect(() => {
     adminGetStudents({ limit: 500 })
       .then(({ students }) => setStudents(students ?? []))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const studentOptions = students.map((s) => ({
@@ -475,22 +466,32 @@ const AttendanceReportPage = () => {
 
   const attendanceRows = rows?.data?.rows ?? [];
 
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const blob = await exportAttendanceReport(filterParamsRef.current);
-      downloadBlob(blob, `student-attendance-report.${getExportExtension(blob.type)}`);
-    } catch (err) {
-      toast({
-        status: "error",
-        description: err.message || "Unable to export attendance report",
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setExporting(false);
-    }
-  };
+  const exportRows = [
+    [
+      "Student",
+      "Course",
+      "Lesson / Session",
+      "Session Date",
+      "Status",
+      "Entry Time",
+      "Exit Time",
+      "Duration",
+      "Mode",
+    ],
+    ...attendanceRows.map((r) => [
+      r.studentName,
+      r.courseTitle,
+      r.lessonTitle,
+      r.sessionDate && r.sessionDate !== "—"
+        ? dayjs(r.sessionDate).format("DD/MM/YYYY")
+        : "—",
+      r.attendanceStatus,
+      r.entryTime,
+      r.exitTime,
+      r.duration,
+      r.deliveryMode,
+    ]),
+  ];
 
   return (
     <AdminMainAreaWrapper>
@@ -508,14 +509,12 @@ const AttendanceReportPage = () => {
           }
         />
         <Flex gap={2}>
-          <Button
-            secondary
-            isLoading={exporting}
-            isDisabled={exporting || attendanceRows.length === 0}
-            onClick={handleExport}
-          >
-            Export
-          </Button>
+          <ExportMenu
+            rows={exportRows}
+            filename="student-attendance-report"
+            title="Student Attendance Report"
+            isDisabled={attendanceRows.length === 0}
+          />
           <Button onClick={fetchRowItems}>Refresh Report</Button>
         </Flex>
       </Box>
