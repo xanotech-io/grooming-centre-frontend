@@ -1,118 +1,87 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { getEndTime } from '../../../../utils';
-import { getServerDateNow } from '../../../../utils/DateNow';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-const getLateEndDate = (startTime, endTime) => {
-  const now = new Date(getServerDateNow());
-  const duration = (new Date(endTime).getTime() - now.getTime()) / 1000 / 60;
-  const newEndDate = new Date(getEndTime(startTime, duration));
+const formatHHMMSS = (totalSeconds) => {
+  if (totalSeconds <= 0) {
+    return { hours: '00', minutes: '00', seconds: '00' };
+  }
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
 
-  return newEndDate;
+  return {
+    hours: hours > 0 ? String(hours).padStart(2, '0') : '00',
+    minutes: String(minutes).padStart(2, '0'),
+    seconds: String(seconds).padStart(2, '0'),
+  };
 };
 
 const useTimerCountdown = ({
   startDate: _startDate,
   endDate: _endDate,
-  // duration
+  duration,
 }) => {
-  const [startDate, setStartDate] = useState();
-
-  // Reduce EndDate due to late coming (The Lower the EndDate the Lower the `Timer`)
-  const endDate = useMemo(
-    () => _endDate && startDate && getLateEndDate(startDate, _endDate),
-    [_endDate, startDate]
-  );
-
-  const [startCountDown, setStartCountDown] = useState(false);
   const [hasTimeout, setHasTimeout] = useState(false);
-
-  const [hasEnded, setHasEnded] = useState({
-    timeout: false,
+  const [timeLeft, setTimeLeft] = useState({
+    hours: '00',
+    minutes: '00',
+    seconds: '00',
   });
+  const intervalIdRef = useRef(null);
 
-  // Checks if the assessment can be taken
-  useEffect(() => {
-    if (hasTimeout) {
-      setHasEnded({ timeout: true });
+  const targetTime = useMemo(() => {
+    if (_endDate) {
+      const endMs = new Date(_endDate).getTime();
+      if (!isNaN(endMs) && endMs > 0) return endMs;
     }
-  }, [hasTimeout]);
-
-  // Initialize startDate
-  useEffect(() => {
-    if (_startDate) setStartDate(new Date(_startDate));
-  }, [_startDate]);
-
-  // Triggers countdown
-  useEffect(() => {
-    if (endDate === undefined) return setStartCountDown(false);
-
-    if (startDate && !hasEnded.timeout) {
-      setStartCountDown(true);
-    } else {
-      setStartCountDown(false);
+    if (_startDate && duration) {
+      const startMs = new Date(_startDate).getTime();
+      if (!isNaN(startMs) && startMs > 0) {
+        return startMs + duration * 60000;
+      }
     }
-  }, [hasEnded.timeout, startDate, endDate]);
+    return null;
+  }, [_startDate, _endDate, duration]);
 
-  const [timeLeft, setTimeLeft] = useState({});
+  const handleStopCountdown = useCallback(() => {
+    if (intervalIdRef.current) {
+      clearInterval(intervalIdRef.current);
+      intervalIdRef.current = null;
+    }
+  }, []);
 
-  const getDateDifferenceInHHMMSS = (date1, date2) => {
-    let distance = Math.abs(date1 - date2);
-    const hours = Math.floor(distance / 3600000);
-    distance -= hours * 3600000;
-    const minutes = Math.floor(distance / 60000);
-    distance -= minutes * 60000;
-    const seconds = Math.floor(distance / 1000);
+  useEffect(() => {
+    handleStopCountdown();
+    setHasTimeout(false);
 
-    return {
-      hours: hours || '00',
-      minutes: /an/i.test(('0' + minutes).slice(-2))
-        ? '00'
-        : ('0' + minutes).slice(-2),
-      seconds: /an/i.test(('0' + seconds).slice(-2))
-        ? '00'
-        : ('0' + seconds).slice(-2),
+    if (!targetTime) {
+      setTimeLeft({ hours: '00', minutes: '00', seconds: '00' });
+      return;
+    }
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const diffMs = targetTime - now;
+      const totalSeconds = Math.ceil(diffMs / 1000);
+
+      if (totalSeconds <= 0) {
+        setTimeLeft({ hours: '00', minutes: '00', seconds: '00' });
+        setHasTimeout(true);
+        handleStopCountdown();
+      } else {
+        setTimeLeft(formatHHMMSS(totalSeconds));
+      }
     };
-  };
 
-  const timeLeftHMS = getDateDifferenceInHHMMSS(startDate, endDate);
+    updateTimer();
+    intervalIdRef.current = setInterval(updateTimer, 1000);
 
-  // Sets the state `timeLeft`
-  useEffect(() => {
-    setTimeLeft(timeLeftHMS);
+    return () => handleStopCountdown();
+  }, [targetTime, handleStopCountdown]);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeftHMS.hours, timeLeftHMS.minutes, timeLeftHMS.seconds]);
-
-  const intervalIdRef = useRef();
-  const handleStopCountdown = () => clearInterval(intervalIdRef.current);
-
-  // Implements countdown
-  useEffect(() => {
-    if (startCountDown) {
-      intervalIdRef.current = setInterval(() => {
-        setStartDate((prev) => {
-          if (
-            +timeLeftHMS.hours === 0 &&
-            +timeLeftHMS.minutes === 0 &&
-            +timeLeftHMS.seconds - 1 === 0
-          ) {
-            setHasTimeout(true);
-          }
-
-          return new Date(prev.getTime() + 1000);
-        });
-      }, 1000);
-
-      return () => handleStopCountdown();
-    } else {
-      handleStopCountdown();
-    }
-  }, [
-    startCountDown,
-    timeLeftHMS.hours,
-    timeLeftHMS.minutes,
-    timeLeftHMS.seconds,
-  ]);
+  const hasEnded = useMemo(
+    () => ({ timeout: hasTimeout }),
+    [hasTimeout]
+  );
 
   return {
     timeLeft,
