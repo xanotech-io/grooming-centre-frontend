@@ -35,7 +35,7 @@ import { DashboardMetricCard } from "../../../components";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
   adminGetCourseListing,
-  adminListModules,
+  adminGetDepartmentListing,
   createExportReport,
   getDataImport,
   getDataImports,
@@ -56,23 +56,72 @@ import {
   FiEye,
   FiDatabase,
   FiFilter,
+  FiInfo,
+  FiAlertTriangle,
 } from "react-icons/fi";
 import dayjs from "dayjs";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const REPORT_TYPES = [
-  { value: "attendance", label: "Attendance" },
-  { value: "gradebook", label: "Gradebook" },
-  { value: "assessment", label: "Assessment Scores" },
-  { value: "exam_results", label: "Exam Results" },
-  { value: "course_roster", label: "Course Roster" },
+// Export reportTypes must be sent as one of these 7 exact accepted enum strings
+const EXPORT_REPORT_TYPES = [
   { value: "student_records", label: "Student Records" },
   { value: "course_information", label: "Course Information" },
+  { value: "assessment_results", label: "Assessment Results" },
+  { value: "attendance", label: "Attendance" },
   { value: "compliance_records", label: "Compliance Records" },
   { value: "performance_reports", label: "Performance Reports" },
   { value: "user_records", label: "User Records" },
 ];
+
+const TARGET_MODULES = [
+  { value: "user_records", label: "User Records (Accounts)" },
+  { value: "course_information", label: "Course Information" },
+  { value: "assessment_results", label: "Assessment Results" },
+  { value: "attendance", label: "Attendance Logs" },
+];
+
+const MODULE_COLUMN_EXPECTATIONS = {
+  user_records: {
+    title: "User Records Column Expectations",
+    headers: [
+      { name: "firstName or first_name", required: true, desc: "First Name" },
+      { name: "lastName or last_name", required: true, desc: "Last Name" },
+      { name: "email", required: true, desc: "Email address" },
+      { name: "gender", required: false, desc: "Gender (optional)" },
+      { name: "department or departmentId", required: false, desc: "Department (optional if Department field selected on request)" },
+    ],
+    note: "Imports user accounts. 'invite' method sends email invites; 'default' method sets a fixed password (min 6 chars).",
+  },
+  course_information: {
+    title: "Course Information Column Expectations",
+    headers: [
+      { name: "title", required: true, desc: "Course Title" },
+      { name: "description", required: true, desc: "Course Description" },
+      { name: "department or departmentId", required: false, desc: "Department (optional if Department field selected on request)" },
+    ],
+    warning: "Notice: course_information imports create the course with a placeholder thumbnail — remember to update the thumbnail via the course editor afterward.",
+  },
+  assessment_results: {
+    title: "Assessment Results Column Expectations",
+    headers: [
+      { name: "email", required: true, desc: "Student Email (must match an existing student)" },
+      { name: "assessmentTitle or assessment", required: true, desc: "Assessment Title (must match an existing assessment)" },
+      { name: "score", required: true, desc: "Score (numeric)" },
+    ],
+    note: "Imports assessment scores for existing students and assessments.",
+  },
+  attendance: {
+    title: "Attendance Column Expectations",
+    headers: [
+      { name: "email", required: true, desc: "Student Email (must match an existing student)" },
+      { name: "courseTitle or course", required: true, desc: "Course Title (must match an existing course)" },
+      { name: "sessionDate", required: true, desc: "Session Date (YYYY-MM-DD)" },
+      { name: "attendanceStatus", required: true, desc: "Attendance Status (e.g. present, absent, late)" },
+    ],
+    note: "Imports attendance logs for existing students and courses.",
+  },
+};
 
 const EXPORT_FORMATS = ["pdf", "excel", "csv", "json", "xml"];
 const IMPORT_FORMATS = ["csv", "excel"];
@@ -82,17 +131,17 @@ const LIMIT = 20;
 // ─── Shared UI Helpers ────────────────────────────────────────────────────────
 
 const EXPORT_STATUS = {
-  pending:   { bg: "#FFF5EA", color: "#DD6B20" },
+  pending: { bg: "#FFF5EA", color: "#DD6B20" },
   completed: { bg: "#E6F4EA", color: "#38A169" },
-  failed:    { bg: "#FED7D7", color: "#E53E3E" },
+  failed: { bg: "#FED7D7", color: "#E53E3E" },
 };
 
 const IMPORT_STATUS = {
-  pending:    { bg: "#FFF5EA", color: "#DD6B20" },
+  pending: { bg: "#FFF5EA", color: "#DD6B20" },
   validating: { bg: "#EBF4FF", color: "#3182CE" },
-  completed:  { bg: "#E6F4EA", color: "#38A169" },
-  failed:     { bg: "#FED7D7", color: "#E53E3E" },
-  partial:    { bg: "#FEFCBF", color: "#B7791F" },
+  completed: { bg: "#E6F4EA", color: "#38A169" },
+  failed: { bg: "#FED7D7", color: "#E53E3E" },
+  partial: { bg: "#FEFCBF", color: "#B7791F" },
 };
 
 const STATUS_LABELS = { completed: "Successful" };
@@ -262,13 +311,13 @@ const KpiTab = () => {
             <DashboardMetricCard title="Total Operations" value={kpis.totalOperations ?? "—"} change="imports + exports + extractions" changeColor="#6b006b" />
             <DashboardMetricCard title="Overall Success Rate" value={`${kpis.successRate ?? 0}%`} change="all operations" changeColor="#38A169" />
             {/* <DashboardMetricCard title="Failed Transfers" value={failed} change="exports + imports failed" changeColor="#E53E3E" /> */}
-             <DashboardMetricCard title="Total Exports" value={exp.total ?? "—"} change={`${exp.failed ?? 0} failed`} changeColor="#3182CE" />
+            <DashboardMetricCard title="Total Exports" value={exp.total ?? "—"} change={`${exp.failed ?? 0} failed`} changeColor="#3182CE" />
             {/* <DashboardMetricCard title="Export Success Rate" value={`${exp.successRate ?? 0}%`} change="completed exports" changeColor="#38A169" /> */}
             <DashboardMetricCard title="Avg File Size" value={`${exp.avgFileSizeMb ?? "—"} MB`} change="per export" changeColor="#6b006b" />
-             <DashboardMetricCard title="Total Imports" value={imp.total ?? "—"} change={`${imp.failed ?? 0} failed`} changeColor="#3182CE" />
+            <DashboardMetricCard title="Total Imports" value={imp.total ?? "—"} change={`${imp.failed ?? 0} failed`} changeColor="#3182CE" />
           </Grid>
 
-          
+
         </>
       ) : (
         <Text color="gray.400" textAlign="center" py="40px">No KPI data available</Text>
@@ -281,21 +330,23 @@ const KpiTab = () => {
 
 const ImportResultPanel = ({ result }) => {
   if (!result) return null;
-  const total = result.totalRows ?? result.summary?.total_rows ?? 0;
-  const success = result.successfulRows ?? result.summary?.successful_rows ?? 0;
-  const failed = result.failedRows ?? result.summary?.failed_rows ?? 0;
-  const warnings = result.warningRows ?? result.summary?.warning_rows ?? 0;
-  const errors = result.validationErrors ?? result.errors ?? [];
-  const warnList = result.warnings ?? [];
+  const d = result?.data ?? result;
+  const total = d.totalRows ?? d.summary?.total_rows ?? 0;
+  const success = d.successfulRows ?? d.summary?.successful_rows ?? 0;
+  const failed = d.failedRows ?? d.summary?.failed_rows ?? 0;
+  const warnings = d.warningRows ?? d.summary?.warning_rows ?? 0;
+  const errors = d.validationErrors ?? d.errors ?? [];
+  const warnList = d.warnings ?? [];
+  const status = d.status ?? (failed > 0 ? "failed" : "completed");
 
   return (
     <Box mt={6} bg="white" border="1px solid #E2E8F0" borderRadius="8px" overflow="hidden">
       <Box p="16px" borderBottom="1px solid #E2E8F0">
         <Flex gap="6px" alignItems="center" mb={3}>
-          <StatusBadge status={result.status} map={IMPORT_STATUS} />
-          <Text fontSize="12px" color="gray.500">Import ID: {result.id}</Text>
-          {result.processingTimeMs != null && (
-            <Text fontSize="12px" color="gray.400">· {(result.processingTimeMs / 1000).toFixed(1)}s</Text>
+          <StatusBadge status={status} map={IMPORT_STATUS} />
+          {d.id && <Text fontSize="12px" color="gray.500">Import ID: {d.id}</Text>}
+          {d.processingTimeMs != null && (
+            <Text fontSize="12px" color="gray.400">· {(d.processingTimeMs / 1000).toFixed(1)}s</Text>
           )}
         </Flex>
         <Grid templateColumns="repeat(4, 1fr)" gap={3}>
@@ -371,33 +422,23 @@ const ImportTab = () => {
   const fileRef = useRef();
   const [file, setFile] = useState(null);
   const [fileFormat, setFileFormat] = useState("csv");
+  const [targetModule, setTargetModule] = useState("user_records");
+  const [departmentId, setDepartmentId] = useState("");
+  const [uploadMethod, setUploadMethod] = useState("invite");
+  const [defaultPassword, setDefaultPassword] = useState("");
   const [reportName, setReportName] = useState("");
-  const [courseId, setCourseId] = useState("");
-  const [moduleId, setModuleId] = useState("");
-  const [courses, setCourses] = useState([]);
-  const [modules, setModules] = useState([]);
-  const [modulesLoading, setModulesLoading] = useState(false);
+
+  const [departments, setDepartments] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [polling, setPolling] = useState(false);
   const pollRef = useRef(null);
 
   useEffect(() => {
-    adminGetCourseListing()
-      .then((res) => setCourses(res?.courses ?? []))
-      .catch(() => setCourses([]));
+    adminGetDepartmentListing()
+      .then((res) => setDepartments(res?.departments ?? []))
+      .catch(() => setDepartments([]));
   }, []);
-
-  useEffect(() => {
-    setModuleId("");
-    setModules([]);
-    if (!courseId) return;
-    setModulesLoading(true);
-    adminListModules(courseId)
-      .then((res) => setModules(res?.modules ?? []))
-      .catch(() => setModules([]))
-      .finally(() => setModulesLoading(false));
-  }, [courseId]);
 
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -432,30 +473,64 @@ const ImportTab = () => {
   };
 
   const handleSubmit = async () => {
-    if (!file) { toast({ title: "Please select a file", status: "warning", duration: 3000, isClosable: true }); return; }
+    if (!file) {
+      toast({ title: "Please select a file to import", status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
+    if (!targetModule) {
+      toast({ title: "Please select a target module", status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
+    if (uploadMethod === "default" && (!defaultPassword || defaultPassword.length < 6)) {
+      toast({ title: "Default password must be at least 6 characters", status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("fileFormat", fileFormat);
+    formData.append("targetModule", targetModule);
+    if (departmentId) formData.append("departmentId", departmentId);
+    if (uploadMethod) formData.append("uploadMethod", uploadMethod);
+    if (uploadMethod === "default" && defaultPassword) {
+      formData.append("defaultPassword", defaultPassword);
+    }
     if (reportName.trim()) formData.append("reportName", reportName.trim());
-    if (courseId) formData.append("courseId", courseId);
-    if (moduleId) formData.append("targetModule", moduleId);
+
     setSubmitting(true);
     setResult(null);
     stopPolling();
     try {
       const res = await uploadDataImport(formData);
+      setResult(res);
       const d = res?.data ?? res;
-      setResult(d);
       if (d?.id && ["pending", "validating"].includes(d?.status) && (d?.totalRows ?? 0) > 5000) {
         startPolling(d.id);
       }
-      toast({ title: "Import submitted successfully", status: "success", duration: 3000, isClosable: true });
+      const isFail = d?.status === "failed" || res?.success === false;
+      toast({
+        title: res?.message || (isFail ? "Import failed" : "Import submitted successfully"),
+        status: isFail ? "error" : "success",
+        duration: 4000,
+        isClosable: true,
+      });
     } catch (err) {
-      toast({ title: err?.response?.data?.message || "Import failed", status: "error", duration: 4000, isClosable: true });
+      const errData = err?.response?.data;
+      if (errData) {
+        setResult(errData);
+      }
+      toast({
+        title: errData?.message || err?.message || "Import failed",
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      });
     } finally {
       setSubmitting(false);
     }
   };
+
+  const expectation = MODULE_COLUMN_EXPECTATIONS[targetModule];
 
   return (
     <Box maxW="2xl">
@@ -463,10 +538,30 @@ const ImportTab = () => {
         Upload a CSV or Excel file to bulk-import data into the LMS.
       </Text>
 
+      {/* Target Module & File Format */}
+      <Grid templateColumns="1fr 1fr" gap={4} mb={4}>
+        <FormControl isRequired>
+          <FormLabel fontSize="sm" fontWeight="500">Target Module</FormLabel>
+          <Select size="sm" value={targetModule} onChange={(e) => setTargetModule(e.target.value)} bg="gray.50">
+            {TARGET_MODULES.map((m) => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl isRequired>
+          <FormLabel fontSize="sm" fontWeight="500">File Format</FormLabel>
+          <Select size="sm" value={fileFormat} onChange={(e) => setFileFormat(e.target.value)} bg="gray.50">
+            {IMPORT_FORMATS.map((f) => <option key={f} value={f}>{f.toUpperCase()}</option>)}
+          </Select>
+        </FormControl>
+      </Grid>
+
+      {/* File Upload Box */}
       <Box
         border="2px dashed #E2E8F0"
         borderRadius="10px"
-        p="32px"
+        p="28px"
         textAlign="center"
         cursor="pointer"
         _hover={{ borderColor: "#6b006b", bg: "#FAF5FF" }}
@@ -479,50 +574,116 @@ const ImportTab = () => {
         {file ? (
           <>
             <Text fontWeight="600" fontSize="14px" color="#6b006b">{file.name}</Text>
-            <Text fontSize="12px" color="gray.400">{(file.size / 1024).toFixed(1)} KB · click to change</Text>
+            <Text fontSize="12px" color="gray.400">{(file.size / 1024).toFixed(1)} KB · click to change file</Text>
           </>
         ) : (
           <>
-            <Text fontWeight="500" fontSize="14px" color="gray.600">Click to select a file</Text>
-            <Text fontSize="12px" color="gray.400">CSV or Excel (.xlsx) supported</Text>
+            <Text fontWeight="500" fontSize="14px" color="gray.600">Click to select CSV or Excel file</Text>
+            <Text fontSize="12px" color="gray.400">Supported extensions: .csv, .xlsx, .xls</Text>
           </>
         )}
       </Box>
 
+      {/* Optional Department & Report Name */}
       <Grid templateColumns="1fr 1fr" gap={4} mb={4}>
         <FormControl>
-          <FormLabel fontSize="sm" fontWeight="500">File Format</FormLabel>
-          <Select size="sm" value={fileFormat} onChange={(e) => setFileFormat(e.target.value)} bg="gray.50">
-            {IMPORT_FORMATS.map((f) => <option key={f} value={f}>{f.toUpperCase()}</option>)}
-          </Select>
+          <FormLabel fontSize="sm" fontWeight="500">
+            Department <Text as="span" color="gray.400" fontWeight="400">(optional if file rows specify department)</Text>
+          </FormLabel>
+          <SearchableSelect
+            value={departmentId}
+            options={departments.map((d) => ({ value: d.id, label: d.name }))}
+            onChange={setDepartmentId}
+            placeholder="Select department..."
+          />
         </FormControl>
+
         <FormControl>
           <FormLabel fontSize="sm" fontWeight="500">Report Name <Text as="span" color="gray.400" fontWeight="400">(optional)</Text></FormLabel>
           <Input size="sm" placeholder="Defaults to filename" value={reportName} onChange={(e) => setReportName(e.target.value)} />
         </FormControl>
       </Grid>
 
-      <Grid templateColumns="1fr 1fr" gap={4} mb={6}>
-        <FormControl>
-          <FormLabel fontSize="sm" fontWeight="500">Course <Text as="span" color="gray.400" fontWeight="400">(optional)</Text></FormLabel>
-          <SearchableSelect
-            value={courseId}
-            options={courses.map((c) => ({ value: c.id, label: c.title }))}
-            onChange={setCourseId}
-            placeholder="Search course…"
-          />
-        </FormControl>
-        <FormControl>
-          <FormLabel fontSize="sm" fontWeight="500">Module <Text as="span" color="gray.400" fontWeight="400">(optional)</Text></FormLabel>
-          <SearchableSelect
-            value={moduleId}
-            options={modules.map((m) => ({ value: m.id, label: m.title }))}
-            onChange={setModuleId}
-            placeholder={modulesLoading ? "Loading…" : courseId ? "Search module…" : "Select a course first"}
-            isDisabled={!courseId || modulesLoading}
-          />
-        </FormControl>
-      </Grid>
+      {/* User Records specific options: uploadMethod & defaultPassword */}
+      {targetModule === "user_records" && (
+        <Box bg="#F7FAFC" border="1px solid #E2E8F0" borderRadius="8px" p="16px" mb={5}>
+          <Grid templateColumns="1fr 1fr" gap={4}>
+            <FormControl>
+              <FormLabel fontSize="xs" fontWeight="600" color="gray.600">Upload Method</FormLabel>
+              <Select size="sm" value={uploadMethod} onChange={(e) => setUploadMethod(e.target.value)} bg="white">
+                <option value="invite">Invite (Sends invite email to users)</option>
+                <option value="default">Default (Set a fixed initial password)</option>
+              </Select>
+            </FormControl>
+
+            {uploadMethod === "default" && (
+              <FormControl isRequired>
+                <FormLabel fontSize="xs" fontWeight="600" color="gray.600">Fixed Initial Password</FormLabel>
+                <Input
+                  size="sm"
+                  type="password"
+                  bg="white"
+                  placeholder="Min 6 characters"
+                  value={defaultPassword}
+                  onChange={(e) => setDefaultPassword(e.target.value)}
+                />
+              </FormControl>
+            )}
+          </Grid>
+        </Box>
+      )}
+
+      {/* Column expectations card */}
+      {expectation && (
+        <Box bg="#FAF5FF" border="1px solid #E9D8FD" borderRadius="8px" p="16px" mb={6}>
+          <Flex alignItems="center" gap="6px" mb={2}>
+            <FiInfo color="#6b006b" size={16} />
+            <Text fontSize="13px" fontWeight="600" color="#6b006b">{expectation.title}</Text>
+          </Flex>
+
+          <Text fontSize="12px" color="gray.600" mb={3}>
+            Column headers are matched case-sensitively against accepted names:
+          </Text>
+
+          <TableContainer mb={3}>
+            <Table variant="simple" size="xs" bg="white" borderRadius="6px" overflow="hidden">
+              <Thead bg="#F3E8FF">
+                <Tr>
+                  <Th py="6px">Accepted Column Name</Th>
+                  <Th py="6px">Status</Th>
+                  <Th py="6px">Description / Rule</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {expectation.headers.map((h, i) => (
+                  <Tr key={i}>
+                    <Td py="5px" fontWeight="600" fontFamily="mono" fontSize="11px">{h.name}</Td>
+                    <Td py="5px">
+                      <Badge colorScheme={h.required ? "red" : "gray"} fontSize="10px">
+                        {h.required ? "Required" : "Optional"}
+                      </Badge>
+                    </Td>
+                    <Td py="5px" fontSize="11px" color="gray.600">{h.desc ?? h.note ?? "—"}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </TableContainer>
+
+          {expectation.warning && (
+            <Flex alignItems="flex-start" gap="8px" p="10px" bg="#FFFBEB" border="1px solid #FDE68A" borderRadius="6px">
+              <FiAlertTriangle color="#D97706" size={16} style={{ marginTop: "2px", flexShrink: 0 }} />
+              <Text fontSize="12px" color="#92400E" fontWeight="500">
+                {expectation.warning}
+              </Text>
+            </Flex>
+          )}
+
+          {expectation.note && (
+            <Text fontSize="11px" color="gray.500" mt={2}>{expectation.note}</Text>
+          )}
+        </Box>
+      )}
 
       <Button leftIcon={<FiUpload />} isLoading={submitting} loadingText="Uploading…" onClick={handleSubmit}>
         Upload & Import
@@ -592,20 +753,32 @@ const ExportResultPanel = ({ result }) => {
 const ExportExtractTab = ({ operationType }) => {
   const toast = useToast();
   const isExtract = operationType === "extraction";
-  const [reportType, setReportType] = useState("attendance");
+  const [reportType, setReportType] = useState("student_records");
   const [exportFormat, setExportFormat] = useState("pdf");
   const [reportName, setReportName] = useState("");
   const [courseId, setCourseId] = useState("");
+  const [studentId, setStudentId] = useState("");
+  const [gradebookId, setGradebookId] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [attendanceStatus, setAttendanceStatus] = useState("");
+  const [deliveryMode] = useState("");
+  const [status] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+
   const [courses, setCourses] = useState([]);
+  const [departments, setDepartments] = useState([]);
 
   useEffect(() => {
     adminGetCourseListing()
       .then((res) => setCourses(res?.courses ?? []))
       .catch(() => setCourses([]));
+
+    adminGetDepartmentListing()
+      .then((res) => setDepartments(res?.departments ?? []))
+      .catch(() => setDepartments([]));
   }, []);
 
   const handleSubmit = async () => {
@@ -615,6 +788,12 @@ const ExportExtractTab = ({ operationType }) => {
     }
     const filters = {};
     if (courseId.trim()) filters.courseId = courseId.trim();
+    if (studentId.trim()) filters.studentId = studentId.trim();
+    if (gradebookId.trim()) filters.gradebookId = gradebookId.trim();
+    if (departmentId.trim()) filters.departmentId = departmentId.trim();
+    if (attendanceStatus.trim()) filters.attendanceStatus = attendanceStatus.trim();
+    if (deliveryMode.trim()) filters.deliveryMode = deliveryMode.trim();
+    if (status.trim()) filters.status = status.trim();
     if (startDate) filters.startDate = startDate;
     if (endDate) filters.endDate = endDate;
 
@@ -651,11 +830,11 @@ const ExportExtractTab = ({ operationType }) => {
         <FormControl isRequired>
           <FormLabel fontSize="sm" fontWeight="500">{isExtract ? "Data Type" : "Report Type"}</FormLabel>
           <Select size="sm" value={reportType} onChange={(e) => setReportType(e.target.value)} bg="gray.50">
-            {REPORT_TYPES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            {EXPORT_REPORT_TYPES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
           </Select>
         </FormControl>
         <FormControl isRequired>
-          <FormLabel fontSize="sm" fontWeight="500">Format</FormLabel>
+          <FormLabel fontSize="sm" fontWeight="500">Export Format</FormLabel>
           <Select size="sm" value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} bg="gray.50">
             {EXPORT_FORMATS.map((f) => <option key={f} value={f}>{f.toUpperCase()}</option>)}
           </Select>
@@ -669,7 +848,7 @@ const ExportExtractTab = ({ operationType }) => {
 
       <Box bg="#F7FAFC" border="1px solid #E2E8F0" borderRadius="8px" p="16px" mb={6}>
         <Text fontSize="12px" fontWeight="600" color="gray.500" mb={3}>Filters <Text as="span" color="gray.400" fontWeight="400">(optional)</Text></Text>
-        <Grid templateColumns="1fr 1fr 1fr" gap={3}>
+        <Grid templateColumns="1fr 1fr" gap={3} mb={3}>
           <FormControl>
             <FormLabel fontSize="xs" color="gray.500">Course</FormLabel>
             <Select size="sm" value={courseId} onChange={(e) => setCourseId(e.target.value)} bg="white" placeholder="All courses">
@@ -677,6 +856,32 @@ const ExportExtractTab = ({ operationType }) => {
                 <option key={c.id} value={c.id}>{c.title}</option>
               ))}
             </Select>
+          </FormControl>
+          <FormControl>
+            <FormLabel fontSize="xs" color="gray.500">Department</FormLabel>
+            <Select size="sm" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} bg="white" placeholder="All departments">
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+
+        <Grid templateColumns="1fr 1fr" gap={3} mb={3}>
+          <FormControl>
+            <FormLabel fontSize="xs" color="gray.500">Student ID</FormLabel>
+            <Input size="sm" placeholder="Filter by Student UUID" value={studentId} onChange={(e) => setStudentId(e.target.value)} bg="white" />
+          </FormControl>
+          <FormControl>
+            <FormLabel fontSize="xs" color="gray.500">Gradebook ID</FormLabel>
+            <Input size="sm" placeholder="Filter by Gradebook UUID" value={gradebookId} onChange={(e) => setGradebookId(e.target.value)} bg="white" />
+          </FormControl>
+        </Grid>
+
+        <Grid templateColumns="1fr 1fr 1fr" gap={3}>
+          <FormControl>
+            <FormLabel fontSize="xs" color="gray.500">Attendance Status</FormLabel>
+            <Input size="sm" placeholder="e.g. present" value={attendanceStatus} onChange={(e) => setAttendanceStatus(e.target.value)} bg="white" />
           </FormControl>
           <FormControl>
             <FormLabel fontSize="xs" color="gray.500">Start Date</FormLabel>
@@ -940,7 +1145,7 @@ const HistoryTab = () => {
             <Table variant="simple" size="sm">
               <Thead bg="#F7FAFC">
                 <Tr>
-                  {["Report Name", "Performed By", "Type", "Format", "Records","Record Successful", "Record Failed", "File Size", "Status", "Expires", "Created", ""].map((h) => (
+                  {["Report Name", "Performed By", "Type", "Format", "Records", "Record Successful", "Record Failed", "File Size", "Status", "Expires", "Created", ""].map((h) => (
                     <Th key={h} py="12px" fontSize="11px" color="gray.500" fontWeight="600" textTransform="none">{h}</Th>
                   ))}
                 </Tr>
@@ -1015,10 +1220,10 @@ const DashboardTab = () => (
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: "kpis",    label: "Report Overview",  icon: <FiDatabase size={14} /> },
-  { key: "import",  label: "Import",     icon: <FiUpload size={14} /> },
-  { key: "export",  label: "Export",     icon: <FiDownload size={14} /> },
-  
+  { key: "kpis", label: "Report Overview", icon: <FiDatabase size={14} /> },
+  { key: "import", label: "Import", icon: <FiUpload size={14} /> },
+  { key: "export", label: "Export", icon: <FiDownload size={14} /> },
+
 ];
 
 const DataImportExportPage = () => {
@@ -1055,10 +1260,10 @@ const DataImportExportPage = () => {
 
       <Divider mb={0} display="none" />
 
-      {activeTab === "kpis"    && <DashboardTab />}
-      {activeTab === "import"  && <ImportTab />}
-      {activeTab === "export"  && <ExportExtractTab operationType="export" />}
-    
+      {activeTab === "kpis" && <DashboardTab />}
+      {activeTab === "import" && <ImportTab />}
+      {activeTab === "export" && <ExportExtractTab operationType="export" />}
+
     </AdminMainAreaWrapper>
   );
 };
