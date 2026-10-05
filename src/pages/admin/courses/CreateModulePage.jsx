@@ -149,18 +149,6 @@ const CreateModulePage = () => {
 
       pendingBodyRef.current = body;
 
-      // Super admins never see the "Submit for Approval" modal — the
-      // module is created/edited in one step, with an empty supervisor_id
-      // since there's no one to assign it to; the create/edit endpoint
-      // itself triggers the approval workflow, so there's no separate
-      // submit call.
-      if (isSuperAdmin) {
-        body.supervisor_id = "";
-        await (isEditMode ? performEdit(body) : performCreate(body));
-        push(`/admin/courses/details/${courseId}/modules`);
-        return;
-      }
-
       setWorkflowContent({
         contentId: isEditMode ? moduleId : undefined,
         contentTitle: data.title,
@@ -281,7 +269,11 @@ const CreateModulePage = () => {
           requestType={workflowContent.requestType}
           courseId={workflowContent.courseId}
           onCreate={(supervisorId) => {
-            pendingBodyRef.current.supervisor_id = supervisorId;
+            if (supervisorId) {
+              pendingBodyRef.current.supervisor_id = supervisorId;
+            } else {
+              delete pendingBodyRef.current.supervisor_id;
+            }
             return isEditMode
               ? performEdit(pendingBodyRef.current)
               : performCreate(pendingBodyRef.current);

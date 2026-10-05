@@ -5,7 +5,11 @@ import { useEffect, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import { Button, Heading, Select, Input, Text } from "../../../../../components";
 import { useQueryParams, useGoBack } from "../../../../../hooks";
-import { adminGetMarkingTemplates } from "../../../../../services";
+import {
+  adminGetExaminationById,
+  adminGetMarkingTemplates,
+  requestAssessmentDetails,
+} from "../../../../../services";
 import useAssessmentStore from "../../../../../store/assessmentStore";
 import { SectionsBuilder, createEmptySection } from "../../../examSectionBuilder/SectionRow";
 import QuestionQuantitiesTable from "../../../examSectionBuilder/QuestionQuantitiesTable";
@@ -15,11 +19,12 @@ import {
   normalizeSectionsForConfig,
   toCreateBodySections,
   hydrateSection,
+  fromExamTypeApiValue,
   computeSectionTotals,
   computeQuantityTotals,
   seedQuantityCounts,
 } from "../../../examSectionBuilder/examTypeConfig";
-import { PAPER_CONFIG_DEFAULTS, RandomizationFieldsEditor, deriveRandomizationConfig, validatePresetSections } from "../../../examPaperConfigPresets/PresetFieldsEditor";
+import { PAPER_CONFIG_DEFAULTS, RandomizationFieldsEditor, deriveRandomizationConfig, hydratePaperConfig, validatePresetSections } from "../../../examPaperConfigPresets/PresetFieldsEditor";
 import { usePaperConfigPresets } from "../../../examPaperConfigPresets/usePaperConfigPresets";
 import { LoadPresetSelect, SaveAsPresetModal } from "../../../examPaperConfigPresets/PresetPickerControls";
 
@@ -38,6 +43,7 @@ const TemplatePage = () => {
   const handleCancel = useGoBack();
   const query = useQueryParams();
   const isExaminationParam = query.get("examination");
+  const isViewMode = query.get("mode") === "view";
   const moduleId = query.get("moduleId");
   // "ModuleExam"/"Exam" kind carries its real/"new" id via the `examination`
   // query param; "Assessment" kind carries it via the `:assessmentId` path
@@ -146,6 +152,56 @@ const TemplatePage = () => {
   useEffect(() => {
     if (examType === "with_sections") setMarkingTemplateId("");
   }, [examType]);
+
+  useEffect(() => {
+    if (!isViewMode) return;
+    if (pending && kind) return;
+
+    let active = true;
+    const hydrateViewValues = async () => {
+      try {
+        const record = isExamKind
+          ? (await adminGetExaminationById(isExaminationParam)).examination
+          : (await requestAssessmentDetails(assessmentId, true)).assessment;
+
+        if (!active || !record) return;
+
+        const mappedExamType = fromExamTypeApiValue(record.examType ?? record.exam_type ?? "") ||
+          (Array.isArray(record.sections) && record.sections.length > 0 ? "with_sections" : "");
+
+        setExamType(mappedExamType);
+        setMarkingTemplateId(record.markingTemplateId ?? record.templateId ?? "");
+        setAmountOfQuestions(String(record.amountOfQuestions ?? record.questionCount ?? ""));
+        setTotalMarks(String(record.totalMarks ?? ""));
+        setSections(Array.isArray(record.sections) ? record.sections.map((section) => hydrateSection({
+          section_name: section.section_name ?? section.name ?? "",
+          question_types: Array.isArray(section.question_types) ? section.question_types : (Array.isArray(section.questionType) ? section.questionType : (section.questionType ? [section.questionType] : [])),
+          question_type: section.question_type ?? section.questionType ?? "",
+          marking_type: section.marking_type ?? section.markingType ?? "",
+          total_marks: section.total_marks ?? section.weightage ?? null,
+          questions_count: section.questions_count ?? section.questionCount ?? null,
+          time_limit: section.time_limit ?? section.timeLimit ?? null,
+        })) : []);
+
+        if (record.questionQuantity && typeof record.questionQuantity === "object") {
+          setQuestionQuantities(record.questionQuantity);
+        }
+        if (record.paperConfig || record.randomizationConfig || record.uiSettings || record.navigationMode) {
+          setPaperConfig(() => hydratePaperConfig(record.paperConfig ?? record));
+        }
+      } catch {
+        toast({
+          description: "Unable to load the saved template details for this assessment.",
+          status: "warning",
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    };
+
+    hydrateViewValues();
+    return () => { active = false; };
+  }, [assessmentId, isExamKind, isExaminationParam, isViewMode, kind, pending, toast]);
 
   useEffect(() => {
     adminGetMarkingTemplates()
@@ -323,22 +379,24 @@ const TemplatePage = () => {
 
   return (
     <Box marginY="20px" marginX="22px">
-      <Box backgroundColor="white" padding="24px" borderRadius="8px" shadow="sm" marginBottom="20px">
-        <Flex gap="16px" alignItems="flex-end" flexWrap="wrap">
-          <Box flex="1" minW="260px">
-            <LoadPresetSelect
-              presets={presets}
-              presetsLoading={presetsLoading}
-              value={paperConfigPresetId}
-              onSelect={handleLoadPreset}
-              isLoading={isLoadingPreset}
-            />
-          </Box>
-          <Button secondary onClick={openSaveModal} marginBottom="20px">
-            Save Configuration as Exam Template
-          </Button>
-        </Flex>
-      </Box>
+      {!isViewMode && (
+        <Box backgroundColor="white" padding="24px" borderRadius="8px" shadow="sm" marginBottom="20px">
+          <Flex gap="16px" alignItems="flex-end" flexWrap="wrap">
+            <Box flex="1" minW="260px">
+              <LoadPresetSelect
+                presets={presets}
+                presetsLoading={presetsLoading}
+                value={paperConfigPresetId}
+                onSelect={handleLoadPreset}
+                isLoading={isLoadingPreset}
+              />
+            </Box>
+            <Button secondary onClick={openSaveModal} marginBottom="20px">
+              Save Configuration as Exam Template
+            </Button>
+          </Flex>
+        </Box>
+      )}
 
       <Box backgroundColor="white" padding="40px" borderRadius="8px" shadow="sm" marginBottom="30px">
         <Heading as="h3" size="md" marginBottom="24px" color="#1A202C">
@@ -355,7 +413,7 @@ const TemplatePage = () => {
               error={fieldErrors.amountOfQuestions}
               value={amountOfQuestions}
               isReadOnly={amountOfQuestionsIsAuto}
-              isDisabled={amountOfQuestionsIsAuto}
+              isDisabled={isViewMode || amountOfQuestionsIsAuto}
               onChange={(e) => setAmountOfQuestions(e.target.value)}
             />
           </Box>
@@ -368,7 +426,7 @@ const TemplatePage = () => {
               error={fieldErrors.totalMarks}
               value={totalMarks}
               isReadOnly={totalMarksIsAuto}
-              isDisabled={totalMarksIsAuto}
+              isDisabled={isViewMode || totalMarksIsAuto}
               onChange={(e) => setTotalMarks(e.target.value)}
             />
           </Box>
@@ -380,6 +438,7 @@ const TemplatePage = () => {
             isRequired
             noEmptyOption
             value={examType}
+            isDisabled={isViewMode}
             onChange={(e) => {
               const nextExamType = e.target.value;
               setExamType(nextExamType);
@@ -393,7 +452,7 @@ const TemplatePage = () => {
           label="Marking Template"
           placeholder="Select a marking template"
           isRequired={examType !== "with_sections"}
-          isDisabled={examType === "with_sections"}
+          isDisabled={isViewMode || examType === "with_sections"}
           error={fieldErrors.markingTemplateId}
           value={markingTemplateId}
           onChange={(e) => setMarkingTemplateId(e.target.value)}
@@ -430,12 +489,27 @@ const TemplatePage = () => {
                 {fieldErrors.sections}
               </Text>
             )}
-            <SectionsBuilder
-              sections={sections}
-              onAdd={addSection}
-              onChange={updateSection}
-              onRemove={removeSection}
-            />
+            {isViewMode ? (
+              sections.length > 0 ? (
+                sections.map((section, idx) => (
+                  <Box key={`${section.section_name || "section"}-${idx}`} p={3} border="1px solid" borderColor="gray.200" borderRadius="md" mb={2}>
+                    <Text fontSize="sm" fontWeight="600">{section.section_name || `Section ${idx + 1}`}</Text>
+                    <Text fontSize="sm" color="gray.600">
+                      Questions: {section.questions_count || 0} | Marks: {section.total_marks || 0}
+                    </Text>
+                  </Box>
+                ))
+              ) : (
+                <Text fontSize="sm" color="gray.500">No sections configured.</Text>
+              )
+            ) : (
+              <SectionsBuilder
+                sections={sections}
+                onAdd={addSection}
+                onChange={updateSection}
+                onRemove={removeSection}
+              />
+            )}
           </Box>
         )}
       </Box>
@@ -444,24 +518,28 @@ const TemplatePage = () => {
         <Heading as="h3" size="md" marginBottom="24px" color="#1A202C">
           Advance Settings
         </Heading>
-        <RandomizationFieldsEditor values={paperConfig} setValues={setPaperConfig} disabled={false} />
+        <RandomizationFieldsEditor values={paperConfig} setValues={setPaperConfig} disabled={isViewMode} />
       </Box>
 
-      <Flex justifyContent="flex-end" gap="16px">
-        <Button secondary onClick={handleCancel} type="button">
-          Cancel
-        </Button>
-        <Button onClick={handleNext} type="button">
-          Next: Questions
-        </Button>
-      </Flex>
+      {!isViewMode && (
+        <Flex justifyContent="flex-end" gap="16px">
+          <Button secondary onClick={handleCancel} type="button">
+            Cancel
+          </Button>
+          <Button onClick={handleNext} type="button">
+            Next: Questions
+          </Button>
+        </Flex>
+      )}
 
-      <SaveAsPresetModal
-        isOpen={isSaveModalOpen}
-        onClose={closeSaveModal}
-        onSave={handleSaveAsPreset}
-        isSaving={isSavingPreset}
-      />
+      {!isViewMode && (
+        <SaveAsPresetModal
+          isOpen={isSaveModalOpen}
+          onClose={closeSaveModal}
+          onSave={handleSaveAsPreset}
+          isSaving={isSavingPreset}
+        />
+      )}
     </Box>
   );
 };

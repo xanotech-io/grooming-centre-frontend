@@ -552,7 +552,7 @@ const CourseCompletionReportPage = () => {
                   <Table variant="simple" size="sm">
                     <Thead>
                       <Tr>
-                        {["Student", "Department","Instructor", "Course", "Enrolled On", "Student Status", "Engagement", "Last Active", "Progress", "Dropout"].map((h) => (
+                        {["Student", "Department", "Instructor", "Course", "Enrolled On", "Student Status", "Engagement", "Last Active", "Progress", "Dropout"].map((h) => (
                           <Th key={h} {...TH} py={3} px={4}>{h}</Th>
                         ))}
                       </Tr>
@@ -631,19 +631,25 @@ const CourseCompletionReportPage = () => {
                   <Table variant="simple" size="sm">
                     <Thead>
                       <Tr>
-                        {["Course", "Department", "Total Enrolled", "Active", "Completed", "Completion Rate", "Pass Rate", "Inactive", "Deactivated", "Dropout Rate", "Trend"].map((h) => (
+                        {["Course", "Department", "Total Enrolled", "Active", "Completed", "Avg Score", "Completion Rate", "Pass Rate", "Inactive", "Deactivated", "Dropout Rate", "Trend"].map((h) => (
                           <Th key={h} {...TH} py={3} px={4}>{h}</Th>
                         ))}
                       </Tr>
                     </Thead>
                     <Tbody>
                       {coursesData.length === 0 ? (
-                        <EmptyRow cols={11} />
+                        <EmptyRow cols={12} />
                       ) : (
                         coursesData.map((row, i) => {
                           const total = row.total_enrollments ?? row.enrollment_count ?? 0;
                           const completed = row.completed_students ?? 0;
                           const completionRate = total > 0 ? ((completed / total) * 100).toFixed(1) : null;
+                          // Average score: use backend field if available, otherwise compute from total_score_sum
+                          const avgScore = row.average_score != null
+                            ? Number(row.average_score).toFixed(1)
+                            : (row.total_score_sum != null && total > 0)
+                              ? (Number(row.total_score_sum) / total).toFixed(1)
+                              : null;
                           return (
                             <Tr key={`${row.course_id}_${i}`} _hover={{ bg: "#FAFAFA" }}>
                               <Td {...TD} px={4} maxW="200px">
@@ -656,6 +662,11 @@ const CourseCompletionReportPage = () => {
                               </Td>
                               <Td {...TD} px={4} textAlign="center">
                                 <Badge colorScheme="green" borderRadius="full" px={2}>{completed}</Badge>
+                              </Td>
+                              <Td {...TD} px={4} textAlign="center">
+                                <Badge colorScheme={completionColor(avgScore)} borderRadius="full" px={2}>
+                                  {avgScore != null ? `${avgScore}%` : "—"}
+                                </Badge>
                               </Td>
                               <Td {...TD} px={4} textAlign="center">
                                 <Badge colorScheme={completionColor(completionRate)} borderRadius="full" px={2}>

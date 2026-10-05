@@ -54,6 +54,85 @@ const paperStatusColor = (s) => {
   return 'gray';
 };
 
+const formatDateTime = (value) => {
+  if (!value) return '—';
+  const d = dayjs(value);
+  return d.isValid() ? d.format('DD/MM/YYYY h:mm a') : '—';
+};
+
+/* ── Assessment details panel (read-only) ── */
+const AssessmentOverview = ({ assessment }) => {
+  if (!assessment) {
+    return (
+      <Box p={6}>
+        <Text color="red.500">Assessment not found.</Text>
+      </Box>
+    );
+  }
+
+  const sections = Array.isArray(assessment.sections) ? assessment.sections : [];
+  const duration = assessment?.duration != null ? getDuration(assessment.duration).combinedText : '—';
+
+  return (
+    <Box padding={6}>
+      <Flex gap={2} mb={6} flexWrap="wrap">
+        <Badge colorScheme={assessment.active ? 'green' : 'gray'} px={3} py={1} fontSize="xs">
+          {assessment.active ? 'Active' : 'Inactive'}
+        </Badge>
+        {assessment.approvalStatus && (
+          <Badge colorScheme={assessment.approvalStatus === 'Approved' ? 'green' : assessment.approvalStatus === 'Pending' ? 'orange' : 'red'} px={3} py={1} fontSize="xs">
+            {assessment.approvalStatus}
+          </Badge>
+        )}
+      </Flex>
+
+      <SectionCard title="Overview">
+        <Grid templateColumns={{ base: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' }} gap={5}>
+          <InfoRow label="Title" value={assessment.topic || assessment.title} />
+          <InfoRow label="Duration" value={duration} />
+          <InfoRow label="Number of Questions" value={assessment.questionCount ?? assessment.amountOfQuestions ?? '—'} />
+          <InfoRow label="Start Time" value={formatDateTime(assessment.startTime)} />
+          <InfoRow label="End Time" value={formatDateTime(assessment.endTime)} />
+          <InfoRow label="Retry Attempts" value={assessment.retryCount ?? 0} />
+          <InfoRow label="Retry Policy" value={assessment.retryPolicy || '—'} />
+          <InfoRow label="Pass Threshold" value={assessment.passThreshold != null ? `${assessment.passThreshold}%` : '—'} />
+          <InfoRow label="Total Marks" value={assessment.totalMarks ?? '—'} />
+          <InfoRow label="Created" value={formatDateTime(assessment.createdAt)} />
+          <InfoRow label="Last Updated" value={formatDateTime(assessment.updatedAt)} />
+        </Grid>
+      </SectionCard>
+
+      {sections.length > 0 && (
+        <SectionCard title="Sections">
+          <Box overflowX="auto">
+            <Box as="table" w="100%" fontSize="sm">
+              <Box as="thead">
+                <Box as="tr" borderBottom="1px solid" borderColor="gray.200">
+                  {['#', 'Section Name', 'Questions', 'Marks'].map((h) => (
+                    <Box key={h} as="th" textAlign="left" py={2} pr={6} color="gray.500" fontWeight="600" fontSize="11px" textTransform="uppercase" letterSpacing="wider">
+                      {h}
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+              <Box as="tbody">
+                {sections.map((s, i) => (
+                  <Box as="tr" key={i} borderBottom="1px solid" borderColor="gray.100">
+                    <Box as="td" py={3} pr={6} color="gray.400">{i + 1}</Box>
+                    <Box as="td" py={3} pr={6} fontWeight="500">{s.section_name || s.name || '—'}</Box>
+                    <Box as="td" py={3} pr={6}>{s.questions_count ?? s.questionCount ?? '—'}</Box>
+                    <Box as="td" py={3} pr={6}>{s.total_marks ?? s.weightage ?? '—'}</Box>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          </Box>
+        </SectionCard>
+      )}
+    </Box>
+  );
+};
+
 /* ── Examination details panel ── */
 const ExaminationOverview = ({ courseId }) => {
   const [examination, setExamination] = useState(null);
@@ -236,7 +315,9 @@ const ExaminationOverview = ({ courseId }) => {
 /* ── Main OverviewPage ── */
 const OverviewPage = () => {
   const { id: courseId, assessmentId } = useParams();
-  const examinationId = useQueryParams().get('examination');
+  const queryParams = useQueryParams();
+  const examinationId = queryParams.get('examination');
+  const isViewMode = queryParams.get('mode') === 'view';
   const isStandaloneExamination =
     courseId === 'not-set' && assessmentId === 'not-set' && examinationId
       ? true
@@ -248,6 +329,7 @@ const OverviewPage = () => {
 
   // When it's a course-module examination in view mode, show full exam details
   const isExaminationView = !isStandaloneExamination && examinationId && examinationId !== 'new';
+  const isAssessmentViewOnly = !isStandaloneExamination && !isExaminationView && isEditMode && isViewMode;
 
   const { isLoading, error, assessment } = useAssessmentPreview(
     null,
@@ -291,7 +373,7 @@ const OverviewPage = () => {
     return <ExaminationOverview courseId={courseId} />;
   }
 
-  return isEditMode && (isLoading || error) ? (
+  return (isEditMode || isAssessmentViewOnly) && (isLoading || error) ? (
     <Flex
       height="calc(100vh - 200px)"
       justifyContent="center"
@@ -303,6 +385,8 @@ const OverviewPage = () => {
         <Heading color="red.500">{error}</Heading>
       ) : null}
     </Flex>
+  ) : isAssessmentViewOnly ? (
+    <AssessmentOverview assessment={assessment} />
   ) : isEditMode ? (
     <EditAssessmentPage users={users} assessment={assessment} />
   ) : (

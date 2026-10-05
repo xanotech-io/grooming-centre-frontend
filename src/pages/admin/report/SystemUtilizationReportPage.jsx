@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Route } from "react-router-dom";
 import { Box, Flex, SimpleGrid } from "@chakra-ui/layout";
 import {
@@ -125,6 +125,13 @@ const SystemUtilizationReportPage = () => {
 
   const fetcher = (props) => async () => fetchReport(props?.params);
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+  const flatRows = Array.isArray(rows?.data?.rows) ? rows.data.rows : [];
+
+  // Trigger initial data load on mount
+  useEffect(() => {
+    fetchRowItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const exportRows = [
     [
@@ -137,7 +144,7 @@ const SystemUtilizationReportPage = () => {
       "Browser",
       "Last Login",
     ],
-    ...rows.map((r) => [
+    ...flatRows.map((r) => [
       r.userName,
       r.email,
       r.role,
@@ -150,6 +157,7 @@ const SystemUtilizationReportPage = () => {
   ];
 
   const activeFilterCount = Object.values(appliedFiltersRef.current).filter(Boolean).length;
+  const hasRows = flatRows.length > 0;
 
   const filterTrigger = (
     <Box
@@ -407,7 +415,7 @@ const SystemUtilizationReportPage = () => {
             durations, and device/browser breakdowns
           </Text>
         </Box>
-        {rows.length > 0 && (
+        {hasRows && (
           <ExportMenu
             rows={exportRows}
             filename="system-utilization-report"

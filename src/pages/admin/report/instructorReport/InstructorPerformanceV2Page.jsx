@@ -42,7 +42,7 @@ import {
 import { FiDownload, FiFilter, FiRefreshCw, FiChevronDown, FiX } from "react-icons/fi";
 import dayjs from "dayjs";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
+import { Breadcrumb, DashboardMetricCard, ExportMenu, Link } from "../../../../components";
 import {
   getInstructorPerformanceReportV2,
   getInstructorPerformanceDrillDown,
@@ -390,7 +390,7 @@ const InstructorPerformanceV2Page = () => {
   const [detailLoading, setDetailLoading] = useState(false);
 
   // Export modal
-  const { isOpen: isExportOpen, onOpen: openExport, onClose: closeExport } = useDisclosure();
+  const { isOpen: isExportOpen, onClose: closeExport } = useDisclosure();
   const [exportFormat, setExportFormat] = useState("excel");
   const [exportName, setExportName] = useState("Instructor Performance Report");
   const [exporting, setExporting] = useState(false);
@@ -482,6 +482,37 @@ const InstructorPerformanceV2Page = () => {
 
   const activeFiltersCount = Object.entries(filters).filter(([k, v]) => k !== "period" && v).length;
 
+  const exportRows = [
+    [
+      "Instructor Name",
+      "Email",
+      "Department",
+      "Courses Delivered",
+      "Enrolled",
+      "Completed",
+      "Completion Rate (%)",
+      "Assessment Score (%)",
+      "Exam Score (%)",
+      "Project Score (%)",
+      "Combined Score (%)",
+      "Grading Days",
+    ],
+    ...rows.map((r) => [
+      r.instructor_name,
+      r.instructor_email,
+      r.department,
+      r.courses_delivered,
+      r.total_enrolled,
+      r.total_completed,
+      r.completion_rate != null ? `${r.completion_rate}%` : "—",
+      r.average_assessment_score != null ? `${r.average_assessment_score}%` : "—",
+      r.average_exam_score != null ? `${r.average_exam_score}%` : "—",
+      r.average_project_score != null ? `${r.average_project_score}%` : "—",
+      r.average_score != null ? `${r.average_score}%` : "—",
+      r.grading_timeliness_days != null ? `${r.grading_timeliness_days} days` : "—",
+    ]),
+  ];
+
   return (
     <AdminMainAreaWrapper>
       <Flex justify="space-between" align="center" mb={6}>
@@ -497,7 +528,12 @@ const InstructorPerformanceV2Page = () => {
         </Box>
         <Flex gap={2}>
           <Button size="sm" leftIcon={<FiRefreshCw />} variant="outline" onClick={fetchReport} isLoading={loading}>Refresh</Button>
-          <Button size="sm" leftIcon={<FiDownload />} colorScheme="blue" onClick={openExport}>Export</Button>
+          <ExportMenu
+            rows={exportRows}
+            filename="instructor-performance-report"
+            title="Instructor Performance Report"
+            isDisabled={rows.length === 0}
+          />
         </Flex>
       </Flex>
 
@@ -588,7 +624,7 @@ const InstructorPerformanceV2Page = () => {
               <Th>Project Score</Th>
               <Th>Combined</Th>
               <Th>Grading Days</Th>
-             
+
             </Tr>
           </Thead>
           <Tbody>

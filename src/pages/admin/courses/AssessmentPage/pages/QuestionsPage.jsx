@@ -120,15 +120,15 @@ const buildBankQueueItem = (
   const options = isObjective
     ? mappedType === "TrueFalse"
       ? ["True", "False"].map((label, idx) => ({
-          [optionKey]: label,
-          isAnswer: bankQuestion.correctAnswer === label,
-          optionIndex: idx + 1,
-        }))
+        [optionKey]: label,
+        isAnswer: bankQuestion.correctAnswer === label,
+        optionIndex: idx + 1,
+      }))
       : (bankQuestion.options || []).map((o, idx) => ({
-          [optionKey]: o.text,
-          isAnswer: !!o.isCorrect,
-          optionIndex: idx + 1,
-        }))
+        [optionKey]: o.text,
+        isAnswer: !!o.isCorrect,
+        optionIndex: idx + 1,
+      }))
     : [];
 
   const effectiveMarks = sectionMarks != null ? sectionMarks : Number(bankQuestion.marks) || 1;
@@ -271,8 +271,7 @@ const saveQueuedBatch = async (queuedItems, savedSet, saveOne) => {
   }
   if (failures.length) {
     throw new Error(
-      `${failures.length} question${failures.length === 1 ? "" : "s"} failed to save${
-        duplicates ? ` (${duplicates} duplicate${duplicates === 1 ? "" : "s"} skipped)` : ""
+      `${failures.length} question${failures.length === 1 ? "" : "s"} failed to save${duplicates ? ` (${duplicates} duplicate${duplicates === 1 ? "" : "s"} skipped)` : ""
       } — the rest were saved; fix and resubmit to finish the remaining ${failures.length === 1 ? "one" : "ones"}.`,
     );
   }
@@ -304,41 +303,41 @@ const buildSectionConfigMap = (sections, shape) => {
     map[name] =
       shape === "template"
         ? {
-            questionsCount: Number(s.questionCount) || null,
-            questionTypeLock: s.questionType || "",
-            // A template section only ever carries a single questionType —
-            // no multi-select authoring surface exists for templates.
-            questionTypeLocks: s.questionType ? [s.questionType] : [],
-            typeCategory: s.type || "",
-            markingTypeLock: s.markingType || "",
-            marksPerQuestion: Number(s.marksPerQuestion) || null,
-            totalMarks: null,
-          }
+          questionsCount: Number(s.questionCount) || null,
+          questionTypeLock: s.questionType || "",
+          // A template section only ever carries a single questionType —
+          // no multi-select authoring surface exists for templates.
+          questionTypeLocks: s.questionType ? [s.questionType] : [],
+          typeCategory: s.type || "",
+          markingTypeLock: s.markingType || "",
+          marksPerQuestion: Number(s.marksPerQuestion) || null,
+          totalMarks: null,
+        }
         : {
-            // `questions_count` is the canonical field name (matches
-            // ExamPaperConfigPage.jsx); `question_count` is accepted too for
-            // older/standalone-shaped section data, and `questionCount`
-            // (camelCase, no config-detail fields at all) is the exam's own
-            // bare `sections` field shape — toBatchUploadSections'/
-            // toCreateBodySections' minimal {section_name/name, weightage,
-            // questionCount} sent at create time and echoed back as-is.
-            questionsCount: Number(s.questions_count ?? s.question_count ?? s.questionCount) || null,
-            questionTypeLock: s.question_type || "",
-            // The Sections builder's checkbox multi-select — falls back to
-            // wrapping the legacy single `question_type` lock so sections
-            // authored via the older single-select UI (or
-            // ExamPaperConfigPage.jsx) still resolve to the same
-            // restriction.
-            questionTypeLocks: Array.isArray(s.question_types) && s.question_types.length
-              ? s.question_types
-              : s.question_type
-                ? [s.question_type]
-                : [],
-            typeCategory: "",
-            markingTypeLock: s.marking_type || "",
-            marksPerQuestion: null,
-            totalMarks: (s.total_marks ?? s.weightage) ? Number(s.total_marks ?? s.weightage) : null,
-          };
+          // `questions_count` is the canonical field name (matches
+          // ExamPaperConfigPage.jsx); `question_count` is accepted too for
+          // older/standalone-shaped section data, and `questionCount`
+          // (camelCase, no config-detail fields at all) is the exam's own
+          // bare `sections` field shape — toBatchUploadSections'/
+          // toCreateBodySections' minimal {section_name/name, weightage,
+          // questionCount} sent at create time and echoed back as-is.
+          questionsCount: Number(s.questions_count ?? s.question_count ?? s.questionCount) || null,
+          questionTypeLock: s.question_type || "",
+          // The Sections builder's checkbox multi-select — falls back to
+          // wrapping the legacy single `question_type` lock so sections
+          // authored via the older single-select UI (or
+          // ExamPaperConfigPage.jsx) still resolve to the same
+          // restriction.
+          questionTypeLocks: Array.isArray(s.question_types) && s.question_types.length
+            ? s.question_types
+            : s.question_type
+              ? [s.question_type]
+              : [],
+          typeCategory: "",
+          markingTypeLock: s.marking_type || "",
+          marksPerQuestion: null,
+          totalMarks: (s.total_marks ?? s.weightage) ? Number(s.total_marks ?? s.weightage) : null,
+        };
   });
   return map;
 };
@@ -479,26 +478,26 @@ const buildTypeQuotaState = ({
     ? {}
     : isPending
       ? (pendingSource?.questions || []).reduce((acc, q, i) => {
-          // Editing this exact queued slot doesn't add a new question —
-          // exclude it so its own type doesn't count against its own
-          // remaining quota.
-          if (isEditingQueued && i === queuedIndex) return acc;
-          // A hybrid section's own questions draw from that section's
-          // weightage, never the template's standalone-quantity pool.
-          if (q.data?.section) return acc;
-          const t = queuedQuestionType(q);
-          if (t) acc[t] = (acc[t] || 0) + 1;
-          return acc;
-        }, {})
+        // Editing this exact queued slot doesn't add a new question —
+        // exclude it so its own type doesn't count against its own
+        // remaining quota.
+        if (isEditingQueued && i === queuedIndex) return acc;
+        // A hybrid section's own questions draw from that section's
+        // weightage, never the template's standalone-quantity pool.
+        if (q.data?.section) return acc;
+        const t = queuedQuestionType(q);
+        if (t) acc[t] = (acc[t] || 0) + 1;
+        return acc;
+      }, {})
       : (realQuestions || []).reduce((acc, q) => {
-          // Editing this exact question in place doesn't add a new one —
-          // exclude it so its own type doesn't count against its own
-          // remaining quota.
-          if (editingQuestionId && q.id === editingQuestionId) return acc;
-          if (q.section) return acc;
-          if (q.questionType) acc[q.questionType] = (acc[q.questionType] || 0) + 1;
-          return acc;
-        }, {});
+        // Editing this exact question in place doesn't add a new one —
+        // exclude it so its own type doesn't count against its own
+        // remaining quota.
+        if (editingQuestionId && q.id === editingQuestionId) return acc;
+        if (q.section) return acc;
+        if (q.questionType) acc[q.questionType] = (acc[q.questionType] || 0) + 1;
+        return acc;
+      }, {});
   const typeQuota = (type) => {
     const raw = questionQuantity[type];
     return raw !== undefined && raw !== null && raw !== "" ? Number(raw) : null;
@@ -545,8 +544,86 @@ const filterBankQuestionsByTypeQuota = (
   return { kept, skipped };
 };
 
+const TYPE_LABELS = {
+  MCQ: "MCQ",
+  TrueFalse: "True / False",
+  FillBlank: "Fill in the Blank",
+  Matching: "Matching",
+  ShortAnswer: "Short Answer",
+  Essay: "Essay",
+};
+
+const parseMaybeJson = (value, fallback = null) => {
+  if (!value || typeof value !== "string") return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
+const getQuestionPlainText = (question) => {
+  if (!question) return "";
+  if (typeof question !== "string") return String(question);
+  const raw = question.trim();
+  if (!raw.startsWith("{")) return question;
+  const parsed = parseMaybeJson(raw);
+  if (!parsed || !Array.isArray(parsed.blocks)) return question;
+  return parsed.blocks.map((b) => b?.text || "").join(" ").replace(/\s+/g, " ").trim() || question;
+};
+
+const resolveOptions = (q) => {
+  const parsed = Array.isArray(q?.options) ? q.options : parseMaybeJson(q?.options, []);
+  return Array.isArray(parsed) ? parsed : [];
+};
+
+const resolvePairs = (q) => {
+  const parsed = Array.isArray(q?.pairs) ? q.pairs : parseMaybeJson(q?.pairs, []);
+  return Array.isArray(parsed) ? parsed : [];
+};
+
+const getQuestionAnswerPreview = (q) => {
+  if (!q) return "-";
+  const type = q.questionType;
+  if (type === "MCQ" || type === "TrueFalse") {
+    const answer = resolveOptions(q).find((opt) => opt?.isAnswer);
+    return answer?.name || answer?.option || "-";
+  }
+  if (type === "FillBlank") return q.correctAnswer || "-";
+  if (type === "ShortAnswer") return q.modelAnswer || "-";
+  if (type === "Matching") {
+    const pairs = resolvePairs(q);
+    if (!pairs.length) return "-";
+    return pairs
+      .map((p) => `${p?.left || "-"} -> ${p?.right || "-"}`)
+      .join("; ");
+  }
+  if (type === "Essay") return q.rubric || q.rubricDescription || "Manual grading";
+  return "-";
+};
+
+const ReadonlyQuestionRow = ({ idx, q }) => (
+  <Box border="1px solid" borderColor="gray.200" borderRadius="md" p={4} mb={3} bg="white">
+    <Text fontWeight="600" mb={2}>Question {idx + 1}</Text>
+    <Text fontSize="sm" color="gray.800" mb={3}>{getQuestionPlainText(q.question)}</Text>
+    <Grid templateColumns={{ base: "1fr", md: "180px 1fr" }} gap={2}>
+      <Text fontSize="sm" color="gray.500">Type</Text>
+      <Text fontSize="sm">{TYPE_LABELS[q.questionType] || q.questionType || "-"}</Text>
+      <Text fontSize="sm" color="gray.500">Answer</Text>
+      <Text fontSize="sm">{getQuestionAnswerPreview(q)}</Text>
+      {q.section && (
+        <>
+          <Text fontSize="sm" color="gray.500">Section</Text>
+          <Text fontSize="sm">{q.section}</Text>
+        </>
+      )}
+    </Grid>
+  </Box>
+);
+
 const QuestionsPage = () => {
   const isQuestionListingPage = useQueryParams().get("question-listing");
+  const isViewMode = useQueryParams().get("mode") === "view";
   const { id: courseId, assessmentId, questionId } = useParams();
   const isExamination = useQueryParams().get("examination");
   const moduleId = useQueryParams().get("moduleId");
@@ -584,6 +661,12 @@ const QuestionsPage = () => {
   // tab is currently active and can target the upload at it.
   const pendingSectionId = useQueryParams().get("section");
   const [selectedSectionId, setSelectedSectionId] = useState(pendingSectionId || "");
+
+  useEffect(() => {
+    if (pendingSectionId) {
+      setSelectedSectionId(pendingSectionId);
+    }
+  }, [pendingSectionId]);
   const queuedSource = isPendingCreation ? pendingCreate : isPendingEditSubmit ? pendingEdit : null;
   const isPending = isPendingCreation || isPendingEditSubmit;
   const examTypeForBatchUpload = isPending
@@ -805,7 +888,7 @@ const QuestionsPage = () => {
         fetchViaTemplate(() => adminGetAssessmentMarkingTemplateId(assessmentId));
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     assessmentId,
     isExamination,
@@ -855,6 +938,85 @@ const QuestionsPage = () => {
           Go Back
         </Button>
       </Box>
+    );
+  }
+
+  if (isViewMode) {
+    const questions = Array.isArray(assessmentManager.assessment?.questions)
+      ? assessmentManager.assessment.questions
+      : [];
+    const sectionNames = [...new Set(questions.map((q) => q.section).filter(Boolean))];
+    const unsectioned = questions.filter((q) => !q.section);
+
+    return (
+      <>
+        <Flex
+          justifyContent="space-between"
+          alignItems="center"
+          flexWrap="wrap"
+          gap={3}
+          paddingTop={3}
+          paddingX={6}
+        >
+          <Heading fontSize="heading.h3">
+            {isStandaloneExamination
+              ? "Standalone Examination"
+              : isExamination
+                ? "Examination"
+                : "Assessment"}{" "}
+            Questions
+          </Heading>
+        </Flex>
+
+        <Box padding={6} width={{ base: "100%", md: "100%", lg: "70%" }}>
+          {assessmentManager.isLoading && <PageLoaderLayout height="70%" width="100%" />}
+
+          {!assessmentManager.isLoading && assessmentManager.error && (
+            <PageLoaderLayout height="70%" width="100%">
+              <Heading as="h3" marginBottom={3} color="red.500">
+                {capitalizeWords(assessmentManager.error)}
+              </Heading>
+            </PageLoaderLayout>
+          )}
+
+          {!assessmentManager.isLoading && !assessmentManager.error && questions.length === 0 && (
+            <PageLoaderLayout height="70%" width="100%">
+              <Heading as="h3" marginBottom={3}>No Questions Found</Heading>
+            </PageLoaderLayout>
+          )}
+
+          {!assessmentManager.isLoading && !assessmentManager.error && questions.length > 0 && (
+            <>
+              {sectionNames.map((sectionName) => {
+                const sectionQs = questions.filter((q) => q.section === sectionName);
+                return (
+                  <Box key={sectionName} mb={6}>
+                    <Heading fontSize="heading.h5" mb={3}>
+                      Section: {sectionName} ({sectionQs.length})
+                    </Heading>
+                    {sectionQs.map((q, idx) => (
+                      <ReadonlyQuestionRow key={q.id || `${sectionName}-${idx}`} idx={idx} q={q} />
+                    ))}
+                  </Box>
+                );
+              })}
+
+              {unsectioned.length > 0 && (
+                <Box mb={2}>
+                  {sectionNames.length > 0 && (
+                    <Heading fontSize="heading.h5" mb={3}>
+                      Unassigned Questions ({unsectioned.length})
+                    </Heading>
+                  )}
+                  {unsectioned.map((q, idx) => (
+                    <ReadonlyQuestionRow key={q.id || `unassigned-${idx}`} idx={idx} q={q} />
+                  ))}
+                </Box>
+              )}
+            </>
+          )}
+        </Box>
+      </>
     );
   }
 
@@ -946,13 +1108,12 @@ const QuestionsPage = () => {
                   assessmentId,
                   isExamination,
                   moduleId,
-                )}${
-                  isPendingCreation
-                    ? "&submitForApproval=1"
-                    : isPendingEditSubmit
-                      ? "&editSubmit=1"
-                      : ""
-                }`}
+                )}${isPendingCreation
+                  ? "&submitForApproval=1"
+                  : isPendingEditSubmit
+                    ? "&editSubmit=1"
+                    : ""
+                  }`}
               >
                 <Text bold color="primary.base">
                   See All
@@ -1012,13 +1173,13 @@ const QuestionsPage = () => {
 const ButtonNavItem = ({ number, answered, isCurrent, link, disabled }) => {
   const styleProps = answered
     ? {
-        backgroundColor: "primary.base",
-        color: "white",
-        borderColor: "transparent",
-      }
+      backgroundColor: "primary.base",
+      color: "white",
+      borderColor: "transparent",
+    }
     : {
-        borderColor: "primary.base",
-      };
+      borderColor: "primary.base",
+    };
 
   const content = (
     <Flex
@@ -1156,8 +1317,8 @@ const CreateQuestionPage = ({
   const amountOfQuestions =
     Number(
       pendingCreate?.body?.amountOfQuestions ??
-        pendingEdit?.body?.amountOfQuestions ??
-        assessmentManager.assessment?.amountOfQuestions,
+      pendingEdit?.body?.amountOfQuestions ??
+      assessmentManager.assessment?.amountOfQuestions,
     ) || null;
 
   // Real questions already saved plus whatever's already queued — what
@@ -1365,9 +1526,9 @@ const CreateQuestionPage = ({
     const real = (assessmentManager.assessment?.questions || []).filter((q) => q.section === name).length;
     const queued = isPending
       ? (queuedSource?.questions || []).reduce((count, q, i) => {
-          if (isEditingQueued && i === queuedIndex) return count;
-          return queuedQuestionSection(q) === name ? count + 1 : count;
-        }, 0)
+        if (isEditingQueued && i === queuedIndex) return count;
+        return queuedQuestionSection(q) === name ? count + 1 : count;
+      }, 0)
       : 0;
     return real + queued;
   };
@@ -1951,7 +2112,7 @@ const CreateQuestionPage = ({
     if (kind === "ModuleExam" || kind === "Exam") {
       const { examination } = await adminCreateExamination(finalBody);
       if (kind === "ModuleExam") {
-        await updateExamPaperConfig(examination.id, toApiPaperConfigBody(finalBody, paperConfigBody)).catch(() => {});
+        await updateExamPaperConfig(examination.id, toApiPaperConfigBody(finalBody, paperConfigBody)).catch(() => { });
       }
       if (parentAddToBank) setAutoAddToBank("examination", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
@@ -1976,7 +2137,7 @@ const CreateQuestionPage = ({
       resourceId: assessment.id,
       resourceType: "Assessment",
       remarks: `Created assessment "${finalBody.title}"`,
-    }).catch(() => {});
+    }).catch(() => { });
     cacheExamMetaFromBody(kind, assessment.id, finalBody);
     return { id: assessment.id };
   };
@@ -1992,14 +2153,14 @@ const CreateQuestionPage = ({
 
     if (kind === "StandaloneExam") {
       await adminEditStandaloneExamination(contentId, finalBody);
-      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => { });
       return { id: contentId };
     }
 
     if (kind === "ModuleExam" || kind === "Exam") {
       await adminEditExamination(contentId, finalBody);
       if (paperConfigBody) {
-        await updateExamPaperConfig(contentId, toApiPaperConfigBody(finalBody, paperConfigBody)).catch(() => {});
+        await updateExamPaperConfig(contentId, toApiPaperConfigBody(finalBody, paperConfigBody)).catch(() => { });
       }
       cacheExamMetaFromBody(kind, contentId, finalBody);
       return { id: contentId };
@@ -2311,9 +2472,9 @@ const CreateQuestionPage = ({
             : questionType === "ShortAnswer"
               ? { modelAnswer: data.modelAnswer, questionType: "ShortAnswer" }
               : {
-                  rubricDescription: data.rubricDescription,
-                  questionType: "Essay",
-                };
+                rubricDescription: data.rubricDescription,
+                questionType: "Essay",
+              };
 
       // Captured here because `data` gets reassigned into the request body below.
       const bankSourceFields = {
@@ -2385,16 +2546,16 @@ const CreateQuestionPage = ({
             }),
             ...(isObjectiveType
               ? {
-                  options: JSON.stringify(
-                    options.map((opt) => ({
-                      ...opt,
-                      id: question?.options.find(
-                        ({ name }) => opt.name === name,
-                      )?.id,
-                      examinationQuestionId: questionId,
-                    })),
-                  ),
-                }
+                options: JSON.stringify(
+                  options.map((opt) => ({
+                    ...opt,
+                    id: question?.options.find(
+                      ({ name }) => opt.name === name,
+                    )?.id,
+                    examinationQuestionId: questionId,
+                  })),
+                ),
+              }
               : typeSpecificFields),
           };
         } else {
@@ -2407,15 +2568,15 @@ const CreateQuestionPage = ({
             ...(sectionTitle && { section: sectionTitle }),
             ...(isObjectiveType
               ? {
-                  options: JSON.stringify(
-                    options.map((opt) => ({
-                      ...opt,
-                      id: question?.options.find(
-                        ({ name }) => opt.name === name,
-                      )?.id,
-                    })),
-                  ),
-                }
+                options: JSON.stringify(
+                  options.map((opt) => ({
+                    ...opt,
+                    id: question?.options.find(
+                      ({ name }) => opt.name === name,
+                    )?.id,
+                  })),
+                ),
+              }
               : questionType === "FillBlank"
                 ? { correctAnswer: data.correctAnswer }
                 : questionType === "Matching"
@@ -3405,7 +3566,7 @@ const CreateQuestionPage = ({
           !(
             amountOfQuestions &&
             ((isPendingCreation ? pendingCreate?.questions : pendingEdit?.questions)?.length || 0) >=
-              amountOfQuestions
+            amountOfQuestions
           ) && (
             <Button
               type="submit"
@@ -3519,13 +3680,13 @@ const buildQuestionEditPayload = (
       }),
       ...(isObjectiveType
         ? {
-            options: JSON.stringify(
-              options.map((opt) => ({
-                ...opt,
-                examinationQuestionId: question.id,
-              })),
-            ),
-          }
+          options: JSON.stringify(
+            options.map((opt) => ({
+              ...opt,
+              examinationQuestionId: question.id,
+            })),
+          ),
+        }
         : typeSpecificFields),
     };
   }
@@ -3784,7 +3945,7 @@ const QuestionListingPage = ({
     if (kind === "ModuleExam" || kind === "Exam") {
       const { examination } = await adminCreateExamination(body);
       if (kind === "ModuleExam") {
-        await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody)).catch(() => {});
+        await updateExamPaperConfig(examination.id, toApiPaperConfigBody(body, paperConfigBody)).catch(() => { });
       }
       if (parentAddToBank) setAutoAddToBank("examination", examination.id);
       setAssessment({ ...examination, sections: paperConfigBody?.configuredSections || [] });
@@ -3810,14 +3971,14 @@ const QuestionListingPage = ({
 
     if (kind === "StandaloneExam") {
       await adminEditStandaloneExamination(contentId, body);
-      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => {});
+      if (paperConfigBody) await updateExamPaperConfig(contentId, paperConfigBody).catch(() => { });
       return { id: contentId };
     }
 
     if (kind === "ModuleExam" || kind === "Exam") {
       await adminEditExamination(contentId, body);
       if (paperConfigBody) {
-        await updateExamPaperConfig(contentId, toApiPaperConfigBody(body, paperConfigBody)).catch(() => {});
+        await updateExamPaperConfig(contentId, toApiPaperConfigBody(body, paperConfigBody)).catch(() => { });
       }
       cacheExamMetaFromBody(kind, contentId, body);
       return { id: contentId };
@@ -3837,13 +3998,13 @@ const QuestionListingPage = ({
       createBankQuestionForReal(
         isPendingCreation
           ? {
-              ...queued.data,
-              ...(isStandaloneExamination
-                ? { standAloneExaminationId: parent.id }
-                : isExamination
-                  ? { examinationId: parent.id }
-                  : { assessmentId: parent.id }),
-            }
+            ...queued.data,
+            ...(isStandaloneExamination
+              ? { standAloneExaminationId: parent.id }
+              : isExamination
+                ? { examinationId: parent.id }
+                : { assessmentId: parent.id }),
+          }
           : queued.data,
         { isStandaloneExamination, isExamination },
       ),
@@ -4160,9 +4321,24 @@ const QuestionListingPage = ({
                 />
               ))}
               {sectionQueued.map(renderQueuedTile)}
-              <Box pb={4}>
+              <Box pb={4} display="flex" gap={3} flexWrap="wrap">
                 <Button link={buildAddLink(name)} size="sm" ghost>
                   + Add Question to this Section
+                </Button>
+                <Button
+                  link={buildBatchUploadLink({
+                    courseId,
+                    assessmentId,
+                    examinationId: isExamination || undefined,
+                    moduleId: moduleId || undefined,
+                    standalone: isStandaloneExamination,
+                    section: name,
+                    createTarget: isPendingCreation ? true : undefined,
+                  })}
+                  size="sm"
+                  secondary
+                >
+                  Upload & Batch Import to Section
                 </Button>
               </Box>
             </Box>
@@ -4219,7 +4395,22 @@ const QuestionListingPage = ({
             {remainingQuestionSlots === 0 ? (
               <Text color="gray.500">{overLimitDescription}</Text>
             ) : (
-              <Button link={buildAddLink(null)}>Add more questions</Button>
+              <Flex gap={3} flexWrap="wrap">
+                <Button link={buildAddLink(null)}>Add more questions</Button>
+                <Button
+                  secondary
+                  link={buildBatchUploadLink({
+                    courseId,
+                    assessmentId,
+                    examinationId: isExamination || undefined,
+                    moduleId: moduleId || undefined,
+                    standalone: isStandaloneExamination,
+                    createTarget: isPendingCreation ? true : undefined,
+                  })}
+                >
+                  Upload & Batch Import Questions
+                </Button>
+              </Flex>
             )}
           </Box>
         </Box>
@@ -4485,8 +4676,7 @@ export const MoreIconButton = ({
 };
 
 const getQuestionListingLink = (courseId, assessmentId, isExamination, moduleId) =>
-  `/admin/courses/${courseId}/assessment/${assessmentId}/questions/list?question-listing=true${
-    isExamination ? `&examination=${isExamination}` : ""
+  `/admin/courses/${courseId}/assessment/${assessmentId}/questions/list?question-listing=true${isExamination ? `&examination=${isExamination}` : ""
   }${moduleId ? `&moduleId=${moduleId}` : ""}`;
 
 const getEditQuestionLink = (
@@ -4500,9 +4690,8 @@ const getEditQuestionLink = (
   if (isExamination) params.set("examination", isExamination);
   if (moduleId) params.set("moduleId", moduleId);
   const query = params.toString();
-  return `/admin/courses/${courseId}/assessment/${assessmentId}/questions/${questionId}${
-    query ? `?${query}` : ""
-  }`;
+  return `/admin/courses/${courseId}/assessment/${assessmentId}/questions/${questionId}${query ? `?${query}` : ""
+    }`;
 };
 
 // Links to a queued (not-yet-created) question's edit-in-place view — same
@@ -4532,8 +4721,7 @@ const appendEditParam = (link) =>
   `${link}${link.includes("?") ? "&" : "?"}edit=true`;
 
 const getQuestionNumber = (index) =>
-  `Question ${
-    index + 1 < 9 ? `0${index + 1}` : index === undefined ? "01" : index + 1
+  `Question ${index + 1 < 9 ? `0${index + 1}` : index === undefined ? "01" : index + 1
   }`;
 
 const buildOptions = (data, isStandaloneExamination) => {

@@ -64,12 +64,12 @@ export const WorkflowSubmitModal = ({
   }, [courseId, departmentId]);
 
   useEffect(() => {
-    if (isOpen && !isSuperAdmin) {
+    if (isOpen) {
       fetchSupervisors({ fetcher: supervisorFetcher });
       setSelectedSupervisorId('');
       setSupervisorError(false);
     }
-  }, [isOpen, isSuperAdmin, fetchSupervisors, supervisorFetcher]);
+  }, [isOpen, fetchSupervisors, supervisorFetcher]);
 
   const supervisors = Array.isArray(supervisorsResource.data) ? supervisorsResource.data : [];
   const supervisorOptions = supervisors
@@ -80,7 +80,7 @@ export const WorkflowSubmitModal = ({
     }));
 
   const handleSubmit = async () => {
-    if (!isSuperAdmin && !selectedSupervisorId) {
+    if (!selectedSupervisorId) {
       setSupervisorError(true);
       return;
     }
@@ -177,13 +177,9 @@ export const WorkflowSubmitModal = ({
                 Submit for Approval
               </Text>
               <Text fontSize="13px" fontWeight="400" color="#718096">
-                {isSuperAdmin
-                  ? onCreate
-                    ? 'This will only be created once you submit it for approval.'
-                    : 'Submit this content for approval.'
-                  : onCreate
-                    ? 'This will only be created once you assign a supervisor and submit it for approval.'
-                    : 'This content was saved as a draft. Assign a supervisor to submit it for approval.'}
+                {onCreate
+                ? 'This will only be created once you assign a supervisor and submit it for approval.'
+                : 'This content was saved as a draft. Assign a supervisor to submit it for approval.'}
               </Text>
             </Box>
           </Flex>
@@ -211,10 +207,6 @@ export const WorkflowSubmitModal = ({
             </Text>
           </Box>
 
-          {/* Supervisor — super admin submissions carry no supervisor, the
-              backend gets an explicit null instead, so there's nothing to
-              pick here. */}
-          {!isSuperAdmin && (
           <FormControl mb={5} isRequired isInvalid={supervisorError}>
             <FormLabel fontSize="14px" fontWeight="600" color="#1A202C" mb={2}>
               Assign Supervisor
@@ -253,7 +245,6 @@ export const WorkflowSubmitModal = ({
               </Text>
             )}
           </FormControl>
-          )}
 
           <Divider mb={5} />
 

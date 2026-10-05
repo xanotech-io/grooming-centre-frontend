@@ -30,56 +30,100 @@ import {
   FormLabel,
   Grid,
   Spinner,
-  Tabs,
-  TabList,
-  Tab,
-  TabPanels,
-  TabPanel,
   useDisclosure,
+  useToast,
   BreadcrumbItem,
   IconButton,
 } from "@chakra-ui/react";
 import { convertFromRaw } from "draft-js";
 import { FiRefreshCw, FiAlertTriangle, FiFilter, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
-import { Breadcrumb, DashboardMetricCard, Link } from "../../../../components";
+import { Breadcrumb, DashboardMetricCard, Link, ServerExportMenu } from "../../../../components";
 import {
   getAssessmentAnalyticsReport,
-  getAssessmentAnalyticsThresholds,
   exportAssessmentAnalyticsReport,
   adminGetCourseListing,
   adminGetStandaloneExaminationListing,
+  adminGetExaminationListing,
   adminListModules,
   adminListModuleAssessments,
 } from "../../../../services";
-import { downloadBlob } from "../../../../utils";
+import { downloadBlob, exportRowsToCsv, exportRowsToExcel, exportRowsToPdf } from "../../../../utils";
 
 // e.g. "application/vnd.openxmlformats...spreadsheet" -> "xlsx"
 const extFromMimeType = (type) => {
-  if (!type) return "xlsx";
+  if (!type) return null;
   if (type.includes("pdf")) return "pdf";
   if (type.includes("csv")) return "csv";
   if (type.includes("spreadsheet") || type.includes("excel")) return "xlsx";
+  return null;
+};
+
+const normalizeExportFormat = (format) => {
+  if (!format) return "xlsx";
+  const value = String(format).toLowerCase();
+  if (value === "excel" || value === "xlsx") return "xlsx";
+  if (value === "pdf") return "pdf";
+  if (value === "csv") return "csv";
   return "xlsx";
+};
+
+const fileFormatForApi = (normalizedFormat) => {
+  if (normalizedFormat === "xlsx") return "EXCEL";
+  return normalizedFormat.toUpperCase();
+};
+
+const isErrorLikeExportType = (contentType = "") => {
+  const value = contentType.toLowerCase();
+  return (
+    value.includes("application/json")
+    || value.includes("text/plain")
+    || value.includes("text/html")
+  );
 };
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
 
-const MOCK_THRESHOLDS = {
-  difficulty: {
-    Easy: "> 80% correct response rate",
-    Medium: "50% – 80% correct response rate",
-    Hard: "< 50% correct response rate",
-  },
-  discrimination: {
-    Excellent: "> 0.4",
-    Good: "0.30 – 0.39",
-    Acceptable: "0.20 – 0.29",
-    Poor: "< 0.20",
-  },
-  status_labels: ["Too Easy", "Too Hard", "Excellent", "Good", "Acceptable", "Poor", "Insufficient Data"],
-  validity_labels: ["High", "Moderate", "Low", "Insufficient Data"],
-};
+// const MOCK_THRESHOLDS = {
+//   difficulty: {
+//     Easy: "> 80% correct response rate",
+//     Medium: "50% – 80% correct response rate",
+//     Hard: "< 50% correct response rate",
+//   },
+//   discrimination: {
+//     Excellent: "> 0.4",
+//     Good: "0.30 – 0.39",
+//     Acceptable: "0.20 – 0.29",
+//     Poor: "< 0.20",
+//   },
+//   status: {
+//     "Too Easy": "Correct response rate > 95%",
+//     Excellent: "Discrimination index > 0.4",
+//     Good: "Discrimination index 0.3 – 0.39",
+//     Acceptable: "Discrimination index 0.2 – 0.29",
+//     Poor: "Discrimination index < 0.2",
+//     "Too Hard": "Correct response rate < 20%",
+//   },
+//   reliability: {
+//     High: "Cronbach's Alpha ≥ 0.8",
+//     Moderate: "Cronbach's Alpha 0.6 – 0.79",
+//     Low: "Cronbach's Alpha < 0.6",
+//   },
+//   status_labels: ["Too Easy", "Too Hard", "Excellent", "Good", "Acceptable", "Poor", "Insufficient Data"],
+//   validity_labels: ["High", "Moderate", "Low", "Insufficient Data"],
+// };
+
+// const normalizeThresholds = (raw) => {
+//   if (!raw || typeof raw !== "object") return MOCK_THRESHOLDS;
+//   return {
+//     difficulty: raw.difficulty ?? raw.difficulty_thresholds ?? {},
+//     discrimination: raw.discrimination ?? raw.discrimination_index ?? {},
+//     status: raw.status ?? raw.question_status ?? {},
+//     reliability: raw.reliability ?? {},
+//     status_labels: raw.status_labels ?? MOCK_THRESHOLDS.status_labels,
+//     validity_labels: raw.validity_labels ?? MOCK_THRESHOLDS.validity_labels,
+//   };
+// };
 
 const MOCK_SUMMARY = {
   total_questions: 50,
@@ -199,10 +243,7 @@ const MOCK_QUESTIONS = [
   },
 ];
 
-const MOCK_ASSESSMENT_STATS = [
-  { assessmentId: "a-001", assessmentTitle: "Module 1 Assessment", totalQuestions: 10, averageSuccessRate: 74.5 },
-  { assessmentId: "a-002", assessmentTitle: "Module 2 Assessment", totalQuestions: 12, averageSuccessRate: 81.2 },
-];
+
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -257,15 +298,87 @@ const formatSeconds = (seconds) => {
   return remainder ? `${minutes}m ${remainder}s` : `${minutes}m`;
 };
 
+const getSuccessRateValue = (item) => (
+  item?.averageSuccessRate
+  ?? item?.average_success_rate
+  ?? item?.averageSuccess
+  ?? item?.average_success
+  ?? null
+);
+
+const getAttemptsValue = (item) => (
+  item?.totalAttempts
+  ?? item?.total_attempts
+  ?? item?.attemptCount
+  ?? item?.attempt_count
+  ?? item?.totalQuestions
+  ?? item?.total_questions
+  ?? 0
+);
+
+const getReportArray = (payload) => {
+  if (!payload || typeof payload !== "object") return [];
+
+  const candidates = [
+    payload?.data,
+    payload?.rows,
+    payload?.items,
+    payload?.results,
+    payload?.data?.data,
+    payload?.data?.rows,
+    payload?.data?.items,
+    payload?.data?.results,
+  ];
+
+  const list = candidates.find(Array.isArray);
+  return Array.isArray(list) ? list : [];
+};
+
+const toAggregateTableRow = (item, rowType) => {
+  const successRate = getSuccessRateValue(item);
+  const entityId = item?.parent_id ?? item?.assessmentId ?? item?.examId ?? item?.id ?? item?.assessment_id ?? item?.exam_id ?? null;
+  const entityTitle = item?.parent_title ?? item?.assessmentTitle ?? item?.examTitle ?? item?.title ?? item?.assessment_title ?? item?.exam_title ?? "—";
+  return {
+    question_id: entityId,
+    question_text: entityTitle,
+    question_type: rowType,
+    difficulty_level: null,
+    derived_difficulty: null,
+    exam_id: entityId,
+    exam_title: entityTitle,
+    course_id: item?.courseId ?? item?.course_id ?? null,
+    total_questions: item?.totalQuestions ?? item?.total_questions ?? null,
+    total_attempts: getAttemptsValue(item),
+    correct_response_rate: successRate,
+    average_time_seconds: (
+      item?.average_time_seconds
+      ?? item?.averageTimeSeconds
+      ?? (item?.executionTimeMs != null ? Number(item.executionTimeMs) / 1000 : null)
+    ),
+    discrimination_index: null,
+    status: successRate != null
+      ? successRate >= 75 ? "Excellent" : successRate >= 50 ? "Acceptable" : "Poor"
+      : "Insufficient Data",
+  };
+};
+
 // ─── EntityCombobox ─────────────────────────────────────────────────────────
 
-function EntityCombobox({ fetchFn, value, onSelect, placeholder, isDisabled }) {
+function EntityCombobox({ fetchFn, value, onSelect, placeholder, isDisabled, resetKey }) {
   const [inputValue, setInputValue] = useState("");
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
   const debounceRef = useRef(null);
+
+  // When resetKey changes (e.g. parent course changed), immediately wipe
+  // cached options and input so stale data is never shown
+  useEffect(() => {
+    setOptions([]);
+    setInputValue("");
+    setIsOpen(false);
+  }, [resetKey]);
 
   const selectedOption = useMemo(() => options.find((o) => o.id === value) ?? null, [options, value]);
 
@@ -383,62 +496,38 @@ const DetailRow = ({ label, value }) => (
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const AssessmentAnalyticsPage = () => {
+  const toast = useToast();
 
   // Thresholds
-  const [thresholds, setThresholds] = useState(null);
+  // const [thresholds, setThresholds] = useState(null);
 
   // Main report
   const [summary, setSummary] = useState(null);
   const [assessmentSummary, setAssessmentSummary] = useState(null);
   const [rows, setRows] = useState([]);
-  const [assessmentStats, setAssessmentStats] = useState([]);
-  const [standaloneStats, setStandaloneStats] = useState([]);
+  // const [assessmentStats, setAssessmentStats] = useState([]);
+  // const [standaloneStats, setStandaloneStats] = useState([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [limit] = useState(50);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(0);
+  const [loading, setLoading] = useState(false);
+  // const [activeTab, setActiveTab] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [selectedType, setSelectedType] = useState(null); // 'exam' | 'assessment' | 'standalone'
 
   // assessment_level_stats / standalone_stats are aggregate (per-assessment,
   // per-exam) rows, documented with camelCase fields — distinct from the
   // per-question `data` rows. Reused here in the same table shape.
-  const assessmentRows = useMemo(() => assessmentStats.map((a) => ({
-    question_id: a.assessmentId,
-    question_text: a.assessmentTitle ?? a.assessmentId,
-    question_type: "assessment",
-    difficulty_level: null,
-    derived_difficulty: null,
-    exam_id: a.assessmentId,
-    exam_title: a.assessmentTitle ?? "—",
-    course_id: null,
-    total_attempts: a.totalQuestions,
-    correct_response_rate: a.averageSuccessRate,
-    average_time_seconds: null,
-    discrimination_index: null,
-    status: a.averageSuccessRate != null
-      ? a.averageSuccessRate >= 75 ? "Excellent" : a.averageSuccessRate >= 50 ? "Acceptable" : "Poor"
-      : "Insufficient Data",
-  })), [assessmentStats]);
+  // const assessmentRows = useMemo(
+  //   () => assessmentStats.map((a) => toAggregateTableRow(a, "assessment")),
+  //   [assessmentStats]
+  // );
 
-  const standaloneRows = useMemo(() => standaloneStats.map((e) => ({
-    question_id: e.examId,
-    question_text: e.examTitle ?? e.examId,
-    question_type: "standalone",
-    difficulty_level: null,
-    derived_difficulty: null,
-    exam_id: e.examId,
-    exam_title: e.examTitle ?? "—",
-    course_id: null,
-    total_attempts: e.totalQuestions,
-    correct_response_rate: e.averageSuccessRate,
-    average_time_seconds: null,
-    discrimination_index: null,
-    status: e.averageSuccessRate != null
-      ? e.averageSuccessRate >= 75 ? "Excellent" : e.averageSuccessRate >= 50 ? "Acceptable" : "Poor"
-      : "Insufficient Data",
-  })), [standaloneStats]);
+  // const standaloneRows = useMemo(
+  //   () => standaloneStats.map((e) => toAggregateTableRow(e, "standalone")),
+  //   [standaloneStats]
+  // );
 
   const [filters, setFilters] = useState({
     courseId: "",
@@ -453,6 +542,98 @@ const AssessmentAnalyticsPage = () => {
   });
 
   const [showFilters, setShowFilters] = useState(false);
+
+  // const reportTypeByTab = ["exam", "assessment", "standalone"];
+  const reportType = selectedType; // require explicit selection before reporting
+
+  const kpiData = useMemo(() => {
+    const toNumberOrNull = (value) => {
+      if (value == null) return null;
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    };
+
+    const sum = (items, extractor) => items.reduce((acc, item) => {
+      const value = toNumberOrNull(extractor(item));
+      return acc + (value ?? 0);
+    }, 0);
+
+    const summaryScore = toNumberOrNull(
+      assessmentSummary?.average_score
+      ?? assessmentSummary?.averageScore
+      ?? summary?.average_success_rate
+      ?? summary?.averageSuccessRate
+      ?? summary?.average_score
+      ?? summary?.averageScore
+    );
+
+    let computedScore = null;
+    if (summaryScore != null) {
+      computedScore = summaryScore;
+    } else {
+      const scoredRows = rows
+        .map((row) => ({
+          rate: toNumberOrNull(row?.correct_response_rate ?? row?.averageSuccessRate ?? row?.average_success_rate),
+          attempts: toNumberOrNull(row?.total_attempts ?? row?.totalAttempts ?? row?.attemptCount) ?? 0,
+        }))
+        .filter((row) => row.rate != null);
+
+      const weightedAttemptSum = scoredRows.reduce((acc, row) => acc + (row.attempts > 0 ? row.attempts : 0), 0);
+      if (weightedAttemptSum > 0) {
+        computedScore = scoredRows.reduce((acc, row) => acc + (row.rate * (row.attempts > 0 ? row.attempts : 0)), 0) / weightedAttemptSum;
+      } else if (scoredRows.length > 0) {
+        computedScore = scoredRows.reduce((acc, row) => acc + row.rate, 0) / scoredRows.length;
+      }
+    }
+
+    const reliabilityIndex = toNumberOrNull(summary?.reliability_index ?? summary?.reliabilityIndex);
+    const derivedValidity = reliabilityIndex == null
+      ? null
+      : reliabilityIndex >= 0.8
+        ? "High"
+        : reliabilityIndex >= 0.6
+          ? "Moderate"
+          : "Low";
+
+    const entityTitle = reportType === "standalone"
+      ? "Total Standalone Exams"
+      : reportType === "assessment"
+        ? "Total Assessments"
+        : "Total Exams";
+
+    const totalEntities = reportType === "assessment"
+      ? 1
+      : assessmentSummary?.total_assessments
+      ?? assessmentSummary?.totalAssessments
+      ?? (reportType === "standalone" ? total : null);
+
+    const totalQuestions = assessmentSummary?.total_questions
+      ?? assessmentSummary?.totalQuestions
+      ?? summary?.total_questions
+      ?? summary?.totalQuestions
+      ?? sum(rows, (row) => row?.total_questions ?? row?.totalQuestions);
+
+    const totalSubmissions = assessmentSummary?.total_submissions
+      ?? assessmentSummary?.totalSubmissions
+      ?? summary?.total_attempts
+      ?? summary?.totalAttempts
+      ?? sum(rows, (row) => row?.total_attempts ?? row?.totalAttempts ?? row?.attemptCount);
+
+    const validity = assessmentSummary?.assessment_validity
+      ?? assessmentSummary?.assessmentValidity
+      ?? summary?.assessment_validity
+      ?? summary?.assessmentValidity
+      ?? derivedValidity;
+
+    return {
+      entityTitle,
+      totalEntities,
+      totalQuestions,
+      totalSubmissions,
+      averageScore: computedScore,
+      validity,
+    };
+  }, [assessmentSummary, rows, reportType, summary, total]);
 
   // Question detail drawer
   const { isOpen: isDetailOpen, onOpen: openDetail, onClose: closeDetail } = useDisclosure();
@@ -478,16 +659,14 @@ const AssessmentAnalyticsPage = () => {
   }, [filters.moduleId]);
 
   const fetchExamOptions = useCallback(async () => {
-    const uniqueExams = [];
-    const seen = new Set();
-    rows.forEach((r) => {
-      if (r.exam_id && r.exam_title && !seen.has(r.exam_id)) {
-        seen.add(r.exam_id);
-        uniqueExams.push({ id: r.exam_id, label: r.exam_title });
-      }
-    });
-    return uniqueExams;
-  }, [rows]);
+    if (!filters.courseId) return [];
+    try {
+      const res = await adminGetExaminationListing(filters.courseId);
+      return (res?.examinations ?? []).map((e) => ({ id: e.id, label: e.title }));
+    } catch {
+      return [];
+    }
+  }, [filters.courseId]);
 
   const fetchStandaloneOptions = useCallback(async (query) => {
     const res = await adminGetStandaloneExaminationListing({ search: query, limit: 50 });
@@ -498,34 +677,64 @@ const AssessmentAnalyticsPage = () => {
 
   // ── Fetch thresholds once ─────────────────────────────────────────────────
 
-  useEffect(() => {
-    getAssessmentAnalyticsThresholds()
-      .then((res) => setThresholds(res?.data ?? res))
-      .catch(() => setThresholds(MOCK_THRESHOLDS));
-  }, []);
+  // useEffect(() => {
+  //   getAssessmentAnalyticsThresholds()
+  //     .then((res) => setThresholds(normalizeThresholds(res?.data ?? res)))
+  //     .catch(() => setThresholds(normalizeThresholds(MOCK_THRESHOLDS)));
+  // }, []);
 
   // ── Fetch main report ─────────────────────────────────────────────────────
 
   const fetchRequestIdRef = useRef(0);
 
   const fetchReport = useCallback(async () => {
+    // require explicit selection of type and an identifier for the selected entity
+    const idForType = (
+      reportType === "exam" ? filters.examId
+        : reportType === "assessment" ? filters.assessmentId
+          : reportType === "standalone" ? filters.standaloneExamId
+            : null
+    );
+    if (!reportType || !idForType) return;
+
     const requestId = ++fetchRequestIdRef.current;
     setLoading(true);
     try {
-      const params = { page, limit };
+      const params = { page, limit, type: reportType };
+      // attach the dynamic id param expected by the backend (lowercase key)
+      const idKey = reportType === "exam" ? "examid" : reportType === "assessment" ? "assessmentid" : "examid";
+      params[idKey] = idForType;
+      // include other filters as-is
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = await getAssessmentAnalyticsReport(params);
       if (requestId !== fetchRequestIdRef.current) return;
       const payload = res?.data ?? res;
-      setSummary(payload?.summary ?? null);
-      setAssessmentSummary(payload?.assessment_summary ?? null);
-      const list = Array.isArray(payload?.data) ? payload.data : [];
-      setRows(list);
-      setTotal(payload?.total ?? list.length);
-      const computed = Math.ceil((payload?.total ?? list.length) / limit) || 1;
+      const rawList = getReportArray(payload);
+      const summarySource = payload?.summary ?? payload?.data?.summary ?? null;
+      const assessmentSummarySource = payload?.assessment_summary ?? payload?.data?.assessment_summary ?? summarySource;
+
+      setSummary(summarySource);
+      setAssessmentSummary(assessmentSummarySource);
+
+      // Prefer executionTimeMs from the API for average time (ms -> seconds)
+      const list = rawList.map((r) => {
+        const avgSec = (
+          r?.average_time_seconds ?? r?.averageTimeSeconds ?? (r?.executionTimeMs != null ? Number(r.executionTimeMs) / 1000 : null)
+        );
+        return {
+          ...r,
+          parent_id: r?.parent_id ?? r?.assessment_id ?? r?.exam_id ?? r?.id ?? null,
+          parent_title: r?.parent_title ?? r?.assessment_title ?? r?.exam_title ?? r?.title ?? null,
+          average_time_seconds: avgSec,
+          averageTimeSeconds: avgSec,
+        };
+      });
+      const hasQuestionShape = list.some((row) => row?.question_id || row?.question_text || row?.question_type);
+      const normalizedRows = hasQuestionShape ? list : list.map((row) => toAggregateTableRow(row, reportType));
+      setRows(normalizedRows);
+      setTotal(payload?.total ?? payload?.recordCount ?? list.length);
+      const computed = Math.ceil((payload?.total ?? payload?.recordCount ?? list.length) / limit) || 1;
       setTotalPages(payload?.totalPages ?? computed);
-      setAssessmentStats(Array.isArray(payload?.assessment_level_stats) ? payload.assessment_level_stats : []);
-      setStandaloneStats(Array.isArray(payload?.standalone_stats) ? payload.standalone_stats : []);
     } catch {
       if (requestId !== fetchRequestIdRef.current) return;
       console.warn("[AssessmentAnalytics] GET /assessment-analytics-v2/report failed, using mock");
@@ -540,27 +749,104 @@ const AssessmentAnalyticsPage = () => {
       setRows(filteredMock);
       setTotal(filteredMock.length);
       setTotalPages(1);
-      setAssessmentStats(MOCK_ASSESSMENT_STATS);
-      setStandaloneStats([]);
     } finally {
       if (requestId === fetchRequestIdRef.current) setLoading(false);
     }
-  }, [page, limit, filters]);
+  }, [reportType, page, limit, filters,]);
 
-  useEffect(() => { fetchReport(); }, [fetchReport]);
+  // Re-fetch when selected type, selected id, or pagination changes
+  useEffect(() => { fetchReport(); }, [fetchReport, selectedType, filters.courseId, filters.assessmentId, filters.standaloneExamId, page]);
 
-  const handleExport = async () => {
+  const handleExport = async (format) => {
     setExporting(true);
+    const normalizedFormat = normalizeExportFormat(format);
+    let serverExportSuccess = false;
+
     try {
-      const params = { page, limit };
+      const apiFormat = fileFormatForApi(normalizedFormat);
+      const params = {
+        type: reportType,
+        page,
+        limit,
+        exportFormat: apiFormat,
+        format: apiFormat,
+        fileFormat: apiFormat,
+      };
+      const idForType = (
+        reportType === "exam" ? filters.examId
+          : reportType === "assessment" ? filters.assessmentId
+            : reportType === "standalone" ? filters.standaloneExamId
+              : null
+      );
+      const idKey = reportType === "exam" ? "examid" : reportType === "assessment" ? "assessmentid" : "examid";
+      if (idForType) params[idKey] = idForType;
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
-      const blob = await exportAssessmentAnalyticsReport(params);
-      downloadBlob(blob, `assessment-analytics-report.${extFromMimeType(blob.type)}`);
+      const response = await exportAssessmentAnalyticsReport(params);
+      const blob = response?.data;
+      const contentType = (response?.headers?.["content-type"] || blob?.type || "").toLowerCase();
+
+      if (blob && !isErrorLikeExportType(contentType)) {
+        const extension = extFromMimeType(contentType) || normalizedFormat;
+        downloadBlob(blob, `assessment-analytics-report.${extension}`);
+        serverExportSuccess = true;
+      }
     } catch (err) {
-      console.error(err);
-    } finally {
-      setExporting(false);
+      console.warn("[AssessmentAnalytics] Server export unavailable/failed, using client fallback", err);
     }
+
+    if (!serverExportSuccess) {
+      try {
+        const exportHeaders = [
+          "Question",
+          "Type",
+          "Exam / Assessment",
+          "Attempts",
+          "Success Rate (%)",
+          "Avg Time",
+          "Status",
+        ];
+
+        const exportDataRows = (rows || []).map((row) => [
+          parseQuestionText(row.question_text),
+          TYPE_LABELS[row.question_type] ?? row.question_type ?? "—",
+          row.parent_title ?? row.assessment_title ?? row.exam_title ?? row.title ?? "—",
+          row.total_attempts ?? 0,
+          row.correct_response_rate != null ? `${row.correct_response_rate}%` : "—",
+          formatSeconds(row.average_time_seconds ?? row.averageTimeSeconds ?? (row.executionTimeMs != null ? Number(row.executionTimeMs) / 1000 : null)),
+          row.status ?? "—",
+        ]);
+
+        const exportTable = [exportHeaders, ...exportDataRows];
+        const fileName = `assessment-analytics-report.${normalizedFormat}`;
+
+        if (normalizedFormat === "csv") {
+          exportRowsToCsv(exportTable, fileName);
+        } else if (normalizedFormat === "pdf") {
+          exportRowsToPdf(exportTable, fileName, "Assessment Analytics Report");
+        } else {
+          exportRowsToExcel(exportTable, fileName);
+        }
+
+        toast({
+          status: "success",
+          description: `Report exported as ${normalizedFormat.toUpperCase()} successfully`,
+          duration: 3000,
+          isClosable: true,
+          position: "top",
+        });
+      } catch (clientErr) {
+        console.error("Client export failed", clientErr);
+        toast({
+          status: "error",
+          description: clientErr?.message || "Failed to export report",
+          duration: 4000,
+          isClosable: true,
+          position: "top",
+        });
+      }
+    }
+
+    setExporting(false);
   };
 
   // ── Questions table ───────────────────────────────────────────────────────
@@ -572,12 +858,12 @@ const AssessmentAnalyticsPage = () => {
           <Tr>
             <Th w="280px">Question</Th>
             <Th textAlign="center" whiteSpace="nowrap">Type</Th>
-            <Th textAlign="center" whiteSpace="nowrap">Difficulty</Th>
+            {/* <Th textAlign="center" whiteSpace="nowrap">Difficulty</Th> */}
             <Th>Exam / Assessment</Th>
             <Th isNumeric whiteSpace="nowrap">Attempts</Th>
             <Th isNumeric whiteSpace="nowrap">Success Rate</Th>
             <Th isNumeric whiteSpace="nowrap">Avg Time</Th>
-            <Th isNumeric whiteSpace="nowrap">Disc. Index</Th>
+            {/* <Th isNumeric whiteSpace="nowrap">Disc. Index</Th> */}
             <Th textAlign="center" whiteSpace="nowrap">Status</Th>
           </Tr>
         </Thead>
@@ -602,14 +888,14 @@ const AssessmentAnalyticsPage = () => {
                   </Tooltip>
                 </Td>
                 <Td textAlign="center"><Badge colorScheme="gray" fontSize="xs">{TYPE_LABELS[row.question_type] ?? row.question_type}</Badge></Td>
-                <Td textAlign="center"><Badge colorScheme={DIFFICULTY_COLORS[row.difficulty_level] ?? "gray"}>{row.difficulty_level ?? "—"}</Badge></Td>
+                {/* <Td textAlign="center"><Badge colorScheme={DIFFICULTY_COLORS[row.difficulty_level] ?? "gray"}>{row.difficulty_level ?? "—"}</Badge></Td> */}
                 <Td>
-                  <Text fontSize="xs">{row.exam_title ?? "—"}</Text>
+                  <Text fontSize="xs">{row.parent_title ?? row.assessment_title ?? row.exam_title ?? row.title ?? "—"}</Text>
                 </Td>
                 <Td isNumeric>{fmt(row.total_attempts)}</Td>
                 <Td isNumeric>{row.correct_response_rate != null ? `${row.correct_response_rate}%` : "—"}</Td>
-                <Td isNumeric>{formatSeconds(row.average_time_seconds)}</Td>
-                <Td isNumeric>{row.discrimination_index != null ? row.discrimination_index.toFixed(2) : "—"}</Td>
+                <Td isNumeric>{formatSeconds(row.average_time_seconds ?? row.averageTimeSeconds ?? (row.executionTimeMs != null ? Number(row.executionTimeMs) / 1000 : null))}</Td>
+                {/* <Td isNumeric>{row.discrimination_index != null ? row.discrimination_index.toFixed(2) : "—"}</Td> */}
                 <Td textAlign="center"><Badge colorScheme={STATUS_COLORS[row.status] ?? "gray"}>{row.status}</Badge></Td>
               </Tr>
             ))
@@ -633,25 +919,26 @@ const AssessmentAnalyticsPage = () => {
           <Text fontSize="sm" color="gray.500">Per-question analysis across course assessments, course exams, and standalone examinations.</Text>
         </Box>
         <Flex gap={2}>
-          <Button size="sm" onClick={handleExport} isLoading={exporting} isDisabled={rows.length === 0}>Export</Button>
+          <ServerExportMenu onExport={handleExport} isLoading={exporting} isDisabled={rows.length === 0} />
           <Button size="sm" leftIcon={<FiRefreshCw />} variant="outline" onClick={fetchReport} isLoading={loading}>Refresh</Button>
         </Flex>
       </Flex>
 
+
       {/* KPI Cards */}
       <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mb={6}>
-        <DashboardMetricCard title="Total Assessments" value={loading ? "..." : assessmentSummary?.total_assessments ?? "—"} />
-        <DashboardMetricCard title="Total Questions" value={loading ? "..." : assessmentSummary?.total_questions ?? summary?.total_questions ?? "—"} />
-        <DashboardMetricCard title="Total Submissions" value={loading ? "..." : assessmentSummary?.total_submissions ?? "—"} />
+        <DashboardMetricCard title={kpiData.entityTitle} value={loading ? "..." : kpiData.totalEntities ?? "—"} />
+        <DashboardMetricCard title="Total Questions" value={loading ? "..." : kpiData.totalQuestions ?? "—"} />
+        <DashboardMetricCard title="Total Submissions" value={loading ? "..." : kpiData.totalSubmissions ?? "—"} />
         <DashboardMetricCard
           title="Avg Score"
-          value={loading ? "..." : assessmentSummary?.average_score != null ? `${assessmentSummary.average_score}%` : (summary?.average_success_rate != null ? `${summary.average_success_rate}%` : "—")}
-          colorScheme={(assessmentSummary?.average_score ?? summary?.average_success_rate) < 60 ? "red" : (assessmentSummary?.average_score ?? summary?.average_success_rate) < 75 ? "yellow" : "green"}
+          value={loading ? "..." : kpiData.averageScore != null ? `${kpiData.averageScore.toFixed(1)}%` : "—"}
+          colorScheme={kpiData.averageScore == null ? "gray" : kpiData.averageScore < 60 ? "red" : kpiData.averageScore < 75 ? "yellow" : "green"}
         />
         <DashboardMetricCard
           title="Assessment Validity"
-          value={loading ? "..." : assessmentSummary?.assessment_validity ?? summary?.assessment_validity ?? "—"}
-          colorScheme={VALIDITY_COLORS[assessmentSummary?.assessment_validity ?? summary?.assessment_validity] ?? "gray"}
+          value={loading ? "..." : kpiData.validity ?? "—"}
+          colorScheme={VALIDITY_COLORS[kpiData.validity] ?? "gray"}
         />
       </SimpleGrid>
 
@@ -667,6 +954,20 @@ const AssessmentAnalyticsPage = () => {
         >
           Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
         </Button>
+        {activeFilterCount > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            colorScheme="red"
+            onClick={() => {
+              setFilters({ courseId: "", moduleId: "", examId: "", assessmentId: "", standaloneExamId: "", questionType: "", difficultyLevel: "", startDate: "", endDate: "" });
+              setSelectedType(null);
+              setPage(1);
+            }}
+          >
+            Clear Filters
+          </Button>
+        )}
       </Flex>
 
       {/* Filter panel */}
@@ -674,60 +975,104 @@ const AssessmentAnalyticsPage = () => {
         <Box bg="gray.50" border="1px" borderColor="gray.200" p={4} borderRadius="md" mb={4}>
           <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }} gap={3}>
             <FormControl>
-              <FormLabel fontSize="xs">Course</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchCourseOptions}
-                value={filters.courseId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "", moduleId: "", assessmentId: "" }))}
-                placeholder="Search course..."
-              />
+              <FormLabel fontSize="xs">Report Type</FormLabel>
+              <Select
+                size="sm"
+                placeholder="Select type"
+                value={selectedType || ""}
+                onChange={(e) => {
+                  const val = e.target.value || null;
+                  setSelectedType(val);
+                  setFilters((p) => ({ ...p, courseId: "", moduleId: "", assessmentId: "", examId: "", standaloneExamId: "" }));
+                  setPage(1);
+                }}
+              >
+                <option value="exam">Exam</option>
+                <option value="assessment">Assessment</option>
+                <option value="standalone">Standalone</option>
+              </Select>
             </FormControl>
-            <FormControl>
-              <FormLabel fontSize="xs">Module</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchModuleOptions}
-                value={filters.moduleId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, moduleId: opt ? opt.id : "", assessmentId: "" }))}
-                placeholder={filters.courseId ? "Select module..." : "Select a course first"}
-                isDisabled={!filters.courseId}
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel fontSize="xs">Assessment</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchAssessmentOptions}
-                value={filters.assessmentId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, assessmentId: opt ? opt.id : "" }))}
-                placeholder={filters.moduleId ? "Select assessment..." : "Select a module first"}
-                isDisabled={!filters.moduleId}
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel fontSize="xs">Exam</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchExamOptions}
-                value={filters.examId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, examId: opt ? opt.id : "" }))}
-                placeholder="Search exam..."
-              />
-            </FormControl>
-           
-            <FormControl>
-              <FormLabel fontSize="xs">Standalone Exam</FormLabel>
-              <EntityCombobox
-                fetchFn={fetchStandaloneOptions}
-                value={filters.standaloneExamId}
-                onSelect={(opt) => setFilters((p) => ({ ...p, standaloneExamId: opt ? opt.id : "" }))}
-                placeholder="Search standalone exam..."
-              />
-            </FormControl>
-            <FormControl>
+
+            {selectedType === "assessment" && (
+              <>
+                <FormControl>
+                  <FormLabel fontSize="xs">Course</FormLabel>
+                  <EntityCombobox
+                    fetchFn={fetchCourseOptions}
+                    value={filters.courseId}
+                    onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "", moduleId: "", assessmentId: "" }))}
+                    placeholder="Search course..."
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="xs">Module</FormLabel>
+                  <EntityCombobox
+                    fetchFn={fetchModuleOptions}
+                    value={filters.moduleId}
+                    onSelect={(opt) => setFilters((p) => ({ ...p, moduleId: opt ? opt.id : "", assessmentId: "" }))}
+                    placeholder={filters.courseId ? "Select module..." : "Select a course first"}
+                    isDisabled={!filters.courseId}
+                    resetKey={filters.courseId}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="xs">Assessment</FormLabel>
+                  <EntityCombobox
+                    fetchFn={fetchAssessmentOptions}
+                    value={filters.assessmentId}
+                    onSelect={(opt) => setFilters((p) => ({ ...p, assessmentId: opt ? opt.id : "" }))}
+                    placeholder={filters.moduleId ? "Select assessment..." : "Select a module first"}
+                    isDisabled={!filters.moduleId}
+                    resetKey={filters.moduleId}
+                  />
+                </FormControl>
+              </>
+            )}
+
+            {selectedType === "exam" && (
+              <>
+                <FormControl>
+                  <FormLabel fontSize="xs">Course</FormLabel>
+                  <EntityCombobox
+                    fetchFn={fetchCourseOptions}
+                    value={filters.courseId}
+                    onSelect={(opt) => setFilters((p) => ({ ...p, courseId: opt ? opt.id : "", examId: "" }))}
+                    placeholder="Search course..."
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="xs">Exam</FormLabel>
+                  <EntityCombobox
+                    fetchFn={fetchExamOptions}
+                    value={filters.examId}
+                    onSelect={(opt) => setFilters((p) => ({ ...p, examId: opt ? opt.id : "" }))}
+                    placeholder={filters.courseId ? "Select exam..." : "Select a course first"}
+                    isDisabled={!filters.courseId}
+                    resetKey={filters.courseId}
+                  />
+                </FormControl>
+              </>
+            )}
+
+            {selectedType === "standalone" && (
+              <FormControl>
+                <FormLabel fontSize="xs">Standalone Exam</FormLabel>
+                <EntityCombobox
+                  fetchFn={fetchStandaloneOptions}
+                  value={filters.standaloneExamId}
+                  onSelect={(opt) => setFilters((p) => ({ ...p, standaloneExamId: opt ? opt.id : "" }))}
+                  placeholder="Search standalone exam..."
+                />
+              </FormControl>
+            )}
+
+            {/* <FormControl>
               <FormLabel fontSize="xs">Question Type</FormLabel>
               <Select size="sm" placeholder="Any" value={filters.questionType} onChange={(e) => setFilters((p) => ({ ...p, questionType: e.target.value }))}>
                 {Object.entries(TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </Select>
-            </FormControl>
-            <FormControl>
+            </FormControl> */}
+            {/* <FormControl>
               <FormLabel fontSize="xs">Difficulty Level</FormLabel>
               <Select size="sm" placeholder="Any" value={filters.difficultyLevel} onChange={(e) => setFilters((p) => ({ ...p, difficultyLevel: e.target.value }))}>
                 <option value="Easy">Easy</option>
@@ -742,7 +1087,7 @@ const AssessmentAnalyticsPage = () => {
             <FormControl>
               <FormLabel fontSize="xs">End Date</FormLabel>
               <Input size="sm" type="date" value={filters.endDate} onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))} />
-            </FormControl>
+            </FormControl> */}
           </Grid>
           <Flex mt={3} gap={2}>
             <Button size="sm" colorScheme="blue" onClick={() => { setPage(1); setShowFilters(false); }}>Apply Filters</Button>
@@ -754,15 +1099,14 @@ const AssessmentAnalyticsPage = () => {
         </Box>
       )}
 
-      {/* Tabbed Table */}
-      <Tabs index={activeTab} onChange={setActiveTab} variant="enclosed" size="sm">
-        <TabList>
-          <Tab>Questions ({total})</Tab>
-          <Tab>By Assessment ({assessmentRows.length})</Tab>
-          <Tab>By Standalone Exam ({standaloneRows.length})</Tab>
-        </TabList>
-        <TabPanels>
-          <TabPanel px={0} pb={0}>
+      {/* Report view - requires selected type and selected item id */}
+      <Box>
+        {(!selectedType || (selectedType === "exam" && !filters.examId) || (selectedType === "assessment" && !filters.assessmentId) || (selectedType === "standalone" && !filters.standaloneExamId)) ? (
+          <Box bg="white" p={8} borderRadius="md" border="1px" borderColor="gray.100" textAlign="center">
+            <Text fontSize="md" color="gray.600">Select a report type and specific item to view analytics.</Text>
+          </Box>
+        ) : (
+          <>
             <QuestionsTable data={rows} loadingState={loading} />
             <Flex justifyContent="space-between" alignItems="center" mt={2}>
               <Text fontSize="sm" color="gray.500">
@@ -788,44 +1132,11 @@ const AssessmentAnalyticsPage = () => {
                 />
               </Flex>
             </Flex>
-          </TabPanel>
-          <TabPanel px={0} pb={0}>
-            <QuestionsTable data={assessmentRows} loadingState={loading} />
-            <Text fontSize="sm" color="gray.500" mt={2}>Total: {assessmentRows.length} assessment{assessmentRows.length !== 1 ? "s" : ""}</Text>
-          </TabPanel>
-          <TabPanel px={0} pb={0}>
-            <QuestionsTable data={standaloneRows} loadingState={loading} />
-            <Text fontSize="sm" color="gray.500" mt={2}>Total: {standaloneRows.length} standalone exam{standaloneRows.length !== 1 ? "s" : ""}</Text>
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
+          </>
+        )}
+      </Box>
 
-      {/* ── Thresholds legend ─────────────────────────────────────────────────── */}
-      {thresholds && (
-        <Box mt={8} p={4} bg="gray.50" borderRadius="md" border="1px" borderColor="gray.200">
-          <Text fontSize="xs" fontWeight="semibold" color="gray.500" mb={3}>CLASSIFICATION THRESHOLDS</Text>
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <Box>
-              <Text fontSize="xs" fontWeight="semibold" mb={1}>Derived Difficulty</Text>
-              {Object.entries(thresholds.difficulty ?? {}).map(([k, v]) => (
-                <Flex key={k} gap={2} alignItems="center" mb={1}>
-                  <Badge colorScheme={DIFFICULTY_COLORS[k] ?? "gray"} minW="60px" textAlign="center">{k}</Badge>
-                  <Text fontSize="xs" color="gray.600">{v}</Text>
-                </Flex>
-              ))}
-            </Box>
-            <Box>
-              <Text fontSize="xs" fontWeight="semibold" mb={1}>Discrimination Index</Text>
-              {Object.entries(thresholds.discrimination ?? {}).map(([k, v]) => (
-                <Flex key={k} gap={2} alignItems="center" mb={1}>
-                  <Badge colorScheme={STATUS_COLORS[k] ?? "gray"} minW="80px" textAlign="center">{k}</Badge>
-                  <Text fontSize="xs" color="gray.600">{v}</Text>
-                </Flex>
-              ))}
-            </Box>
-          </SimpleGrid>
-        </Box>
-      )}
+
 
       {/* ── Question Detail Drawer ────────────────────────────────────────────── */}
       <Drawer isOpen={isDetailOpen} onClose={closeDetail} size="md" placement="right">
@@ -855,12 +1166,12 @@ const AssessmentAnalyticsPage = () => {
                     </Flex>
                   }
                 />
-                <DetailRow label="Exam / Assessment" value={detailQuestion.exam_title ?? "—"} />
+                <DetailRow label="Exam / Assessment" value={detailQuestion.parent_title ?? detailQuestion.assessment_title ?? detailQuestion.exam_title ?? detailQuestion.title ?? "—"} />
                 <DetailRow label="Course ID" value={detailQuestion.course_id ?? "—"} />
                 <DetailRow label="Total Attempts" value={fmt(detailQuestion.total_attempts)} />
                 <DetailRow label="Correct Response Rate" value={detailQuestion.correct_response_rate != null ? `${detailQuestion.correct_response_rate}%` : "—"} />
-                <DetailRow label="Avg Time per Attempt" value={formatSeconds(detailQuestion.average_time_seconds)} />
-                <DetailRow label="Discrimination Index" value={detailQuestion.discrimination_index != null ? detailQuestion.discrimination_index.toFixed(2) : "—"} />
+                <DetailRow label="Avg Time per Attempt" value={formatSeconds(detailQuestion.average_time_seconds ?? detailQuestion.averageTimeSeconds ?? (detailQuestion.executionTimeMs != null ? Number(detailQuestion.executionTimeMs) / 1000 : null))} />
+                {/* <DetailRow label="Discrimination Index" value={detailQuestion.discrimination_index != null ? detailQuestion.discrimination_index.toFixed(2) : "—"} /> */}
                 <DetailRow label="Status" value={<Badge colorScheme={STATUS_COLORS[detailQuestion.status] ?? "gray"} px={2} py={1}>{detailQuestion.status}</Badge>} />
 
                 {detailQuestion.status === "Poor" || detailQuestion.status === "Too Hard" || detailQuestion.status === "Insufficient Data" ? (

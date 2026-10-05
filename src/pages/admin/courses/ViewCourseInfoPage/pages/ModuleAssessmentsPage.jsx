@@ -109,9 +109,14 @@ const ModuleAssessmentsPage = () => {
     options: {
       action: [
         {
-          text: "View",
+          text: "Edit",
           link: (assessment) =>
             `/admin/courses/${courseId}/assessment/${assessment.id}/overview?moduleId=${moduleId}`,
+        },
+        {
+          text: "View",
+          link: (assessment) =>
+            `/admin/courses/${courseId}/assessment/${assessment.id}/overview?moduleId=${moduleId}&mode=view`,
         },
         {
           text: "Submission",
@@ -213,9 +218,9 @@ const ModuleAssessmentsPage = () => {
         </Heading>
 
         <Flex gap="8px">
-          <Button secondary link={`/admin/exam-question-bank?courseId=${courseId}&moduleId=${moduleId}`}>
+          {/* <Button secondary link={`/admin/exam-question-bank?courseId=${courseId}&moduleId=${moduleId}`}>
             Question Bank
-          </Button>
+          </Button> */}
           <Button
             link={`/admin/courses/${courseId}/assessment/new/overview?moduleId=${moduleId}`}
           >

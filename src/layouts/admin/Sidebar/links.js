@@ -62,6 +62,7 @@ export const links = [
       { href: "/admin/exam-paper-config-presets", text: "Exam Template Library" },
       // { href: "/admin/grade-book", text: "Grade Book" },
       { href: "/admin/grade-book-v2", text: "Advanced Grade Book" },
+      { href: "/admin/exam-question-bank", text: "Question Bank" },
       // { href: "/admin/feedback-markup", text: "Feedback Markup" },
       // { href: "/admin/feedback-markup-review", text: "Inline Markup Review" },
     ],

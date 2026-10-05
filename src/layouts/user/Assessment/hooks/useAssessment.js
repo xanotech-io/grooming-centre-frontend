@@ -8,7 +8,7 @@ import useQueryParams from "../../../../hooks/useQueryParams";
 import useLiveProctoring from "../../../../hooks/useLiveProctoring";
 import { submitAssessmentMarking } from "../../../../services";
 import { submitExamination } from "../../../../services/http/endpoints/examination";
-import {  sortByIndexField, getGeolocationString } from "../../../../utils";
+import { sortByIndexField, getGeolocationString } from "../../../../utils";
 import { CongratsModalContent } from "../Modal";
 import useTimerCountdown from "./useTimerCountdown";
 import { Box } from "@chakra-ui/layout";
@@ -25,7 +25,7 @@ const useAssessment = () => {
   const isExamination = useQueryParams().get("examination");
   const [score, setScore] = useState("");
   const [submissionMeta, setSubmissionMeta] = useState({});
-   // eslint-disable-next-line no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const [end, setEnd] = useState(true);
 
   const { push } = useHistory();
@@ -101,6 +101,7 @@ const useAssessment = () => {
           status: "success",
         });
       } else {
+        const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
         const answers = assessment?.questions?.map((q) => ({
           questionId: q.id,
           answer: selectedAnswers[q.id] ?? "",
@@ -109,7 +110,7 @@ const useAssessment = () => {
         const body = {
           answers,
           submissionTime: new Date().toISOString(),
-          timeTaken: 0,
+          timeTaken,
         };
         const { message, data } = await submitAssessmentMarking(assessment.id, body);
         setScore(data?.totalScore ?? data?.score);
@@ -217,9 +218,8 @@ const useAssessment = () => {
     modalManager.onOpen();
     setModalContent(null);
     setModalPrompt({
-      heading: `Are you sure you want to submit your ${
-        isExamination ? "examination" : "assessment"
-      }?`,
+      heading: `Are you sure you want to submit your ${isExamination ? "examination" : "assessment"
+        }?`,
       body: (
         <>
           <Text marginBottom={5}>
@@ -311,7 +311,7 @@ const useAssessment = () => {
     if (!isProctoringBlocked || !submitStatus.error) return undefined;
     const timeout = setTimeout(() => push(`/courses/details/${course_id}`), 4000);
     return () => clearTimeout(timeout);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isProctoringBlocked, submitStatus.error]);
 
   const nav = isExamination ? isProctoringBlocked : exitAttempts === totalSteps;
