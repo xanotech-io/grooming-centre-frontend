@@ -4,7 +4,6 @@ import { Box, Flex, Grid, GridItem, Stack } from "@chakra-ui/layout";
 import { Badge, useToast } from "@chakra-ui/react";
 import Icon from "@chakra-ui/icon";
 import {
-  FaFileAlt,
   FaStamp,
   FaCheckCircle,
   FaClock,
@@ -16,13 +15,6 @@ import { studentRequestTranscript } from "../../../services";
 import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
 
 const TYPES = [
-  {
-    value: "Unofficial",
-    label: "Unofficial Transcript",
-    icon: FaFileAlt,
-    description: "Issued immediately. Suitable for personal use or informal applications.",
-    badge: { label: "Issued instantly", color: "green" },
-  },
   {
     value: "Official",
     label: "Official Transcript",
@@ -53,7 +45,7 @@ const SummaryCard = ({ label, value }) => (
 
 const TranscriptRequestPage = () => {
   const toast = useToast();
-  const [selectedType, setSelectedType] = useState("Unofficial");
+  const [selectedType, setSelectedType] = useState("Official");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [certRecord, setCertRecord] = useState(null);
@@ -85,7 +77,7 @@ const TranscriptRequestPage = () => {
 
   const handleReset = () => {
     setResult(null);
-    setSelectedType("Unofficial");
+    setSelectedType("Official");
   };
 
   if (result) {
@@ -239,10 +231,10 @@ const TranscriptRequestPage = () => {
                         record.grade?.startsWith("A")
                           ? "green"
                           : record.grade?.startsWith("B")
-                          ? "blue"
-                          : record.grade?.startsWith("C")
-                          ? "yellow"
-                          : "red"
+                            ? "blue"
+                            : record.grade?.startsWith("C")
+                              ? "yellow"
+                              : "red"
                       }
                       borderRadius="full"
                       px={2}

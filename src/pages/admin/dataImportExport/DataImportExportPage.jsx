@@ -60,6 +60,14 @@ import {
   FiAlertTriangle,
 } from "react-icons/fi";
 import dayjs from "dayjs";
+import {
+  applyColumnMapping,
+  autoMapHeaders,
+  buildNormalizedImportFile,
+  findBestHeaderRow,
+  getCanonicalFields,
+  parseImportSpreadsheet,
+} from "./parseImportSpreadsheet";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -68,17 +76,17 @@ const EXPORT_REPORT_TYPES = [
   { value: "student_records", label: "Student Records" },
   { value: "course_information", label: "Course Information" },
   { value: "assessment_results", label: "Assessment Results" },
-  { value: "attendance", label: "Attendance" },
+  { value: "attendance", label: "Attendance Logs" },
   { value: "compliance_records", label: "Compliance Records" },
   { value: "performance_reports", label: "Performance Reports" },
   { value: "user_records", label: "User Records" },
 ];
 
 const TARGET_MODULES = [
-  { value: "user_records", label: "User Records (Accounts)" },
-  { value: "course_information", label: "Course Information" },
-  { value: "assessment_results", label: "Assessment Results" },
-  { value: "attendance", label: "Attendance Logs" },
+  { value: "attendance", label: "Attendance Logs (attendance)" },
+  { value: "user_records", label: "User Records / Accounts (user_records)" },
+  { value: "course_information", label: "Course Information (course_information)" },
+  { value: "assessment_results", label: "Assessment Results (assessment_results)" },
 ];
 
 const MODULE_COLUMN_EXPECTATIONS = {
@@ -373,15 +381,15 @@ const ImportResultPanel = ({ result }) => {
       {errors.length > 0 && (
         <Box p="16px" borderBottom={warnList.length > 0 ? "1px solid #E2E8F0" : undefined}>
           <Text fontSize="12px" fontWeight="700" color="#E53E3E" mb="8px">Validation Errors ({errors.length})</Text>
-          <Box maxH="200px" overflowY="auto">
+          <Box maxH="220px" overflowY="auto">
             <TableContainer>
               <Table variant="simple" size="xs">
-                <Thead><Tr><Th>Row</Th><Th>Issue</Th></Tr></Thead>
+                <Thead bg="#FFF5F5"><Tr><Th py="6px">Row</Th><Th py="6px">Issue</Th></Tr></Thead>
                 <Tbody>
                   {errors.map((e, i) => (
                     <Tr key={i}>
-                      <Td py="6px" color="gray.500" fontSize="12px">{e.row ?? "—"}</Td>
-                      <Td py="6px" fontSize="12px">{e.issue ?? e.message ?? String(e)}</Td>
+                      <Td py="6px" color="gray.500" fontSize="12px" w="60px">{e.row ?? "—"}</Td>
+                      <Td py="6px" fontSize="12px" color="#C53030">{e.issue ?? e.message ?? String(e)}</Td>
                     </Tr>
                   ))}
                 </Tbody>
@@ -394,15 +402,15 @@ const ImportResultPanel = ({ result }) => {
       {warnList.length > 0 && (
         <Box p="16px">
           <Text fontSize="12px" fontWeight="700" color="#DD6B20" mb="8px">Warnings ({warnList.length})</Text>
-          <Box maxH="160px" overflowY="auto">
+          <Box maxH="180px" overflowY="auto">
             <TableContainer>
               <Table variant="simple" size="xs">
-                <Thead><Tr><Th>Row</Th><Th>Issue</Th></Tr></Thead>
+                <Thead bg="#FFFAF0"><Tr><Th py="6px">Row</Th><Th py="6px">Issue</Th></Tr></Thead>
                 <Tbody>
                   {warnList.map((w, i) => (
                     <Tr key={i}>
-                      <Td py="6px" color="gray.500" fontSize="12px">{w.row ?? "—"}</Td>
-                      <Td py="6px" fontSize="12px">{w.issue ?? w.message ?? String(w)}</Td>
+                      <Td py="6px" color="gray.500" fontSize="12px" w="60px">{w.row ?? "—"}</Td>
+                      <Td py="6px" fontSize="12px" color="#DD6B20">{w.issue ?? w.message ?? String(w)}</Td>
                     </Tr>
                   ))}
                 </Tbody>
@@ -422,7 +430,7 @@ const ImportTab = () => {
   const fileRef = useRef();
   const [file, setFile] = useState(null);
   const [fileFormat, setFileFormat] = useState("csv");
-  const [targetModule, setTargetModule] = useState("user_records");
+  const [targetModule, setTargetModule] = useState("attendance");
   const [departmentId, setDepartmentId] = useState("");
   const [uploadMethod, setUploadMethod] = useState("invite");
   const [defaultPassword, setDefaultPassword] = useState("");
@@ -432,7 +440,15 @@ const ImportTab = () => {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [polling, setPolling] = useState(false);
+  const [parseError, setParseError] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [sourceHeaders, setSourceHeaders] = useState([]);
+  const [sourceRows, setSourceRows] = useState([]);
+  const [columnMapping, setColumnMapping] = useState({});
   const pollRef = useRef(null);
+
+  const mappedRows = applyColumnMapping(sourceHeaders, sourceRows, columnMapping, targetModule);
+  const requiredFields = getCanonicalFields(targetModule);
 
   useEffect(() => {
     adminGetDepartmentListing()
@@ -464,12 +480,53 @@ const ImportTab = () => {
     }, 4000);
   };
 
-  const handleFileChange = (e) => {
+  const remapColumns = (headers, module) => {
+    setColumnMapping(autoMapHeaders(headers, module));
+  };
+
+  const handleFileChange = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     setFile(f);
     setReportName(f.name);
-    setFileFormat(f.name.endsWith(".xlsx") || f.name.endsWith(".xls") ? "excel" : "csv");
+    setResult(null);
+    setParseError("");
+    setSourceHeaders([]);
+    setSourceRows([]);
+    setColumnMapping({});
+
+    const detectedFormat = f.name.endsWith(".xlsx") || f.name.endsWith(".xls") ? "excel" : "csv";
+    setFileFormat(detectedFormat);
+
+    let nextModule = targetModule;
+    const lowerName = f.name.toLowerCase();
+    if (lowerName.includes("attendance")) nextModule = "attendance";
+    else if (lowerName.includes("course")) nextModule = "course_information";
+    else if (lowerName.includes("assessment") || lowerName.includes("grade")) nextModule = "assessment_results";
+    else if (lowerName.includes("user") || lowerName.includes("student")) nextModule = "user_records";
+    if (nextModule !== targetModule) setTargetModule(nextModule);
+
+    setParsing(true);
+    try {
+      const parsed = await parseImportSpreadsheet(f);
+      const { headerRowIndex } = findBestHeaderRow(parsed.matrix, nextModule);
+      const headers = (parsed.matrix[headerRowIndex] || []).map((cell, index) => {
+        const label = String(cell ?? "").replace(/^\uFEFF/, "").trim();
+        return label || `Column ${index + 1}`;
+      });
+      const dataRows = parsed.matrix.slice(headerRowIndex + 1);
+      if (dataRows.length === 0) {
+        throw new Error("Headers were found, but the file has no data rows");
+      }
+      setSourceHeaders(headers);
+      setSourceRows(dataRows);
+      remapColumns(headers, nextModule);
+    } catch (err) {
+      setParseError(err?.message || "Could not read rows and columns from this file");
+    } finally {
+      setParsing(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
 
   const handleSubmit = async () => {
@@ -481,19 +538,54 @@ const ImportTab = () => {
       toast({ title: "Please select a target module", status: "warning", duration: 3000, isClosable: true });
       return;
     }
-    if (uploadMethod === "default" && (!defaultPassword || defaultPassword.length < 6)) {
+    if (parseError || mappedRows.length === 0) {
+      toast({ title: "No data rows were found in the selected file", status: "warning", duration: 4000, isClosable: true });
+      return;
+    }
+    const missingRequired = requiredFields
+      .filter((field) => field.required)
+      .filter((field) => !Object.values(columnMapping).includes(field.key));
+    if (missingRequired.length > 0) {
+      toast({
+        title: `Map required columns before importing: ${missingRequired.map((f) => f.key).join(", ")}`,
+        status: "warning",
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+    if (uploadMethod === "default" && targetModule === "user_records" && (!defaultPassword || defaultPassword.length < 6)) {
       toast({ title: "Default password must be at least 6 characters", status: "warning", duration: 3000, isClosable: true });
       return;
     }
 
+    const normalizedFile = buildNormalizedImportFile({
+      rows: mappedRows,
+      fileFormat,
+      originalName: file.name,
+    });
+
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", normalizedFile, normalizedFile.name);
     formData.append("fileFormat", fileFormat);
     formData.append("targetModule", targetModule);
+    const canonicalMapping = {};
+    Object.entries(columnMapping).forEach(([sourceHeader, mappedField]) => {
+      if (sourceHeader && mappedField) canonicalMapping[sourceHeader] = mappedField;
+    });
+    if (Object.keys(canonicalMapping).length > 0) {
+      formData.append(
+        "dataMapping",
+        new Blob([JSON.stringify(canonicalMapping)], { type: "application/json" }),
+        "dataMapping.json"
+      );
+    }
     if (departmentId) formData.append("departmentId", departmentId);
-    if (uploadMethod) formData.append("uploadMethod", uploadMethod);
-    if (uploadMethod === "default" && defaultPassword) {
-      formData.append("defaultPassword", defaultPassword);
+    if (targetModule === "user_records") {
+      if (uploadMethod) formData.append("uploadMethod", uploadMethod);
+      if (uploadMethod === "default" && defaultPassword) {
+        formData.append("defaultPassword", defaultPassword);
+      }
     }
     if (reportName.trim()) formData.append("reportName", reportName.trim());
 
@@ -542,7 +634,16 @@ const ImportTab = () => {
       <Grid templateColumns="1fr 1fr" gap={4} mb={4}>
         <FormControl isRequired>
           <FormLabel fontSize="sm" fontWeight="500">Target Module</FormLabel>
-          <Select size="sm" value={targetModule} onChange={(e) => setTargetModule(e.target.value)} bg="gray.50">
+          <Select
+            size="sm"
+            value={targetModule}
+            onChange={(e) => {
+              const next = e.target.value;
+              setTargetModule(next);
+              if (sourceHeaders.length) remapColumns(sourceHeaders, next);
+            }}
+            bg="gray.50"
+          >
             {TARGET_MODULES.map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>
             ))}
@@ -579,10 +680,84 @@ const ImportTab = () => {
         ) : (
           <>
             <Text fontWeight="500" fontSize="14px" color="gray.600">Click to select CSV or Excel file</Text>
-            <Text fontSize="12px" color="gray.400">Supported extensions: .csv, .xlsx, .xls</Text>
+          <Text fontSize="12px" color="gray.400">Supported extensions: .csv, .xlsx, .xls</Text>
           </>
         )}
+        {parsing && (
+          <Flex justifyContent="center" alignItems="center" gap="8px" mt={3}>
+            <Spinner size="sm" color="#6b006b" />
+            <Text fontSize="12px" color="gray.500">Reading rows and columns…</Text>
+          </Flex>
+        )}
       </Box>
+
+      {parseError && (
+        <Box mb={5} p="12px" bg="red.50" border="1px solid #FED7D7" borderRadius="8px">
+          <Text fontSize="13px" color="red.600">{parseError}</Text>
+        </Box>
+      )}
+
+      {sourceHeaders.length > 0 && (
+        <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" p="16px" mb={5}>
+          <Text fontSize="13px" fontWeight="600" color="#1A202C" mb={1}>
+            Detected {mappedRows.length} data row{mappedRows.length === 1 ? "" : "s"} · {sourceHeaders.length} column{sourceHeaders.length === 1 ? "" : "s"}
+          </Text>
+          <Text fontSize="12px" color="gray.500" mb={3}>
+            Columns are mapped automatically. Adjust any mismatch before importing.
+          </Text>
+          <Grid templateColumns="repeat(auto-fill, minmax(180px, 1fr))" gap={3} mb={4}>
+            {requiredFields.map((field) => (
+              <FormControl key={field.key} isRequired={field.required}>
+                <FormLabel fontSize="11px" color="gray.500">{field.key}</FormLabel>
+                <Select
+                  size="sm"
+                  bg="gray.50"
+                  value={Object.entries(columnMapping).find(([, key]) => key === field.key)?.[0] ?? ""}
+                  onChange={(e) => {
+                    const source = e.target.value;
+                    setColumnMapping((prev) => {
+                      const next = { ...prev };
+                      Object.keys(next).forEach((header) => {
+                        if (next[header] === field.key) delete next[header];
+                      });
+                      if (source) next[source] = field.key;
+                      return next;
+                    });
+                  }}
+                >
+                  <option value="">{field.required ? "Select column…" : "Not in file"}</option>
+                  {sourceHeaders.map((header) => (
+                    <option key={header} value={header}>{header}</option>
+                  ))}
+                </Select>
+              </FormControl>
+            ))}
+          </Grid>
+          <TableContainer maxH="220px" overflowY="auto" border="1px solid #EDF2F7" borderRadius="6px">
+            <Table variant="simple" size="xs">
+              <Thead bg="#F7FAFC">
+                <Tr>
+                  {requiredFields.map((field) => (
+                    <Th key={field.key} py="6px">{field.key}</Th>
+                  ))}
+                </Tr>
+              </Thead>
+              <Tbody>
+                {mappedRows.slice(0, 8).map((row, i) => (
+                  <Tr key={i}>
+                    {requiredFields.map((field) => (
+                      <Td key={field.key} py="6px" fontSize="12px">{row[field.key] || "—"}</Td>
+                    ))}
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </TableContainer>
+          {mappedRows.length > 8 && (
+            <Text fontSize="11px" color="gray.400" mt={2}>Showing first 8 of {mappedRows.length} rows</Text>
+          )}
+        </Box>
+      )}
 
       {/* Optional Department & Report Name */}
       <Grid templateColumns="1fr 1fr" gap={4} mb={4}>
@@ -642,7 +817,7 @@ const ImportTab = () => {
           </Flex>
 
           <Text fontSize="12px" color="gray.600" mb={3}>
-            Column headers are matched case-sensitively against accepted names:
+            Headers such as "First Name", "Student Email", or "Course Title" are mapped automatically.
           </Text>
 
           <TableContainer mb={3}>
@@ -685,7 +860,7 @@ const ImportTab = () => {
         </Box>
       )}
 
-      <Button leftIcon={<FiUpload />} isLoading={submitting} loadingText="Uploading…" onClick={handleSubmit}>
+      <Button leftIcon={<FiUpload />} isLoading={submitting} loadingText="Uploading…" isDisabled={parsing || !!parseError || mappedRows.length === 0} onClick={handleSubmit}>
         Upload & Import
       </Button>
 
