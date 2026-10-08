@@ -680,7 +680,7 @@ const ImportTab = () => {
         ) : (
           <>
             <Text fontWeight="500" fontSize="14px" color="gray.600">Click to select CSV or Excel file</Text>
-          <Text fontSize="12px" color="gray.400">Supported extensions: .csv, .xlsx, .xls</Text>
+            <Text fontSize="12px" color="gray.400">Supported extensions: .csv, .xlsx, .xls</Text>
           </>
         )}
         {parsing && (
@@ -697,11 +697,9 @@ const ImportTab = () => {
         </Box>
       )}
 
-      {sourceHeaders.length > 0 && (
+      {/* {sourceHeaders.length > 0 && (
         <Box bg="white" border="1px solid #E2E8F0" borderRadius="8px" p="16px" mb={5}>
-          <Text fontSize="13px" fontWeight="600" color="#1A202C" mb={1}>
-            Detected {mappedRows.length} data row{mappedRows.length === 1 ? "" : "s"} · {sourceHeaders.length} column{sourceHeaders.length === 1 ? "" : "s"}
-          </Text>
+
           <Text fontSize="12px" color="gray.500" mb={3}>
             Columns are mapped automatically. Adjust any mismatch before importing.
           </Text>
@@ -757,7 +755,7 @@ const ImportTab = () => {
             <Text fontSize="11px" color="gray.400" mt={2}>Showing first 8 of {mappedRows.length} rows</Text>
           )}
         </Box>
-      )}
+      )} */}
 
       {/* Optional Department & Report Name */}
       <Grid templateColumns="1fr 1fr" gap={4} mb={4}>

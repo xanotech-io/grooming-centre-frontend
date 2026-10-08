@@ -4,7 +4,7 @@ import { InputGroup, InputLeftElement, Input } from "@chakra-ui/react";
 import { Route } from "react-router-dom";
 import { BsSearch } from "react-icons/bs";
 import { AiOutlineDown } from "react-icons/ai";
-import { Heading, Table, Breadcrumb, Link, Text, Button } from "../../../../components";
+import { Heading, Table, Breadcrumb, Link, Text, Button, ServerExportMenu } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import {
@@ -14,13 +14,6 @@ import {
 import { downloadBlob } from "../../../../utils";
 
 const PAGE_SIZE = 20;
-
-const getExportExtension = (mimeType = "") => {
-  if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return "xlsx";
-  if (mimeType.includes("pdf")) return "pdf";
-  if (mimeType.includes("csv")) return "csv";
-  return "xlsx";
-};
 
 const SortDropdown = ({ sortOrder, onSort }) => {
   const [open, setOpen] = useState(false);
@@ -225,13 +218,14 @@ const StudentProgressListingPage = () => {
 
   const totalPages = Math.ceil((filteredStudents.length || 0) / PAGE_SIZE);
 
-  const handleExport = async () => {
+  const handleExport = async (format) => {
     setExporting(true);
     try {
-      const params = {};
+      const params = { format, exportFormat: format };
       if (searchValue) params.search = searchValue;
       const blob = await adminExportStudentProgressListing(params);
-      downloadBlob(blob, `student-progress-report.${getExportExtension(blob.type)}`);
+      const ext = format === "excel" ? "xlsx" : format;
+      downloadBlob(blob, `student-progress-report.${ext}`);
     } catch (err) {
       console.error(err);
     } finally {
@@ -290,19 +284,11 @@ const StudentProgressListingPage = () => {
         </InputGroup>
 
         <SortDropdown sortOrder={sortOrder} onSort={handleSort} />
-        <Button
-          secondary
-          sm
-          backgroundColor="white"
-          color="accent.3"
-          border="1px solid"
-          borderColor="gray.300"
-          onClick={handleExport}
+        <ServerExportMenu
+          onExport={handleExport}
           isLoading={exporting}
           isDisabled={exporting}
-        >
-          Export
-        </Button>
+        />
       </Flex>
 
       <Box overflowX="auto" width="100%">
@@ -313,7 +299,7 @@ const StudentProgressListingPage = () => {
             SearchBarVisibility="none"
             rows={rows}
             setRows={setRows}
-            handleFetch={() => {}}
+            handleFetch={() => { }}
           />
         </Box>
       </Box>
