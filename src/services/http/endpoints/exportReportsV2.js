@@ -27,7 +27,12 @@ export const getExportReport = async (exportId) => {
 // ─── Import ───────────────────────────────────────────────────────────────────
 
 export const uploadDataImport = async (formData) => {
-  const { data } = await http.post(`${BASE}/import`, formData);
+  const { data } = await http.post(`${BASE}/import`, formData, {
+    // Leave Content-Type unset so axios adds the multipart boundary.
+    // A bare "multipart/form-data" header drops the boundary and the
+    // server stores the file without parsing rows/columns.
+    headers: { "Content-Type": undefined },
+  });
   return data;
 };
 

@@ -364,13 +364,21 @@ const toAggregateTableRow = (item, rowType) => {
 
 // ─── EntityCombobox ─────────────────────────────────────────────────────────
 
-function EntityCombobox({ fetchFn, value, onSelect, placeholder, isDisabled }) {
+function EntityCombobox({ fetchFn, value, onSelect, placeholder, isDisabled, resetKey }) {
   const [inputValue, setInputValue] = useState("");
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
   const debounceRef = useRef(null);
+
+  // When resetKey changes (e.g. parent course changed), immediately wipe
+  // cached options and input so stale data is never shown
+  useEffect(() => {
+    setOptions([]);
+    setInputValue("");
+    setIsOpen(false);
+  }, [resetKey]);
 
   const selectedOption = useMemo(() => options.find((o) => o.id === value) ?? null, [options, value]);
 
@@ -946,6 +954,20 @@ const AssessmentAnalyticsPage = () => {
         >
           Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
         </Button>
+        {activeFilterCount > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            colorScheme="red"
+            onClick={() => {
+              setFilters({ courseId: "", moduleId: "", examId: "", assessmentId: "", standaloneExamId: "", questionType: "", difficultyLevel: "", startDate: "", endDate: "" });
+              setSelectedType(null);
+              setPage(1);
+            }}
+          >
+            Clear Filters
+          </Button>
+        )}
       </Flex>
 
       {/* Filter panel */}
@@ -990,6 +1012,7 @@ const AssessmentAnalyticsPage = () => {
                     onSelect={(opt) => setFilters((p) => ({ ...p, moduleId: opt ? opt.id : "", assessmentId: "" }))}
                     placeholder={filters.courseId ? "Select module..." : "Select a course first"}
                     isDisabled={!filters.courseId}
+                    resetKey={filters.courseId}
                   />
                 </FormControl>
                 <FormControl>
@@ -1000,6 +1023,7 @@ const AssessmentAnalyticsPage = () => {
                     onSelect={(opt) => setFilters((p) => ({ ...p, assessmentId: opt ? opt.id : "" }))}
                     placeholder={filters.moduleId ? "Select assessment..." : "Select a module first"}
                     isDisabled={!filters.moduleId}
+                    resetKey={filters.moduleId}
                   />
                 </FormControl>
               </>
@@ -1024,6 +1048,7 @@ const AssessmentAnalyticsPage = () => {
                     onSelect={(opt) => setFilters((p) => ({ ...p, examId: opt ? opt.id : "" }))}
                     placeholder={filters.courseId ? "Select exam..." : "Select a course first"}
                     isDisabled={!filters.courseId}
+                    resetKey={filters.courseId}
                   />
                 </FormControl>
               </>
