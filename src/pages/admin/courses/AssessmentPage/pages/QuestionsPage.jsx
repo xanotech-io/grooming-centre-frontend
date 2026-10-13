@@ -4325,7 +4325,7 @@ const QuestionListingPage = ({
                 <Button link={buildAddLink(name)} size="sm" ghost>
                   + Add Question to this Section
                 </Button>
-                <Button
+                {/* <Button
                   link={buildBatchUploadLink({
                     courseId,
                     assessmentId,
@@ -4339,7 +4339,7 @@ const QuestionListingPage = ({
                   secondary
                 >
                   Upload & Batch Import to Section
-                </Button>
+                </Button> */}
               </Box>
             </Box>
           </Box>

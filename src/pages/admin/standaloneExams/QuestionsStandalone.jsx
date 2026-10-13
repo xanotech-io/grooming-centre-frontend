@@ -3184,7 +3184,7 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
                       >
                         + Add Question to this Section
                       </Button>
-                      <Button
+                      {/* <Button
                         link={buildBatchUploadLink({
                           examinationId: isExamination || undefined,
                           standalone: true,
@@ -3195,7 +3195,7 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
                         secondary
                       >
                         Upload & Batch Import to Section
-                      </Button>
+                      </Button> */}
                     </Box>
                   </Box>
                 </Box>

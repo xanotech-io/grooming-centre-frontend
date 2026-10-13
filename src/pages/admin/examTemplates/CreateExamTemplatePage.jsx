@@ -320,10 +320,11 @@ export const CreateExamTemplatePage = () => {
     );
   };
 
-  const totalMarks = selectedTypes.reduce(
-    (sum, t) => sum + Number(typeConfigs[t]?.marks || 0),
-    0,
-  );
+  const totalMarks = selectedTypes.reduce((sum, t) => {
+    const quantity = Number(typeConfigs[t]?.quantity || 0);
+    const marksPerQuestion = Number(typeConfigs[t]?.marks || 0);
+    return sum + quantity * marksPerQuestion;
+  }, 0);
 
   const totalQuestions = selectedTypes.reduce(
     (sum, t) => sum + Number(typeConfigs[t]?.quantity || 0),
@@ -364,21 +365,21 @@ export const CreateExamTemplatePage = () => {
 
     const questionTypeRulesPayload = questionTypeRulesEnabled
       ? questionTypeRules.map((r) => {
-          const base = { type: r.type };
-          if (isObjectiveRuleType(r.type)) {
-            base.marksPerQuestion = Number(r.marksPerQuestion) || 0;
-            base.negativeMarking = r.negativeMarking !== "" ? Number(r.negativeMarking) : 0;
-            base.partialCredit = Boolean(r.partialCredit);
-          } else {
-            base.totalMarks = Number(r.totalMarks) || 0;
-            base.rubric = r.rubric.map((c) => ({
-              criterion: c.criterion,
-              maxMarks: Number(c.maxMarks) || 0,
-              description: c.description || "",
-            }));
-          }
-          return base;
-        })
+        const base = { type: r.type };
+        if (isObjectiveRuleType(r.type)) {
+          base.marksPerQuestion = Number(r.marksPerQuestion) || 0;
+          base.negativeMarking = r.negativeMarking !== "" ? Number(r.negativeMarking) : 0;
+          base.partialCredit = Boolean(r.partialCredit);
+        } else {
+          base.totalMarks = Number(r.totalMarks) || 0;
+          base.rubric = r.rubric.map((c) => ({
+            criterion: c.criterion,
+            maxMarks: Number(c.maxMarks) || 0,
+            description: c.description || "",
+          }));
+        }
+        return base;
+      })
       : [];
 
     const body = {
@@ -425,262 +426,301 @@ export const CreateExamTemplatePage = () => {
           }
         />
       </Flex>
-    <Box paddingX={{ base: "20px", lg: "40px" }} paddingY="30px" bg="#FAFAFA" minHeight="100vh">
-      {/* Go Back */}
-      <Flex
-        alignItems="center"
-        cursor="pointer"
-        onClick={() => history.goBack()}
-        mb="24px"
-        width="max-content"
-      >
-        <Box border="1px solid #E2E8F0" borderRadius="4px" p="6px" mr="12px" bg="white">
-          <FaArrowLeft color="#1A202C" />
-        </Box>
-        <Text fontWeight="500" color="#1A202C">Go Back</Text>
-      </Flex>
-
-      <Heading as="h1" size="lg" color="#1A202C" mb="32px">
-        Create Marking Template
-      </Heading>
-
-      <Grid templateColumns={{ base: "1fr", lg: "2fr 1fr" }} gap="32px" alignItems="start">
-        {/* Left Column */}
-        <Box>
-          {/* Basic Info */}
-          <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
-            <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="20px">
-              Basic Information
-            </Text>
-            <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap="16px">
-              <Input
-                label="Template Name"
-                id="markingTemplateName"
-                placeholder="e.g. Midterm Marking Template"
-                value={markingTemplateName}
-                onChange={(e) => setMarkingTemplateName(e.target.value)}
-              />
-              <Box>
-                <Text fontSize="13px" fontWeight="500" color="#1A202C" mb="8px">
-                  Usage Scope
-                </Text>
-                <Select
-                  id="usageScope"
-                  placeholder="Select scope"
-                  value={usageScope}
-                  onChange={(e) => setUsageScope(e.target.value)}
-                  options={USAGE_SCOPE_OPTIONS}
-                />
-              </Box>
-            </Grid>
+      <Box paddingX={{ base: "20px", lg: "40px" }} paddingY="30px" bg="#FAFAFA" minHeight="100vh">
+        {/* Go Back */}
+        <Flex
+          alignItems="center"
+          cursor="pointer"
+          onClick={() => history.goBack()}
+          mb="24px"
+          width="max-content"
+        >
+          <Box border="1px solid #E2E8F0" borderRadius="4px" p="6px" mr="12px" bg="white">
+            <FaArrowLeft color="#1A202C" />
           </Box>
+          <Text fontWeight="500" color="#1A202C">Go Back</Text>
+        </Flex>
 
-          {/* Question Configuration */}
-          <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
-            <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="20px">
-              Question Configuration
-            </Text>
+        <Heading as="h1" size="lg" color="#1A202C" mb="32px">
+          Create Marking Template
+        </Heading>
 
-            <Text fontSize="13px" fontWeight="500" color="#1A202C" mb="12px">
-              Select Question Types
-            </Text>
-            <CheckboxGroup value={selectedTypes} onChange={handleTypeToggle}>
-              <Stack direction="row" wrap="wrap" spacing="16px" mb="24px">
-                {ALL_QUESTION_TYPES.map((type) => (
-                  <Checkbox
-                    key={type}
-                    value={type}
-                    colorScheme="purple"
-                    borderColor="#CBD5E0"
-                  >
-                    <Text fontSize="14px">{type}</Text>
-                  </Checkbox>
-                ))}
-              </Stack>
-            </CheckboxGroup>
+        <Grid templateColumns={{ base: "1fr", lg: "2fr 1fr" }} gap="32px" alignItems="start">
+          {/* Left Column */}
+          <Box>
+            {/* Basic Info */}
+            <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
+              <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="20px">
+                Basic Information
+              </Text>
+              <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap="16px">
+                <Input
+                  label="Template Name"
+                  id="markingTemplateName"
+                  placeholder="e.g. Midterm Marking Template"
+                  value={markingTemplateName}
+                  onChange={(e) => setMarkingTemplateName(e.target.value)}
+                />
+                <Box>
+                  <Text fontSize="13px" fontWeight="500" color="#1A202C" mb="8px">
+                    Usage Scope
+                  </Text>
+                  <Select
+                    id="usageScope"
+                    placeholder="Select scope"
+                    value={usageScope}
+                    onChange={(e) => setUsageScope(e.target.value)}
+                    options={USAGE_SCOPE_OPTIONS}
+                  />
+                </Box>
+              </Grid>
+            </Box>
 
-            {selectedTypes.length > 0 && (
-              <>
-                <Divider mb="20px" />
-                <Grid
-                  templateColumns="1.5fr 1fr 1fr 1fr"
-                  gap="12px"
-                  mb="10px"
-                >
-                  <Text fontSize="12px" fontWeight="600" color="#718096">TYPE</Text>
-                  <Text fontSize="12px" fontWeight="600" color="#718096">QUANTITY</Text>
-                  <Text fontSize="12px" fontWeight="600" color="#718096">MARKS (TOTAL)</Text>
-                  <Text fontSize="12px" fontWeight="600" color="#718096">DIFFICULTY</Text>
-                </Grid>
-                {selectedTypes.map((type) => (
+            {/* Question Configuration */}
+            <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
+              <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="20px">
+                Question Configuration
+              </Text>
+
+              <Text fontSize="13px" fontWeight="500" color="#1A202C" mb="12px">
+                Select Question Types
+              </Text>
+              <CheckboxGroup value={selectedTypes} onChange={handleTypeToggle}>
+                <Stack direction="row" wrap="wrap" spacing="16px" mb="24px">
+                  {ALL_QUESTION_TYPES.map((type) => (
+                    <Checkbox
+                      key={type}
+                      value={type}
+                      colorScheme="purple"
+                      borderColor="#CBD5E0"
+                    >
+                      <Text fontSize="14px">{type}</Text>
+                    </Checkbox>
+                  ))}
+                </Stack>
+              </CheckboxGroup>
+
+              {selectedTypes.length > 0 && (
+                <>
+                  <Divider mb="20px" />
                   <Grid
-                    key={type}
                     templateColumns="1.5fr 1fr 1fr 1fr"
                     gap="12px"
-                    mb="12px"
-                    alignItems="center"
+                    mb="10px"
                   >
-                    <Text
-                      fontSize="13px"
-                      fontWeight="600"
-                      color="#6b006b"
-                      bg="#FAF5FF"
-                      px="10px"
-                      py="6px"
-                      borderRadius="6px"
-                      display="inline-block"
-                    >
-                      {type}
-                    </Text>
-                    <NumberInput
-                      min={1}
-                      value={typeConfigs[type]?.quantity}
-                      onChange={(v) => handleTypeConfigChange(type, "quantity", Number(v))}
-                    >
-                      <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
-                      <NumberInputStepper>
-                        <NumberIncrementStepper />
-                        <NumberDecrementStepper />
-                      </NumberInputStepper>
-                    </NumberInput>
-                    <NumberInput
-                      min={0}
-                      value={typeConfigs[type]?.marks}
-                      onChange={(v) => handleTypeConfigChange(type, "marks", Number(v))}
-                    >
-                      <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
-                      <NumberInputStepper>
-                        <NumberIncrementStepper />
-                        <NumberDecrementStepper />
-                      </NumberInputStepper>
-                    </NumberInput>
-                    <Select
-                      id={`difficulty-${type}`}
-                      options={DIFFICULTY_OPTIONS}
-                      value={typeConfigs[type]?.difficulty}
-                      onChange={(e) => handleTypeConfigChange(type, "difficulty", e.target.value)}
-                    />
+                    <Text fontSize="12px" fontWeight="600" color="#718096">TYPE</Text>
+                    <Text fontSize="12px" fontWeight="600" color="#718096">QUANTITY</Text>
+                    <Text fontSize="12px" fontWeight="600" color="#718096">MARKS (PER QN)</Text>
+                    <Text fontSize="12px" fontWeight="600" color="#718096">DIFFICULTY</Text>
                   </Grid>
-                ))}
-              </>
-            )}
-          </Box>
-
-          {/* Question Type Rules */}
-          <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
-            <Flex justifyContent="space-between" alignItems="center" mb={questionTypeRulesEnabled ? "16px" : "0"}>
-              <Flex alignItems="center" gap="10px">
-                <Switch
-                  isChecked={questionTypeRulesEnabled}
-                  colorScheme="purple"
-                  onChange={(e) => setQuestionTypeRulesEnabled(e.target.checked)}
-                />
-                <Text fontSize="16px" fontWeight="600" color="#1A202C">Question Type Rules</Text>
-              </Flex>
-              {questionTypeRulesEnabled && (
-                <Button
-                  onClick={handleAddRule}
-                  type="button"
-                  style={{ backgroundColor: "#6b006b", color: "white" }}
-                >
-                  <Flex alignItems="center" gap="6px"><FaPlus size="11px" /> Add Rule</Flex>
-                </Button>
+                  {selectedTypes.map((type) => (
+                    <Grid
+                      key={type}
+                      templateColumns="1.5fr 1fr 1fr 1fr"
+                      gap="12px"
+                      mb="12px"
+                      alignItems="center"
+                    >
+                      <Text
+                        fontSize="13px"
+                        fontWeight="600"
+                        color="#6b006b"
+                        bg="#FAF5FF"
+                        px="10px"
+                        py="6px"
+                        borderRadius="6px"
+                        display="inline-block"
+                      >
+                        {type}
+                      </Text>
+                      <NumberInput
+                        min={1}
+                        value={typeConfigs[type]?.quantity}
+                        onChange={(v) => handleTypeConfigChange(type, "quantity", Number(v))}
+                      >
+                        <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                      <NumberInput
+                        min={0}
+                        value={typeConfigs[type]?.marks}
+                        onChange={(v) => handleTypeConfigChange(type, "marks", Number(v))}
+                      >
+                        <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                      <Select
+                        id={`difficulty-${type}`}
+                        options={DIFFICULTY_OPTIONS}
+                        value={typeConfigs[type]?.difficulty}
+                        onChange={(e) => handleTypeConfigChange(type, "difficulty", e.target.value)}
+                      />
+                    </Grid>
+                  ))}
+                </>
               )}
-            </Flex>
+            </Box>
 
-            {questionTypeRulesEnabled &&
-              questionTypeRules.map((rule, ruleIndex) => (
-                <QuestionRuleCard
-                  key={ruleIndex}
-                  rule={rule}
-                  ruleIndex={ruleIndex}
-                  onFieldChange={handleRuleFieldChange}
-                  onCriterionChange={handleCriterionChange}
-                  onAddCriterion={handleAddCriterion}
-                  onRemoveCriterion={handleRemoveCriterion}
-                  onRemoveRule={handleRemoveRule}
-                  showRemove={questionTypeRules.length > 1}
-                />
-              ))}
-          </Box>
-
-          {/* Knowledge Points */}
-          <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
-            <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="16px">
-              Knowledge Points
-            </Text>
-            <Flex gap="10px" mb="14px">
-              <Input
-                id="kpInput"
-                placeholder="e.g. Algebra"
-                value={kpInput}
-                onChange={(e) => setKpInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddKnowledgePoint()}
-              />
-              <Button
-                onClick={handleAddKnowledgePoint}
-                style={{ backgroundColor: "#6b006b", color: "white", whiteSpace: "nowrap" }}
-              >
-                <Flex alignItems="center" gap="6px">
-                  <FaPlus size="11px" /> Add
+            {/* Question Type Rules */}
+            <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
+              <Flex justifyContent="space-between" alignItems="center" mb={questionTypeRulesEnabled ? "16px" : "0"}>
+                <Flex alignItems="center" gap="10px">
+                  <Switch
+                    isChecked={questionTypeRulesEnabled}
+                    colorScheme="purple"
+                    onChange={(e) => setQuestionTypeRulesEnabled(e.target.checked)}
+                  />
+                  <Text fontSize="16px" fontWeight="600" color="#1A202C">Question Type Rules</Text>
                 </Flex>
-              </Button>
-            </Flex>
-            {knowledgePoints.length > 0 && (
-              <Wrap spacing="8px">
-                {knowledgePoints.map((point) => (
-                  <WrapItem key={point}>
-                    <Tag size="md" borderRadius="full" variant="solid" bg="#6b006b" color="white">
-                      <TagLabel>{point}</TagLabel>
-                      <TagCloseButton onClick={() => handleRemoveKnowledgePoint(point)} />
-                    </Tag>
-                  </WrapItem>
+                {questionTypeRulesEnabled && (
+                  <Button
+                    onClick={handleAddRule}
+                    type="button"
+                    style={{ backgroundColor: "#6b006b", color: "white" }}
+                  >
+                    <Flex alignItems="center" gap="6px"><FaPlus size="11px" /> Add Rule</Flex>
+                  </Button>
+                )}
+              </Flex>
+
+              {questionTypeRulesEnabled &&
+                questionTypeRules.map((rule, ruleIndex) => (
+                  <QuestionRuleCard
+                    key={ruleIndex}
+                    rule={rule}
+                    ruleIndex={ruleIndex}
+                    onFieldChange={handleRuleFieldChange}
+                    onCriterionChange={handleCriterionChange}
+                    onAddCriterion={handleAddCriterion}
+                    onRemoveCriterion={handleRemoveCriterion}
+                    onRemoveRule={handleRemoveRule}
+                    showRemove={questionTypeRules.length > 1}
+                  />
                 ))}
-              </Wrap>
-            )}
-          </Box>
+            </Box>
 
-          {/* Grading Scale */}
-          <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
-            <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="16px">
-              Grading Scale
-            </Text>
-            <Grid templateColumns="80px 1fr" gap="8px" mb="8px">
-              <Text fontSize="12px" fontWeight="600" color="#718096">Grade</Text>
-              <Text fontSize="12px" fontWeight="600" color="#718096">Range (e.g. 90-100)</Text>
-            </Grid>
-            {gradingScale.map((s, i) => (
-              <Grid key={i} templateColumns="80px 1fr" gap="8px" mb="8px">
+            {/* Knowledge Points */}
+            <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
+              <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="16px">
+                Knowledge Points
+              </Text>
+              <Flex gap="10px" mb="14px">
                 <Input
-                  value={s.grade}
-                  onChange={(e) => updateGradingScale(i, "grade", e.target.value)}
+                  id="kpInput"
+                  placeholder="e.g. Algebra"
+                  value={kpInput}
+                  onChange={(e) => setKpInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddKnowledgePoint()}
                 />
-                <Input
-                  value={s.range}
-                  onChange={(e) => updateGradingScale(i, "range", e.target.value)}
-                  placeholder="e.g. 90-100"
-                />
+                <Button
+                  onClick={handleAddKnowledgePoint}
+                  style={{ backgroundColor: "#6b006b", color: "white", whiteSpace: "nowrap" }}
+                >
+                  <Flex alignItems="center" gap="6px">
+                    <FaPlus size="11px" /> Add
+                  </Flex>
+                </Button>
+              </Flex>
+              {knowledgePoints.length > 0 && (
+                <Wrap spacing="8px">
+                  {knowledgePoints.map((point) => (
+                    <WrapItem key={point}>
+                      <Tag size="md" borderRadius="full" variant="solid" bg="#6b006b" color="white">
+                        <TagLabel>{point}</TagLabel>
+                        <TagCloseButton onClick={() => handleRemoveKnowledgePoint(point)} />
+                      </Tag>
+                    </WrapItem>
+                  ))}
+                </Wrap>
+              )}
+            </Box>
+
+            {/* Grading Scale */}
+            <Box bg="white" borderRadius="8px" p="28px" shadow="sm" mb="24px">
+              <Text fontSize="16px" fontWeight="600" color="#1A202C" mb="16px">
+                Grading Scale
+              </Text>
+              <Grid templateColumns="80px 1fr" gap="8px" mb="8px">
+                <Text fontSize="12px" fontWeight="600" color="#718096">Grade</Text>
+                <Text fontSize="12px" fontWeight="600" color="#718096">Range (e.g. 90-100)</Text>
               </Grid>
-            ))}
+              {gradingScale.map((s, i) => (
+                <Grid key={i} templateColumns="80px 1fr" gap="8px" mb="8px">
+                  <Input
+                    value={s.grade}
+                    onChange={(e) => updateGradingScale(i, "grade", e.target.value)}
+                  />
+                  <Input
+                    value={s.range}
+                    onChange={(e) => updateGradingScale(i, "range", e.target.value)}
+                    placeholder="e.g. 90-100"
+                  />
+                </Grid>
+              ))}
+            </Box>
           </Box>
-        </Box>
 
-        {/* Right Column */}
-        <Box position="sticky" top="30px">
-          {/* Retry Configuration */}
-          <Box bg="white" borderRadius="8px" p="24px" shadow="sm" mb="20px">
-            <Text fontSize="15px" fontWeight="600" color="#1A202C" mb="16px">
-              Retry Configuration
-            </Text>
-            <Divider mb="16px" />
-            <Box mb="16px">
+          {/* Right Column */}
+          <Box position="sticky" top="30px">
+            {/* Retry Configuration */}
+            <Box bg="white" borderRadius="8px" p="24px" shadow="sm" mb="20px">
+              <Text fontSize="15px" fontWeight="600" color="#1A202C" mb="16px">
+                Retry Configuration
+              </Text>
+              <Divider mb="16px" />
+              <Box mb="16px">
+                <Text fontSize="13px" fontWeight="500" color="#1A202C" mb="8px">
+                  Retry Count
+                </Text>
+                <NumberInput
+                  min={0}
+                  value={retryCount}
+                  onChange={(v) => setRetryCount(v)}
+                >
+                  <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper />
+                    <NumberDecrementStepper />
+                  </NumberInputStepper>
+                </NumberInput>
+                <Text fontSize="11px" color="#A0AEC0" mt="4px">0 = single attempt only</Text>
+              </Box>
+              <Box>
+                <Text fontSize="13px" fontWeight="500" color="#1A202C" mb="8px">
+                  Retry Policy
+                </Text>
+                <Select
+                  id="retryPolicy"
+                  value={retryPolicy}
+                  onChange={(e) => setRetryPolicy(e.target.value)}
+                  options={RETRY_POLICY_OPTIONS}
+                />
+                <Text fontSize="11px" color="#A0AEC0" mt="4px">
+                  How the final score is calculated across attempts
+                </Text>
+              </Box>
+            </Box>
+
+            {/* Pass/Fail Threshold */}
+            <Box bg="white" borderRadius="8px" p="24px" shadow="sm" mb="20px">
+              <Text fontSize="15px" fontWeight="600" color="#1A202C" mb="16px">
+                Pass/Fail Threshold
+              </Text>
+              <Divider mb="16px" />
               <Text fontSize="13px" fontWeight="500" color="#1A202C" mb="8px">
-                Retry Count
+                Pass Threshold (%)
               </Text>
               <NumberInput
                 min={0}
-                value={retryCount}
-                onChange={(v) => setRetryCount(v)}
+                max={100}
+                value={passThreshold}
+                onChange={(v) => setPassThreshold(v)}
               >
                 <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
                 <NumberInputStepper>
@@ -688,90 +728,51 @@ export const CreateExamTemplatePage = () => {
                   <NumberDecrementStepper />
                 </NumberInputStepper>
               </NumberInput>
-              <Text fontSize="11px" color="#A0AEC0" mt="4px">0 = single attempt only</Text>
-            </Box>
-            <Box>
-              <Text fontSize="13px" fontWeight="500" color="#1A202C" mb="8px">
-                Retry Policy
-              </Text>
-              <Select
-                id="retryPolicy"
-                value={retryPolicy}
-                onChange={(e) => setRetryPolicy(e.target.value)}
-                options={RETRY_POLICY_OPTIONS}
-              />
               <Text fontSize="11px" color="#A0AEC0" mt="4px">
-                How the final score is calculated across attempts
+                Scores at or above {passThreshold || 0}% pass; below that, they fail.
               </Text>
             </Box>
-          </Box>
 
-          {/* Pass/Fail Threshold */}
-          <Box bg="white" borderRadius="8px" p="24px" shadow="sm" mb="20px">
-            <Text fontSize="15px" fontWeight="600" color="#1A202C" mb="16px">
-              Pass/Fail Threshold
-            </Text>
-            <Divider mb="16px" />
-            <Text fontSize="13px" fontWeight="500" color="#1A202C" mb="8px">
-              Pass Threshold (%)
-            </Text>
-            <NumberInput
-              min={0}
-              max={100}
-              value={passThreshold}
-              onChange={(v) => setPassThreshold(v)}
+            {/* Summary */}
+            <Box bg="white" borderRadius="8px" p="24px" shadow="sm" mb="20px">
+              <Text fontSize="15px" fontWeight="600" color="#1A202C" mb="16px">
+                Summary
+              </Text>
+              <Divider mb="16px" />
+              <Flex justifyContent="space-between" mb="10px">
+                <Text fontSize="13px" color="#718096">Question Types</Text>
+                <Text fontSize="13px" fontWeight="600" color="#1A202C">{selectedTypes.length}</Text>
+              </Flex>
+              <Flex justifyContent="space-between" mb="10px">
+                <Text fontSize="13px" color="#718096">Total Questions</Text>
+                <Text fontSize="13px" fontWeight="600" color="#1A202C">{totalQuestions}</Text>
+              </Flex>
+              <Flex justifyContent="space-between" mb="10px">
+                <Text fontSize="13px" color="#718096">Total Marks</Text>
+                <Text fontSize="13px" fontWeight="700" color="#6b006b">{totalMarks}</Text>
+              </Flex>
+              <Flex justifyContent="space-between" mb="10px">
+                <Text fontSize="13px" color="#718096">Retry Count</Text>
+                <Text fontSize="13px" fontWeight="600" color="#1A202C">{retryCount}</Text>
+              </Flex>
+              <Flex justifyContent="space-between">
+                <Text fontSize="13px" color="#718096">Pass Threshold</Text>
+                <Text fontSize="13px" fontWeight="600" color="#1A202C">{passThreshold || 0}%</Text>
+              </Flex>
+            </Box>
+
+            <Button
+              w="100%"
+              h="50px"
+              style={{ backgroundColor: "#6b006b", color: "white" }}
+              isLoading={isSubmitting}
+              onClick={handleSubmit}
             >
-              <NumberInputField bg="#F4F5F7" border="none" borderRadius="8px" />
-              <NumberInputStepper>
-                <NumberIncrementStepper />
-                <NumberDecrementStepper />
-              </NumberInputStepper>
-            </NumberInput>
-            <Text fontSize="11px" color="#A0AEC0" mt="4px">
-              Scores at or above {passThreshold || 0}% pass; below that, they fail.
-            </Text>
+              Create Marking Template
+            </Button>
           </Box>
-
-          {/* Summary */}
-          <Box bg="white" borderRadius="8px" p="24px" shadow="sm" mb="20px">
-            <Text fontSize="15px" fontWeight="600" color="#1A202C" mb="16px">
-              Summary
-            </Text>
-            <Divider mb="16px" />
-            <Flex justifyContent="space-between" mb="10px">
-              <Text fontSize="13px" color="#718096">Question Types</Text>
-              <Text fontSize="13px" fontWeight="600" color="#1A202C">{selectedTypes.length}</Text>
-            </Flex>
-            <Flex justifyContent="space-between" mb="10px">
-              <Text fontSize="13px" color="#718096">Total Questions</Text>
-              <Text fontSize="13px" fontWeight="600" color="#1A202C">{totalQuestions}</Text>
-            </Flex>
-            <Flex justifyContent="space-between" mb="10px">
-              <Text fontSize="13px" color="#718096">Total Marks</Text>
-              <Text fontSize="13px" fontWeight="700" color="#6b006b">{totalMarks}</Text>
-            </Flex>
-            <Flex justifyContent="space-between" mb="10px">
-              <Text fontSize="13px" color="#718096">Retry Count</Text>
-              <Text fontSize="13px" fontWeight="600" color="#1A202C">{retryCount}</Text>
-            </Flex>
-            <Flex justifyContent="space-between">
-              <Text fontSize="13px" color="#718096">Pass Threshold</Text>
-              <Text fontSize="13px" fontWeight="600" color="#1A202C">{passThreshold || 0}%</Text>
-            </Flex>
-          </Box>
-
-          <Button
-            w="100%"
-            h="50px"
-            style={{ backgroundColor: "#6b006b", color: "white" }}
-            isLoading={isSubmitting}
-            onClick={handleSubmit}
-          >
-            Create Marking Template
-          </Button>
-        </Box>
-      </Grid>
-    </Box>
+        </Grid>
+      </Box>
     </AdminMainAreaWrapper>
   );
 };
