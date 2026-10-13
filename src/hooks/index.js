@@ -22,3 +22,4 @@ export * from './useIsSuperAdmin';
 export { default as useLiveProctoring } from './useLiveProctoring';
 export { default as useCompliancePush } from './useCompliancePush';
 export { default as useCourseAttendanceTracker } from './useCourseAttendanceTracker';
+export { default as useQuestionTimer } from './useQuestionTimer';

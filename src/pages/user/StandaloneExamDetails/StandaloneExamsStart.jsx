@@ -22,6 +22,7 @@ import { useToast } from "@chakra-ui/toast";
 import { capitalizeFirstLetter, getGeolocationString } from "../../../utils";
 import { submitSAExamAnswers, getSAExamResult } from "../../../services";
 import { useQueryParams, useLiveProctoring } from "../../../hooks";
+import useQuestionTimer from "../../../hooks/useQuestionTimer";
 const StandaloneExamsStart = () => {
   const {
     assessment,
@@ -42,6 +43,7 @@ const StandaloneExamsStart = () => {
     end,
   } = useStandalone();
   const toast = useToast();
+  const getQuestionTimeTaken = useQuestionTimer(currentQuestion?.id);
   const isExamination = useQueryParams().get("exam");
   const [grade, setGrade] = useState("");
   const [loading] = useState(false);
@@ -72,7 +74,7 @@ const StandaloneExamsStart = () => {
         ([questionId, answer]) => ({
           questionId,
           answer,
-          timeTaken: 0,
+          timeTaken: getQuestionTimeTaken(questionId),
         }),
       );
       const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
@@ -110,7 +112,7 @@ const StandaloneExamsStart = () => {
         status: "error",
       });
     }
-  }, [isExamination, selectedAnswers, toast]);
+  }, [isExamination, selectedAnswers, toast, getQuestionTimeTaken]);
 
   const { isBlocked: isProctoringBlocked } = useLiveProctoring({
     examId: isExamination,
