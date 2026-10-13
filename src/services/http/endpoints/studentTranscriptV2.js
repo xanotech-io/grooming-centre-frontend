@@ -61,3 +61,15 @@ export const generateTranscriptCourseCertificate = async (transcriptId, courseId
   const { data } = await http.post(`${BASE}/${transcriptId}/course/${courseId}/certificate/generate`, body);
   return data;
 };
+
+/**
+ * Download an issued transcript.
+ * GET /v1/student-transcript-v2/{transcriptId}/export?format=pdf|csv|excel
+ */
+export const exportTranscript = async (transcriptId, format = "pdf") => {
+  const response = await http.get(`${BASE}/${transcriptId}/export`, {
+    params: { format },
+    responseType: "blob",
+  });
+  return response.data;
+};

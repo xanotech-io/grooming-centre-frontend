@@ -1,20 +1,36 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Route } from "react-router-dom";
 import { Box, Flex, Grid, GridItem, Stack } from "@chakra-ui/layout";
-import { Badge, useToast } from "@chakra-ui/react";
+import { Badge, Spinner, useToast } from "@chakra-ui/react";
 import Icon from "@chakra-ui/icon";
 import {
+  FaFileAlt,
   FaStamp,
   FaCheckCircle,
   FaClock,
   FaGraduationCap,
   FaAward,
+  FaTimesCircle,
 } from "react-icons/fa";
-import { Button, Heading, Text, TranscriptCertificateModal } from "../../../components";
-import { studentRequestTranscript } from "../../../services";
+import { Button, Heading, ServerExportMenu, Text, TranscriptCertificateModal } from "../../../components";
+import { useApp } from "../../../contexts";
+import {
+  exportTranscript,
+  getStudentTranscripts,
+  getTranscript,
+  studentRequestTranscript,
+} from "../../../services";
+import { downloadBlob } from "../../../utils";
 import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
 
 const TYPES = [
+  {
+    value: "Unofficial",
+    label: "Unofficial Transcript",
+    icon: FaFileAlt,
+    description: "Issued immediately. Suitable for personal use or informal applications.",
+    badge: { label: "Issued instantly", color: "green" },
+  },
   {
     value: "Official",
     label: "Official Transcript",
@@ -23,6 +39,18 @@ const TYPES = [
     badge: { label: "Requires approval", color: "yellow" },
   },
 ];
+
+const STATUS_COLORS = {
+  "Pending Review": "yellow",
+  Issued: "green",
+  Returned: "red",
+  Draft: "gray",
+  Approved: "teal",
+};
+
+const EXPORT_EXTENSIONS = { pdf: "pdf", csv: "csv", excel: "xlsx" };
+
+const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : "—");
 
 const SummaryCard = ({ label, value }) => (
   <Box
@@ -45,16 +73,60 @@ const SummaryCard = ({ label, value }) => (
 
 const TranscriptRequestPage = () => {
   const toast = useToast();
-  const [selectedType, setSelectedType] = useState("Official");
+  const { state } = useApp();
+  const studentId = state?.user?.id;
+  const [selectedType, setSelectedType] = useState("Unofficial");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [certRecord, setCertRecord] = useState(null);
+  const [transcripts, setTranscripts] = useState([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [openingId, setOpeningId] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  const showError = (err, fallback) =>
+    toast({
+      description: err?.response?.data?.message || err?.message || fallback,
+      status: "error",
+      duration: 4000,
+      isClosable: true,
+      position: "top",
+    });
+
+  const fetchTranscripts = useCallback(async () => {
+    if (!studentId) return;
+    setListLoading(true);
+    try {
+      const res = await getStudentTranscripts(studentId);
+      const payload = res?.data ?? res;
+      const items = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload?.transcripts)
+            ? payload.transcripts
+            : [];
+      setTranscripts(
+        [...items].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      );
+    } catch (err) {
+      console.warn("[Transcript] failed to load student transcripts", err);
+      setTranscripts([]);
+    } finally {
+      setListLoading(false);
+    }
+  }, [studentId]);
+
+  useEffect(() => {
+    fetchTranscripts();
+  }, [fetchTranscripts]);
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
       const res = await studentRequestTranscript({ transcriptType: selectedType });
       setResult(res.data);
+      fetchTranscripts();
       toast({
         description: res.message || "Transcript request submitted successfully",
         status: "success",
@@ -63,26 +135,53 @@ const TranscriptRequestPage = () => {
         position: "top",
       });
     } catch (err) {
-      toast({
-        description: err?.response?.data?.message || err.message || "Unable to submit request",
-        status: "error",
-        duration: 4000,
-        isClosable: true,
-        position: "top",
-      });
+      showError(err, "Unable to submit request");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Always re-fetch so the student sees the admin's latest decision, not a stale snapshot.
+  const handleOpen = async (item) => {
+    setOpeningId(item.id);
+    try {
+      const res = await getTranscript(item.id);
+      const payload = res?.data ?? res;
+      setResult({
+        transcript: payload?.transcript || payload,
+        summary: payload?.summary ?? item.summary,
+      });
+    } catch (err) {
+      showError(err, "Unable to load transcript");
+    } finally {
+      setOpeningId(null);
+    }
+  };
+
+  const handleDownload = async (transcript, format) => {
+    setDownloadingId(transcript.id);
+    try {
+      const blob = await exportTranscript(transcript.id, format);
+      const type = (transcript.transcriptType || "transcript").toLowerCase();
+      downloadBlob(blob, `${type}-transcript-${transcript.id}.${EXPORT_EXTENSIONS[format] || format}`);
+    } catch (err) {
+      showError(err, "Unable to download transcript");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const handleReset = () => {
     setResult(null);
-    setSelectedType("Official");
+    setSelectedType("Unofficial");
+    fetchTranscripts();
   };
 
   if (result) {
     const { transcript, summary } = result;
     const isIssued = transcript.status === "Issued";
+    const isReturned = transcript.status === "Returned";
+    const tone = isIssued ? "green" : isReturned ? "red" : "blue";
 
     return (
       <Box px={{ base: 4, md: 10 }} py={8} {...maxWidthStyles_userPages}>
@@ -91,26 +190,28 @@ const TranscriptRequestPage = () => {
           <Flex
             align="center"
             gap={3}
-            bg={isIssued ? "green.50" : "blue.50"}
+            bg={`${tone}.50`}
             border="1px"
-            borderColor={isIssued ? "green.200" : "blue.200"}
+            borderColor={`${tone}.200`}
             borderRadius="md"
             p={5}
             mb={6}
           >
-            <Icon fontSize="28px" color={isIssued ? "green.500" : "blue.500"}>
-              {isIssued ? <FaCheckCircle /> : <FaClock />}
+            <Icon fontSize="28px" color={`${tone}.500`}>
+              {isIssued ? <FaCheckCircle /> : isReturned ? <FaTimesCircle /> : <FaClock />}
             </Icon>
-            <Box>
-              <Text bold color={isIssued ? "green.700" : "blue.700"} fontSize="text.level1">
+            <Box flex={1}>
+              <Text bold color={`${tone}.700`} fontSize="text.level1">
                 {isIssued
                   ? "Your transcript has been issued."
-                  : "Transcript request submitted — pending admin approval."}
+                  : isReturned
+                    ? "Your transcript request was returned by the admin."
+                    : "Transcript request submitted — pending admin approval."}
               </Text>
-              <Text as="level5" color={isIssued ? "green.600" : "blue.600"} mt={1}>
+              <Text as="level5" color={`${tone}.600`} mt={1}>
                 Type: {transcript.transcriptType} &nbsp;·&nbsp;
                 <Badge
-                  colorScheme={isIssued ? "green" : "yellow"}
+                  colorScheme={STATUS_COLORS[transcript.status] || "gray"}
                   borderRadius="full"
                   px={2}
                   fontSize="11px"
@@ -118,7 +219,19 @@ const TranscriptRequestPage = () => {
                   {transcript.status}
                 </Badge>
               </Text>
+              {transcript.reviewRemarks && (
+                <Text as="level5" color={`${tone}.700`} mt={2}>
+                  <strong>Remarks:</strong> {transcript.reviewRemarks}
+                </Text>
+              )}
             </Box>
+            {isIssued && (
+              <ServerExportMenu
+                label="Download"
+                onExport={(format) => handleDownload(transcript, format)}
+                isLoading={downloadingId === transcript.id}
+              />
+            )}
           </Flex>
 
           {/* Summary metrics */}
@@ -264,7 +377,7 @@ const TranscriptRequestPage = () => {
 
           <Flex justify="flex-end">
             <Button secondary onClick={handleReset}>
-              Request Another
+              Back to My Transcripts
             </Button>
           </Flex>
         </Box>
@@ -391,6 +504,62 @@ const TranscriptRequestPage = () => {
             Request {selectedType} Transcript
           </Button>
         </Flex>
+
+        {/* Previous requests */}
+        <Heading as="h3" fontSize="heading.h4" mt={12} mb={4}>
+          My Transcripts
+        </Heading>
+        <Box bg="white" border="1px" borderColor="gray.200" borderRadius="md" overflow="hidden">
+          {listLoading ? (
+            <Flex justify="center" py={10}>
+              <Spinner color="primary.base" />
+            </Flex>
+          ) : transcripts.length === 0 ? (
+            <Flex justify="center" py={10}>
+              <Text color="gray.400">You have not requested any transcripts yet.</Text>
+            </Flex>
+          ) : (
+            transcripts.map((t) => (
+              <Flex
+                key={t.id}
+                align={{ base: "flex-start", md: "center" }}
+                direction={{ base: "column", md: "row" }}
+                gap={3}
+                px={5}
+                py={4}
+                borderBottom="1px"
+                borderColor="gray.100"
+                _last={{ borderBottom: "none" }}
+              >
+                <Box flex={1}>
+                  <Flex align="center" gap={2}>
+                    <Text bold>{t.transcriptType} Transcript</Text>
+                    <Badge colorScheme={STATUS_COLORS[t.status] || "gray"} borderRadius="full" px={2} fontSize="11px">
+                      {t.status}
+                    </Badge>
+                  </Flex>
+                  <Text as="level5" color="gray.500" mt={1}>
+                    Requested {formatDate(t.createdAt)}
+                    {t.issuedAt ? ` · Issued ${formatDate(t.issuedAt)}` : ""}
+                  </Text>
+                </Box>
+                <Flex gap={2}>
+                  <Button xs secondary onClick={() => handleOpen(t)} isLoading={openingId === t.id}>
+                    View
+                  </Button>
+                  {t.status === "Issued" && (
+                    <ServerExportMenu
+                      label="Download"
+                      size="xs"
+                      onExport={(format) => handleDownload(t, format)}
+                      isLoading={downloadingId === t.id}
+                    />
+                  )}
+                </Flex>
+              </Flex>
+            ))
+          )}
+        </Box>
       </Box>
     </Box>
   );
