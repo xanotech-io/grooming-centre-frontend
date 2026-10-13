@@ -6,6 +6,7 @@ import { useCache } from "../../../../contexts";
 import { Text } from "../../../../components";
 import useQueryParams from "../../../../hooks/useQueryParams";
 import useLiveProctoring from "../../../../hooks/useLiveProctoring";
+import useQuestionTimer from "../../../../hooks/useQuestionTimer";
 import { submitAssessmentMarking } from "../../../../services";
 import { submitExamination } from "../../../../services/http/endpoints/examination";
 import { sortByIndexField, getGeolocationString } from "../../../../utils";
@@ -39,6 +40,7 @@ const useAssessment = () => {
   });
   const file = assessment?.questions.map((q) => q?.file);
   const [currentQuestion, setCurrentQuestion] = useState({});
+  const getQuestionTimeTaken = useQuestionTimer(currentQuestion?.id);
 
   const timerCountdownManger = useTimerCountdown({
     startDate: assessment.startTime,
@@ -105,7 +107,7 @@ const useAssessment = () => {
         const answers = assessment?.questions?.map((q) => ({
           questionId: q.id,
           answer: selectedAnswers[q.id] ?? "",
-          timeTaken: 0,
+          timeTaken: getQuestionTimeTaken(q.id),
         }));
         const body = {
           answers,

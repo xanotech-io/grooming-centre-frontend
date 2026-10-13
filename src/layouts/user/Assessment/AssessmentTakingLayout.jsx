@@ -4,7 +4,7 @@ import { Textarea } from "@chakra-ui/textarea";
 import { Input as ChakraInput } from "@chakra-ui/input";
 import { useDisclosure } from "@chakra-ui/hooks";
 import { useToast } from "@chakra-ui/toast";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import {
   Button,
@@ -21,6 +21,7 @@ import useTimerCountdown from "./hooks/useTimerCountdown";
 import { getEndTime, sortByIndexField, parseOptionIndex, getResultRemark } from "../../../utils";
 import { http } from "../../../services/http/http";
 import { submitAssessmentMarking, getStudentOwnResult } from "../../../services";
+import useQuestionTimer from "../../../hooks/useQuestionTimer";
 import { normalizeQuestionType } from "../../../pages/admin/examQuestionImport/questionRowUtils";
 
 const mapAssessment = (data) => {
@@ -139,6 +140,8 @@ const AssessmentTakingLayout = () => {
     : [...new Set(questions.map((q) => q.section).filter(Boolean))];
 
   const [currentQuestion, setCurrentQuestion] = useState(null);
+  const getQuestionTimeTaken = useQuestionTimer(currentQuestion?.id);
+  const startTimeRef = useRef(Date.now());
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [submitStatus, setSubmitStatus] = useState({ success: false, loading: false, error: null });
   const [submissionMeta, setSubmissionMeta] = useState({});
@@ -182,12 +185,12 @@ const AssessmentTakingLayout = () => {
       const answers = assessment.questions.map((q) => ({
         questionId: q.id,
         answer: selectedAnswers[q.id] ?? null,
-        timeTaken: 0,
+        timeTaken: getQuestionTimeTaken(q.id),
       }));
       const body = {
         answers,
         submissionTime: new Date().toISOString(),
-        timeTaken: 0,
+        timeTaken: Math.round((Date.now() - startTimeRef.current) / 1000),
       };
       const { message, data } = await submitAssessmentMarking(assessment.id, body);
       setSubmissionMeta({
