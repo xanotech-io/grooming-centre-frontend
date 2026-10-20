@@ -24,6 +24,7 @@ import {
   listenForForegroundMessages,
 } from '../services/pushNotifications';
 import useNotificationStore from '../store/notificationStore';
+import useCourseAttendanceTracker from '../hooks/useCourseAttendanceTracker';
 
 function App() {
   return (
@@ -109,6 +110,7 @@ export const useAppConfig = () => {
 
 function AppConfig() {
   useAppConfig();
+  useCourseAttendanceTracker();
 
   return (
     <Switch>

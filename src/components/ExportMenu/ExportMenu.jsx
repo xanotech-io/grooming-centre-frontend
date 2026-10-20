@@ -11,6 +11,7 @@ export const ExportMenu = ({
   isDisabled,
   label = "Export",
   size = "sm",
+  formats = ["csv", "pdf", "excel"],
 }) => {
   const disabled = isDisabled ?? (!rows || rows.length <= 1);
   const base = (filename || "export").replace(/\.(csv|pdf|xlsx?)$/i, "");
@@ -30,24 +31,30 @@ export const ExportMenu = ({
         {label}
       </MenuButton>
       <MenuList>
-        <MenuItem
-          icon={<FaFileCsv color="#D69E2E" />}
-          onClick={() => exportRowsToCsv(rows, `${base}.csv`)}
-        >
-          Export as CSV
-        </MenuItem>
-        <MenuItem
-          icon={<FaFilePdf color="#E53E3E" />}
-          onClick={() => exportRowsToPdf(rows, `${base}.pdf`, title)}
-        >
-          Export as PDF
-        </MenuItem>
-        <MenuItem
-          icon={<FaFileExcel color="#38A169" />}
-          onClick={() => exportRowsToExcel(rows, `${base}.xlsx`)}
-        >
-          Export as Excel
-        </MenuItem>
+        {formats.includes("csv") && (
+          <MenuItem
+            icon={<FaFileCsv color="#D69E2E" />}
+            onClick={() => exportRowsToCsv(rows, `${base}.csv`)}
+          >
+            Export as CSV
+          </MenuItem>
+        )}
+        {formats.includes("pdf") && (
+          <MenuItem
+            icon={<FaFilePdf color="#E53E3E" />}
+            onClick={() => exportRowsToPdf(rows, `${base}.pdf`, title)}
+          >
+            Export as PDF
+          </MenuItem>
+        )}
+        {formats.includes("excel") && (
+          <MenuItem
+            icon={<FaFileExcel color="#38A169" />}
+            onClick={() => exportRowsToExcel(rows, `${base}.xlsx`)}
+          >
+            Export as Excel
+          </MenuItem>
+        )}
       </MenuList>
     </Menu>
   );

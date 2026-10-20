@@ -1319,8 +1319,6 @@ const QuestionBankUsagePage = () => {
                   <Tr>
                     <Th minW="220px">Question</Th>
                     <Th>Type</Th>
-                    <Th>Section</Th>
-                    <Th>Course</Th>
                     <Th>Exam</Th>
                     <Th>Difficulty</Th>
                     <SortTh col="correctResponseRate" isNumeric>
@@ -1366,16 +1364,6 @@ const QuestionBankUsagePage = () => {
                         >
                           {qtypeLabel[q.questionType] ?? q.questionType}
                         </Badge>
-                      </Td>
-                      <Td>
-                        <Text noOfLines={1} maxW="120px" fontSize="sm">
-                          {q.section || "—"}
-                        </Text>
-                      </Td>
-                      <Td>
-                        <Text noOfLines={1} maxW="120px" fontSize="sm">
-                          {q.course || "—"}
-                        </Text>
                       </Td>
                       <Td>
                         <Text noOfLines={1} maxW="120px" fontSize="sm">
