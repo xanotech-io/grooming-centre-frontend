@@ -78,37 +78,106 @@ export const exportRowsToExcel = (rows, filename) => {
 export const exportRowsToPdf = (rows, filename, title) => {
   const doc = new jsPDF({ orientation: "landscape", unit: "pt" });
   const marginX = 24;
+  const marginTop = 40;
+  const marginBottom = 30;
+  const cellPadding = 4;
+  const fontSize = 8;
+  const lineHeight = fontSize * 1.25;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const colCount = rows[0]?.length || 1;
-  const colWidth = (pageWidth - marginX * 2) / colCount;
-  const rowHeight = 18;
-  const maxCharsPerCol = Math.max(6, Math.floor(colWidth / 5));
-  let y = 40;
+  const tableWidth = pageWidth - marginX * 2;
+  const [header = [], ...body] = rows;
+  const colCount = Math.max(1, ...rows.map((row) => row.length));
+  const toText = (cell) => String(cell ?? "");
 
+  // Size columns by their content so short numeric columns don't waste
+  // space that long name/email columns need. Each column is at least as wide
+  // as its longest header word (so headers wrap between words, not inside
+  // them); remaining space is shared out by cell length. Text that still
+  // doesn't fit wraps instead of being cut off.
+  doc.setFontSize(fontSize);
+  doc.setFont(undefined, "bold");
+  const minWidths = Array.from({ length: colCount }, (_, colIndex) =>
+    Math.max(
+      30,
+      ...toText(header[colIndex])
+        .split(/\s+/)
+        .map((w) => doc.getTextWidth(w)),
+    ) + cellPadding * 2,
+  );
+  doc.setFont(undefined, "normal");
+  const desired = minWidths.map((min, colIndex) => {
+    const longestCell = Math.max(
+      0,
+      ...body.map((row) => doc.getTextWidth(toText(row[colIndex]))),
+    );
+    return Math.max(min, Math.min(200, longestCell) + cellPadding * 2);
+  });
+  const minTotal = minWidths.reduce((a, b) => a + b, 0);
+  const desiredTotal = desired.reduce((a, b) => a + b, 0);
+  let colWidths;
+  if (desiredTotal <= tableWidth || minTotal >= tableWidth) {
+    // Everything fits (stretch to fill), or even the minimums don't (shrink)
+    colWidths = desired.map((w) => (w / desiredTotal) * tableWidth);
+  } else {
+    const spare = tableWidth - minTotal;
+    const extraTotal = desiredTotal - minTotal;
+    colWidths = minWidths.map(
+      (min, i) => min + ((desired[i] - min) / extraTotal) * spare,
+    );
+  }
+
+  const wrapRow = (row) =>
+    colWidths.map((width, colIndex) =>
+      doc.splitTextToSize(toText(row[colIndex]), width - cellPadding * 2),
+    );
+
+  let y = marginTop;
   if (title) {
     doc.setFontSize(14);
     doc.setFont(undefined, "bold");
     doc.text(title, marginX, y);
-    y += 24;
+    y += 20;
+    doc.setFontSize(fontSize);
   }
-  doc.setFontSize(9);
 
-  rows.forEach((row, rowIndex) => {
-    if (y > pageHeight - 30) {
-      doc.addPage();
-      y = 40;
+  const drawRow = (lines, isHeader) => {
+    const height =
+      Math.max(1, ...lines.map((l) => l.length)) * lineHeight + cellPadding * 2;
+    doc.setFont(undefined, isHeader ? "bold" : "normal");
+    if (isHeader) {
+      doc.setFillColor(237, 242, 247);
+      doc.rect(marginX, y, tableWidth, height, "F");
     }
-    doc.setFont(undefined, rowIndex === 0 ? "bold" : "normal");
-    row.forEach((cell, colIndex) => {
-      const text = String(cell ?? "");
-      const truncated =
-        text.length > maxCharsPerCol
-          ? `${text.slice(0, maxCharsPerCol - 1)}…`
-          : text;
-      doc.text(truncated, marginX + colIndex * colWidth, y);
+    let x = marginX;
+    lines.forEach((cellLines, colIndex) => {
+      doc.setDrawColor(203, 213, 224);
+      doc.rect(x, y, colWidths[colIndex], height);
+      doc.text(cellLines, x + cellPadding, y + cellPadding + fontSize);
+      x += colWidths[colIndex];
     });
-    y += rowHeight;
+    y += height;
+  };
+
+  const headerLines = wrapRow(header);
+  const headerHeight =
+    Math.max(1, ...headerLines.map((l) => l.length)) * lineHeight +
+    cellPadding * 2;
+  drawRow(headerLines, true);
+
+  body.forEach((row) => {
+    const lines = wrapRow(row);
+    const height =
+      Math.max(1, ...lines.map((l) => l.length)) * lineHeight + cellPadding * 2;
+    if (y + height > pageHeight - marginBottom) {
+      doc.addPage();
+      y = marginTop;
+      // Repeat the header so continuation pages stay readable
+      if (y + headerHeight + height <= pageHeight - marginBottom) {
+        drawRow(headerLines, true);
+      }
+    }
+    drawRow(lines, false);
   });
 
   doc.save(filename);
