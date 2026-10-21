@@ -118,13 +118,15 @@ const useAssessmentReviewResult = (assessmentId, isViewMode) => {
   return { result, isLoading };
 };
 
-const AssessmentTakingLayout = () => {
+const AssessmentTakingContent = ({ isRetake, onRetry }) => {
   const { course_id } = useParams();
   const { push } = useHistory();
   const toast = useToast();
 
   const { assessment, isLoading, error } = useAssessmentTaking();
-  const isViewMode = assessment?.hasCompleted ?? false;
+  // A retake starts a fresh attempt even though the assessment already has a
+  // submission on record, so it must not fall into read-only review mode.
+  const isViewMode = (assessment?.hasCompleted ?? false) && !isRetake;
   const { result: reviewResult, isLoading: isReviewResultLoading } = useAssessmentReviewResult(
     assessment?.id,
     isViewMode
@@ -147,14 +149,14 @@ const AssessmentTakingLayout = () => {
   const [submissionMeta, setSubmissionMeta] = useState({});
 
   useEffect(() => {
-    if (assessment?.hasCompleted && assessment?.submittedAnswers?.length > 0) {
+    if (isViewMode && assessment?.submittedAnswers?.length > 0) {
       const preloaded = assessment.submittedAnswers.reduce((acc, a) => {
         if (a.questionId && a.answer != null) acc[a.questionId] = a.answer;
         return acc;
       }, {});
       setSelectedAnswers(preloaded);
     }
-  }, [assessment?.hasCompleted, assessment?.submittedAnswers]);
+  }, [isViewMode, assessment?.submittedAnswers]);
 
   const [exitAttempts, setExitAttempts] = useState(0);
   const [nav, setNav] = useState(false);
@@ -235,7 +237,7 @@ const AssessmentTakingLayout = () => {
           attemptNumber={submissionMeta.attemptNumber}
           attemptsRemaining={submissionMeta.attemptsRemaining}
           canRetry={submissionMeta.canRetry}
-          onRetry={submissionMeta.canRetry ? () => window.location.reload() : undefined}
+          onRetry={submissionMeta.canRetry ? onRetry : undefined}
         />
       );
     }
@@ -404,6 +406,9 @@ const AssessmentTakingLayout = () => {
                 remark={getResultRemark(reviewResult)}
                 resultPending={reviewResult?.resultPending}
                 attemptNumber={reviewResult?.attemptNumber}
+                attemptsRemaining={reviewResult?.attemptsRemaining}
+                canRetry={reviewResult?.canRetry}
+                onRetry={reviewResult?.canRetry ? onRetry : undefined}
               />
             </Box>
           )}
@@ -833,6 +838,20 @@ const SubmitSuccessContent = ({
     </Flex>
   </Flex>
 );
+
+// Retrying remounts the assessment with a new key so every piece of per-attempt
+// state (answers, timer, exit counters, submit status) starts fresh, and the
+// assessment is refetched with the previous submission on record.
+const AssessmentTakingLayout = () => {
+  const [attemptKey, setAttemptKey] = useState(0);
+  return (
+    <AssessmentTakingContent
+      key={attemptKey}
+      isRetake={attemptKey > 0}
+      onRetry={() => setAttemptKey((k) => k + 1)}
+    />
+  );
+};
 
 export const AssessmentTakingLayoutRoute = ({ ...rest }) => (
   <Route {...rest} render={(props) => <AssessmentTakingLayout {...props} />} />

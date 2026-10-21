@@ -58,6 +58,7 @@ const mapExamination = (data) => {
     endTime: getEndTime(raw.startTime, raw.duration),
     hasCompleted: (raw.examinationScoreSheets?.length > 0) || (raw.submissions?.length > 0),
     submittedAnswers: raw.submissions?.[0]?.answers ?? [],
+    submissionCount: raw.submissions?.length ?? 0,
     passThreshold: raw.passThreshold ?? null,
     examType: raw.examType ?? null,
     sections: Array.isArray(raw.sections) ? raw.sections : [],
@@ -132,13 +133,15 @@ const useExaminationReviewResult = (examinationId, isViewMode) => {
   return { result, isLoading };
 };
 
-const ExaminationLayout = () => {
+const ExaminationContent = ({ isRetake, onRetry }) => {
   const { course_id } = useParams();
   const { push } = useHistory();
   const toast = useToast();
 
   const { examination, isLoading, error } = useExamination();
-  const isViewMode = examination?.hasCompleted ?? false;
+  // A retake starts a fresh attempt even though the examination already has a
+  // submission on record, so it must not fall into read-only review mode.
+  const isViewMode = (examination?.hasCompleted ?? false) && !isRetake;
   const { result: reviewResult, isLoading: isReviewResultLoading } = useExaminationReviewResult(
     examination?.id,
     isViewMode
@@ -159,14 +162,14 @@ const ExaminationLayout = () => {
   const [submissionMeta, setSubmissionMeta] = useState({});
 
   useEffect(() => {
-    if (examination?.hasCompleted && examination?.submittedAnswers?.length > 0) {
+    if (isViewMode && examination?.submittedAnswers?.length > 0) {
       const preloaded = examination.submittedAnswers.reduce((acc, a) => {
         if (a.questionId && a.answer != null) acc[a.questionId] = a.answer;
         return acc;
       }, {});
       setSelectedAnswers(preloaded);
     }
-  }, [examination?.hasCompleted, examination?.submittedAnswers]);
+  }, [isViewMode, examination?.submittedAnswers]);
 
   const startTimeRef = useRef(Date.now());
   const isSubmittingRef = useRef(false);
@@ -225,7 +228,12 @@ const ExaminationLayout = () => {
       try {
         const { data: { data: recheckData } } = await http.get(`/v1/examination/${course_id}`);
         const recheckExam = mapExamination(recheckData);
-        if (recheckExam?.hasCompleted) {
+        // On a retake the earlier attempt already counts as completed, so only a
+        // new submission on record proves this one went through.
+        const recorded = isRetake
+          ? recheckExam?.submissionCount > (examination.submissionCount ?? 0)
+          : recheckExam?.hasCompleted;
+        if (recorded) {
           toast({
             description: isAutoSubmit ? "Exam auto submitted" : "Examination submitted successfully",
             position: "top",
@@ -248,7 +256,7 @@ const ExaminationLayout = () => {
       isSubmittingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [examination, selectedAnswers, isViewMode, course_id]);
+  }, [examination, selectedAnswers, isViewMode, course_id, isRetake]);
 
   const { isBlocked: isProctoringBlocked } = useLiveProctoring({
     examId: examination?.id,
@@ -278,7 +286,7 @@ const ExaminationLayout = () => {
           attemptNumber={submissionMeta.attemptNumber}
           attemptsRemaining={submissionMeta.attemptsRemaining}
           canRetry={submissionMeta.canRetry}
-          onRetry={submissionMeta.canRetry ? () => window.location.reload() : undefined}
+          onRetry={submissionMeta.canRetry ? onRetry : undefined}
         />
       );
     }
@@ -470,6 +478,9 @@ const ExaminationLayout = () => {
                 remark={getResultRemark(reviewResult)}
                 resultPending={reviewResult?.resultPending}
                 attemptNumber={reviewResult?.attemptNumber}
+                attemptsRemaining={reviewResult?.attemptsRemaining}
+                canRetry={reviewResult?.canRetry}
+                onRetry={reviewResult?.canRetry ? onRetry : undefined}
               />
             </Box>
           )}
@@ -899,6 +910,20 @@ const SubmitSuccessContent = ({
     </Flex>
   </Flex>
 );
+
+// Retrying remounts the examination with a new key so every piece of per-attempt
+// state (answers, timer, exit counters, submit status) starts fresh, and the
+// examination is refetched with the previous submission on record.
+const ExaminationLayout = () => {
+  const [attemptKey, setAttemptKey] = useState(0);
+  return (
+    <ExaminationContent
+      key={attemptKey}
+      isRetake={attemptKey > 0}
+      onRetry={() => setAttemptKey((k) => k + 1)}
+    />
+  );
+};
 
 export const ExaminationLayoutRoute = ({ ...rest }) => (
   <Route {...rest} render={(props) => <ExaminationLayout {...props} />} />
