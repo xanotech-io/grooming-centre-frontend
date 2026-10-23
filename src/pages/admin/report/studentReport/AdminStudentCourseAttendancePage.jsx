@@ -10,6 +10,7 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import { DashboardMetricCard } from "../../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { getStudentCourseAttendanceV2 } from "../../../../services";
+import { formatLessonsVisited, getLessonsVisited } from "../../../../utils";
 
 const statusColorMap = {
   Present: "green",
@@ -183,11 +184,29 @@ const AdminStudentCourseAttendancePage = () => {
                   </Box>
                   <Box minW="160px">
                     <Text as="level5" color="gray.500">
-                      Lesson / Session
+                      Lessons Visited
                     </Text>
-                    <Text bold color="gray.800" fontSize="sm">
-                      {record.lessonTitle ?? record.lesson?.title ?? "—"}
-                    </Text>
+                    {getLessonsVisited(record).length > 0 ? (
+                      getLessonsVisited(record).map((lesson, i) => (
+                        <Text
+                          key={`${lesson.lessonId ?? i}-${lesson.visitedAt ?? i}`}
+                          bold
+                          color="gray.800"
+                          fontSize="sm"
+                        >
+                          {lesson.title ?? "—"}
+                          {lesson.visitedAt && (
+                            <Text as="span" color="gray.500" fontWeight="normal">
+                              {" "}· {dayjs(lesson.visitedAt).format("HH:mm")}
+                            </Text>
+                          )}
+                        </Text>
+                      ))
+                    ) : (
+                      <Text bold color="gray.800" fontSize="sm">
+                        {formatLessonsVisited(record)}
+                      </Text>
+                    )}
                   </Box>
                   <Box minW="100px">
                     <Text as="level5" color="gray.500">

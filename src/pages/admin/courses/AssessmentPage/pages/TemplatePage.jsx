@@ -24,7 +24,7 @@ import {
   computeQuantityTotals,
   seedQuantityCounts,
 } from "../../../examSectionBuilder/examTypeConfig";
-import { PAPER_CONFIG_DEFAULTS, RandomizationFieldsEditor, deriveRandomizationConfig, hydratePaperConfig, validatePresetSections } from "../../../examPaperConfigPresets/PresetFieldsEditor";
+import { PAPER_CONFIG_DEFAULTS, RandomizationFieldsEditor, deriveRandomizationConfig, hydratePaperConfig, toApiRandomizationMethod, validatePresetSections } from "../../../examPaperConfigPresets/PresetFieldsEditor";
 import { usePaperConfigPresets } from "../../../examPaperConfigPresets/usePaperConfigPresets";
 import { LoadPresetSelect, SaveAsPresetModal } from "../../../examPaperConfigPresets/PresetPickerControls";
 
@@ -329,6 +329,11 @@ const TemplatePage = () => {
       // hybrid exams and rejects the field if sent at creation/edit time.
       totalMarks: examType === "hybrid" ? undefined : Number(totalMarks),
       markingTemplateId: templateRequired ? markingTemplateId : undefined,
+      // Must be on the exam create body itself — the backend defaults it to
+      // "none" otherwise, regardless of the paper-config PUT.
+      ...(kind !== "Assessment" && {
+        randomizationMethod: toApiRandomizationMethod(paperConfig.randomizationMethod),
+      }),
       ...(examType && { examType: toExamTypeApiValue(examType) }),
       ...((examType === "hybrid" || examType === "without_sections") && {
         questionQuantity: seedQuantityCounts(quantityTypes, questionQuantities),

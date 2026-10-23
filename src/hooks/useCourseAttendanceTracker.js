@@ -1,61 +1,42 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../contexts";
-import {
-  recordStudentAttendance,
-  recordStudentAttendanceOnUnload,
-} from "../services";
+import { exitCourse, exitCourseOnUnload } from "../services";
 
 // Every student-facing course screen (lessons, assessments, exams, projects)
 // lives under `/courses/take/:course_id/...`.
 const COURSE_PATH_REGEX = /^\/courses\/take\/([^/]+)/;
 
-const pad = (n) => String(n).padStart(2, "0");
-const toDateString = (d) =>
-  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const toTimeString = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-
 /**
  * Course attendance = the time a student opens a course (entry) until they
- * leave it (exit). A session starts when the route enters
- * `/courses/take/:course_id` and ends when the student navigates out of that
- * course, switches to another course, logs out, or closes/refreshes the tab.
- * Moving between lessons/assessments of the same course keeps one session.
+ * leave it (exit). The backend opens the session itself when the course is
+ * accessed; this hook only tells it when the student leaves, via
+ * `POST /course/:courseId/exit` — the only thing that sets exitTime/duration.
+ * A session ends when the student navigates out of the course (another
+ * course, the dashboard, anywhere else), logs out, or closes/refreshes the
+ * tab. Moving between lessons/assessments of the same course keeps one session.
  */
 const useCourseAttendanceTracker = () => {
   const { pathname } = useLocation();
   const { state } = useApp();
   const userId = state?.user?.id;
 
-  const sessionRef = useRef(null);
+  const activeCourseRef = useRef(null);
 
   const courseId = userId ? pathname.match(COURSE_PATH_REGEX)?.[1] : null;
 
   useEffect(() => {
     const flush = (send) => {
-      const session = sessionRef.current;
-      sessionRef.current = null;
-      if (!session) return;
-
-      const exit = new Date();
-      send({
-        studentId: session.userId,
-        courseId: session.courseId,
-        sessionDate: toDateString(session.entry),
-        attendanceStatus: "Present",
-        deliveryMode: "Virtual",
-        entryTime: toTimeString(session.entry),
-        exitTime: toTimeString(exit),
-      });
+      const activeCourseId = activeCourseRef.current;
+      activeCourseRef.current = null;
+      if (activeCourseId) send(activeCourseId);
     };
 
     const start = () => {
-      if (courseId && !sessionRef.current) {
-        sessionRef.current = { userId, courseId, entry: new Date() };
-      }
+      if (courseId) activeCourseRef.current = courseId;
     };
 
-    const handlePageHide = () => flush(recordStudentAttendanceOnUnload);
+    const handlePageHide = () => flush(exitCourseOnUnload);
     // Page restored from the back/forward cache after a `pagehide` flush
     const handlePageShow = (e) => e.persisted && start();
 
@@ -67,7 +48,7 @@ const useCourseAttendanceTracker = () => {
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("pageshow", handlePageShow);
       // Left this course (or logged out) inside the SPA
-      flush((body) => recordStudentAttendance(body).catch(() => {}));
+      flush((id) => exitCourse(id).catch(() => {}));
     };
   }, [courseId, userId]);
 };

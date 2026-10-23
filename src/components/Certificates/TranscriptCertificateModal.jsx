@@ -129,9 +129,11 @@ const TranscriptCertificateModal = ({
       toast({ title: `${type} certificate generated`, status: "success", duration: 3000 });
       onGenerated?.(cert);
     } catch (err) {
+      // 422 carries the specific reason (e.g. "All assessments for this
+      // course must be submitted first", or progress below 100%).
       const msg =
         err?.response?.status === 422
-          ? err?.response?.data?.message || "Student hasn't reached 100% course progress yet"
+          ? err?.response?.data?.message || "Course requirements for this certificate aren't met yet"
           : err?.response?.data?.message || "Failed to generate certificate";
       toast({ title: msg, status: "error", duration: 4000 });
     } finally {

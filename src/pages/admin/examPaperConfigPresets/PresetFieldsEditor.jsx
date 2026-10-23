@@ -101,6 +101,16 @@ export const deriveRandomizationConfig = (method) => ({
   option_order: method === "options" || method === "both",
 });
 
+// The exam create/edit endpoints take `randomizationMethod` as
+// "full" | "partial" | "none" (they default to "none" when it's missing),
+// unlike the UI/preset values above. Which part is shuffled for "partial"
+// is carried by randomizationConfig.
+export const toApiRandomizationMethod = (method) => {
+  if (method === "both") return "full";
+  if (method === "questions" || method === "options") return "partial";
+  return "none";
+};
+
 const sectionFromWire = (s) => ({
   section_name: s.section_name || s.name || "",
   questions_count: s.questionCount ?? s.questions_count ?? "",

@@ -38,6 +38,7 @@ import { Tag } from "@chakra-ui/tag";
 import { FiFilter, FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { useTableRows } from "../../../../hooks";
 import dayjs from "dayjs";
+import { formatLessonsVisited } from "../../../../utils";
 
 const statusColorMap = {
   Present: "green",
@@ -57,7 +58,7 @@ const mapRecordToRow = (record) => ({
     title: record.courseTitle ?? record.course?.title ?? "—",
     courseId: record.courseId ?? record.course?.id ?? record.course?._id ?? null,
   },
-  lessonTitle: record.lessonTitle ?? record.lesson?.title ?? "—",
+  lessonTitle: formatLessonsVisited(record),
   sessionDate: record.sessionDate ?? "—",
   attendanceStatus: record.attendanceStatus ?? record.status ?? "—",
   entryTime: record.entryTime ?? "—",
@@ -499,7 +500,7 @@ const AttendanceReport = () => {
       {
         id: "lessonTitle",
         key: "lessonTitle",
-        text: "Lesson / Session",
+        text: "Lessons Visited",
         fraction: "180px",
       },
       {

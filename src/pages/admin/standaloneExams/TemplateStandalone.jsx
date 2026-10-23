@@ -23,7 +23,7 @@ import { Button, Input, Select } from "../../../components";
 import { useQueryParams, useGoBack } from "../../../hooks";
 import { adminGetMarkingTemplates } from "../../../services";
 import useAssessmentStore from "../../../store/assessmentStore";
-import { PAPER_CONFIG_DEFAULTS, RandomizationFieldsEditor, deriveRandomizationConfig, validatePresetSections } from "../examPaperConfigPresets/PresetFieldsEditor";
+import { PAPER_CONFIG_DEFAULTS, RandomizationFieldsEditor, deriveRandomizationConfig, toApiRandomizationMethod, validatePresetSections } from "../examPaperConfigPresets/PresetFieldsEditor";
 import { usePaperConfigPresets } from "../examPaperConfigPresets/usePaperConfigPresets";
 import { LoadPresetSelect, SaveAsPresetModal } from "../examPaperConfigPresets/PresetPickerControls";
 
@@ -500,6 +500,9 @@ const TemplateStandalone = () => {
                         // backend falls back to the preset's own values for
                         // anything the create body doesn't explicitly set.
                         paperConfigPresetId: paperConfigPresetId || undefined,
+                        // Must be on the create body itself — the backend
+                        // defaults it to "none" otherwise.
+                        randomizationMethod: toApiRandomizationMethod(paperConfig.randomizationMethod),
                         // Confirmed against a real backend test: a sectioned
                         // exam takes its sections directly on the create body
                         // as `sections: [{ section_name, weightage,

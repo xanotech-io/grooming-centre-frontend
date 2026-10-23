@@ -211,12 +211,6 @@ const MOCK_LOGS = [
   },
 ];
 
-const MOCK_DETAIL = {
-  ...MOCK_EXAMS[0],
-  course: { id: "course-001", title: "Microfinance Principles" },
-  irregularityLogs: MOCK_LOGS,
-};
-
 const MOCK_CHART_DATA = {
   randomizationEffectivenessDistribution: [
     { bucket: "0–20%", count: 2 },
@@ -236,6 +230,10 @@ const MOCK_CHART_DATA = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmt = (d) => (d ? dayjs(d).format("MMM D, YYYY, h:mm A") : "—");
+
+// API returns a flat courseTitle/courseId; mock data uses a nested course object
+const courseTitleOf = (exam) => exam?.courseTitle ?? exam?.course?.title;
+const courseIdOf = (exam) => exam?.courseId ?? exam?.course?.id;
 
 const maskIp = (ip) => {
   if (!ip) return "—";
@@ -530,11 +528,13 @@ const ExamDetailDrawer = ({ examId, isOpen, onClose }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !examId) return;
     setData(null);
     setNotFound(false);
+    setLoadError(false);
     setLoading(true);
     getExamIntegrityDetail(examId)
       .then((res) => setData(res?.data ?? res))
@@ -542,15 +542,7 @@ const ExamDetailDrawer = ({ examId, isOpen, onClose }) => {
         if (err?.response?.status === 404) {
           setNotFound(true);
         } else {
-          // TODO: endpoint GET /v1/exam-integrity-v2/exams/{id} not yet live — using mock
-          console.warn(
-            "[ExamIntegrity] /exams/:id failed, falling back to mock data",
-          );
-          setData(
-            MOCK_DETAIL.examId === examId
-              ? MOCK_DETAIL
-              : { ...MOCK_DETAIL, examId },
-          );
+          setLoadError(true);
         }
       })
       .finally(() => setLoading(false));
@@ -598,13 +590,32 @@ const ExamDetailDrawer = ({ examId, isOpen, onClose }) => {
             </Box>
           )}
 
+          {!loading && loadError && (
+            <Box textAlign="center" py={10}>
+              <Text fontSize="lg" fontWeight="semibold" mb={2}>
+                Unable to load exam details
+              </Text>
+              <Text color="gray.500" mb={4}>
+                Something went wrong. Please try again.
+              </Text>
+              <Button onClick={onClose}>Back to List</Button>
+            </Box>
+          )}
+
           {!loading && d && (
             <>
-              {d.course && (
-                <Text color="gray.500" mb={4} fontSize="sm">
-                  {d.course.title}
-                </Text>
-              )}
+              <Flex align="center" gap={2} mb={4}>
+                {d.examType && (
+                  <Badge colorScheme={d.examType === "standalone" ? "purple" : "cyan"}>
+                    {examTypeLabel[d.examType] ?? d.examType}
+                  </Badge>
+                )}
+                {courseTitleOf(d) && (
+                  <Text color="gray.500" fontSize="sm">
+                    {courseTitleOf(d)}
+                  </Text>
+                )}
+              </Flex>
 
               {/* KPI block */}
               <SimpleGrid columns={2} spacing={4} mb={6}>
@@ -779,7 +790,7 @@ const FlaggedExamsPanel = ({ exams, loading }) => {
                 <FiAlertTriangle color="#C53030" />
                 <Box>
                   <Text fontWeight="semibold">{exam.examTitle}</Text>
-                  <Text fontSize="xs" color="gray.500">{exam.course?.title ?? "—"}</Text>
+                  <Text fontSize="xs" color="gray.500">{courseTitleOf(exam) ?? "—"}</Text>
                 </Box>
               </Flex>
               <Badge colorScheme="red" borderRadius="full" px={3}>
@@ -1033,11 +1044,11 @@ const ExamIntegrityPage = () => {
           "[ExamIntegrity] /exams failed, falling back to mock data",
         );
         const filtered = MOCK_EXAMS.filter((exam) => {
-          if (cId && String(exam.course?.id) !== String(cId)) return false;
+          if (cId && String(courseIdOf(exam)) !== String(cId)) return false;
           if (eType && exam.examType !== eType) return false;
           if (rType && exam.randomizationMethod !== rType) return false;
           if (s && !exam.examTitle.toLowerCase().includes(s.toLowerCase())) return false;
-          if (cSearch && !exam.course?.title?.toLowerCase().includes(cSearch.toLowerCase())) return false;
+          if (cSearch && !courseTitleOf(exam)?.toLowerCase().includes(cSearch.toLowerCase())) return false;
           return true;
         });
         setExams(filtered);
@@ -1292,7 +1303,7 @@ const ExamIntegrityPage = () => {
                         </Td>
                         <Td>
                           <Text fontSize="sm" color="gray.700" noOfLines={1}>
-                            {exam.course?.title ?? "—"}
+                            {courseTitleOf(exam) ?? "—"}
                           </Text>
                         </Td>
                         <Td>
