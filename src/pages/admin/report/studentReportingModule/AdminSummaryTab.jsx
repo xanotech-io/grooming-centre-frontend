@@ -15,6 +15,9 @@ import {
   Td,
   Spinner,
   useToast,
+  Input,
+  InputGroup,
+  InputLeftElement,
   Badge,
   Accordion,
   AccordionItem,
@@ -22,6 +25,7 @@ import {
   AccordionPanel,
   AccordionIcon,
 } from "@chakra-ui/react";
+import { FiSearch } from "react-icons/fi";
 import { Text } from "../../../../components";
 import {
   pm2GetSummary,
@@ -49,19 +53,19 @@ const AdminSummaryTab = () => {
   const [atRisk, setAtRisk] = useState(null);
   const [guide, setGuide] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [courseSearch, setCourseSearch] = useState("");
+  const [coursesLoading, setCoursesLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [summaryRes, courseRes, atRiskRes, guideRes] = await Promise.all([
+        const [summaryRes, atRiskRes, guideRes] = await Promise.all([
           pm2GetSummary(),
-          pm2GetCourseSummary(),
           pm2GetAtRiskStudents({ limit: 10 }),
           pm2GetScoringGuide(),
         ]);
         setSummary(summaryRes?.summary ?? null);
-        setCourses(courseRes?.courses ?? []);
         setAtRisk(atRiskRes?.result ?? null);
         setGuide(guideRes?.guide ?? null);
       } catch (err) {
@@ -72,6 +76,24 @@ const AdminSummaryTab = () => {
     };
     load();
   }, [toast]);
+
+  // debounced so each keystroke doesn't fire a request; `ignore` drops stale responses
+  useEffect(() => {
+    let ignore = false;
+    const term = courseSearch.trim();
+    const timer = setTimeout(async () => {
+      setCoursesLoading(true);
+      try {
+        const res = await pm2GetCourseSummary(term ? { search: term } : {});
+        if (!ignore) setCourses(res?.courses ?? []);
+      } catch (err) {
+        if (!ignore) toast({ status: "error", description: err.message || "Failed to load course summary", duration: 3000, isClosable: true });
+      } finally {
+        if (!ignore) setCoursesLoading(false);
+      }
+    }, term ? 400 : 0);
+    return () => { ignore = true; clearTimeout(timer); };
+  }, [courseSearch, toast]);
 
   const kpis = summary?.kpis ?? {};
   const trend = summary?.participation_trend ?? [];
@@ -250,9 +272,20 @@ const AdminSummaryTab = () => {
           )}
 
           {/* Course Participation Summary */}
-          {courses.length > 0 && (
+          {(courses.length > 0 || courseSearch) && (
             <Box mb={6}>
-              <Text fontWeight="600" fontSize="sm" mb={3} color="#344054">Course Participation Summary</Text>
+              <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={3} mb={3}>
+                <Text fontWeight="600" fontSize="sm" color="#344054">Course Participation Summary</Text>
+                <InputGroup size="sm" w={{ base: "100%", md: "260px" }}>
+                  <InputLeftElement pointerEvents="none"><FiSearch color="#98A2B3" /></InputLeftElement>
+                  <Input
+                    borderRadius="md"
+                    placeholder="Search course title"
+                    value={courseSearch}
+                    onChange={(e) => setCourseSearch(e.target.value)}
+                  />
+                </InputGroup>
+              </Box>
               <Box overflowX="auto" borderRadius="lg" border="1px solid" borderColor="gray.200" bg="white">
                 <ChakraTable size="sm" variant="simple">
                   <Thead bg="gray.50">
@@ -270,7 +303,11 @@ const AdminSummaryTab = () => {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {courses.map((c) => (
+                    {coursesLoading ? (
+                      <Tr><Td colSpan={10} textAlign="center" py={6}><Spinner size="sm" color="#660066" /></Td></Tr>
+                    ) : courses.length === 0 ? (
+                      <Tr><Td colSpan={10} textAlign="center" py={6} fontSize="13px" color="gray.500">No courses match your search.</Td></Tr>
+                    ) : courses.map((c) => (
                       <Tr key={c.course_id}>
                         <Td fontSize="13px" fontWeight="600" color="#101828" maxW="200px">
                           <Box isTruncated>{c.course_title}</Box>

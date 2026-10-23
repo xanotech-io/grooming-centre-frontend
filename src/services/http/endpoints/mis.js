@@ -26,6 +26,14 @@ export const adminGenerateMISReport = async (body) => {
   return { report: data, message };
 };
 
+// format is optional — backend defaults to the report's generated format
+export const adminExportMISReport = async (reportId, exportFormat) => {
+  const { data: { data } } = await http.get(`/v1/mis-report-v2/${reportId}/export`, {
+    params: exportFormat ? { export_format: exportFormat } : {},
+  });
+  return { downloadUrl: data?.downloadUrl };
+};
+
 export const adminDeleteMISReport = async (reportId) => {
   const { data: { message } } = await http.delete(`/v1/mis-report-v2/${reportId}`);
   return { message };
