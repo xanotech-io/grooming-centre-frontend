@@ -36,7 +36,9 @@ const useCertificateDetails = () => {
 
       if (componentIsMount.current) setCertificateDetails({ data: certificateDetails });
     } catch (err) {
-      if (componentIsMount.current) setCertificateDetails({ err: err.message });
+      // e.g. 422 "All assessments for this course must be submitted first"
+      if (componentIsMount.current)
+        setCertificateDetails({ err: err?.response?.data?.message || err.message });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [course_id, componentIsMount]);

@@ -57,16 +57,18 @@ export const adminGetCourseRoster = async (courseId, params = {}) => {
       summary: {
         totalStudents,
         enrolled: activeEnrollmentCount || null,
-        pending: students.filter((s) => s.enrollmentStatus === "Pending").length || null,
+        pending:
+          overview.pending_count ??
+          (students.filter((s) => s.enrollmentStatus === "Pending").length || null),
         completed: completedCount || null,
         averageProgress: progressValues.length
           ? progressValues.reduce((a, b) => a + b, 0) / progressValues.length
           : null,
         activeEnrollmentCount,
+        // completed ÷ total enrolled, already expressed as a percentage
         enrollmentToCompletionRatio:
-          overview.active_to_completion_ratio ??
           overview.enrollment_to_completion_ratio ??
-          (totalStudents ? completedCount / totalStudents : null),
+          (totalStudents ? (completedCount / totalStudents) * 100 : null),
         averageAttendanceRate:
           overview.average_attendance_rate ??
           (attendanceValues.length

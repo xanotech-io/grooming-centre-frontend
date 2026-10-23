@@ -19,7 +19,7 @@ const RosterStats = ({ summary }) => {
     { label: "Pending",                     value: summary.pending,        color: "#D69E2E", bg: "#FFFFFF" },
     { label: "Completed",                   value: summary.completed,      color: "#6B46C1", bg: "#FFFFFF" },
     { label: "Avg. Progress",               value: summary.averageProgress != null ? `${Math.round(summary.averageProgress)}%` : "—", color: "#234E52", bg: "#FFFFFF" },
-    { label: "Enrollment-to-Completion",    value: summary.enrollmentToCompletionRatio != null ? `${Math.round(summary.enrollmentToCompletionRatio * 100)}%` : "—", color: "#B83280", bg: "#FFFFFF" },
+    { label: "Enrollment-to-Completion",    value: summary.enrollmentToCompletionRatio != null ? `${Math.round(summary.enrollmentToCompletionRatio)}%` : "—", color: "#B83280", bg: "#FFFFFF" },
     { label: "Avg. Attendance Rate",        value: summary.averageAttendanceRate != null ? `${Math.round(summary.averageAttendanceRate)}%` : "—", color: "#2C5282", bg: "#FFFFFF" },
   ];
 

@@ -21,3 +21,8 @@ export const getQuestionBankChartData = async (params) => {
   const { data } = await http.get(`${BASE}/chart-data`, { params });
   return data;
 };
+
+export const getQuestionBankUsages = async (questionId) => {
+  const { data } = await http.get(`${BASE}/questions/${questionId}/usages`);
+  return data;
+};
