@@ -31,18 +31,18 @@ const AuditLogsTable = ({
       <Input
         size="sm"
         borderRadius="md"
-        w="130px"
-        placeholder="User ID"
-        value={filters.userId ?? ''}
-        onChange={(e) => onFilterChange('userId', e.target.value)}
+        w="180px"
+        placeholder="Search user name"
+        value={filters.userSearch ?? ''}
+        onChange={(e) => onFilterChange('userSearch', e.target.value)}
       />
       <Input
         size="sm"
         borderRadius="md"
-        w="130px"
-        placeholder="Course ID"
-        value={filters.courseId ?? ''}
-        onChange={(e) => onFilterChange('courseId', e.target.value)}
+        w="180px"
+        placeholder="Search course title"
+        value={filters.courseSearch ?? ''}
+        onChange={(e) => onFilterChange('courseSearch', e.target.value)}
       />
       <Select
         size="sm"
