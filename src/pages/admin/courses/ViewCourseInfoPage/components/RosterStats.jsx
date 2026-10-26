@@ -15,7 +15,6 @@ const StatCard = ({ label, value, color, bg }) => (
 const RosterStats = ({ summary }) => {
   const cards = [
     { label: "Total Students",              value: summary.totalStudents,  color: "#3182CE", bg: "#FFFFFF" },
-    { label: "Active Enrollment Count",     value: summary.activeEnrollmentCount ?? summary.enrolled, color: "#38A169", bg: "#FFFFFF" },
     { label: "Pending",                     value: summary.pending,        color: "#D69E2E", bg: "#FFFFFF" },
     { label: "Completed",                   value: summary.completed,      color: "#6B46C1", bg: "#FFFFFF" },
     { label: "Avg. Progress",               value: summary.averageProgress != null ? `${Math.round(summary.averageProgress)}%` : "—", color: "#234E52", bg: "#FFFFFF" },
