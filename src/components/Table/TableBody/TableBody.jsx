@@ -200,7 +200,7 @@ const ActionIconButton = ({
                 onClick={opt.onClick ? () => opt.onClick(row) : undefined}
                 {...opt.props}
               >
-                {opt.text}
+                {typeof opt.text === 'function' ? opt.text(row) : opt.text}
               </MenuItem>
             )
           )}

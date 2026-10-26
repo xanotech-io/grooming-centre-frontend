@@ -139,3 +139,37 @@ export const adminResetUserPassword = async (userId, currentPassword) => {
 
   return { userId: data.userId, newPassword: data.newPassword };
 };
+
+/**
+ * Endpoint for a super admin to deactivate a user account.
+ * A deactivated user is blocked at login server-side.
+ * @param {string} userId - target user's id
+ * @param {string} [reason] - optional audit note
+ *
+ * @returns {Promise<{ userId: string, active: boolean }>}
+ */
+export const adminDeactivateUser = async (userId, reason) => {
+  const path = `/v1/admin/users/${userId}/deactivate`;
+
+  const { data: body } = await http.patch(path, reason ? { reason } : undefined);
+  // Spec documents `{ userId, active }`; accept it bare or inside the usual `data` envelope
+  const result = body?.data ?? body;
+
+  return { userId: result.userId, active: result.active };
+};
+
+/**
+ * Endpoint for a super admin to reactivate a deactivated user account.
+ * @param {string} userId - target user's id
+ *
+ * @returns {Promise<{ userId: string, active: boolean }>}
+ */
+export const adminActivateUser = async (userId) => {
+  const path = `/v1/admin/users/${userId}/activate`;
+
+  const { data: body } = await http.patch(path);
+  // Spec documents `{ userId, active }`; accept it bare or inside the usual `data` envelope
+  const result = body?.data ?? body;
+
+  return { userId: result.userId, active: result.active };
+};
