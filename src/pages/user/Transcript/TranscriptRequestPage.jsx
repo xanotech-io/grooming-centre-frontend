@@ -22,6 +22,7 @@ import {
   studentRequestTranscript,
 } from "../../../services";
 import { downloadBlob } from "../../../utils";
+import { buildTranscriptPdf } from "../../../utils/transcriptPdf";
 import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
 
 const TYPES = [
@@ -163,10 +164,35 @@ const TranscriptRequestPage = () => {
     }
   };
 
-  const handleDownload = async (transcript, format) => {
+  // PDF is built client-side so the header details render as rows; CSV/Excel still come from the server.
+  const buildPdf = async (transcript) => {
+    let full = transcript;
+    let summary = transcript.summary;
+    if (!Array.isArray(transcript.courseRecords)) {
+      const res = await getTranscript(transcript.id);
+      const payload = res?.data ?? res;
+      full = payload?.transcript || payload;
+      summary = payload?.summary ?? summary;
+    }
+    const user = state?.user;
+    const student = full.student || user;
+    return buildTranscriptPdf({
+      transcript: full,
+      summary: summary ?? full.summary,
+      student: {
+        name: [student?.firstName, student?.lastName].filter(Boolean).join(" ") || student?.name,
+        email: student?.email,
+      },
+    });
+  };
+
+  const handleDownload = async (transcript, format, summary) => {
     setDownloadingId(transcript.id);
     try {
-      const blob = await exportTranscript(transcript.id, format);
+      const blob =
+        format === "pdf"
+          ? await buildPdf(summary ? { ...transcript, summary } : transcript)
+          : await exportTranscript(transcript.id, format);
       const type = (transcript.transcriptType || "transcript").toLowerCase();
       downloadBlob(blob, `${type}-transcript-${transcript.id}.${EXPORT_EXTENSIONS[format] || format}`);
     } catch (err) {
@@ -237,7 +263,7 @@ const TranscriptRequestPage = () => {
             {isIssued && (
               <ServerExportMenu
                 label="Download"
-                onExport={(format) => handleDownload(transcript, format)}
+                onExport={(format) => handleDownload(transcript, format, summary)}
                 isLoading={downloadingId === transcript.id}
               />
             )}
