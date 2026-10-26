@@ -11,6 +11,7 @@ import {
   FaGraduationCap,
   FaAward,
   FaTimesCircle,
+  FaArrowLeft,
 } from "react-icons/fa";
 import { Button, Heading, ServerExportMenu, Text, TranscriptCertificateModal } from "../../../components";
 import { useApp } from "../../../contexts";
@@ -51,6 +52,10 @@ const STATUS_COLORS = {
 const EXPORT_EXTENSIONS = { pdf: "pdf", csv: "csv", excel: "xlsx" };
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : "—");
+
+// Backend nests the course (`record.course.{id,title}`); keep flat fields as a fallback.
+const getCourseId = (record) => record?.course?.id ?? record?.courseId;
+const getCourseTitle = (record) => record?.course?.title ?? record?.courseTitle;
 
 const SummaryCard = ({ label, value }) => (
   <Box
@@ -186,6 +191,10 @@ const TranscriptRequestPage = () => {
     return (
       <Box px={{ base: 4, md: 10 }} py={8} {...maxWidthStyles_userPages}>
         <Box maxWidth="860px" marginX="auto">
+          <Button secondary sm leftIcon={<FaArrowLeft />} onClick={handleReset} mb={5}>
+            Back
+          </Button>
+
           {/* Success banner */}
           <Flex
             align="center"
@@ -318,7 +327,7 @@ const TranscriptRequestPage = () => {
             ) : (
               (transcript.courseRecords ?? []).map((record, idx) => (
                 <Grid
-                  key={record.courseId ?? idx}
+                  key={record.id ?? getCourseId(record) ?? idx}
                   templateColumns="1fr 80px 60px 120px"
                   px={5}
                   py={4}
@@ -331,7 +340,7 @@ const TranscriptRequestPage = () => {
                     <Icon color="primary.base" fontSize="16px">
                       <FaGraduationCap />
                     </Icon>
-                    <Text bold>{record.courseTitle}</Text>
+                    <Text bold>{getCourseTitle(record) ?? "—"}</Text>
                   </Flex>
 
                   <Text textAlign="center" color="gray.700">
@@ -386,8 +395,8 @@ const TranscriptRequestPage = () => {
           isOpen={Boolean(certRecord)}
           onClose={() => setCertRecord(null)}
           transcriptId={transcript.id}
-          courseId={certRecord?.courseId}
-          courseTitle={certRecord?.courseTitle}
+          courseId={getCourseId(certRecord)}
+          courseTitle={getCourseTitle(certRecord)}
           mode="view"
         />
       </Box>
