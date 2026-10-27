@@ -15,6 +15,12 @@ import {
   FormLabel,
   Grid,
   Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
   Select,
   SimpleGrid,
   Skeleton,
@@ -64,6 +70,7 @@ import {
   getQuestionBankList,
   getQuestionBankDetail,
   getQuestionBankChartData,
+  getQuestionBankUsages,
   adminGetCourseListing,
 } from "../../../../services";
 import dayjs from "dayjs";
@@ -649,6 +656,94 @@ const QuestionDetailDrawer = ({ questionId, isOpen, onClose }) => {
   );
 };
 
+// ─── Question Usages Modal ────────────────────────────────────────────────────
+
+const QuestionUsagesModal = ({ question, isOpen, onClose }) => {
+  const [usages, setUsages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const questionId = question?.questionId;
+
+  useEffect(() => {
+    if (!isOpen || !questionId) return;
+    setUsages([]);
+    setError(false);
+    setLoading(true);
+    getQuestionBankUsages(questionId)
+      .then((res) => {
+        const d = res?.data ?? res;
+        setUsages(Array.isArray(d) ? d : []);
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [isOpen, questionId]);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="3xl" scrollBehavior="inside">
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader borderBottomWidth="1px">
+          Question Usage
+          {question?.question && (
+            <Text fontSize="sm" fontWeight="normal" color="gray.500" mt={1} noOfLines={2}>
+              {question.question}
+            </Text>
+          )}
+        </ModalHeader>
+        <ModalCloseButton />
+        <ModalBody py={5}>
+          {loading ? (
+            <Box>
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} height="36px" mb={2} />
+              ))}
+            </Box>
+          ) : error ? (
+            <Box py={6} textAlign="center">
+              <Text color="red.500">
+                Unable to load where this question is used. Please try again.
+              </Text>
+            </Box>
+          ) : usages.length === 0 ? (
+            <Box py={6} textAlign="center" bg="gray.50" borderRadius="md">
+              <Text color="gray.500">
+                This question has not been used in any exam yet.
+              </Text>
+            </Box>
+          ) : (
+            <>
+              <Text fontSize="sm" color="gray.500" mb={3}>
+                Used in {usages.length} exam{usages.length !== 1 ? "s" : ""}
+              </Text>
+              <TableContainer borderWidth="1px" borderRadius="md">
+                <Table size="sm">
+                  <Thead bg="gray.50">
+                    <Tr>
+                      <Th>Course</Th>
+                      <Th>Module</Th>
+                      <Th>Exam</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {usages.map((u) => (
+                      <Tr key={u.examQuestionId ?? `${u.examId}-${u.moduleId}`}>
+                        <Td>{u.courseTitle || "—"}</Td>
+                        <Td>{u.moduleTitle || "—"}</Td>
+                        <Td>{u.examTitle || "—"}</Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </TableContainer>
+            </>
+          )}
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
+};
+
 // ─── Analytics Tab ────────────────────────────────────────────────────────────
 
 const AnalyticsTab = ({ courseId, fallbackTrend }) => {
@@ -937,6 +1032,8 @@ const QuestionBankUsagePage = () => {
 
   const [sort, setSort] = useState({ key: "", dir: "asc" });
   const [selectedQId, setSelectedQId] = useState(null);
+  const [previewQuestion, setPreviewQuestion] = useState(null);
+  const usagesModal = useDisclosure();
 
   const [courses, setCourses] = useState([]);
 
@@ -1091,6 +1188,12 @@ const QuestionBankUsagePage = () => {
   const handleRowClick = (qId) => {
     setSelectedQId(qId);
     onOpen();
+  };
+
+  const handlePreviewClick = (e, q) => {
+    e.stopPropagation();
+    setPreviewQuestion(q);
+    usagesModal.onOpen();
   };
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -1319,14 +1422,13 @@ const QuestionBankUsagePage = () => {
                   <Tr>
                     <Th minW="220px">Question</Th>
                     <Th>Type</Th>
-                    <Th>Section</Th>
-                    <Th>Course</Th>
                     <Th>Exam</Th>
                     <Th>Difficulty</Th>
                     <SortTh col="correctResponseRate" isNumeric>
                       Correct Rate
                     </SortTh>
                     <SortTh col="lastUsedDate">Last Used</SortTh>
+                    <Th>Actions</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -1369,16 +1471,6 @@ const QuestionBankUsagePage = () => {
                       </Td>
                       <Td>
                         <Text noOfLines={1} maxW="120px" fontSize="sm">
-                          {q.section || "—"}
-                        </Text>
-                      </Td>
-                      <Td>
-                        <Text noOfLines={1} maxW="120px" fontSize="sm">
-                          {q.course || "—"}
-                        </Text>
-                      </Td>
-                      <Td>
-                        <Text noOfLines={1} maxW="120px" fontSize="sm">
                           {q.examTitle || "—"}
                         </Text>
                       </Td>
@@ -1402,6 +1494,15 @@ const QuestionBankUsagePage = () => {
                         </Text>
                       </Td>
                       <Td>{fmtDate(q.lastUsedDate)}</Td>
+                      <Td>
+                        <Button
+                          xs
+                          secondary
+                          onClick={(e) => handlePreviewClick(e, q)}
+                        >
+                          Preview
+                        </Button>
+                      </Td>
                     </Tr>
                   ))}
                 </Tbody>
@@ -1433,6 +1534,12 @@ const QuestionBankUsagePage = () => {
         questionId={selectedQId}
         isOpen={isOpen}
         onClose={onClose}
+      />
+
+      <QuestionUsagesModal
+        question={previewQuestion}
+        isOpen={usagesModal.isOpen}
+        onClose={usagesModal.onClose}
       />
     </AdminMainAreaWrapper>
   );

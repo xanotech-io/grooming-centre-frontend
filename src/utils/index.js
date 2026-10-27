@@ -16,3 +16,4 @@ export * from "./getResultRemark";
 export * from "./geolocation";
 export * from "./exportToCsv";
 export * from "./downloadBlob";
+export * from "./lessonsVisited";

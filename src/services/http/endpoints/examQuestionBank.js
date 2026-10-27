@@ -55,8 +55,24 @@ export const getExamQuestionBankMedia = async (questionId) => {
   return data;
 };
 
+// Accepts either a JSON body with a CDN `url`, or `{ file, ...metadata }` where
+// `file` is a File — the latter is sent as multipart so the API uploads it.
 export const addExamQuestionBankMedia = async (questionId, body) => {
-  const { data } = await http.post(`/v1/exam-question-bank/${questionId}/media`, body);
+  const isFile = typeof File !== "undefined" && body?.file instanceof File;
+  if (!isFile) {
+    const { data } = await http.post(`/v1/exam-question-bank/${questionId}/media`, body);
+    return data;
+  }
+
+  const formData = new FormData();
+  Object.entries(body).forEach(([key, value]) => {
+    if (key !== "file" && value !== undefined && value !== null && value !== "") formData.append(key, value);
+  });
+  formData.append("file", body.file);
+
+  const { data } = await http.post(`/v1/exam-question-bank/${questionId}/media`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return data;
 };
 

@@ -27,6 +27,7 @@ import {
   adminGetStudents,
 } from "../../../../services";
 import dayjs from "dayjs";
+import { formatLessonsVisited } from "../../../../utils";
 
 const statusColorMap = {
   Present: "green",
@@ -44,7 +45,7 @@ const mapToRow = (record) => ({
   id: record.id,
   studentName: record.student.firstName ?? record.student?.firstName ?? "—",
   courseTitle: record.courseTitle ?? record.course?.title ?? "—",
-  lessonTitle: record.lessonTitle ?? record.lesson?.title ?? "—",
+  lessonTitle: formatLessonsVisited(record),
   sessionDate: record.sessionDate ?? "—",
   attendanceStatus: record.attendanceStatus ?? record.status ?? "—",
   entryTime: record.entryTime ?? "—",
@@ -379,7 +380,7 @@ const AttendanceReportPage = () => {
       {
         id: "lessonTitle",
         key: "lessonTitle",
-        text: "Lesson / Session",
+        text: "Lessons Visited",
         fraction: "180px",
       },
       {
@@ -470,7 +471,7 @@ const AttendanceReportPage = () => {
     [
       "Student",
       "Course",
-      "Lesson / Session",
+      "Lessons Visited",
       "Session Date",
       "Status",
       "Entry Time",

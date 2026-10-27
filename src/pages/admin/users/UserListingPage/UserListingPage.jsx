@@ -1,7 +1,8 @@
 import { Flex } from "@chakra-ui/layout";
 import { Route } from "react-router-dom";
 import { FaSortAmountUpAlt } from "react-icons/fa";
-import { Badge } from "@chakra-ui/react";
+import { Badge, useDisclosure } from "@chakra-ui/react";
+import { useState } from "react";
 import {
   Button,
   Heading,
@@ -16,11 +17,15 @@ import {
   adminGetUserListing,
 } from "../../../../services";
 import { BreadcrumbItem } from "@chakra-ui/react";
-import { useTableRows } from "../../../../hooks";
+import { useIsSuperAdmin, useTableRows } from "../../../../hooks";
 import { useApp } from "../../../../contexts";
+import { UserActivationModal } from "./UserActivationModal";
 
 const UserListingPage = () => {
   const appManager = useApp();
+  const isSuperAdmin = useIsSuperAdmin();
+  const activationModal = useDisclosure();
+  const [activationTarget, setActivationTarget] = useState(null);
 
   const departmentName = appManager.state.metadata?.departments.map(
     (department) => department.name
@@ -144,10 +149,10 @@ const UserListingPage = () => {
           const isActive = data.active || data.status?.active || (data.text === "Approved");
           return (
             <Badge 
-              colorScheme={isActive ? "green" : "orange"}
+              colorScheme={isActive ? "green" : "red"}
               variant="solid"
             >
-              {isActive ? "Approved" : "Pending"}
+              {isActive ? "Approved" : "Deactivated"}
             </Badge>
           );
         },
@@ -165,6 +170,17 @@ const UserListingPage = () => {
           text: "Edit",
           link: (user) => `/admin/users/edit/${user.id}`,
         },
+        ...(isSuperAdmin
+          ? [
+              {
+                text: (user) => (user.active ? "Deactivate" : "Activate"),
+                onClick: (user) => {
+                  setActivationTarget(user);
+                  activationModal.onOpen();
+                },
+              },
+            ]
+          : []),
         {
           isDelete: true,
         },
@@ -193,7 +209,7 @@ const UserListingPage = () => {
       certificates: user.noOfCertificate,
       status: {
         active: user.active,
-        text: user.active ? "Approved" : "Pending",
+        text: user.active ? "Approved" : "Deactivated",
       },
     };
     return mappedUser;
@@ -209,6 +225,23 @@ const UserListingPage = () => {
   };
 
   const { rows, setRows, fetchRowItems } = useTableRows(fetcher);
+
+  const handleActivationSuccess = (userId, active) =>
+    setRows((prev) => ({
+      ...prev,
+      data: {
+        ...prev.data,
+        rows: prev.data.rows.map((row) =>
+          row.id === userId
+            ? {
+                ...row,
+                active,
+                status: { active, text: active ? "Approved" : "Deactivated" },
+              }
+            : row
+        ),
+      },
+    }));
 
   return (
     <AdminMainAreaWrapper>
@@ -243,6 +276,15 @@ const UserListingPage = () => {
         setRows={setRows}
         handleFetch={fetchRowItems}
       />
+
+      {isSuperAdmin && (
+        <UserActivationModal
+          isOpen={activationModal.isOpen}
+          onClose={activationModal.onClose}
+          targetUser={activationTarget}
+          onSuccess={handleActivationSuccess}
+        />
+      )}
     </AdminMainAreaWrapper>
   );
 };

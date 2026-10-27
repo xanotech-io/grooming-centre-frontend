@@ -13,6 +13,8 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  MenuGroup,
+  MenuDivider,
   IconButton,
   Table,
   Thead,
@@ -60,6 +62,7 @@ import {
   adminGenerateMISReport,
   adminCreateMISSchedule,
   adminDeleteMISReport,
+  adminExportMISReport,
   adminGetCourseListing,
   adminGetDepartmentListing,
   adminGetUserListing,
@@ -182,6 +185,13 @@ const triggerReportDownload = async (url, filenameBase, format) => {
     window.open(url, "_blank", "noopener,noreferrer");
   }
 };
+
+const EXPORT_FORMAT_OPTIONS = [
+  { value: "pdf", label: "PDF" },
+  { value: "excel", label: "Excel" },
+  { value: "csv", label: "CSV" },
+  { value: "json", label: "JSON" },
+];
 
 const CATEGORY_OPTIONS = [
   { value: "academic", label: "Academic" },
@@ -406,6 +416,20 @@ const MISReportsPage = () => {
       fetchReports(filters);
     } catch (err) {
       toast({ description: err?.response?.data?.message || "Failed to unarchive.", status: "error", position: "top" });
+    }
+  };
+
+  const handleExport = async (item, format) => {
+    try {
+      const { downloadUrl } = await adminExportMISReport(item.id, format);
+      if (!downloadUrl) {
+        toast({ description: "Export did not return a download link.", status: "error", position: "top" });
+        return;
+      }
+      const baseName = (item.reportName || item.reportId || "report").replace(/[^\w-]+/g, "_");
+      triggerReportDownload(downloadUrl, baseName, format || item.reportFormat);
+    } catch (err) {
+      toast({ description: err?.response?.data?.message || "Failed to export report.", status: "error", position: "top" });
     }
   };
 
@@ -683,6 +707,19 @@ const MISReportsPage = () => {
                         ) : (
                           <MenuItem fontSize="13px" onClick={() => handleArchive(item)}>Archive report</MenuItem>
                         )}
+                        <MenuDivider />
+                        <MenuGroup title="Export" fontSize="12px" color="#667085">
+                          {EXPORT_FORMAT_OPTIONS.map((o) => (
+                            <MenuItem
+                              key={o.value}
+                              fontSize="13px"
+                              onClick={() => handleExport(item, o.value === item.reportFormat ? undefined : o.value)}
+                            >
+                              {o.label}{o.value === item.reportFormat ? " (original)" : ""}
+                            </MenuItem>
+                          ))}
+                        </MenuGroup>
+                        <MenuDivider />
                         <MenuItem fontSize="13px" color="red.500" onClick={() => handleDelete(item.id)}>Delete report</MenuItem>
                       </MenuList>
                     </Menu>

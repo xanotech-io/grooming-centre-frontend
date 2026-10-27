@@ -19,34 +19,6 @@ import { Breadcrumb, Link } from "../../../components";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import dayjs from "dayjs";
 
-// ─── Status helpers ────────────────────────────────────────────────────────────
-const statusConfig = (active, isPublished) => {
-  if (isPublished && active)
-    return { bg: "#F0FFF4", color: "#38A169", label: "Active" };
-  if (isPublished && !active)
-    return { bg: "#EDF2F7", color: "#718096", label: "Closed" };
-  return { bg: "#FFFAF0", color: "#DD6B20", label: "Draft" };
-};
-
-const StatusBadge = ({ active, isPublished }) => {
-  const cfg = statusConfig(active, isPublished);
-  return (
-    <Tag
-      size="sm"
-      borderRadius="full"
-      px={3}
-      py={1}
-      bg={cfg.bg}
-      color={cfg.color}
-      fontWeight="500"
-      fontSize="13px"
-      whiteSpace="nowrap"
-    >
-      {cfg.label}
-    </Tag>
-  );
-};
-
 // ─── Action Menu ───────────────────────────────────────────────────────────────
 // const ActionMenu = ({ rowIndex, openMenu, setOpenMenu, analysisHref }) => {
 //     const ref = useRef(null);
@@ -155,7 +127,6 @@ const COLUMNS = [
   { label: "Questions", flex: "1", align: "right" },
   { label: "Participants", flex: "1", align: "right" },
   { label: "Start Date", flex: "1.5" },
-  { label: "Status", flex: "1.2", align: "center" },
   { label: "Action", flex: "1.5", align: "center" },
 ];
 
@@ -195,9 +166,7 @@ const ExaminationPage = () => {
         amountOfQuestions: exam.amountOfQuestions,
         startTime: exam.startTime,
         markingMode: exam.markingMode,
-        active: exam.active,
         noOfUsers: exam.totalAttempts ?? 0,
-        isPublished: exam.isPublished,
       }));
       setExaminations(examList);
       setTotalItems(count);
@@ -247,28 +216,6 @@ const ExaminationPage = () => {
           value={loading ? "…" : totalItems}
           sub="Available exams"
           subColor="#1A202C"
-        />
-        <StatCard
-          label="Published"
-          value={
-            loading ? "…" : examinations.filter((e) => e.isPublished).length
-          }
-          sub="This page"
-          subColor="#38A169"
-        />
-        <StatCard
-          label="Active"
-          value={loading ? "…" : examinations.filter((e) => e.active).length}
-          sub="Currently running"
-          subColor="#3182CE"
-        />
-        <StatCard
-          label="Draft"
-          value={
-            loading ? "…" : examinations.filter((e) => !e.isPublished).length
-          }
-          sub="Not yet published"
-          subColor="#DD6B20"
         />
       </Grid>
 
@@ -471,13 +418,6 @@ const ExaminationPage = () => {
                           ? dayjs(exam.startTime).format("DD MMM YYYY")
                           : "—"}
                       </Text>
-                    </Box>
-                    {/* Status */}
-                    <Box flex="1.2" display="flex" justifyContent="center">
-                      <StatusBadge
-                        active={exam.active}
-                        isPublished={exam.isPublished}
-                      />
                     </Box>
                     {/* Action */}
                     <Box flex="1.5" display="flex" justifyContent="center">

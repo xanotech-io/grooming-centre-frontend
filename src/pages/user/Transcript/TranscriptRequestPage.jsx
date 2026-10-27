@@ -11,6 +11,7 @@ import {
   FaGraduationCap,
   FaAward,
   FaTimesCircle,
+  FaArrowLeft,
 } from "react-icons/fa";
 import { Button, Heading, ServerExportMenu, Text, TranscriptCertificateModal } from "../../../components";
 import { useApp } from "../../../contexts";
@@ -21,6 +22,7 @@ import {
   studentRequestTranscript,
 } from "../../../services";
 import { downloadBlob } from "../../../utils";
+import { buildTranscriptPdf } from "../../../utils/transcriptPdf";
 import { maxWidthStyles_userPages } from "../../../theme/breakpoints";
 
 const TYPES = [
@@ -51,6 +53,10 @@ const STATUS_COLORS = {
 const EXPORT_EXTENSIONS = { pdf: "pdf", csv: "csv", excel: "xlsx" };
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : "—");
+
+// Backend nests the course (`record.course.{id,title}`); keep flat fields as a fallback.
+const getCourseId = (record) => record?.course?.id ?? record?.courseId;
+const getCourseTitle = (record) => record?.course?.title ?? record?.courseTitle;
 
 const SummaryCard = ({ label, value }) => (
   <Box
@@ -158,10 +164,35 @@ const TranscriptRequestPage = () => {
     }
   };
 
-  const handleDownload = async (transcript, format) => {
+  // PDF is built client-side so the header details render as rows; CSV/Excel still come from the server.
+  const buildPdf = async (transcript) => {
+    let full = transcript;
+    let summary = transcript.summary;
+    if (!Array.isArray(transcript.courseRecords)) {
+      const res = await getTranscript(transcript.id);
+      const payload = res?.data ?? res;
+      full = payload?.transcript || payload;
+      summary = payload?.summary ?? summary;
+    }
+    const user = state?.user;
+    const student = full.student || user;
+    return buildTranscriptPdf({
+      transcript: full,
+      summary: summary ?? full.summary,
+      student: {
+        name: [student?.firstName, student?.lastName].filter(Boolean).join(" ") || student?.name,
+        email: student?.email,
+      },
+    });
+  };
+
+  const handleDownload = async (transcript, format, summary) => {
     setDownloadingId(transcript.id);
     try {
-      const blob = await exportTranscript(transcript.id, format);
+      const blob =
+        format === "pdf"
+          ? await buildPdf(summary ? { ...transcript, summary } : transcript)
+          : await exportTranscript(transcript.id, format);
       const type = (transcript.transcriptType || "transcript").toLowerCase();
       downloadBlob(blob, `${type}-transcript-${transcript.id}.${EXPORT_EXTENSIONS[format] || format}`);
     } catch (err) {
@@ -186,6 +217,10 @@ const TranscriptRequestPage = () => {
     return (
       <Box px={{ base: 4, md: 10 }} py={8} {...maxWidthStyles_userPages}>
         <Box maxWidth="860px" marginX="auto">
+          <Button secondary sm leftIcon={<FaArrowLeft />} onClick={handleReset} mb={5}>
+            Back
+          </Button>
+
           {/* Success banner */}
           <Flex
             align="center"
@@ -228,7 +263,7 @@ const TranscriptRequestPage = () => {
             {isIssued && (
               <ServerExportMenu
                 label="Download"
-                onExport={(format) => handleDownload(transcript, format)}
+                onExport={(format) => handleDownload(transcript, format, summary)}
                 isLoading={downloadingId === transcript.id}
               />
             )}
@@ -318,7 +353,7 @@ const TranscriptRequestPage = () => {
             ) : (
               (transcript.courseRecords ?? []).map((record, idx) => (
                 <Grid
-                  key={record.courseId ?? idx}
+                  key={record.id ?? getCourseId(record) ?? idx}
                   templateColumns="1fr 80px 60px 120px"
                   px={5}
                   py={4}
@@ -331,7 +366,7 @@ const TranscriptRequestPage = () => {
                     <Icon color="primary.base" fontSize="16px">
                       <FaGraduationCap />
                     </Icon>
-                    <Text bold>{record.courseTitle}</Text>
+                    <Text bold>{getCourseTitle(record) ?? "—"}</Text>
                   </Flex>
 
                   <Text textAlign="center" color="gray.700">
@@ -386,8 +421,8 @@ const TranscriptRequestPage = () => {
           isOpen={Boolean(certRecord)}
           onClose={() => setCertRecord(null)}
           transcriptId={transcript.id}
-          courseId={certRecord?.courseId}
-          courseTitle={certRecord?.courseTitle}
+          courseId={getCourseId(certRecord)}
+          courseTitle={getCourseTitle(certRecord)}
           mode="view"
         />
       </Box>

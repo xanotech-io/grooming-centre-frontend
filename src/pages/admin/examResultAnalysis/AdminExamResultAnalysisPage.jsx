@@ -48,15 +48,13 @@ import {
   FiUsers,
   FiBarChart2,
 } from "react-icons/fi";
-import { Heading, Spinner, Text, Button, Breadcrumb, Link, ServerExportMenu } from "../../../components";
+import { Heading, Spinner, Text, Button, Breadcrumb, Link, ExportMenu } from "../../../components";
 import {
   adminGetExamFullReport,
   adminGetExamLeaderboard,
   adminGetExamChartData,
   adminGetStudentExamResultAnalysis,
-  adminExportExamFullReport,
 } from "../../../services";
-import { downloadBlob } from "../../../utils";
 import { AdminMainAreaWrapper } from "../../../layouts";
 import dayjs from "dayjs";
 
@@ -73,12 +71,26 @@ const rankBadgeStyles = (rank) => {
   return { bg: "#EDF2F7", color: "#4A5568" };
 };
 
-const getExportExtension = (mimeType = "") => {
-  if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return "xlsx";
-  if (mimeType.includes("pdf")) return "pdf";
-  if (mimeType.includes("csv")) return "csv";
-  return "xlsx";
-};
+// Header + one row per student, built from the loaded report so exported
+// values match what's on screen (the server export stored everything as text).
+const buildExportRows = (students = []) => [
+  ["Rank", "Student", "Email", "Score (%)", "Grade", "Accuracy (%)", "Correct", "Wrong", "Time (mins)", "Result"],
+  ...students.map((s) => [
+    s.rank,
+    s.studentName,
+    s.email,
+    s.totalScore,
+    s.grade,
+    s.accuracy,
+    s.correctAnswers,
+    s.wrongAnswers,
+    s.timeTaken,
+    s.status,
+  ]),
+];
+
+const toFileSlug = (text = "") =>
+  String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
 const gradeColor = (grade = "") => {
   const g = (grade || "").charAt(0).toUpperCase();
@@ -622,9 +634,6 @@ const AdminExamResultAnalysisPage = () => {
   const [chartLoading, setChartLoading] = useState(false);
   const [chartError, setChartError] = useState(null);
 
-  // Export
-  const [exporting, setExporting] = useState(false);
-
   const fetchReport = async () => {
     setReportLoading(true);
     setReportError(null);
@@ -686,18 +695,9 @@ const AdminExamResultAnalysisPage = () => {
 
   const students = report?.students ?? [];
 
-  const handleExport = async (format) => {
-    setExporting(true);
-    try {
-      const blob = await adminExportExamFullReport(examId, { exportFormat: format });
-      downloadBlob(blob, `exam-result-analysis-${examId}.${getExportExtension(blob.type)}`);
-    } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || "Failed to export report";
-      toast({ status: "error", description: msg, duration: 4000, isClosable: true, position: "top" });
-    } finally {
-      setExporting(false);
-    }
-  };
+  const examTitle = report?.exam?.title ?? "Exam";
+  const exportRows = buildExportRows(students);
+  const exportFilename = `exam-result-analysis-${toFileSlug(examTitle) || examId}`;
 
   const tabStyle = {
     fontSize: "14px",
@@ -734,10 +734,12 @@ const AdminExamResultAnalysisPage = () => {
           </Text>
         </Box>
         <Flex gap={3} alignItems="center">
-          <ServerExportMenu
-            onExport={handleExport}
-            isLoading={exporting}
-            isDisabled={exporting || students.length === 0}
+          <ExportMenu
+            rows={exportRows}
+            filename={exportFilename}
+            title={`${examTitle} - Exam Result Analysis`}
+            formats={["csv", "pdf"]}
+            isDisabled={reportLoading || students.length === 0}
           />
           <Button
             secondary

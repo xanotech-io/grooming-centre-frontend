@@ -31,18 +31,10 @@ const AuditLogsTable = ({
       <Input
         size="sm"
         borderRadius="md"
-        w="130px"
-        placeholder="User ID"
-        value={filters.userId ?? ''}
-        onChange={(e) => onFilterChange('userId', e.target.value)}
-      />
-      <Input
-        size="sm"
-        borderRadius="md"
-        w="130px"
-        placeholder="Course ID"
-        value={filters.courseId ?? ''}
-        onChange={(e) => onFilterChange('courseId', e.target.value)}
+        w="180px"
+        placeholder="Search user name"
+        value={filters.userSearch ?? ''}
+        onChange={(e) => onFilterChange('userSearch', e.target.value)}
       />
       <Select
         size="sm"
@@ -68,19 +60,6 @@ const AuditLogsTable = ({
       >
         {['login', 'logout', 'create', 'update', 'delete', 'approve', 'export', 'view'].map((t) => (
           <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-        ))}
-      </Select>
-
-      <Select
-        size="sm"
-        borderRadius="md"
-        w="130px"
-        value={filters.module ?? ''}
-        onChange={(e) => onFilterChange('module', e.target.value)}
-        placeholder="All Modules"
-      >
-        {['LMS', 'OES', 'Admin', 'Security'].map((m) => (
-          <option key={m} value={m}>{m}</option>
         ))}
       </Select>
 

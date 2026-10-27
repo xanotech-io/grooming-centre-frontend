@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Route, useParams } from "react-router-dom";
 import { Box, Flex, Grid, SimpleGrid, Stack, VStack, HStack } from "@chakra-ui/layout";
 import {
@@ -22,20 +22,22 @@ import { BreadcrumbItem } from "@chakra-ui/react";
 import { Tag } from "@chakra-ui/tag";
 import Icon from "@chakra-ui/icon";
 import { FaGraduationCap } from "react-icons/fa";
-import { FiDownload } from "react-icons/fi";
 import {
   Breadcrumb,
   Button,
   DashboardMetricCard,
   Heading,
   Link,
+  ServerExportMenu,
   Text,
   TranscriptCertificateModal,
 } from "../../../../components";
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import { EmptyState } from "../../../../layouts";
-import { adminGetSingleTranscript, adminReviewTranscript } from "../../../../services";
-import { exportAsPdf } from "../../../../utils/exportToPdf";
+import { adminGetSingleTranscript, adminReviewTranscript, exportTranscript } from "../../../../services";
+import { downloadBlob } from "../../../../utils";
+
+const EXPORT_EXTENSIONS = { pdf: "pdf", csv: "csv", excel: "xlsx" };
 
 const statusColorMap = {
   Draft: "gray",
@@ -322,7 +324,6 @@ const StudentTranscriptDetailsPage = () => {
   const [certRecord, setCertRecord] = useState(null);
   const [certMode, setCertMode] = useState("view");
   const [downloading, setDownloading] = useState(false);
-  const printRef = useRef(null);
 
   const openRecord = (record) => {
     setSelectedRecord(record);
@@ -396,15 +397,17 @@ const StudentTranscriptDetailsPage = () => {
     ? `${transcript.student?.firstName ?? ""} ${transcript.student?.lastName ?? ""}`.trim()
     : "—";
 
-  const handleDownload = async () => {
-    if (!printRef.current) return;
+  // Same server-side export the student transcript page uses.
+  const handleDownload = async (format) => {
     setDownloading(true);
     try {
-      await exportAsPdf(printRef.current, `${studentName || "Student"} Transcript`);
+      const blob = await exportTranscript(transcript.id, format);
+      const type = (transcript.transcriptType || "transcript").toLowerCase();
+      downloadBlob(blob, `${type}-transcript-${transcript.id}.${EXPORT_EXTENSIONS[format] || format}`);
     } catch (err) {
       toast({
         status: "error",
-        description: err.message || "Unable to generate transcript PDF",
+        description: err?.response?.data?.message || err.message || "Unable to download transcript",
         duration: 3000,
         isClosable: true,
       });
@@ -431,14 +434,11 @@ const StudentTranscriptDetailsPage = () => {
 
         {!loading && !error && transcript && (
           <Flex gap="8px">
-            <Button
-              secondary
-              leftIcon={<FiDownload />}
-              onClick={handleDownload}
+            <ServerExportMenu
+              label="Download Transcript"
+              onExport={handleDownload}
               isLoading={downloading}
-            >
-              Download Transcript
-            </Button>
+            />
             {canReview && (
               <>
                 <Button secondary onClick={() => openReview("Returned")}>
@@ -461,7 +461,7 @@ const StudentTranscriptDetailsPage = () => {
       ) : error ? (
         <EmptyState heading="Failed to load transcript" description={error} />
       ) : (
-        <Stack spacing={8} ref={printRef} bg="white">
+        <Stack spacing={8} bg="white">
           {/* Summary metric cards */}
           <SimpleGrid columns={{ base: 2, md: 4 }} gap={4}>
             <DashboardMetricCard

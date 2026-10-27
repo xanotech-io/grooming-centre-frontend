@@ -200,3 +200,17 @@ export const buildNormalizedImportFile = ({ rows, fileFormat, originalName }) =>
     type: "text/csv;charset=utf-8",
   });
 };
+
+const TEMPLATE_SAMPLE_ROWS = {
+  user_records: { firstName: "Jane", lastName: "Doe", email: "jane.doe@example.com", gender: "female", department: "Operations" },
+  course_information: { title: "Customer Service Basics", description: "Introduction to customer service standards", department: "Operations" },
+  assessment_results: { email: "jane.doe@example.com", assessmentTitle: "Module 1 Quiz", score: 85 },
+  attendance: { email: "jane.doe@example.com", courseTitle: "Customer Service Basics", sessionDate: "2026-01-15", attendanceStatus: "present" },
+};
+
+export const buildImportTemplateFile = (targetModule, fileFormat) => {
+  const headers = getCanonicalFields(targetModule).map((f) => f.key);
+  const sample = TEMPLATE_SAMPLE_ROWS[targetModule] ?? {};
+  const rows = [Object.fromEntries(headers.map((h) => [h, sample[h] ?? ""]))];
+  return buildNormalizedImportFile({ rows, fileFormat, originalName: `${targetModule}_import_template` });
+};
