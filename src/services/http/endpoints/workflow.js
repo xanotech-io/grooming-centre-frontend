@@ -12,7 +12,15 @@ const normalize = (w) => ({
   submitterEmail: w.submitter?.email ?? "—",
   supervisorId: w.supervisor_id ?? w.supervisorId,
   submissionDate: w.submission_date ?? w.submissionDate,
-  description: w.description,
+  // The workflow's own description is often null; the submitted content's
+  // description lives on the nested entity (e.g. `module`, `course`).
+  description:
+    w.description ||
+    w[String(w.request_type ?? w.requestType ?? "").toLowerCase()]?.description ||
+    w.module?.description ||
+    w.course?.description ||
+    w.lesson?.description ||
+    w.description,
   attachmentUrl: w.attachment_url ?? w.attachmentUrl,
   approvalStatus: w.approval_status ?? w.approvalStatus ?? w.status,
   approverRole: w.approver_role ?? w.approverRole,

@@ -124,10 +124,6 @@ export const links = [
       //   text: "Instructor Report",
       // },
       {
-        href: "/admin/report/managementReport",
-        text: "Management Report",
-      },
-      {
         href: "/admin/mis-reports",
         text: "MIS Reports",
       },
@@ -191,24 +187,12 @@ export const links = [
         text: "Enrollment Status Report",
       },
       {
-        href: "/admin/exam-notifications",
-        text: "Exam Notifications",
-      },
-      {
         href: "/admin/performance-drill-down",
         text: "Performance Drill-Down",
       },
       {
-        href: "/admin/report/question-bank-usage",
-        text: "Question Bank Usage",
-      },
-      {
         href: "/admin/report/exam-integrity",
         text: "Randomization and Integrity Report",
-      },
-      {
-        href: "/admin/report/scheduled-reporting",
-        text: "Scheduled Reporting",
       },
       {
         href: "/admin/report/student-reporting",

@@ -25,10 +25,8 @@ const AuditTrailReportPage = () => {
 
   const [filters, setFilters] = useState({
     userSearch: '',
-    courseSearch: '',
     userRole: '',
     eventType: '',
-    module: '',
     status: '',
     isFlagged: '',
     startDate: '',
@@ -39,7 +37,6 @@ const AuditTrailReportPage = () => {
     setKpiLoading(true);
     try {
       const params = {};
-      if (filters.module) params.module = filters.module;
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
       const data = await auditTrailV2GetReport(params);
@@ -49,17 +46,15 @@ const AuditTrailReportPage = () => {
     } finally {
       setKpiLoading(false);
     }
-  }, [filters.module, filters.startDate, filters.endDate]);
+  }, [filters.startDate, filters.endDate]);
 
   const loadLogs = useCallback(async () => {
     setLogsLoading(true);
     try {
       const params = { page, limit };
       if (filters.userSearch.trim()) params.userSearch = filters.userSearch.trim();
-      if (filters.courseSearch.trim()) params.courseSearch = filters.courseSearch.trim();
       if (filters.userRole) params.userRole = filters.userRole;
       if (filters.eventType) params.eventType = filters.eventType;
-      if (filters.module) params.module = filters.module;
       if (filters.status) params.status = filters.status;
       if (filters.isFlagged !== '') params.isFlagged = filters.isFlagged === 'true';
       if (filters.startDate) params.startDate = filters.startDate;

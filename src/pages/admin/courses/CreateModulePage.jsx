@@ -14,10 +14,11 @@ import {
 } from "../../../components";
 import { CreatePageLayout } from "../../../layouts";
 import { BreadcrumbItem, Box } from "@chakra-ui/react";
-import { useCache } from "../../../contexts";
+import { useApp, useCache } from "../../../contexts";
 import {
   adminCreateModule,
   adminGetModule,
+  adminSubmitWorkflow,
   adminUpdateModule,
   auditTrailV2PostLog,
 } from "../../../services";
@@ -34,6 +35,9 @@ const CreateModulePage = () => {
   const { push } = useHistory();
   const toast = useToast();
   const { handleDelete } = useCache();
+  const {
+    state: { user },
+  } = useApp();
   const isSuperAdmin = useIsSuperAdmin();
 
   const {
@@ -148,6 +152,25 @@ const CreateModulePage = () => {
           };
 
       pendingBodyRef.current = body;
+
+      // Super admins never see the "Submit for Approval" modal — the module
+      // is created/edited directly, then the workflow submission is fired
+      // with an empty supervisor_id, as the modal would have done.
+      if (isSuperAdmin) {
+        const result = isEditMode
+          ? await performEdit(body)
+          : await performCreate(body);
+        await adminSubmitWorkflow({
+          request_type: "Module",
+          content_id: result?.id,
+          content_title: data.title,
+          submitted_by: user?.id,
+          supervisor_id: "",
+          submission_date: new Date().toISOString(),
+        });
+        push(`/admin/courses/details/${courseId}/modules`);
+        return;
+      }
 
       setWorkflowContent({
         contentId: isEditMode ? moduleId : undefined,
