@@ -26,12 +26,24 @@ export const adminGenerateMISReport = async (body) => {
   return { report: data, message };
 };
 
-// format is optional — backend defaults to the report's generated format
+// format is optional — backend defaults to the report's generated format.
+// Requested as a blob since the endpoint may either return the `{ data: { downloadUrl } }`
+// envelope or stream the file itself; returns `{ downloadUrl }` or `{ file, filename }`
 export const adminExportMISReport = async (reportId, exportFormat) => {
-  const { data: { data } } = await http.get(`/v1/mis-report-v2/${reportId}/export`, {
+  const res = await http.get(`/v1/mis-report-v2/${reportId}/export`, {
     params: exportFormat ? { export_format: exportFormat } : {},
+    responseType: 'blob',
   });
-  return { downloadUrl: data?.downloadUrl };
+  const contentType = res.headers?.['content-type'] || '';
+  if (contentType.includes('application/json')) {
+    let body;
+    try { body = JSON.parse(await res.data.text()); } catch { body = null; }
+    const downloadUrl = body?.data?.downloadUrl ?? body?.data?.url ?? body?.downloadUrl ?? body?.url;
+    if (downloadUrl) return { downloadUrl };
+  }
+  const disposition = res.headers?.['content-disposition'] || '';
+  const match = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+  return { file: res.data, filename: match ? decodeURIComponent(match[1]) : undefined };
 };
 
 export const adminDeleteMISReport = async (reportId) => {

@@ -49,26 +49,67 @@ const ParticipationMonitoringPage = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [kpis, setKpis] = useState(null);
   const lastParamsRef = useRef({});
+  // Full (unpaginated) report per filter combination, used for searching
+  const fullReportCacheRef = useRef({});
+
+  // The backend ignores `search`, so searching has to run over every student,
+  // not just the rows of the current page.
+  const fetchFullReport = async (params) => {
+    const { search, page, limit, ...filters } = params;
+    const cacheKey = JSON.stringify(filters);
+    if (fullReportCacheRef.current[cacheKey]) {
+      return fullReportCacheRef.current[cacheKey];
+    }
+
+    const firstPage = await adminGetParticipationMonitoringReport({
+      ...filters,
+      page: 1,
+      limit: 100,
+    });
+    let reportData = firstPage?.data ?? {};
+    const total = reportData.total ?? 0;
+
+    if (total > (reportData.data ?? []).length) {
+      const allPages = await adminGetParticipationMonitoringReport({
+        ...filters,
+        page: 1,
+        limit: total,
+      });
+      reportData = allPages?.data ?? reportData;
+    }
+
+    fullReportCacheRef.current[cacheKey] = reportData;
+    return reportData;
+  };
 
   const fetchReport = async (params = {}) => {
     lastParamsRef.current = params;
     try {
-      const result = await adminGetParticipationMonitoringReport(params);
-      const reportData = result?.data ?? {};
-      let rows = (reportData.data ?? []).map(mapToRow);
-
       const searchTerm = params.search?.toString().trim().toLowerCase();
-      if (searchTerm) {
-        rows = rows.filter(
-          (row) =>
-            row.studentName.toLowerCase().includes(searchTerm) ||
-            row.studentEmail.toLowerCase().includes(searchTerm),
-        );
-      }
-
-      const total = searchTerm ? rows.length : reportData.total ?? rows.length;
-      const page = Number(params.page) || 1;
       const limit = Number(params.limit) || 50;
+      let page = Number(params.page) || 1;
+      let rows;
+      let total;
+      let reportData;
+
+      if (searchTerm) {
+        reportData = await fetchFullReport(params);
+        const matches = (reportData.data ?? [])
+          .map(mapToRow)
+          .filter(
+            (row) =>
+              row.studentName.toLowerCase().includes(searchTerm) ||
+              row.studentEmail.toLowerCase().includes(searchTerm),
+          );
+        total = matches.length;
+        page = Math.min(page, Math.ceil(total / limit) || 1);
+        rows = matches.slice((page - 1) * limit, page * limit);
+      } else {
+        const result = await adminGetParticipationMonitoringReport(params);
+        reportData = result?.data ?? {};
+        rows = (reportData.data ?? []).map(mapToRow);
+        total = reportData.total ?? rows.length;
+      }
 
       setKpis(reportData.kpis ?? null);
       setTotalCount(total);
@@ -287,7 +328,14 @@ const ParticipationMonitoringPage = () => {
             title="Student Participation Monitoring Report"
             isDisabled={participationData.length === 0}
           />
-          <Button onClick={fetchRowItems}>Refresh Report</Button>
+          <Button
+            onClick={() => {
+              fullReportCacheRef.current = {};
+              fetchRowItems({ params: lastParamsRef.current });
+            }}
+          >
+            Refresh Report
+          </Button>
         </Flex>
       </Box>
 

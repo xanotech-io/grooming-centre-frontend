@@ -63,6 +63,7 @@ import {
   adminCreateMISSchedule,
   adminDeleteMISReport,
   adminExportMISReport,
+  baseURL,
   adminGetCourseListing,
   adminGetDepartmentListing,
   adminGetUserListing,
@@ -166,24 +167,33 @@ const EXTENSION_BY_FORMAT = { json: "json", pdf: "pdf", excel: "xlsx", csv: "csv
 // forces an actual file save in the requested format — a plain `window.open`/anchor
 // click lets the browser view JSON/CSV/PDF inline instead of downloading it, and
 // won't apply the extension for the format the user picked
+const saveBlob = (blob, filename) => {
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  // revoking synchronously can cancel the save in some browsers
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+};
+
+// throws on failure so callers can surface it — the old `window.open` fallback ran
+// after an await and was silently swallowed by popup blockers
 const triggerReportDownload = async (url, filenameBase, format) => {
   const ext = EXTENSION_BY_FORMAT[format] ?? format ?? "json";
   const filename = `${filenameBase}.${ext}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("download failed");
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
-  } catch {
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
+  // backend may hand back a path relative to the API host rather than an absolute URL
+  const apiOrigin = new URL(baseURL).origin;
+  const resolved = new URL(url, url.startsWith("/") ? apiOrigin : baseURL + "/");
+  // our own download routes are auth-protected; never leak the token to third-party/signed storage URLs
+  const headers = resolved.origin === apiOrigin
+    ? { authorization: `Bearer ${localStorage.getItem("token")}` }
+    : undefined;
+  const res = await fetch(resolved.href, { headers });
+  if (!res.ok) throw new Error(`Download failed (${res.status}).`);
+  saveBlob(await res.blob(), filename);
 };
 
 const EXPORT_FORMAT_OPTIONS = [
@@ -421,15 +431,20 @@ const MISReportsPage = () => {
 
   const handleExport = async (item, format) => {
     try {
-      const { downloadUrl } = await adminExportMISReport(item.id, format);
+      const { downloadUrl, file, filename } = await adminExportMISReport(item.id, format);
+      const baseName = (item.reportName || item.reportId || "report").replace(/[^\w-]+/g, "_");
+      const exportFormat = format || item.reportFormat;
+      if (file) {
+        saveBlob(file, filename || `${baseName}.${EXTENSION_BY_FORMAT[exportFormat] ?? exportFormat ?? "json"}`);
+        return;
+      }
       if (!downloadUrl) {
         toast({ description: "Export did not return a download link.", status: "error", position: "top" });
         return;
       }
-      const baseName = (item.reportName || item.reportId || "report").replace(/[^\w-]+/g, "_");
-      triggerReportDownload(downloadUrl, baseName, format || item.reportFormat);
+      await triggerReportDownload(downloadUrl, baseName, exportFormat);
     } catch (err) {
-      toast({ description: err?.response?.data?.message || "Failed to export report.", status: "error", position: "top" });
+      toast({ description: err?.response?.data?.message || err?.message || "Failed to export report.", status: "error", position: "top" });
     }
   };
 
@@ -514,7 +529,9 @@ const MISReportsPage = () => {
 
       if (report?.downloadUrl) {
         const baseName = (generateForm.reportName || report.reportId || "report").replace(/[^\w-]+/g, "_");
-        triggerReportDownload(report.downloadUrl, baseName, generateForm.reportFormat);
+        triggerReportDownload(report.downloadUrl, baseName, generateForm.reportFormat).catch((err) =>
+          toast({ description: err?.message || "Report generated but the download failed — use Export from the list.", status: "warning", position: "top" })
+        );
       }
 
       handleGenerateClose();
