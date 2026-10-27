@@ -158,11 +158,6 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
     }
   }, [isViewMode, assessment?.submittedAnswers]);
 
-  const [exitAttempts, setExitAttempts] = useState(0);
-  const [nav, setNav] = useState(false);
-
-  const totalSteps = 3;
-
   useEffect(() => {
     if (questions.length > 0 && !currentQuestion) {
       setCurrentQuestion(questions[0]);
@@ -170,9 +165,18 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questions.length]);
 
+  // The countdown runs for the full duration from when the student opens this
+  // attempt — not from the scheduled startTime, which may already be in the past.
+  const [attemptStartedAt, setAttemptStartedAt] = useState(null);
+  useEffect(() => {
+    if (assessment && !isViewMode && !attemptStartedAt) {
+      setAttemptStartedAt(new Date().toISOString());
+    }
+  }, [assessment, isViewMode, attemptStartedAt]);
+
   const timerManager = useTimerCountdown({
-    startDate: !isViewMode ? assessment?.startTime : null,
-    endDate: !isViewMode ? assessment?.endTime : null,
+    startDate: !isViewMode ? attemptStartedAt : null,
+    duration: !isViewMode ? assessment?.duration : null,
   });
 
   const modalManager = useDisclosure();
@@ -180,8 +184,11 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
   const [modalPrompt, setModalPrompt] = useState(null);
   const [modalCanClose, setModalCanClose] = useState(true);
 
+  const isSubmittingRef = useRef(false);
+
   const handleSubmit = useCallback(async () => {
-    if (isViewMode) return;
+    if (isViewMode || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setSubmitStatus({ loading: true });
     try {
       const answers = assessment.questions.map((q) => ({
@@ -202,12 +209,13 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
         resultPending: data?.resultPending,
       });
       toast({
-        description: exitAttempts >= totalSteps ? "Assessment auto submitted" : message,
+        description: message,
         position: "top",
         status: "success",
       });
       setSubmitStatus({ success: true });
     } catch (err) {
+      isSubmittingRef.current = false;
       toast({
         title: err.statusCode === 403 ? "Maximum attempts reached" : undefined,
         description: err.message,
@@ -217,11 +225,7 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
       setSubmitStatus({ error: err.message });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessment, selectedAnswers, exitAttempts, isViewMode]);
-
-  useEffect(() => {
-    if (!isViewMode && timerManager.hasEnded?.timeout) handleSubmit();
-  }, [timerManager.hasEnded?.timeout, handleSubmit, isViewMode]);
+  }, [assessment, selectedAnswers, isViewMode]);
 
   useEffect(() => {
     if (submitStatus.success) {
@@ -262,29 +266,32 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
     });
   };
 
-  const handleExitAttempt = useCallback(() => {
-    if (isViewMode) return;
-    setExitAttempts((prev) => {
-      const next = prev + 1;
-      if (next >= totalSteps) {
-        setNav(true);
-        push("/courses");
-        handleSubmit();
-      }
-      return next;
-    });
-  }, [handleSubmit, push, isViewMode]);
-
+  // Time running out is the only thing that submits without the student clicking Submit.
+  const timeUpSubmittedRef = useRef(false);
   useEffect(() => {
-    if (isViewMode) return;
-    const onUnload = (e) => { e.preventDefault(); e.returnValue = ""; handleExitAttempt(); };
+    if (isViewMode || submitStatus.success || !timerManager.hasEnded?.timeout) return;
+    if (timeUpSubmittedRef.current) return;
+    timeUpSubmittedRef.current = true;
+    modalManager.onClose();
+    toast({
+      position: "top",
+      status: "warning",
+      title: "Time is up — your assessment is being submitted",
+    });
+    handleSubmit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerManager.hasEnded?.timeout, isViewMode, submitStatus.success]);
+
+  // Leaving the tab or page only warns the student; it never submits for them.
+  useEffect(() => {
+    if (isViewMode || submitStatus.success) return;
+    const onUnload = (e) => { e.preventDefault(); e.returnValue = ""; };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
-        handleExitAttempt();
         toast({
           position: "top",
           status: "warning",
-          title: "Leaving this tab 3 times will auto-submit your assessment",
+          title: "Please stay on this tab until you have submitted your assessment",
         });
       }
     };
@@ -294,7 +301,7 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
       window.removeEventListener("beforeunload", onUnload);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [handleExitAttempt, toast, isViewMode]);
+  }, [toast, isViewMode, submitStatus.success]);
 
   const handleOptionSelect = (value) => {
     if (isViewMode) return;
@@ -332,7 +339,6 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
 
   return (
     <>
-      {nav ? null : null}
       <CustomModal
         onClose={modalManager.onClose}
         canClose={modalCanClose}
