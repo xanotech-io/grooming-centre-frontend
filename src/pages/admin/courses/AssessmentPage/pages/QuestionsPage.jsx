@@ -108,11 +108,18 @@ const BANK_TYPE_TO_FORM_TYPE = {
 // parent not saved yet) and to create it for real on an already-existing
 // assessment/examination (List Of Questions' "Question Bank" add). Returns
 // null when the bank question's type is locked out by `allowedQuestionTypes`.
+// Essay answers can't be auto-graded, so an Essay question must never be
+// saved with "automatic" marking.
+const getEffectiveMarkingType = (questionType, markingType) =>
+  questionType === "Essay" && markingType === "automatic" ? "manual" : markingType;
+
 const buildBankQueueItem = (
   bankQuestion,
   { isStandaloneExamination, isExamination, assessmentId, sectionTitle, sectionMarks, allowedQuestionTypes },
 ) => {
   const mappedType = BANK_TYPE_TO_FORM_TYPE[bankQuestion.questionType] || "Essay";
+  // Same default the question form applies when its type is picked by hand.
+  const bankMarkingType = ["ShortAnswer", "Essay"].includes(mappedType) ? "manual" : "automatic";
   if (allowedQuestionTypes && !allowedQuestionTypes.includes(mappedType)) return null;
 
   const isObjective = mappedType === "MCQ" || mappedType === "TrueFalse";
@@ -148,7 +155,7 @@ const buildBankQueueItem = (
       standAloneExaminationId: isExamination,
       question: bankQuestion.question,
       ...(sectionTitle && { section: sectionTitle }),
-      markingType: "automatic",
+      markingType: bankMarkingType,
       ...(isObjective && { options }),
     };
   } else if (isExamination) {
@@ -156,7 +163,7 @@ const buildBankQueueItem = (
       examinationId: isExamination,
       question: bankQuestion.question,
       marks: effectiveMarks,
-      markingType: "automatic",
+      markingType: bankMarkingType,
       ...(sectionTitle && { section: sectionTitle }),
       difficultyLevel: bankDifficultyLevel,
       questionType: mappedType,
@@ -166,7 +173,7 @@ const buildBankQueueItem = (
     data = {
       assessmentId,
       question: bankQuestion.question,
-      markingType: "automatic",
+      markingType: bankMarkingType,
       questionType: mappedType,
       ...(sectionTitle && { section: sectionTitle }),
       ...(isObjective ? { options: JSON.stringify(options) } : typeSpecificFields),
@@ -194,7 +201,7 @@ const buildBankQueueItem = (
     formSnapshot: {
       questionType: mappedType,
       marks: effectiveMarks,
-      markingType: "automatic",
+      markingType: bankMarkingType,
       difficultyLevel: bankDifficultyLevel,
       bloomLevel: "",
       section: sectionTitle,
@@ -1409,13 +1416,17 @@ const CreateQuestionPage = ({
   // blank form — mirrors the "See All" link's href, which keeps
   // pendingCreate/pendingEdit alive (unlike goToQuestionListing, which
   // clears them) since nothing has actually been created/saved yet.
-  const goToQueuedListing = () => {
+  // `openSubmit` makes the listing open the approval step straight away,
+  // so "Create and Submit" is one click from the question form.
+  const goToQueuedListing = ({ openSubmit = false } = {}) => {
     const pendingSuffix = isPendingCreation
       ? "&submitForApproval=1"
       : isPendingEditSubmit
         ? "&editSubmit=1"
         : "";
-    push(`${getQuestionListingLink(courseId, assessmentId, isExamination, moduleId)}${pendingSuffix}`);
+    push(
+      `${getQuestionListingLink(courseId, assessmentId, isExamination, moduleId)}${pendingSuffix}${openSubmit ? "&openSubmit=1" : ""}`,
+    );
   };
 
   // After a question is saved: if this exam/assessment was set up for more
@@ -2021,6 +2032,11 @@ const CreateQuestionPage = ({
     else if (automaticTypes.includes(questionType)) setMarkingType("automatic");
   }, [questionType]);
 
+  // Hydrating an existing/queued Essay can still bring in "automatic".
+  useEffect(() => {
+    if (questionType === "Essay" && markingType === "automatic") setMarkingType("manual");
+  }, [questionType, markingType]);
+
   useEffect(() => {
     if (question) {
       const option2 = question.options?.find((opt) => opt.optionIndex === 2);
@@ -2085,6 +2101,10 @@ const CreateQuestionPage = ({
   // of opening the approval modal — only the latter button should ever
   // trigger a supervisor-approval submission.
   const addAnotherRef = useRef(false);
+  // Set alongside `addAnotherRef` by "Create and Submit"/"Update and Submit"
+  // on a pending form: queue the typed question, then go straight to the
+  // approval step instead of opening another blank form.
+  const createAndSubmitRef = useRef(false);
   // Set by the "Create and Submit" button on the plain add-question page
   // (a new question on an already-real assessment/exam) — saves the
   // question as normal, then opens the same approval modal used elsewhere,
@@ -2433,6 +2453,10 @@ const CreateQuestionPage = ({
         throw new Error(overLimitDescription);
       }
 
+      // Essays are always graded by the instructor — never let one go out
+      // as "automatic" (e.g. hydrated from an older bank pick or snapshot).
+      const effectiveMarkingType = getEffectiveMarkingType(questionType, markingType);
+
       const file = questionImageManager.handleGetFileAndValidate(
         "Question Cover",
         true,
@@ -2498,7 +2522,7 @@ const CreateQuestionPage = ({
       const queuedFormSnapshot = {
         questionType,
         marks,
-        markingType,
+        markingType: effectiveMarkingType,
         difficultyLevel,
         bloomLevel,
         section: editSectionTitle,
@@ -2515,7 +2539,7 @@ const CreateQuestionPage = ({
 
       const editMeta = {
         marks: effectiveMarks,
-        markingType,
+        markingType: effectiveMarkingType,
         ...(editSectionTitle && { section: editSectionTitle }),
         ...(rubric && { rubric }),
         difficultyLevel,
@@ -2531,7 +2555,7 @@ const CreateQuestionPage = ({
             standAloneExaminationQuestionId: questionId,
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
-            markingType,
+            markingType: effectiveMarkingType,
             ...(isObjectiveType && { options }),
           };
         } else if (isExamination) {
@@ -2563,7 +2587,7 @@ const CreateQuestionPage = ({
             image: file,
             questionId,
             question: questionText,
-            markingType,
+            markingType: effectiveMarkingType,
             questionType,
             ...(sectionTitle && { section: sectionTitle }),
             ...(isObjectiveType
@@ -2590,7 +2614,7 @@ const CreateQuestionPage = ({
         // Create mode
         const examMeta = {
           marks: effectiveMarks,
-          markingType,
+          markingType: effectiveMarkingType,
           ...(sectionTitle && { section: sectionTitle }),
           ...(rubric && { rubric }),
           difficultyLevel,
@@ -2603,7 +2627,7 @@ const CreateQuestionPage = ({
             standAloneExaminationId: isExamination,
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
-            markingType,
+            markingType: effectiveMarkingType,
             ...(isObjectiveType && { options }),
           };
         } else if (isExamination) {
@@ -2620,7 +2644,7 @@ const CreateQuestionPage = ({
             image: file,
             assessmentId,
             question: questionText,
-            markingType,
+            markingType: effectiveMarkingType,
             questionType,
             ...(sectionTitle && { section: sectionTitle }),
             ...(isObjectiveType
@@ -2713,6 +2737,11 @@ const CreateQuestionPage = ({
           // text (which risked getting resubmitted as a duplicate).
           questionRichTextManager.handleInitData(null);
           setBankApplyKey((k) => k + 1);
+          if (createAndSubmitRef.current) {
+            createAndSubmitRef.current = false;
+            goToQueuedListing({ openSubmit: true });
+            return;
+          }
           // This question is safely queued either way — only decide here
           // whether there's room left to offer another blank form, so
           // hitting the limit never costs the question just filled out.
@@ -2805,6 +2834,11 @@ const CreateQuestionPage = ({
           // text (which risked getting resubmitted as a duplicate).
           questionRichTextManager.handleInitData(null);
           setBankApplyKey((k) => k + 1);
+          if (createAndSubmitRef.current) {
+            createAndSubmitRef.current = false;
+            goToQueuedListing({ openSubmit: true });
+            return;
+          }
           if (amountOfQuestions && updatedQuestions.length >= amountOfQuestions) {
             toast({
               description: `Question added. You've reached the ${amountOfQuestions} question${amountOfQuestions === 1 ? "" : "s"} you specified for this ${isExamination ? "exam" : "assessment"} — submit this for approval to finish.`,
@@ -3184,7 +3218,9 @@ const CreateQuestionPage = ({
                   onChange={(e) => handleMarkingTypeChange(e.target.value)}
                   size="sm"
                 >
-                  <option value="automatic">Automatic</option>
+                  <option value="automatic" disabled={questionType === "Essay"}>
+                    Automatic
+                  </option>
                   <option value="manual">Manual</option>
                   <option value="hybrid">Hybrid</option>
                 </ChakraSelect>
@@ -3520,16 +3556,23 @@ const CreateQuestionPage = ({
         <Button
           type="submit"
           onClick={(e) => {
-            // "Create and Submit"/"Update and Submit" on a brand-new pending
-            // assessment/exam behaves exactly like the "See All" sidebar
-            // link: always navigate to the question listing, without saving
-            // or validating whatever is currently on the form.
+            // "Create and Submit"/"Update and Submit" on a pending
+            // assessment/exam: a typed question is queued first (same path
+            // as "Add more questions"), then the listing opens the approval
+            // step. A blank form just goes straight to that step.
             if ((isPendingCreation || isPendingEditSubmit) && !isEditingQueued) {
-              e.preventDefault();
-              goToQueuedListing();
+              if (!questionRichTextManager.getPlainText().trim()) {
+                e.preventDefault();
+                goToQueuedListing({ openSubmit: true });
+                return;
+              }
+              addAnotherRef.current = true;
+              createAndSubmitRef.current = true;
+              submitForApprovalRef.current = false;
               return;
             }
             addAnotherRef.current = false;
+            createAndSubmitRef.current = false;
             submitForApprovalRef.current = false;
           }}
           disabled={isLoading || isSubmitting || error || realAddAtCapacity}
@@ -3576,6 +3619,7 @@ const CreateQuestionPage = ({
                 // queued (in onSubmit) — never before, so reaching it never
                 // costs the question just filled out on this form.
                 addAnotherRef.current = true;
+                createAndSubmitRef.current = false;
               }}
               disabled={isLoading || isSubmitting || error}
               isLoading={isLoading || isSubmitting}
@@ -4054,6 +4098,27 @@ const QuestionListingPage = ({
     }
     setPendingWorkflowModalOpen(true);
   };
+
+  // Arriving from the question form's "Create and Submit"/"Update and
+  // Submit" — open the approval step right away instead of making the
+  // admin find the button at the bottom of this list.
+  const openSubmitParam = useQueryParams().get("openSubmit") === "1";
+  const autoOpenedSubmitRef = useRef(false);
+  useEffect(() => {
+    if (!openSubmitParam || autoOpenedSubmitRef.current) return;
+    if (!(isPendingCreation || isPendingEditSubmit)) return;
+    autoOpenedSubmitRef.current = true;
+    if (queuedQuestions.length === 0) {
+      toast({
+        description: "Add at least one question before submitting.",
+        position: "top",
+        status: "warning",
+      });
+      return;
+    }
+    handleOpenCreateAndSubmit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSubmitParam, isPendingCreation, isPendingEditSubmit, queuedQuestions.length]);
 
   const handlePendingWorkflowSuccess = () => {
     const realParentId = createdParentRef.current?.id;
