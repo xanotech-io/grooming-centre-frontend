@@ -45,7 +45,7 @@ import {
   updateExamQuestionBankItem,
   updateExamQuestionBankMedia,
 } from "../../../services";
-import { FiArrowLeft, FiArrowUp, FiArrowDown, FiTrash2, FiPlus, FiSave } from "react-icons/fi";
+import { FiArrowLeft, FiArrowUp, FiArrowDown, FiTrash2, FiPlus, FiSave, FiUpload } from "react-icons/fi";
 import { FaImage, FaMicrophone, FaVideo } from "react-icons/fa";
 
 const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
@@ -70,18 +70,40 @@ const formatBytes = (bytes) => {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 };
 
+const ACCEPT_ATTR = Object.values(ALLOWED_MIME).flat().join(",");
+
+const detectMediaType = (mime) => Object.keys(ALLOWED_MIME).find((type) => ALLOWED_MIME[type].includes(mime));
+
+// Reads the playback length of an audio/video file locally so the admin
+// doesn't have to type it in.
+const readMediaDuration = (file, mediaType) =>
+  new Promise((resolve) => {
+    if (mediaType !== "audio" && mediaType !== "video") return resolve(undefined);
+    const el = document.createElement(mediaType);
+    const src = URL.createObjectURL(file);
+    const done = (value) => {
+      URL.revokeObjectURL(src);
+      resolve(value);
+    };
+    el.preload = "metadata";
+    el.onloadedmetadata = () => done(Number.isFinite(el.duration) ? Math.round(el.duration * 10) / 10 : undefined);
+    el.onerror = () => done(undefined);
+    el.src = src;
+  });
+
 const EMPTY_MEDIA_FORM = {
-  mediaType: "image",
-  url: "",
-  mimeType: "",
-  fileSizeBytes: "",
-  durationSeconds: "",
+  file: null,
+  mediaType: "",
   altText: "",
   transcript: "",
 };
 
-const AddMediaModal = ({ isOpen, onClose, questionId, currentCount, onAdded }) => {
+// Collects a file plus its accessibility text and hands it to `onSubmit`.
+// The parent decides whether to upload it now (edit) or stage it until the
+// question exists (create).
+const AddMediaModal = ({ isOpen, onClose, onSubmit }) => {
   const toast = useToast();
+  const fileInputRef = useRef();
   const [form, setForm] = useState(EMPTY_MEDIA_FORM);
   const [submitting, setSubmitting] = useState(false);
 
@@ -91,50 +113,40 @@ const AddMediaModal = ({ isOpen, onClose, questionId, currentCount, onAdded }) =
 
   const set = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
 
-  const validate = () => {
-    if (!form.url.startsWith("https://")) {
-      toast({ title: "URL must start with https://", status: "warning", duration: 3000, isClosable: true });
-      return false;
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const mediaType = detectMediaType(file.type);
+    if (!mediaType) {
+      toast({ title: "File type not allowed. See accepted formats.", status: "warning", duration: 4000, isClosable: true });
+      return;
     }
-    if (!form.mimeType.trim()) {
-      toast({ title: "MIME type is required", status: "warning", duration: 3000, isClosable: true });
-      return false;
-    }
-    if (!ALLOWED_MIME[form.mediaType]?.includes(form.mimeType.trim())) {
-      toast({
-        title: `Invalid MIME type for ${form.mediaType}. Allowed: ${ALLOWED_MIME[form.mediaType].join(", ")}`,
-        status: "warning",
-        duration: 4000,
-        isClosable: true,
-      });
-      return false;
-    }
-    const sizeVal = parseInt(form.fileSizeBytes) || 0;
-    if (sizeVal > MAX_FILE_BYTES) {
+    if (file.size > MAX_FILE_BYTES) {
       toast({ title: "File exceeds the 5 MB size limit", status: "warning", duration: 3000, isClosable: true });
-      return false;
+      return;
     }
-    return true;
+    setForm((prev) => ({ ...prev, file, mediaType }));
   };
 
   const handleSubmit = async () => {
-    if (!validate()) return;
-    const body = {
+    if (!form.file) {
+      toast({ title: "Choose a file to attach", status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
+    const entry = {
+      file: form.file,
       mediaType: form.mediaType,
-      url: form.url.trim(),
-      mimeType: form.mimeType.trim(),
-      fileSizeBytes: parseInt(form.fileSizeBytes) || 0,
-      sortOrder: currentCount,
+      mimeType: form.file.type,
+      fileSizeBytes: form.file.size,
+      durationSeconds: await readMediaDuration(form.file, form.mediaType),
     };
-    if (form.durationSeconds) body.durationSeconds = parseFloat(form.durationSeconds);
-    if (form.altText.trim()) body.altText = form.altText.trim();
-    if (form.transcript.trim()) body.transcript = form.transcript.trim();
+    if (form.mediaType === "image" && form.altText.trim()) entry.altText = form.altText.trim();
+    if (form.mediaType !== "image" && form.transcript.trim()) entry.transcript = form.transcript.trim();
 
     setSubmitting(true);
     try {
-      await addExamQuestionBankMedia(questionId, body);
-      toast({ title: "Media added successfully", status: "success", duration: 3000, isClosable: true });
-      onAdded();
+      await onSubmit(entry);
       onClose();
     } catch (err) {
       const msg = err?.response?.data?.message || "Failed to add media";
@@ -156,54 +168,46 @@ const AddMediaModal = ({ isOpen, onClose, questionId, currentCount, onAdded }) =
           <Flex direction="column" gap="14px">
             <FormControl isRequired>
               <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                Media Type
+                File
               </FormLabel>
-              <Select size="sm" borderRadius="6px" value={form.mediaType} onChange={(e) => set("mediaType", e.target.value)}>
-                <option value="image">Image</option>
-                <option value="audio">Audio</option>
-                <option value="video">Video</option>
-              </Select>
+              <input ref={fileInputRef} type="file" accept={ACCEPT_ATTR} style={{ display: "none" }} onChange={handleFileChange} />
+              <Box
+                as="button"
+                type="button"
+                w="100%"
+                border="2px dashed #CBD5E0"
+                borderRadius="8px"
+                p="20px"
+                textAlign="center"
+                bg="#F7FAFC"
+                _hover={{ borderColor: "#6b006b" }}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {form.file ? (
+                  <Flex alignItems="center" justifyContent="center" gap="8px">
+                    {MEDIA_ICON[form.mediaType]}
+                    <Text fontSize="13px" fontWeight="500" color="gray.700" noOfLines={1}>
+                      {form.file.name}
+                    </Text>
+                    <Text fontSize="11px" color="gray.400" flexShrink={0}>
+                      ({formatBytes(form.file.size)})
+                    </Text>
+                  </Flex>
+                ) : (
+                  <Flex direction="column" alignItems="center" gap="6px">
+                    <FiUpload size={20} color="#6b006b" />
+                    <Text fontSize="13px" color="gray.600">
+                      Click to choose an image, audio or video file
+                    </Text>
+                  </Flex>
+                )}
+              </Box>
+              {form.file && (
+                <Text fontSize="11px" color="gray.400" mt="4px">
+                  Click the box to pick a different file.
+                </Text>
+              )}
             </FormControl>
-
-            <FormControl isRequired>
-              <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                CDN URL
-              </FormLabel>
-              <Input
-                size="sm"
-                borderRadius="6px"
-                placeholder="https://cdn.example.com/media/file.png"
-                value={form.url}
-                onChange={(e) => set("url", e.target.value)}
-              />
-              <Text fontSize="11px" color="gray.400" mt="2px">
-                Upload your file to a CDN first, then paste the URL here.
-              </Text>
-            </FormControl>
-
-            <Flex gap="12px">
-              <FormControl isRequired flex="1">
-                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                  MIME Type
-                </FormLabel>
-                <Input size="sm" borderRadius="6px" placeholder="image/png" value={form.mimeType} onChange={(e) => set("mimeType", e.target.value)} />
-              </FormControl>
-              <FormControl flex="1">
-                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                  File Size (bytes)
-                </FormLabel>
-                <Input size="sm" borderRadius="6px" type="number" placeholder="204800" value={form.fileSizeBytes} onChange={(e) => set("fileSizeBytes", e.target.value)} />
-              </FormControl>
-            </Flex>
-
-            {(form.mediaType === "audio" || form.mediaType === "video") && (
-              <FormControl>
-                <FormLabel fontSize="13px" fontWeight="500" color="gray.600">
-                  Duration (seconds, optional)
-                </FormLabel>
-                <Input size="sm" borderRadius="6px" type="number" placeholder="120" value={form.durationSeconds} onChange={(e) => set("durationSeconds", e.target.value)} />
-              </FormControl>
-            )}
 
             {form.mediaType === "image" && (
               <FormControl>
@@ -242,6 +246,32 @@ const AddMediaModal = ({ isOpen, onClose, questionId, currentCount, onAdded }) =
     </Modal>
   );
 };
+
+// A file picked on the create page that hasn't been uploaded yet — the
+// question needs an id before its media can be attached.
+const PendingMediaCard = ({ item, onRemove }) => (
+  <Box border="1px solid #E2E8F0" borderRadius="8px" p="16px" bg="#F7FAFC">
+    <Flex justifyContent="space-between" alignItems="flex-start" mb="12px">
+      <Flex alignItems="center" gap="8px" minW="0">
+        {MEDIA_ICON[item.mediaType]}
+        <Text fontSize="13px" fontWeight="500" color="gray.700" noOfLines={1}>
+          {item.file.name}
+        </Text>
+        <Text fontSize="11px" color="gray.400" flexShrink={0}>
+          {item.mimeType} · {formatBytes(item.fileSizeBytes)}
+        </Text>
+      </Flex>
+      <IconButton aria-label="Remove" icon={<FiTrash2 size={12} />} size="xs" variant="ghost" colorScheme="red" onClick={onRemove} />
+    </Flex>
+    {item.mediaType === "image" && (
+      <Box maxH="120px" overflow="hidden" borderRadius="6px">
+        <img src={item.previewUrl} alt={item.altText || ""} style={{ maxHeight: "120px", objectFit: "contain" }} />
+      </Box>
+    )}
+    {item.mediaType === "audio" && <audio controls src={item.previewUrl} style={{ width: "100%" }} />}
+    {item.mediaType === "video" && <video controls src={item.previewUrl} style={{ width: "100%", maxHeight: "150px" }} />}
+  </Box>
+);
 
 const MediaCard = ({ item, questionId, isFirst, isLast, onMoveUp, onMoveDown, onDeleted, onSaved }) => {
   const toast = useToast();
@@ -405,6 +435,12 @@ const ExamQuestionBankFormPage = () => {
 
   const [media, setMedia] = useState([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
+  // Files picked before the question exists; uploaded right after create.
+  const [pendingMedia, setPendingMedia] = useState([]);
+  const pendingMediaRef = useRef(pendingMedia);
+  pendingMediaRef.current = pendingMedia;
+
+  useEffect(() => () => pendingMediaRef.current.forEach((m) => URL.revokeObjectURL(m.previewUrl)), []);
 
   const [initialLoading, setInitialLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -508,6 +544,48 @@ const ExamQuestionBankFormPage = () => {
     setOptions((prev) => prev.map((o, i) => ({ ...o, isCorrect: i === idx })));
   };
 
+  const handleAddMedia = async (entry) => {
+    if (isEdit) {
+      await addExamQuestionBankMedia(questionId, { ...entry, sortOrder: media.length });
+      toast({ title: "Media added successfully", status: "success", duration: 3000, isClosable: true });
+      loadMedia();
+      return;
+    }
+    setPendingMedia((prev) => [
+      ...prev,
+      { ...entry, key: `${Date.now()}-${entry.file.name}`, previewUrl: URL.createObjectURL(entry.file) },
+    ]);
+  };
+
+  const removePendingMedia = (key) => {
+    setPendingMedia((prev) => {
+      const target = prev.find((m) => m.key === key);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((m) => m.key !== key);
+    });
+  };
+
+  const uploadPendingMedia = async (newId) => {
+    let failed = 0;
+    for (const [idx, { key, previewUrl, ...entry }] of pendingMediaRef.current.entries()) {
+      try {
+        await addExamQuestionBankMedia(newId, { ...entry, sortOrder: idx });
+      } catch (err) {
+        failed += 1;
+        console.error("[ExamQuestionBankFormPage] failed to upload media", entry.file.name, err?.response?.data ?? err);
+      }
+    }
+    if (failed) {
+      toast({
+        title: `Question created, but ${failed} media file${failed > 1 ? "s" : ""} failed to upload`,
+        description: "You can re-attach them from the edit page.",
+        status: "warning",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   const moveMedia = async (idx, dir) => {
     const swapIdx = dir === "up" ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= media.length) return;
@@ -579,6 +657,7 @@ const ExamQuestionBankFormPage = () => {
     const d = res?.data ?? res;
     const newId = d?.id ?? d?._id ?? d?.questionId;
     createdIdRef.current = newId;
+    if (newId && pendingMediaRef.current.length) await uploadPendingMedia(newId);
     return { id: newId };
   };
 
@@ -858,11 +937,10 @@ const ExamQuestionBankFormPage = () => {
           </Box>
         )}
 
-        {isEdit && (
-          <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" p="24px">
+        <Box bg="white" border="1px solid #E2E8F0" borderRadius="10px" p="24px">
             <Flex justifyContent="space-between" alignItems="center" mb="16px">
               <Text fontSize="13px" fontWeight="700" color="gray.400" textTransform="uppercase" letterSpacing="wider">
-                Media Attachments ({media.length})
+                Media Attachments ({isEdit ? media.length : pendingMedia.length})
               </Text>
               <Button secondary size="sm" leftIcon={<FiPlus />} onClick={onAddMediaOpen}>
                 Add Media
@@ -873,6 +951,20 @@ const ExamQuestionBankFormPage = () => {
               <Flex justifyContent="center" py="24px">
                 <Spinner size="md" color="#6b006b" />
               </Flex>
+            ) : !isEdit ? (
+              pendingMedia.length === 0 ? (
+                <Box bg="#F7FAFC" borderRadius="8px" p="24px" textAlign="center">
+                  <Text fontSize="13px" color="gray.400">
+                    No media attached. Add images, audio, or video — they'll upload when you create the question.
+                  </Text>
+                </Box>
+              ) : (
+                <Flex direction="column" gap="12px">
+                  {pendingMedia.map((item) => (
+                    <PendingMediaCard key={item.key} item={item} onRemove={() => removePendingMedia(item.key)} />
+                  ))}
+                </Flex>
+              )
             ) : media.length === 0 ? (
               <Box bg="#F7FAFC" borderRadius="8px" p="24px" textAlign="center">
                 <Text fontSize="13px" color="gray.400">
@@ -896,15 +988,12 @@ const ExamQuestionBankFormPage = () => {
                 ))}
               </Flex>
             )}
-          </Box>
-        )}
+        </Box>
 
-        {!isEdit && (
+        {!isEdit && duplicateFromId && (
           <Box bg="#EBF4FF" border="1px solid #BEE3F8" borderRadius="8px" p="12px">
             <Text fontSize="13px" color="#2B6CB0">
-              {duplicateFromId
-                ? "This is a new question pre-filled from the one you duplicated — review or edit it, then create it. It won't affect the original."
-                : "Save the question first, then you can attach media files from the edit view."}
+              This is a new question pre-filled from the one you duplicated — review or edit it, then create it. It won't affect the original.
             </Text>
           </Box>
         )}
@@ -923,7 +1012,7 @@ const ExamQuestionBankFormPage = () => {
         </Flex>
       </Flex>
 
-      <AddMediaModal isOpen={isAddMediaOpen} onClose={onAddMediaClose} questionId={questionId} currentCount={media.length} onAdded={loadMedia} />
+      <AddMediaModal isOpen={isAddMediaOpen} onClose={onAddMediaClose} onSubmit={handleAddMedia} />
 
       {!isEdit && workflowContent && (
         <WorkflowSubmitModal

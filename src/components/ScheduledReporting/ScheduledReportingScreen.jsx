@@ -29,11 +29,6 @@ import {
   ModalCloseButton,
   FormControl,
   FormLabel,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
   Spinner,
   useDisclosure,
   useToast,
@@ -51,6 +46,7 @@ import {
   FiPlus,
   FiTrash2,
   FiRefreshCw,
+  FiFileText,
   FiList,
   FiClock,
   FiCheckCircle,
@@ -59,7 +55,6 @@ import {
   FiCalendar,
   FiChevronLeft,
   FiChevronRight,
-  FiAlertTriangle,
 } from "react-icons/fi";
 import {
   tc20ListSchedules,
@@ -68,7 +63,6 @@ import {
   tc20DeleteSchedule,
   tc20UpdateScheduleStatus,
   tc20GetScheduleLogs,
-  tc20GetAllExecutionLogs,
 } from "../../services/http/endpoints/scheduledReporting";
 
 // ---------------------------------------------------------------------------
@@ -98,6 +92,7 @@ const StatusBadge = ({ status }) => {
   const map = {
     active:    { label: "Active",    bg: "#ECFDF3", color: "#027A48" },
     inactive:  { label: "Inactive",  bg: "#F2F4F7", color: "#667185" },
+    success:   { label: "Success",   bg: "#ECFDF3", color: "#027A48" },
     delivered: { label: "Delivered", bg: "#ECFDF3", color: "#027A48" },
     failed:    { label: "Failed",    bg: "#FEF3F2", color: "#B42318" },
     pending:   { label: "Pending",   bg: "#FFFAEB", color: "#B54708" },
@@ -215,7 +210,6 @@ const ScheduledReportingScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [frequencyFilter, setFrequencyFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [activeTab, setActiveTab] = useState(0);
 
   // Wizard state
   const [wizardStep, setWizardStep] = useState(1);
@@ -254,27 +248,20 @@ const ScheduledReportingScreen = () => {
     setKpiLoading(false);
   }, []);
 
-  const loadAllLogs = useCallback(async () => {
-    setLogsLoading(true);
-    const { logs } = await tc20GetAllExecutionLogs();
-    setExecutionLogs(logs);
-    setLogsLoading(false);
-  }, []);
-
   const loadScheduleLogs = useCallback(async (scheduleId) => {
     setLogsLoading(true);
-    const { logs } = await tc20GetScheduleLogs(scheduleId);
-    setExecutionLogs(logs);
-    setLogsLoading(false);
-  }, []);
+    setExecutionLogs([]);
+    try {
+      const { logs } = await tc20GetScheduleLogs(scheduleId);
+      setExecutionLogs(logs);
+    } catch (err) {
+      toast({ description: err?.response?.data?.message || "Failed to load execution logs.", status: "error", position: "top", duration: 3000, isClosable: true });
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => { loadSchedules(); loadKPIs(); }, [loadSchedules, loadKPIs]);
-
-
-  // Load logs when the logs tab is active
-  useEffect(() => {
-    if (activeTab === 1) loadAllLogs();
-  }, [activeTab, loadAllLogs]);
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -286,10 +273,6 @@ const ScheduledReportingScreen = () => {
     setSchedules((prev) =>
       prev.map((s) => s.scheduleId === schedule.scheduleId ? { ...s, status: newStatus } : s)
     );
-    setKpis((prev) => prev ? {
-      ...prev,
-      activeSchedules: prev.activeSchedules + (newStatus === "active" ? 1 : -1),
-    } : prev);
     toast({ description: message, status: isMock ? "info" : "success", position: "top", duration: 2500, isClosable: true });
     setTogglingId(null);
   };
@@ -298,7 +281,6 @@ const ScheduledReportingScreen = () => {
     setDeletingId(scheduleId);
     const { message, isMock } = await tc20DeleteSchedule(scheduleId);
     setSchedules((prev) => prev.filter((s) => s.scheduleId !== scheduleId));
-    setKpis((prev) => prev ? { ...prev, totalScheduled: Math.max(0, prev.totalScheduled - 1) } : prev);
     toast({ description: message, status: isMock ? "info" : "success", position: "top", duration: 2500, isClosable: true });
     setDeletingId(null);
   };
@@ -365,7 +347,6 @@ const ScheduledReportingScreen = () => {
     const { schedule, message, isMock } = await tc20CreateSchedule(body);
     if (schedule) {
       setSchedules((prev) => [{ ...schedule, status: "active" }, ...prev]);
-      setKpis((prev) => prev ? { ...prev, totalScheduled: prev.totalScheduled + 1, activeSchedules: prev.activeSchedules + 1 } : prev);
     }
     toast({ description: message, status: isMock ? "info" : "success", position: "top", duration: 3000, isClosable: true });
     setSaving(false);
@@ -629,40 +610,19 @@ const ScheduledReportingScreen = () => {
           ))
         ) : (
           <>
-            <KPICard label="Total Schedules"   value={kpis?.totalScheduled ?? "—"}   sub="All created"           icon={FiList}        iconBg="#F9F5FF" />
-            <KPICard label="Active Schedules"  value={kpis?.activeSchedules ?? "—"}  sub="Currently running"      icon={FiCheckCircle} iconBg="#ECFDF3" />
-            <KPICard label="Success Rate"      value={kpis?.successRate != null ? `${kpis.successRate}%` : "—"}  sub="Delivery success" icon={FiCheckCircle} iconBg="#ECFDF3" />
-            <KPICard label="Failed Reports"    value={kpis?.failedReports ?? "—"}    sub="Needs attention"  subColor="#F04438" icon={FiAlertCircle} iconBg="#FEF3F2" />
-            <KPICard label="Avg Delivery"      value={kpis?.avgDeliveryTime ?? "—"}  sub="Per report"             icon={FiClock}       iconBg="#EFF8FF" />
-            <KPICard label="This Month"        value={kpis?.reportsThisMonth ?? "—"} sub="Reports sent"           icon={FiCalendar}    iconBg="#FFFAEB" />
+            <KPICard label="Total Schedules"   value={loading ? "—" : schedules.length}                                  sub="All created"       icon={FiList}        iconBg="#F9F5FF" />
+            <KPICard label="Active Schedules"  value={loading ? "—" : schedules.filter((s) => s.status === "active").length} sub="Currently running" icon={FiCheckCircle} iconBg="#ECFDF3" />
+            <KPICard label="Automation Rate"   value={kpis?.automationRate != null ? `${kpis.automationRate}%` : "—"}   sub="Reports automated" icon={FiRefreshCw}   iconBg="#ECFDF3" />
+            <KPICard label="Reports Generated" value={kpis?.reportsGenerated ?? "—"}                                    sub="All time"          icon={FiFileText}    iconBg="#FFFAEB" />
+            <KPICard label="Avg Generation"    value={kpis?.avgGenerationTime ?? "—"}                                   sub="Per report"        icon={FiClock}       iconBg="#EFF8FF" />
+            <KPICard label="Utilization Rate"  value={kpis?.utilizationRate != null ? `${kpis.utilizationRate}%` : "—"} sub="Reports viewed"    icon={FiCalendar}    iconBg="#FDF2FA" />
           </>
         )}
       </SimpleGrid>
 
-      {/* Tabs: Schedules | Execution Logs */}
+      {/* Schedules table — click a row to view that schedule's execution logs */}
       <Box bg="white" borderRadius="xl" border="1px solid #F2F4F7" boxShadow="sm" overflow="hidden">
-        <Tabs index={activeTab} onChange={setActiveTab} variant="unstyled">
-          <Flex px={6} pt={4} borderBottom="1px solid #F2F4F7" align="center" justify="space-between">
-            <TabList gap={1}>
-              {["Schedules", "Execution History"].map((label, i) => (
-                <Tab
-                  key={label}
-                  fontSize="14px" fontWeight="500"
-                  color={activeTab === i ? "#660066" : "#667185"}
-                  borderBottom="2px solid"
-                  borderColor={activeTab === i ? "#660066" : "transparent"}
-                  pb={3} px={3}
-                  _selected={{ color: "#660066" }}
-                >
-                  {label}
-                </Tab>
-              ))}
-            </TabList>
-          </Flex>
-
-          <TabPanels>
-            {/* ── Tab 1: Schedules Table ── */}
-            <TabPanel p={0}>
+            <Box>
               {/* Filters row */}
               <Flex px={6} py={4} gap={3} wrap="wrap" borderBottom="1px solid #F2F4F7">
                 <InputGroup maxW="260px">
@@ -719,7 +679,7 @@ const ScheduledReportingScreen = () => {
                       <EmptyRow colSpan={9} message="No schedules found" />
                     ) : (
                       filteredSchedules.map((s) => (
-                        <Tr key={s.scheduleId} _hover={{ bg: "#FAFAFA" }} borderBottom="1px solid #F2F4F7">
+                        <Tr key={s.scheduleId} _hover={{ bg: "#FAFAFA" }} borderBottom="1px solid #F2F4F7" cursor="pointer" onClick={() => handleViewLogs(s)}>
                           <Td px={4} py={3}>
                             <Text fontSize="13px" fontWeight="500" color="#660066">{s.scheduleId}</Text>
                           </Td>
@@ -730,7 +690,7 @@ const ScheduledReportingScreen = () => {
                           <Td px={4} py={3}>
                             <Text fontSize="13px" color="#344054" whiteSpace="nowrap">{formatDate(s.nextRunDate)}</Text>
                           </Td>
-                          <Td px={4} py={3}>
+                          <Td px={4} py={3} onClick={(e) => e.stopPropagation()}>
                             <HStack spacing={2}>
                               <Switch
                                 isChecked={s.status === "active"}
@@ -747,7 +707,7 @@ const ScheduledReportingScreen = () => {
                             <Text fontSize="13px" color="#344054" whiteSpace="nowrap">{formatDate(s.lastRunDate)}</Text>
                           </Td>
                           <Td px={4} py={3}><StatusBadge status={s.lastDeliveryStatus} /></Td>
-                          <Td px={4} py={3}>
+                          <Td px={4} py={3} onClick={(e) => e.stopPropagation()}>
                             <HStack spacing={1}>
                               <Tooltip label="View Logs" hasArrow>
                                 <IconButton
@@ -776,64 +736,8 @@ const ScheduledReportingScreen = () => {
                   </Tbody>
                 </Table>
               </Box>
-            </TabPanel>
+            </Box>
 
-            {/* ── Tab 2: Execution History ── */}
-            <TabPanel p={0}>
-              <Box overflowX="auto">
-                <Table variant="simple" size="sm">
-                  <Thead bg="#F9FAFB">
-                    <Tr>
-                      {["Log ID","Report Name","Execution Date & Time","Status","Duration","Delivered To","Error"].map((h) => (
-                        <Th key={h} fontSize="11px" fontWeight="600" color="#667185" textTransform="uppercase" letterSpacing="0.5px" py={3} px={4} whiteSpace="nowrap">
-                          {h}
-                        </Th>
-                      ))}
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {logsLoading ? (
-                      <Tr><Td colSpan={7} py={12}><Center><Spinner color="#660066" /></Center></Td></Tr>
-                    ) : executionLogs.length === 0 ? (
-                      <EmptyRow colSpan={7} message="No execution logs yet" />
-                    ) : (
-                      executionLogs.map((log) => (
-                        <Tr key={log.logId} _hover={{ bg: "#FAFAFA" }} borderBottom="1px solid #F2F4F7">
-                          <Td px={4} py={3}>
-                            <Text fontSize="12px" fontFamily="mono" color="#667185">{log.logId}</Text>
-                          </Td>
-                          <Td px={4} py={3} maxW="180px">
-                            <Text fontSize="13px" color="#101928" noOfLines={1}>{log.reportName}</Text>
-                          </Td>
-                          <Td px={4} py={3}>
-                            <Text fontSize="13px" color="#344054" whiteSpace="nowrap">{formatDateTime(log.executionDate)}</Text>
-                          </Td>
-                          <Td px={4} py={3}><StatusBadge status={log.status} /></Td>
-                          <Td px={4} py={3}>
-                            <Text fontSize="13px" color="#344054">{log.duration || "—"}</Text>
-                          </Td>
-                          <Td px={4} py={3} maxW="200px">
-                            <Text fontSize="12px" color="#344054" noOfLines={1}>{log.deliveredTo || "—"}</Text>
-                          </Td>
-                          <Td px={4} py={3} maxW="220px">
-                            {log.errorMessage ? (
-                              <HStack spacing={1}>
-                                <FiAlertTriangle size={12} color="#F04438" />
-                                <Text fontSize="12px" color="#F04438" noOfLines={1}>{log.errorMessage}</Text>
-                              </HStack>
-                            ) : (
-                              <Text fontSize="12px" color="#12B76A">—</Text>
-                            )}
-                          </Td>
-                        </Tr>
-                      ))
-                    )}
-                  </Tbody>
-                </Table>
-              </Box>
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
       </Box>
 
       {/* ── Create Schedule Modal (3-step wizard) ── */}
@@ -892,65 +796,157 @@ const ScheduledReportingScreen = () => {
       </Modal>
 
       {/* ── Logs Modal (per schedule) ── */}
-      <Modal isOpen={isLogsOpen} onClose={onLogsClose} isCentered size="3xl">
-        <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(2px)" />
-        <ModalContent borderRadius="xl" p={2}>
-          <ModalHeader fontSize="17px" fontWeight="700" color="#101928" pb={1}>
-            Execution Logs
-            {selectedSchedule && (
-              <Text fontSize="13px" fontWeight="400" color="#667185" mt={1}>
-                {selectedSchedule.reportName} — {selectedSchedule.scheduleId}
-              </Text>
-            )}
+      <Modal isOpen={isLogsOpen} onClose={onLogsClose} isCentered size="2xl" scrollBehavior="inside">
+        <ModalOverlay bg="blackAlpha.400" backdropFilter="blur(3px)" />
+        <ModalContent borderRadius="2xl" overflow="hidden">
+          <ModalHeader p={0}>
+            <Box bgGradient="linear(to-r, #660066, #8E3A8E)" px={6} pt={6} pb={5} color="white">
+              <HStack spacing={3} align="center">
+                <Flex w="40px" h="40px" bg="whiteAlpha.200" borderRadius="lg" align="center" justify="center" flexShrink={0}>
+                  <FiClock size={18} />
+                </Flex>
+                <Box minW={0}>
+                  <Text fontSize="17px" fontWeight="700" lineHeight="1.3">Execution Logs</Text>
+                  <Text fontSize="13px" fontWeight="400" color="whiteAlpha.800" noOfLines={1}>
+                    {selectedSchedule?.scheduleName || selectedSchedule?.reportName || "Scheduled report"}
+                  </Text>
+                </Box>
+              </HStack>
+              {selectedSchedule && (
+                <Flex wrap="wrap" gap={2} mt={4}>
+                  {[
+                    selectedSchedule.frequency && ["Frequency", selectedSchedule.frequency],
+                    selectedSchedule.deliveryMethod && ["Delivery", selectedSchedule.deliveryMethod],
+                    selectedSchedule.nextRunDate && ["Next run", formatDate(selectedSchedule.nextRunDate)],
+                    selectedSchedule.status && ["Status", selectedSchedule.status],
+                  ].filter(Boolean).map(([k, v]) => (
+                    <HStack key={k} spacing={1} bg="whiteAlpha.200" px={3} py={1} borderRadius="full" fontSize="12px">
+                      <Text color="whiteAlpha.700" fontWeight="400">{k}:</Text>
+                      <Text fontWeight="600" textTransform="capitalize">{v}</Text>
+                    </HStack>
+                  ))}
+                </Flex>
+              )}
+            </Box>
           </ModalHeader>
-          <ModalCloseButton mt={3} mr={3} />
-          <ModalBody pb={6}>
+          <ModalCloseButton color="white" mt={3} mr={3} _hover={{ bg: "whiteAlpha.300" }} />
+
+          <ModalBody px={6} py={5} bg="#FCFCFD">
             {logsLoading ? (
-              <Center py={12}><Spinner color="#660066" /></Center>
-            ) : executionLogs.length === 0 ? (
-              <Center py={10} flexDir="column" gap={2}>
-                <FiList size={28} color="#D0D5DD" />
-                <Text fontSize="14px" color="#667185">No logs available yet</Text>
+              <Center py={16} flexDir="column" gap={3}>
+                <Spinner color="#660066" thickness="3px" />
+                <Text fontSize="13px" color="#667185">Loading execution history…</Text>
               </Center>
-            ) : (
-              <Box overflowX="auto">
-                <Table variant="simple" size="sm">
-                  <Thead bg="#F9FAFB">
-                    <Tr>
-                      {["Date & Time","Status","Duration","Delivered To","Notes"].map((h) => (
-                        <Th key={h} fontSize="11px" fontWeight="600" color="#667185" textTransform="uppercase" letterSpacing="0.5px" py={3} px={4}>
-                          {h}
-                        </Th>
-                      ))}
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {executionLogs.map((log) => (
-                      <Tr key={log.logId} _hover={{ bg: "#FAFAFA" }} borderBottom="1px solid #F2F4F7">
-                        <Td px={4} py={3}>
-                          <Text fontSize="13px" color="#344054" whiteSpace="nowrap">{formatDateTime(log.executionDate)}</Text>
-                        </Td>
-                        <Td px={4} py={3}><StatusBadge status={log.status} /></Td>
-                        <Td px={4} py={3}>
-                          <Text fontSize="13px" color="#344054">{log.duration || "—"}</Text>
-                        </Td>
-                        <Td px={4} py={3} maxW="200px">
-                          <Text fontSize="12px" color="#344054" noOfLines={1}>{log.deliveredTo || "—"}</Text>
-                        </Td>
-                        <Td px={4} py={3} maxW="200px">
-                          {log.errorMessage ? (
-                            <Text fontSize="12px" color="#F04438" noOfLines={2}>{log.errorMessage}</Text>
-                          ) : (
-                            <Text fontSize="12px" color="#12B76A">Delivered successfully</Text>
-                          )}
-                        </Td>
-                      </Tr>
+            ) : executionLogs.length === 0 ? (
+              <Center py={14} flexDir="column" gap={3}>
+                <Flex w="56px" h="56px" bg="#F9F5FF" borderRadius="full" align="center" justify="center">
+                  <FiClock size={24} color="#660066" />
+                </Flex>
+                <Text fontSize="15px" fontWeight="600" color="#101928">No runs yet</Text>
+                <Text fontSize="13px" color="#667185" textAlign="center" maxW="300px">
+                  Logs will appear here once this schedule has run for the first time.
+                </Text>
+              </Center>
+            ) : (() => {
+              const isSuccess = (l) => ["success", "delivered", "completed"].includes(l.status?.toLowerCase());
+              const isFailed = (l) => ["failed", "error"].includes(l.status?.toLowerCase());
+              const successCount = executionLogs.filter(isSuccess).length;
+              const failedCount = executionLogs.filter(isFailed).length;
+              const durations = executionLogs.map((l) => l.processingDurationMs).filter((ms) => ms != null);
+              const avgDuration = durations.length
+                ? `${(durations.reduce((a, b) => a + b, 0) / durations.length / 1000).toFixed(1)}s`
+                : "—";
+              return (
+                <VStack align="stretch" spacing={5}>
+                  <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
+                    {[
+                      { label: "Total runs", value: executionLogs.length, color: "#101928" },
+                      { label: "Successful", value: successCount, color: "#027A48" },
+                      { label: "Failed", value: failedCount, color: failedCount ? "#B42318" : "#101928" },
+                      { label: "Avg duration", value: avgDuration, color: "#101928" },
+                    ].map((stat) => (
+                      <Box key={stat.label} bg="white" border="1px solid #EAECF0" borderRadius="lg" px={4} py={3}>
+                        <Text fontSize="12px" color="#667185" mb={1}>{stat.label}</Text>
+                        <Text fontSize="20px" fontWeight="700" color={stat.color} lineHeight="1.2">{stat.value}</Text>
+                      </Box>
                     ))}
-                  </Tbody>
-                </Table>
-              </Box>
-            )}
+                  </SimpleGrid>
+
+                  <Box>
+                    <SectionLabel>Run history</SectionLabel>
+                    <VStack align="stretch" spacing={3}>
+                      {executionLogs.map((log) => {
+                        const failed = isFailed(log);
+                        const ok = isSuccess(log);
+                        return (
+                          <Flex
+                            key={log.logId}
+                            bg="white" border="1px solid" borderColor={failed ? "#FECDCA" : "#EAECF0"}
+                            borderLeft="4px solid" borderLeftColor={failed ? "#F04438" : ok ? "#12B76A" : "#F79009"}
+                            borderRadius="lg" px={4} py={3} gap={3} align="flex-start"
+                          >
+                            <Flex
+                              w="32px" h="32px" borderRadius="full" flexShrink={0} align="center" justify="center"
+                              bg={failed ? "#FEF3F2" : ok ? "#ECFDF3" : "#FFFAEB"}
+                            >
+                              {failed ? <FiAlertCircle size={16} color="#F04438" />
+                                : ok ? <FiCheckCircle size={16} color="#12B76A" />
+                                : <FiClock size={16} color="#F79009" />}
+                            </Flex>
+                            <Box flex={1} minW={0}>
+                              <Flex justify="space-between" align="center" gap={2} wrap="wrap">
+                                <Text fontSize="14px" fontWeight="600" color="#101928">
+                                  {failed ? "Run failed" : ok ? "Run completed" : "Run in progress"}
+                                </Text>
+                                <StatusBadge status={log.status} />
+                              </Flex>
+                              <HStack spacing={4} mt={1} color="#667185" fontSize="12px" wrap="wrap">
+                                <HStack spacing={1}><FiCalendar size={12} /><Text>{formatDateTime(log.executionDate)}</Text></HStack>
+                                {log.duration && <HStack spacing={1}><FiClock size={12} /><Text>{log.duration}</Text></HStack>}
+                                {log.deliveryMethod && (
+                                  <HStack spacing={1}>
+                                    <FiMail size={12} />
+                                    <Text textTransform="capitalize">
+                                      {log.deliveryMethod}{log.deliveryStatus ? ` · ${log.deliveryStatus}` : ""}
+                                    </Text>
+                                  </HStack>
+                                )}
+                              </HStack>
+                              {log.errorMessage && (
+                                <HStack align="flex-start" spacing={2} mt={3} bg="#FEF3F2" borderRadius="md" px={3} py={2}>
+                                  <Box pt="2px"><FiAlertCircle size={12} color="#B42318" /></Box>
+                                  <Text fontSize="12px" color="#B42318">{log.errorMessage}</Text>
+                                </HStack>
+                              )}
+                            </Box>
+                          </Flex>
+                        );
+                      })}
+                    </VStack>
+                  </Box>
+                </VStack>
+              );
+            })()}
           </ModalBody>
+
+          <ModalFooter borderTop="1px solid #F2F4F7" gap={3} py={4}>
+            <Button
+              variant="outline" borderColor="#D0D5DD" color="#344054"
+              fontSize="14px" fontWeight="600" borderRadius="md" h="40px"
+              leftIcon={<FiRefreshCw size={14} />}
+              isDisabled={logsLoading || !selectedSchedule}
+              onClick={() => loadScheduleLogs(selectedSchedule.scheduleId)}
+            >
+              Refresh
+            </Button>
+            <Button
+              bg="#660066" color="white" _hover={{ bg: "#550055" }}
+              fontSize="14px" fontWeight="600" borderRadius="md" h="40px" px={6}
+              onClick={onLogsClose}
+            >
+              Close
+            </Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
     </Box>

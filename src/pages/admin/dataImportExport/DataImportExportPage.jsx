@@ -63,6 +63,7 @@ import dayjs from "dayjs";
 import {
   applyColumnMapping,
   autoMapHeaders,
+  buildImportTemplateFile,
   buildNormalizedImportFile,
   findBestHeaderRow,
   getCanonicalFields,
@@ -624,6 +625,16 @@ const ImportTab = () => {
 
   const expectation = MODULE_COLUMN_EXPECTATIONS[targetModule];
 
+  const handleDownloadTemplate = () => {
+    const templateFile = buildImportTemplateFile(targetModule, fileFormat);
+    const url = URL.createObjectURL(templateFile);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = templateFile.name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Box maxW="2xl">
       <Text fontSize="14px" color="gray.500" mb={5}>
@@ -809,9 +820,14 @@ const ImportTab = () => {
       {/* Column expectations card */}
       {expectation && (
         <Box bg="#FAF5FF" border="1px solid #E9D8FD" borderRadius="8px" p="16px" mb={6}>
-          <Flex alignItems="center" gap="6px" mb={2}>
-            <FiInfo color="#6b006b" size={16} />
-            <Text fontSize="13px" fontWeight="600" color="#6b006b">{expectation.title}</Text>
+          <Flex alignItems="center" justifyContent="space-between" gap="6px" mb={2}>
+            <Flex alignItems="center" gap="6px">
+              <FiInfo color="#6b006b" size={16} />
+              <Text fontSize="13px" fontWeight="600" color="#6b006b">{expectation.title}</Text>
+            </Flex>
+            <Button secondary size="sm" leftIcon={<FiDownload />} onClick={handleDownloadTemplate}>
+              Download {fileFormat === "excel" ? "Excel" : "CSV"} Template
+            </Button>
           </Flex>
 
           <Text fontSize="12px" color="gray.600" mb={3}>
@@ -822,7 +838,7 @@ const ImportTab = () => {
             <Table variant="simple" size="xs" bg="white" borderRadius="6px" overflow="hidden">
               <Thead bg="#F3E8FF">
                 <Tr>
-                  <Th py="6px">Accepted Column Name</Th>
+                  <Th py="6px">Column Name</Th>
                   <Th py="6px">Status</Th>
                   <Th py="6px">Description / Rule</Th>
                 </Tr>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Route, useHistory } from "react-router-dom";
 import {
   Badge,
@@ -33,8 +33,6 @@ import { FiChevronDown, FiCopy, FiEdit2, FiEye, FiMoreHorizontal, FiPlus, FiRefr
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import { Breadcrumb, Link } from "../../../components";
 import {
-  adminGetCourseListing,
-  adminListModules,
   bulkUpdateExamQuestionBankStatus,
   deleteExamQuestionBankItem,
   getExamQuestionBankStats,
@@ -62,6 +60,9 @@ const MOCK_QUESTIONS = [
     status: "active",
     category: "Biology",
     tags: ["cells", "biology"],
+    usageFrequency: 5,
+    averageTimeSpent: 35,
+    reliabilityIndex: 0.45,
     courseId: null,
     moduleId: null,
   },
@@ -74,6 +75,9 @@ const MOCK_QUESTIONS = [
     status: "draft",
     category: "Networking",
     tags: ["networking"],
+    usageFrequency: 0,
+    averageTimeSpent: null,
+    reliabilityIndex: null,
     courseId: null,
     moduleId: null,
   },
@@ -88,6 +92,16 @@ const TYPE_LABEL = {
 };
 
 const STATUS_COLOR = { draft: "gray", active: "green", inactive: "red" };
+
+// The usage metrics are named differently across the bank/analytics specs,
+// so accept either spelling.
+const getUsageFrequency = (q) => q.usageFrequency ?? q.frequencyOfUse ?? q.usageCount;
+const getAverageTimeSpent = (q) => q.averageTimeSpent ?? q.averageTimeSpentSeconds;
+
+const formatMetric = (value, decimals = 0) => {
+  const n = Number(value);
+  return value == null || value === "" || !Number.isFinite(n) ? "—" : n.toFixed(decimals);
+};
 
 function StatCard({ label, value }) {
   return (
@@ -141,10 +155,6 @@ function ExamQuestionBankListPage() {
   const [useQuestionCourseId, setUseQuestionCourseId] = useState("");
   const [useQuestionModuleId, setUseQuestionModuleId] = useState("");
 
-  const [courseNames, setCourseNames] = useState({});
-  const [moduleNames, setModuleNames] = useState({});
-  const loadedModuleCourseIds = useRef(new Set());
-
   const { isOpen: isCreateExamOpen, onOpen: onCreateExamOpen, onClose: onCreateExamClose } = useDisclosure();
   const { isOpen: isUseQuestionOpen, onOpen: onUseQuestionOpen, onClose: onUseQuestionClose } = useDisclosure();
 
@@ -192,40 +202,6 @@ function ExamQuestionBankListPage() {
   useEffect(() => {
     fetchQuestions();
   }, [fetchQuestions]);
-
-  useEffect(() => {
-    adminGetCourseListing({ limit: 200 })
-      .then((res) => {
-        const map = {};
-        (res?.courses || []).forEach((c) => {
-          map[c.id] = c.title;
-        });
-        setCourseNames(map);
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!questions.length) return;
-    const courseIds = Array.from(
-      new Set(questions.map((q) => q.courseId).filter((id) => id && !loadedModuleCourseIds.current.has(id))),
-    );
-    if (!courseIds.length) return;
-    courseIds.forEach((id) => loadedModuleCourseIds.current.add(id));
-    Promise.all(
-      courseIds.map((id) =>
-        adminListModules(id)
-          .then((res) => res?.modules || [])
-          .catch(() => []),
-      ),
-    ).then((results) => {
-      const map = {};
-      results.flat().forEach((m) => {
-        map[m.id] = m.title;
-      });
-      setModuleNames((prev) => ({ ...prev, ...map }));
-    });
-  }, [questions]);
 
   const allSelectedOnPage = questions.length > 0 && questions.every((q) => selectedIds.includes(q.id));
 
@@ -434,12 +410,14 @@ function ExamQuestionBankListPage() {
                     <Th>
                       <Checkbox isChecked={allSelectedOnPage} onChange={toggleSelectAll} colorScheme="purple" />
                     </Th>
+                    <Th>Question ID</Th>
                     <Th>Question</Th>
                     <Th>Type</Th>
                     <Th>Difficulty</Th>
                     <Th>Status</Th>
-                    <Th>Course</Th>
-                    <Th>Module</Th>
+                    <Th isNumeric>Frequency of Use</Th>
+                    <Th isNumeric>Avg Time Spent (sec)</Th>
+                    <Th isNumeric>Reliability Index</Th>
                     <Th>Actions</Th>
                   </Tr>
                 </Thead>
@@ -448,6 +426,13 @@ function ExamQuestionBankListPage() {
                     <Tr key={q.id} _hover={{ bg: "gray.50" }}>
                       <Td>
                         <Checkbox isChecked={selectedIds.includes(q.id)} onChange={() => toggleSelect(q.id)} colorScheme="purple" />
+                      </Td>
+                      <Td>
+                        <Tooltip label={q.id} placement="top" hasArrow>
+                          <Text fontSize="xs" color="gray.600" fontFamily="mono" noOfLines={1} maxW="90px">
+                            {q.id}
+                          </Text>
+                        </Tooltip>
                       </Td>
                       <Td
                         maxW="320px"
@@ -472,16 +457,9 @@ function ExamQuestionBankListPage() {
                       <Td>
                         <Badge colorScheme={STATUS_COLOR[q.status] || "gray"}>{q.status}</Badge>
                       </Td>
-                      <Td>
-                        <Text fontSize="xs" color="gray.500" noOfLines={1} maxW="140px">
-                          {(q.courseId && (courseNames[q.courseId] || q.courseId)) || "—"}
-                        </Text>
-                      </Td>
-                      <Td>
-                        <Text fontSize="xs" color="gray.500" noOfLines={1} maxW="140px">
-                          {(q.moduleId && (moduleNames[q.moduleId] || q.moduleId)) || "—"}
-                        </Text>
-                      </Td>
+                      <Td isNumeric>{formatMetric(getUsageFrequency(q))}</Td>
+                      <Td isNumeric>{formatMetric(getAverageTimeSpent(q))}</Td>
+                      <Td isNumeric>{formatMetric(q.reliabilityIndex, 2)}</Td>
                       <Td>
                         <Menu placement="bottom-end">
                           <MenuButton as={IconButton} size="xs" variant="ghost" icon={<FiMoreHorizontal />} />

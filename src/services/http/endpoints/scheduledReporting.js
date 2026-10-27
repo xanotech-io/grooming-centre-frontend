@@ -38,7 +38,15 @@ export const tc20ListSchedules = async () => {
 // GET /v1/mis-report-v2/kpis
 export const tc20GetScheduleKPIs = async () => {
   const { data: { data } } = await http.get('/v1/mis-report-v2/kpis');
-  return { kpis: data };
+  const ms = data?.avgReportGenerationTimeMs;
+  const kpis = {
+    ...data,
+    automationRate: data?.automationRate,
+    reportsGenerated: data?.totalReportsGenerated,
+    utilizationRate: data?.reportUtilizationRate,
+    avgGenerationTime: ms == null ? null : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`,
+  };
+  return { kpis };
 };
 
 // TC20 Phase 2–3 — Schedule & Delivery Config: create new schedule
@@ -69,12 +77,12 @@ export const tc20DeleteSchedule = async (scheduleId) => {
 // GET /v1/mis-report-v2/schedules/{scheduleId}/logs
 export const tc20GetScheduleLogs = async (scheduleId) => {
   const { data: { data } } = await http.get(`/v1/mis-report-v2/schedules/${scheduleId}/logs`);
-  return { logs: Array.isArray(data) ? data : [] };
-};
-
-// TC20 Phase 6 — All execution logs across all schedules
-// GET /v1/mis-report-v2/schedules/logs
-export const tc20GetAllExecutionLogs = async () => {
-  const { data: { data } } = await http.get('/v1/mis-report-v2/schedules/logs');
-  return { logs: Array.isArray(data) ? data : [] };
+  const rows = data?.logs ?? (Array.isArray(data) ? data : []);
+  const logs = rows.map((l) => ({
+    ...l,
+    logId: l.logId ?? l.id,
+    executionDate: l.executionDate ?? l.executedAt ?? l.createdAt,
+    duration: l.duration ?? (l.processingDurationMs != null ? `${(l.processingDurationMs / 1000).toFixed(1)}s` : null),
+  }));
+  return { logs, total: data?.total ?? logs.length };
 };
