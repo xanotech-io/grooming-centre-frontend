@@ -4,6 +4,14 @@ import AssessmentTabBar from "./AssessmentTabBar";
 import { Box, Flex, SimpleGrid } from "@chakra-ui/layout";
 import {
   BreadcrumbItem,
+  Divider,
+  Drawer,
+  DrawerBody,
+  DrawerCloseButton,
+  DrawerContent,
+  DrawerHeader,
+  DrawerOverlay,
+  Grid,
   Input,
   Select,
   Spinner as ChakraSpinner,
@@ -17,6 +25,7 @@ import {
   DashboardMetricCard,
   Heading,
   Link,
+  ServerExportMenu,
   Spinner,
   Text,
 } from "../../../../components";
@@ -31,7 +40,12 @@ import {
   adminListCoursesForReport,
   adminListModules,
 } from "../../../../services";
-import { downloadBlob } from "../../../../utils";
+import {
+  downloadBlob,
+  exportRowsToCsv,
+  exportRowsToExcel,
+  exportRowsToPdf,
+} from "../../../../utils";
 import dayjs from "dayjs";
 
 const PAGE_SIZE = 20;
@@ -40,7 +54,7 @@ const getExportExtension = (mimeType = "") => {
   if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return "xlsx";
   if (mimeType.includes("pdf")) return "pdf";
   if (mimeType.includes("csv")) return "csv";
-  return "xlsx";
+  return null;
 };
 
 const passFailColorMap = { Pass: "green", Fail: "red" };
@@ -217,6 +231,99 @@ function EntityCombobox({ fetchFn, value, onSelect, placeholder }) {
   );
 }
 
+// ── ResultDetailDrawer ─────────────────────────────────────────────────────────
+
+const scoreColor = (score) =>
+  (score ?? 0) >= 70 ? "#1A8F3A" : (score ?? 0) >= 50 ? "#B7791F" : "#C53030";
+
+const DetailField = ({ label, children }) => (
+  <Box>
+    <Text fontSize="xs" color="gray.500" mb={1}>{label}</Text>
+    <Text fontWeight="500" fontSize="14px">{children}</Text>
+  </Box>
+);
+
+function ResultDetailDrawer({ item, isOpen, onClose }) {
+  const feedback = item?.instructorFeedback;
+  const dateTaken = item?.dateTaken ?? item?.submittedAt;
+
+  return (
+    <Drawer isOpen={isOpen} placement="right" onClose={onClose} size="md">
+      <DrawerOverlay />
+      <DrawerContent>
+        <DrawerCloseButton />
+        <DrawerHeader borderBottomWidth="1px">Result Details</DrawerHeader>
+        <DrawerBody py={6}>
+          {item && (
+            <Box>
+              <Heading as="h3" fontSize="lg" mb={1}>{item.studentName ?? "—"}</Heading>
+              <Text fontSize="sm" color="gray.500" mb={5}>{item.assessmentTitle ?? "—"}</Text>
+
+              <Grid templateColumns="repeat(3, 1fr)" gap={4} mb={5}>
+                <Box>
+                  <Text fontSize="xs" color="gray.500" mb={1}>Score</Text>
+                  <Text fontWeight="700" fontSize="lg" color={scoreColor(item.score)}>
+                    {item.score ?? 0}%
+                  </Text>
+                </Box>
+                <Box>
+                  <Text fontSize="xs" color="gray.500" mb={1}>Grade</Text>
+                  <Tag size="md" borderRadius="full" colorScheme={gradeColorMap[item.grade] ?? "gray"}>
+                    {item.grade ?? "—"}
+                  </Tag>
+                </Box>
+                <Box>
+                  <Text fontSize="xs" color="gray.500" mb={1}>Result</Text>
+                  <Tag size="md" borderRadius="full" colorScheme={passFailColorMap[item.passFail] ?? "gray"}>
+                    {item.passFail ?? "—"}
+                  </Tag>
+                </Box>
+              </Grid>
+
+              <Divider mb={5} />
+
+              <Grid templateColumns="1fr 1fr" gap={4} mb={5}>
+                <DetailField label="Course">{item.courseTitle ?? "—"}</DetailField>
+                <DetailField label="Module">{item.moduleTitle ?? item.module ?? "—"}</DetailField>
+                <DetailField label="Department">{item.departmentName ?? item.department ?? "—"}</DetailField>
+                <DetailField label="Instructor">{item.instructorName ?? item.instructor ?? "—"}</DetailField>
+                <DetailField label="Date Taken">
+                  {dateTaken ? dayjs(dateTaken).format("DD MMM YYYY, h:mm A") : "—"}
+                </DetailField>
+                <DetailField label="Duration">
+                  {item.timeTakenMinutes != null ? `${item.timeTakenMinutes} min` : "—"}
+                </DetailField>
+              </Grid>
+
+              <Divider mb={5} />
+
+              <Text fontSize="xs" fontWeight="600" color="gray.500" textTransform="uppercase" mb={2}>
+                Instructor Remark
+              </Text>
+              <Box
+                bg={feedback ? "purple.50" : "gray.50"}
+                border="1px"
+                borderColor={feedback ? "purple.100" : "gray.200"}
+                borderRadius="md"
+                p={4}
+              >
+                <Text
+                  fontSize="14px"
+                  color={feedback ? "#101828" : "gray.400"}
+                  whiteSpace="pre-wrap"
+                  fontStyle={feedback ? "normal" : "italic"}
+                >
+                  {feedback || "No remark provided by the instructor."}
+                </Text>
+              </Box>
+            </Box>
+          )}
+        </DrawerBody>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 const AssessmentOverviewPage = () => {
@@ -247,6 +354,7 @@ const AssessmentOverviewPage = () => {
   // Pagination
   const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState(false);
+  const [selectedResult, setSelectedResult] = useState(null);
   const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
   const pageSlice = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -364,18 +472,57 @@ const AssessmentOverviewPage = () => {
   const kpiDifficulty =
     kpis?.difficultyImpact ?? kpis?.questionDifficultyImpactAnalysis ?? "—";
 
-  const handleExport = async () => {
+  // format: "csv" | "pdf" | "excel" (from ServerExportMenu)
+  const handleExport = async (format) => {
+    const extension = format === "excel" ? "xlsx" : format;
+    const fileName = `assessment-quiz-overview-report.${extension}`;
     setExporting(true);
     try {
-      const params = {};
-      if (courseId) params.courseId = courseId;
-      if (moduleId) params.moduleId = moduleId;
-      if (assessmentId) params.assessmentId = assessmentId;
-      if (departmentId) params.departmentId = departmentId;
-      if (studentId) params.studentId = studentId;
-      if (instructorId) params.instructorId = instructorId;
-      const blob = await adminExportAssessmentOverview(params);
-      downloadBlob(blob, `assessment-quiz-overview-report.${getExportExtension(blob.type)}`);
+      // Server export first; fall back to building the file from the loaded
+      // results if the endpoint fails or ignores the requested format
+      try {
+        const params = { format };
+        if (courseId) params.courseId = courseId;
+        if (moduleId) params.moduleId = moduleId;
+        if (assessmentId) params.assessmentId = assessmentId;
+        if (departmentId) params.departmentId = departmentId;
+        if (studentId) params.studentId = studentId;
+        if (instructorId) params.instructorId = instructorId;
+        const blob = await adminExportAssessmentOverview(params);
+        if (blob && getExportExtension(blob.type) === extension) {
+          downloadBlob(blob, fileName);
+          return;
+        }
+      } catch (err) {
+        console.warn("[AssessmentOverview] Server export failed, using client fallback", err);
+      }
+
+      const headers = [
+        "Student", "Assessment", "Course", "Department", "Module", "Score (%)",
+        "Grade", "Result", "Instructor", "Date Taken", "Duration (min)", "Instructor Remark",
+      ];
+      const rows = results.map((item) => {
+        const dateTaken = item.dateTaken ?? item.submittedAt;
+        return [
+          item.studentName ?? "—",
+          item.assessmentTitle ?? "—",
+          item.courseTitle ?? "—",
+          item.departmentName ?? item.department ?? "—",
+          item.moduleTitle ?? item.module ?? "—",
+          item.score ?? 0,
+          item.grade ?? "—",
+          item.passFail ?? "—",
+          item.instructorName ?? item.instructor ?? "—",
+          dateTaken ? dayjs(dateTaken).format("DD MMM YYYY") : "—",
+          item.timeTakenMinutes ?? "—",
+          item.instructorFeedback || "—",
+        ];
+      });
+      const table = [headers, ...rows];
+
+      if (format === "csv") exportRowsToCsv(table, fileName);
+      else if (format === "pdf") exportRowsToPdf(table, fileName, "Assessment & Quiz Result Report");
+      else exportRowsToExcel(table, fileName);
     } catch (err) {
       const message =
         err?.response?.data?.message || err.message || "Unable to export overview report";
@@ -415,9 +562,11 @@ const AssessmentOverviewPage = () => {
           </Text>
         </Box>
         <Flex gap={2}>
-          <Button secondary onClick={handleExport} isLoading={exporting} isDisabled={exporting}>
-            Export
-          </Button>
+          <ServerExportMenu
+            onExport={handleExport}
+            isLoading={exporting}
+            isDisabled={exporting || loading || results.length === 0}
+          />
           <Button secondary onClick={() => fetchOverview({})} isLoading={loading}>
             Refresh
           </Button>
@@ -677,6 +826,8 @@ const AssessmentOverviewPage = () => {
                         borderColor="gray.100"
                         _last={{ borderBottom: "none" }}
                         _hover={{ bg: "gray.50" }}
+                        cursor="pointer"
+                        onClick={() => setSelectedResult(item)}
                       >
                         <TD>
                           <Text fontWeight="600" fontSize="14px">
@@ -791,6 +942,12 @@ const AssessmentOverviewPage = () => {
           )}
         </>
       )}
+
+      <ResultDetailDrawer
+        item={selectedResult}
+        isOpen={!!selectedResult}
+        onClose={() => setSelectedResult(null)}
+      />
     </AdminMainAreaWrapper>
   );
 };
