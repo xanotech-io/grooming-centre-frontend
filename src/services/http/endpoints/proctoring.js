@@ -40,7 +40,17 @@ export const exportProctoringAuditReport = async (params = {}) => {
 };
 
 // POST /api/v1/proctoring-v2/screen-warning
+// body: { examId, examType: "examination" | "standalone_examination" | "assessment", description? }
+// The human-readable warning text may sit on the envelope rather than in `data`.
 export const postScreenWarning = async (body) => {
   const { data } = await http.post('/v1/proctoring-v2/screen-warning', body);
-  return data.data ?? data;
+  const payload = data?.data ?? data ?? {};
+  return { ...payload, message: payload.message ?? data?.message };
+};
+
+// POST /api/v1/proctoring-v2/system-flag
+// Same body as screen-warning; logged only — no warning counter or auto-submit.
+export const postSystemFlag = async (body) => {
+  const { data } = await http.post('/v1/proctoring-v2/system-flag', body);
+  return data?.data ?? data;
 };

@@ -251,58 +251,22 @@ const useAssessment = () => {
     });
   };
 
-  // Plain (non-examination) assessments have no exam-integrity endpoint to
-  // report to, so they keep the original client-only "3 strikes" guard.
-  const totalSteps = 3;
-  const [exitAttempts, setExitAttempts] = useState(0);
-
-  const handleExitAttempt = useCallback(() => {
-    if (isExamination) return;
-    if (exitAttempts < totalSteps) {
-      setExitAttempts(exitAttempts + 1);
-    }
-    if (exitAttempts === totalSteps) {
-      push("/courses");
-      handleSubmit();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exitAttempts, isExamination]);
-
   useEffect(() => {
     const handleUnload = (event) => {
       event.preventDefault();
       event.returnValue = ""; // Standard for most browsers
-      handleExitAttempt();
-    };
-
-    const handleVisibilityChange = () => {
-      if (isExamination) return; // handled by useLiveProctoring below
-      if (document.visibilityState === "hidden") {
-        handleExitAttempt();
-        exitAttempts !== 3 &&
-          toast({
-            position: "top",
-            status: "error",
-            title:
-              "Note leaving this tab three times will automatically submit your exam",
-          });
-      }
     };
 
     window.addEventListener("beforeunload", handleUnload);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, []);
 
-    return () => {
-      window.removeEventListener("beforeunload", handleUnload);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exitAttempts, isExamination]);
-
+  // Tab switches / window blurs are reported to the proctoring service, which
+  // counts warnings and tells us when to force-submit.
   const { isBlocked: isProctoringBlocked } = useLiveProctoring({
     examId: assessment?.id,
-    enabled: !!isExamination && !submitStatus.success,
+    examType: isExamination ? "examination" : "assessment",
+    enabled: !!assessment?.id && !submitStatus.success,
     onAutoSubmit: () => handleSubmit(true),
   });
 
@@ -316,7 +280,7 @@ const useAssessment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isProctoringBlocked, submitStatus.error]);
 
-  const nav = isExamination ? isProctoringBlocked : exitAttempts === totalSteps;
+  const nav = isProctoringBlocked;
 
   const handleQuestionChange = (question) => setCurrentQuestion(question);
 

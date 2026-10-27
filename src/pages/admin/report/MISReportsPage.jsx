@@ -62,8 +62,7 @@ import {
   adminGenerateMISReport,
   adminCreateMISSchedule,
   adminDeleteMISReport,
-  adminExportMISReport,
-  baseURL,
+  adminGetMISReport,
   adminGetCourseListing,
   adminGetDepartmentListing,
   adminGetUserListing,
@@ -74,6 +73,7 @@ import {
 import { AdminMainAreaWrapper } from "../../../layouts";
 import { Breadcrumb, Link } from "../../../components";
 import { motion } from "framer-motion";
+import { exportMISReport } from "./misReportExport";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -160,40 +160,6 @@ const getStatusColor = (status) => {
     case "draft":     return { bg: "#FFFAEB", color: "#B54708" };
     default:          return { bg: "#F2F4F7", color: "#344054" };
   }
-};
-
-const EXTENSION_BY_FORMAT = { json: "json", pdf: "pdf", excel: "xlsx", csv: "csv" };
-
-// forces an actual file save in the requested format — a plain `window.open`/anchor
-// click lets the browser view JSON/CSV/PDF inline instead of downloading it, and
-// won't apply the extension for the format the user picked
-const saveBlob = (blob, filename) => {
-  const blobUrl = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = blobUrl;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  // revoking synchronously can cancel the save in some browsers
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-};
-
-// throws on failure so callers can surface it — the old `window.open` fallback ran
-// after an await and was silently swallowed by popup blockers
-const triggerReportDownload = async (url, filenameBase, format) => {
-  const ext = EXTENSION_BY_FORMAT[format] ?? format ?? "json";
-  const filename = `${filenameBase}.${ext}`;
-  // backend may hand back a path relative to the API host rather than an absolute URL
-  const apiOrigin = new URL(baseURL).origin;
-  const resolved = new URL(url, url.startsWith("/") ? apiOrigin : baseURL + "/");
-  // our own download routes are auth-protected; never leak the token to third-party/signed storage URLs
-  const headers = resolved.origin === apiOrigin
-    ? { authorization: `Bearer ${localStorage.getItem("token")}` }
-    : undefined;
-  const res = await fetch(resolved.href, { headers });
-  if (!res.ok) throw new Error(`Download failed (${res.status}).`);
-  saveBlob(await res.blob(), filename);
 };
 
 const EXPORT_FORMAT_OPTIONS = [
@@ -326,6 +292,14 @@ const MISReportsPage = () => {
   }, [allUserOptions]);
   const resolveGeneratedBy = (generatedBy) => generatedBy ? (userNameById[String(generatedBy)] ?? generatedBy) : "—";
 
+  // exports show names rather than the raw ids stored on the report
+  const resolveReportValue = (key, value) => {
+    if (key === "generatedBy" || key === "studentId" || key === "instructorId") return userNameById[String(value)] ?? value;
+    if (key === "departmentId") return departmentOptions.find((d) => String(d.id) === String(value))?.name ?? value;
+    if (key === "courseId") return courseOptions.find((c) => String(c.id) === String(value))?.title ?? value;
+    return value;
+  };
+
   // default to "all variables selected" whenever the modal opens or the category changes
   useEffect(() => {
     if (!isGenerateOpen) return;
@@ -431,18 +405,9 @@ const MISReportsPage = () => {
 
   const handleExport = async (item, format) => {
     try {
-      const { downloadUrl, file, filename } = await adminExportMISReport(item.id, format);
-      const baseName = (item.reportName || item.reportId || "report").replace(/[^\w-]+/g, "_");
-      const exportFormat = format || item.reportFormat;
-      if (file) {
-        saveBlob(file, filename || `${baseName}.${EXTENSION_BY_FORMAT[exportFormat] ?? exportFormat ?? "json"}`);
-        return;
-      }
-      if (!downloadUrl) {
-        toast({ description: "Export did not return a download link.", status: "error", position: "top" });
-        return;
-      }
-      await triggerReportDownload(downloadUrl, baseName, exportFormat);
+      // list rows may not carry the full summary — export from the complete report record
+      const { report } = await adminGetMISReport(item.id);
+      exportMISReport({ ...item, ...report }, format || item.reportFormat, resolveReportValue);
     } catch (err) {
       toast({ description: err?.response?.data?.message || err?.message || "Failed to export report.", status: "error", position: "top" });
     }
@@ -527,11 +492,12 @@ const MISReportsPage = () => {
         status: "success", position: "top",
       });
 
-      if (report?.downloadUrl) {
-        const baseName = (generateForm.reportName || report.reportId || "report").replace(/[^\w-]+/g, "_");
-        triggerReportDownload(report.downloadUrl, baseName, generateForm.reportFormat).catch((err) =>
-          toast({ description: err?.message || "Report generated but the download failed — use Export from the list.", status: "warning", position: "top" })
-        );
+      if (report) {
+        try {
+          exportMISReport(report, generateForm.reportFormat, resolveReportValue);
+        } catch {
+          toast({ description: "Report generated but the download failed — use Export from the list.", status: "warning", position: "top" });
+        }
       }
 
       handleGenerateClose();
