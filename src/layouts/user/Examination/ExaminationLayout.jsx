@@ -23,6 +23,7 @@ import { getEndTime, sortByIndexField, parseOptionIndex, getResultRemark, getGeo
 import { http } from "../../../services/http/http";
 import { submitExamMarking, getExamMarkingResult } from "../../../services/http/endpoints/examMarking";
 import useLiveProctoring from "../../../hooks/useLiveProctoring";
+import useQuestionTimer from "../../../hooks/useQuestionTimer";
 
 export const normalizeQuestionType = (raw) => {
   if (!raw) return "MCQ";
@@ -157,6 +158,7 @@ const ExaminationContent = ({ isRetake, onRetry }) => {
     : [...new Set(questions.map((q) => q.section).filter(Boolean))];
 
   const [currentQuestion, setCurrentQuestion] = useState(null);
+  const getQuestionTimeTaken = useQuestionTimer(currentQuestion?.id);
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [submitStatus, setSubmitStatus] = useState({ success: false, loading: false, error: null, isAutoSubmit: false });
   const [submissionMeta, setSubmissionMeta] = useState({});
@@ -199,6 +201,7 @@ const ExaminationContent = ({ isRetake, onRetry }) => {
       const answers = examination.questions.map((q) => ({
         questionId: q.id,
         answer: selectedAnswers[q.id] ?? "",
+        timeTaken: getQuestionTimeTaken(q.id),
       }));
       const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
       const geolocation = await getGeolocationString();
@@ -256,7 +259,7 @@ const ExaminationContent = ({ isRetake, onRetry }) => {
       isSubmittingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [examination, selectedAnswers, isViewMode, course_id, isRetake]);
+  }, [examination, selectedAnswers, isViewMode, course_id, isRetake, getQuestionTimeTaken]);
 
   const { isBlocked: isProctoringBlocked } = useLiveProctoring({
     examId: examination?.id,
