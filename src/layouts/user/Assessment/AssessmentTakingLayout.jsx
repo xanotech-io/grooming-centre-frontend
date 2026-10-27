@@ -4,6 +4,7 @@ import { Textarea } from "@chakra-ui/textarea";
 import { Input as ChakraInput } from "@chakra-ui/input";
 import { useDisclosure } from "@chakra-ui/hooks";
 import { useToast } from "@chakra-ui/toast";
+import { Spinner } from "@chakra-ui/spinner";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Route, useHistory, useParams } from "react-router-dom";
 import {
@@ -22,6 +23,7 @@ import { getEndTime, sortByIndexField, parseOptionIndex, getResultRemark } from 
 import { http } from "../../../services/http/http";
 import { submitAssessmentMarking, getStudentOwnResult } from "../../../services";
 import useQuestionTimer from "../../../hooks/useQuestionTimer";
+import useLiveProctoring from "../../../hooks/useLiveProctoring";
 import { normalizeQuestionType } from "../../../pages/admin/examQuestionImport/questionRowUtils";
 
 const mapAssessment = (data) => {
@@ -266,7 +268,7 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
     });
   };
 
-  // Time running out is the only thing that submits without the student clicking Submit.
+  // Time running out submits without the student clicking Submit (as does a proctoring force-submit below).
   const timeUpSubmittedRef = useRef(false);
   useEffect(() => {
     if (isViewMode || submitStatus.success || !timerManager.hasEnded?.timeout) return;
@@ -282,26 +284,33 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerManager.hasEnded?.timeout, isViewMode, submitStatus.success]);
 
-  // Leaving the tab or page only warns the student; it never submits for them.
   useEffect(() => {
     if (isViewMode || submitStatus.success) return;
     const onUnload = (e) => { e.preventDefault(); e.returnValue = ""; };
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        toast({
-          position: "top",
-          status: "warning",
-          title: "Please stay on this tab until you have submitted your assessment",
-        });
-      }
-    };
     window.addEventListener("beforeunload", onUnload);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("beforeunload", onUnload);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [toast, isViewMode, submitStatus.success]);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, [isViewMode, submitStatus.success]);
+
+  // Tab switches / window blurs are reported to the proctoring service, which
+  // counts warnings and tells us when to force-submit.
+  const { isBlocked: isProctoringBlocked } = useLiveProctoring({
+    examId: assessment?.id,
+    examType: "assessment",
+    enabled: !!assessment?.id && !isViewMode && !submitStatus.success,
+    onAutoSubmit: () => {
+      modalManager.onClose();
+      return handleSubmit();
+    },
+  });
+
+  // A proctoring auto-submit is not something the student can retry themselves —
+  // if it still failed, just take them back to the course.
+  useEffect(() => {
+    if (!isProctoringBlocked || !submitStatus.error) return undefined;
+    const timeout = setTimeout(() => push(`/courses/details/${course_id}`), 4000);
+    return () => clearTimeout(timeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProctoringBlocked, submitStatus.error]);
 
   const handleOptionSelect = (value) => {
     if (isViewMode) return;
@@ -339,6 +348,37 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
 
   return (
     <>
+      {isProctoringBlocked && !submitStatus.success && (
+        <Flex
+          position="fixed"
+          top={0}
+          left={0}
+          width="100vw"
+          height="100vh"
+          bg="blackAlpha.700"
+          zIndex={1400}
+          justifyContent="center"
+          alignItems="center"
+          direction="column"
+          gap={4}
+          textAlign="center"
+          px={6}
+        >
+          {submitStatus.error ? (
+            <>
+              <Text color="white" fontWeight="600">Your assessment couldn't be submitted automatically.</Text>
+              <Text color="white" fontSize="sm">{submitStatus.error}</Text>
+              <Text color="white" fontSize="sm">Taking you back to the course…</Text>
+            </>
+          ) : (
+            <>
+              <Spinner size="xl" color="white" thickness="4px" />
+              <Text color="white" fontWeight="600">Submitting your assessment…</Text>
+            </>
+          )}
+        </Flex>
+      )}
+
       <CustomModal
         onClose={modalManager.onClose}
         canClose={modalCanClose}

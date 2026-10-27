@@ -13,12 +13,18 @@ import {
   Tooltip,
   BreadcrumbItem,
   Spinner,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  useToast,
 } from "@chakra-ui/react";
-import { FiInfo } from "react-icons/fi";
+import { FiInfo, FiChevronDown } from "react-icons/fi";
 import dayjs from "dayjs";
 import { adminGetMISReport, adminGetUserListing, adminGetDepartmentListing, adminGetCourseListing } from "../../../services";
 import { AdminMainAreaWrapper, EmptyState } from "../../../layouts";
 import { Breadcrumb, Link } from "../../../components";
+import { exportMISReport } from "./misReportExport";
 
 const humanizeKey = (key) =>
   key
@@ -79,30 +85,12 @@ const FILTER_KEY_LABELS = {
   endDate: "End Date",
 };
 
-const EXTENSION_BY_FORMAT = { json: "json", pdf: "pdf", excel: "xlsx", csv: "csv" };
-
-// forces an actual file save in the requested format — a plain anchor click lets the
-// browser view JSON/CSV/PDF inline instead of downloading it, and won't apply the
-// extension for the format the report was generated in
-const triggerReportDownload = async (url, filenameBase, format) => {
-  const ext = EXTENSION_BY_FORMAT[format] ?? format ?? "json";
-  const filename = `${filenameBase}.${ext}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("download failed");
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
-  } catch {
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-};
+const EXPORT_FORMAT_OPTIONS = [
+  { value: "pdf", label: "PDF" },
+  { value: "excel", label: "Excel" },
+  { value: "csv", label: "CSV" },
+  { value: "json", label: "JSON" },
+];
 
 const Field = ({ label, value }) => (
   <HStack justify="space-between" w="100%" align="flex-start">
@@ -122,6 +110,7 @@ const getStatusColor = (status) => {
 
 const MISReportDetailPage = () => {
   const { id } = useParams();
+  const toast = useToast();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -170,6 +159,16 @@ const MISReportDetailPage = () => {
     if (key === "courseId") return courseNameById[String(value)] ?? value;
     if (key === "studentId" || key === "instructorId") return userNameById[String(value)] ?? value;
     return formatValue(value);
+  };
+
+  const handleExport = (format) => {
+    try {
+      exportMISReport(report, format, (key, value) =>
+        key === "generatedBy" ? (userNameById[String(value)] ?? value) : resolveFilterValue(key, value)
+      );
+    } catch (err) {
+      toast({ description: err?.message || "Failed to export report.", status: "error", position: "top" });
+    }
   };
 
   const fetchReport = async () => {
@@ -227,15 +226,22 @@ const MISReportDetailPage = () => {
           item2={<BreadcrumbItem><Link href="/admin/mis-reports">MIS Reports</Link></BreadcrumbItem>}
           item3={<BreadcrumbItem isCurrentPage><Link href="#">{report.reportName}</Link></BreadcrumbItem>}
         />
-        {report.downloadUrl && (
-          <Button
-            onClick={() => triggerReportDownload(report.downloadUrl, (report.reportName || report.reportId || "report").replace(/[^\w-]+/g, "_"), report.reportFormat)}
+        <Menu>
+          <MenuButton
+            as={Button} rightIcon={<FiChevronDown />}
             variant="outline" borderColor="#660066" color="#660066"
             h="40px" fontSize="14px" fontWeight="500"
           >
-            Download
-          </Button>
-        )}
+            Export
+          </MenuButton>
+          <MenuList>
+            {EXPORT_FORMAT_OPTIONS.map((o) => (
+              <MenuItem key={o.value} fontSize="13px" onClick={() => handleExport(o.value)}>
+                {o.label}{o.value === report.reportFormat ? " (original)" : ""}
+              </MenuItem>
+            ))}
+          </MenuList>
+        </Menu>
       </Flex>
 
       <Box bg="white" borderRadius="xl" border="1px solid #E4E7EC" p={8}>

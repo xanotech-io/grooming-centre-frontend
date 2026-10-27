@@ -116,6 +116,7 @@ const StandaloneExamsStart = () => {
 
   const { isBlocked: isProctoringBlocked } = useLiveProctoring({
     examId: isExamination,
+    examType: "standalone_examination",
     enabled: !isLoading && !alreadySubmitted && !!isExamination,
     onAutoSubmit: () => handleExamSubmit(true),
   });

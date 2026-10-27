@@ -136,27 +136,39 @@ const ModuleProjectsPage = () => {
       ],
       selection: true,
       multipleDeleteFetcher: async (selectedProjects) => {
-        const projectId = selectedProjects[0]?.id;
-        const projectTitle = selectedProjects[0]?.title;
+        // Row-menu deletes only pass `{ id }`, so resolve titles from the loaded rows
+        const getTitle = (id) => {
+          const r = rows.data?.rows?.find((row) => row.id === id);
+          return r ? r.title : id;
+        };
         try {
-          await deleteProject(projectId);
-          auditTrailV2PostLog({
-            eventType: "delete",
-            module: "LMS",
-            status: "success",
-            resourceId: projectId,
-            resourceType: "Project",
-            remarks: `Deleted project "${projectTitle}"`,
-          }).catch(() => {});
+          for (const { id: projectId } of selectedProjects) {
+            const projectTitle = getTitle(projectId);
+            try {
+              await deleteProject(projectId);
+              auditTrailV2PostLog({
+                eventType: "delete",
+                module: "LMS",
+                status: "success",
+                resourceId: projectId,
+                resourceType: "Project",
+                remarks: `Deleted project "${projectTitle}"`,
+              }).catch(() => {});
+            } catch (error) {
+              auditTrailV2PostLog({
+                eventType: "delete",
+                module: "LMS",
+                status: "failure",
+                resourceId: projectId,
+                resourceType: "Project",
+                remarks: error?.response?.data?.message || error.message || `Failed to delete project "${projectTitle}"`,
+              }).catch(() => {});
+              throw error;
+            }
+          }
         } catch (error) {
-          auditTrailV2PostLog({
-            eventType: "delete",
-            module: "LMS",
-            status: "failure",
-            resourceId: projectId,
-            resourceType: "Project",
-            remarks: error?.response?.data?.message || error.message || `Failed to delete project "${projectTitle}"`,
-          }).catch(() => {});
+          // Some rows may have been deleted before the failure; resync with the server
+          fetchRowItems();
           throw error;
         }
       },

@@ -263,6 +263,7 @@ const ExaminationContent = ({ isRetake, onRetry }) => {
 
   const { isBlocked: isProctoringBlocked } = useLiveProctoring({
     examId: examination?.id,
+    examType: "examination",
     enabled: !isViewMode && !!examination,
     onAutoSubmit: () => handleSubmit(true),
   });

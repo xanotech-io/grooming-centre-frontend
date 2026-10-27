@@ -138,27 +138,39 @@ const ModuleAssessmentsPage = () => {
       ],
       selection: true,
       multipleDeleteFetcher: async (selectedAssessments) => {
-        const assessmentId = selectedAssessments[0]?.id;
-        const assessmentTitle = selectedAssessments[0]?.title?.text;
+        // Row-menu deletes only pass `{ id }`, so resolve titles from the loaded rows
+        const getTitle = (id) => {
+          const r = rows.data?.rows?.find((row) => row.id === id);
+          return r ? r.title?.text : id;
+        };
         try {
-          await adminDeleteAssessment(assessmentId);
-          auditTrailV2PostLog({
-            eventType: "delete",
-            module: "LMS",
-            status: "success",
-            resourceId: assessmentId,
-            resourceType: "Assessment",
-            remarks: `Deleted assessment "${assessmentTitle}"`,
-          }).catch(() => {});
+          for (const { id: assessmentId } of selectedAssessments) {
+            const assessmentTitle = getTitle(assessmentId);
+            try {
+              await adminDeleteAssessment(assessmentId);
+              auditTrailV2PostLog({
+                eventType: "delete",
+                module: "LMS",
+                status: "success",
+                resourceId: assessmentId,
+                resourceType: "Assessment",
+                remarks: `Deleted assessment "${assessmentTitle}"`,
+              }).catch(() => {});
+            } catch (error) {
+              auditTrailV2PostLog({
+                eventType: "delete",
+                module: "LMS",
+                status: "failure",
+                resourceId: assessmentId,
+                resourceType: "Assessment",
+                remarks: error?.response?.data?.message || error.message || `Failed to delete assessment "${assessmentTitle}"`,
+              }).catch(() => {});
+              throw error;
+            }
+          }
         } catch (error) {
-          auditTrailV2PostLog({
-            eventType: "delete",
-            module: "LMS",
-            status: "failure",
-            resourceId: assessmentId,
-            resourceType: "Assessment",
-            remarks: error?.response?.data?.message || error.message || `Failed to delete assessment "${assessmentTitle}"`,
-          }).catch(() => {});
+          // Some rows may have been deleted before the failure; resync with the server
+          fetchRowItems();
           throw error;
         }
       },

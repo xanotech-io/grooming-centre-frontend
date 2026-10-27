@@ -185,27 +185,39 @@ const ModulesListingPage = () => {
       ],
       selection: true,
       multipleDeleteFetcher: async (selectedModules) => {
-        const moduleId = selectedModules[0]?.id;
-        const moduleTitle = selectedModules[0]?.title?.text;
+        // Row-menu deletes only pass `{ id }`, so resolve titles from the loaded rows
+        const getTitle = (id) => {
+          const r = rows.data?.rows?.find((row) => row.id === id);
+          return r ? r.title?.text : id;
+        };
         try {
-          await adminDeleteModule(moduleId);
-          auditTrailV2PostLog({
-            eventType: "delete",
-            module: "LMS",
-            status: "success",
-            resourceId: moduleId,
-            resourceType: "Module",
-            remarks: `Deleted module "${moduleTitle}"`,
-          }).catch(() => {});
+          for (const { id: moduleId } of selectedModules) {
+            const moduleTitle = getTitle(moduleId);
+            try {
+              await adminDeleteModule(moduleId);
+              auditTrailV2PostLog({
+                eventType: "delete",
+                module: "LMS",
+                status: "success",
+                resourceId: moduleId,
+                resourceType: "Module",
+                remarks: `Deleted module "${moduleTitle}"`,
+              }).catch(() => {});
+            } catch (error) {
+              auditTrailV2PostLog({
+                eventType: "delete",
+                module: "LMS",
+                status: "failure",
+                resourceId: moduleId,
+                resourceType: "Module",
+                remarks: error?.response?.data?.message || error.message || `Failed to delete module "${moduleTitle}"`,
+              }).catch(() => {});
+              throw error;
+            }
+          }
         } catch (error) {
-          auditTrailV2PostLog({
-            eventType: "delete",
-            module: "LMS",
-            status: "failure",
-            resourceId: moduleId,
-            resourceType: "Module",
-            remarks: error?.response?.data?.message || error.message || `Failed to delete module "${moduleTitle}"`,
-          }).catch(() => {});
+          // Some rows may have been deleted before the failure; resync with the server
+          fetchRowItems();
           throw error;
         }
       },

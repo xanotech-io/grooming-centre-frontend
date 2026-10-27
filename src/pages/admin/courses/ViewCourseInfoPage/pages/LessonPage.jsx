@@ -149,7 +149,10 @@ const LessonPage = () => {
       ],
       selection: true,
       multipleDeleteFetcher: async (selectedDepartments) => {
-        const titles = selectedDepartments.map((l) => l.title?.text).join(", ");
+        // Row-menu deletes only pass `{ id }`, so resolve titles from the loaded rows
+        const titles = selectedDepartments
+          .map(({ id }) => rows.data?.rows?.find((row) => row.id === id)?.title?.text || id)
+          .join(", ");
         try {
           await adminDeleteLesson(selectedDepartments);
           auditTrailV2PostLog({
