@@ -1085,6 +1085,13 @@ const CreateQuestionPage = ({
   const [acceptVariants, setAcceptVariants] = useState([]);
   const [variantInput, setVariantInput] = useState("");
   const [markingType, setMarkingType] = useState("automatic");
+  // Essay answers can't be auto-graded — an Essay always goes out as manual
+  // (or hybrid), never "automatic".
+  const effectiveMarkingType =
+    questionType === "Essay" && markingType === "automatic" ? "manual" : markingType;
+  useEffect(() => {
+    if (questionType === "Essay" && markingType === "automatic") setMarkingType("manual");
+  }, [questionType, markingType]);
 
   // "Exam with sections": whichever question types the active section's
   // Template/Marking Scheme checkbox list allowed — null (not an empty
@@ -1603,7 +1610,7 @@ const CreateQuestionPage = ({
             standAloneExaminationQuestionId: questionId,
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
-            markingType,
+            markingType: effectiveMarkingType,
             ...typeSpecificFields,
           };
           return adminEditStandaloneExaminationQuestion(body);
@@ -1613,7 +1620,7 @@ const CreateQuestionPage = ({
             standAloneExaminationId: isExamination,
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
-            markingType,
+            markingType: effectiveMarkingType,
             ...typeSpecificFields,
           };
         const body = isPendingCreation ? withRealParentId(baseBody, realParentId) : baseBody;
@@ -1827,7 +1834,7 @@ const CreateQuestionPage = ({
           standAloneExaminationId: isExamination,
           question: questionPlainText,
           ...(sectionTitle && { section: sectionTitle }),
-          markingType,
+          markingType: effectiveMarkingType,
           ...typeSpecificFields,
         };
         const updatedQuestions = (queuedSource.questions || []).map((q, i) =>
@@ -1871,7 +1878,7 @@ const CreateQuestionPage = ({
             standAloneExaminationId: isExamination,
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
-            markingType,
+            markingType: effectiveMarkingType,
             ...typeSpecificFields,
           };
           const updatedQuestions = [...(pendingCreate.questions || []), { data: queuedData }];
@@ -1990,7 +1997,7 @@ const CreateQuestionPage = ({
             standAloneExaminationId: isExamination,
             question: questionPlainText,
             ...(sectionTitle && { section: sectionTitle }),
-            markingType,
+            markingType: effectiveMarkingType,
             ...typeSpecificFields,
           };
           const updatedQuestions = [...(pendingEdit.questions || []), { data: queuedData }];
@@ -2358,7 +2365,9 @@ const CreateQuestionPage = ({
                 bg="white"
                 borderColor="#E2E8F0"
               >
-                <option value="automatic">Automatic</option>
+                <option value="automatic" disabled={questionType === "Essay"}>
+                  Automatic
+                </option>
                 <option value="manual">Manual</option>
                 <option value="hybrid">Hybrid</option>
               </ChakraSelect>
