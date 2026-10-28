@@ -11,6 +11,13 @@ const fmtName = (obj) => (obj ? `${obj.firstName ?? ''} ${obj.lastName ?? ''}`.t
 const fmtTime = (ts) => (ts ? new Date(ts).toLocaleString() : '—');
 const fmtStatus = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '—');
 
+const EXAM_TYPE_LABELS = {
+  examination: 'Course Examination',
+  standalone_examination: 'Standalone Examination',
+  assessment: 'Assessment',
+};
+const fmtExamType = (t) => (t ? EXAM_TYPE_LABELS[t] ?? t : null);
+
 const ACTION_LABELS = {
   warning_issued: 'Warning Issued',
   exam_paused: 'Exam Paused',
@@ -146,17 +153,24 @@ const EventsTable = ({
                         <Text color="#101928" fontSize="12px" fontWeight="600">{fmtName(evt.student)}</Text>
                         <Text color="#475367" mt={1} fontSize="11px">{evt.student?.email ?? '—'}</Text>
                       </Td>
-                      <Td px={4} py={4} color="#101928" fontSize="12px" fontWeight="500">
-                        {evt.examination?.title ?? '—'}
+                      <Td px={4} py={4}>
+                        <Text color="#101928" fontSize="12px" fontWeight="500">
+                          {evt.examTitle ?? evt.examination?.title ?? '—'}
+                        </Text>
+                        {fmtExamType(evt.examType) && (
+                          <Text color="#475367" mt={1} fontSize="11px">{fmtExamType(evt.examType)}</Text>
+                        )}
                       </Td>
                       <Td px={4} py={4}>
                         <AlertTypeBadge type={evt.alertType} />
                       </Td>
                       <Td px={4} py={4} color="#101928" fontSize="12px">{fmtTime(evt.sessionStart)} - {fmtTime(evt.sessionEnd)}</Td>
                       <Td px={4} py={4} color="#475367" fontSize="12px" maxW="180px">
-                        <Text noOfLines={2}>{evt.sessionDurationMinutes} Minutes</Text>
+                        <Text noOfLines={2}>
+                          {evt.sessionDurationMinutes != null ? `${evt.sessionDurationMinutes} Minutes` : '—'}
+                        </Text>
                       </Td>
-                      
+
                       <Td px={4} py={4} color="#101928" fontSize="12px">{fmtStatus(evt.status)}</Td>
                       <Td px={4} py={4} color="#101928" fontSize="12px">{fmtName(evt.proctor)}</Td>
                       <Td px={4} py={4} color="#475367" fontSize="12px">
