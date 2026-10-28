@@ -133,7 +133,7 @@ const FormField = ({ label, children, required }) => (
   </VStack>
 );
 
-const SearchableSelect = ({ value, options, onChange, placeholder, isDisabled }) => {
+const SearchableSelect = ({ value, options, onChange, placeholder, isDisabled, isLoading }) => {
   const [query, setQuery] = useState("");
   const [isOpen, setDropOpen] = useState(false);
   const containerRef = useRef(null);
@@ -193,7 +193,12 @@ const SearchableSelect = ({ value, options, onChange, placeholder, isDisabled })
           overflowY="auto"
           mt="2px"
         >
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <HStack px={3} py={2} spacing={2} fontSize="13px" color="#667085">
+              <Spinner size="xs" color="#660066" />
+              <Box as="span">Loading…</Box>
+            </HStack>
+          ) : filtered.length === 0 ? (
             <Box px={3} py={2} fontSize="13px" color="#667085">No results</Box>
           ) : (
             filtered.map((o) => (
@@ -264,6 +269,7 @@ const PerformanceFiltersPage = () => {
   const [instructorOptions, setInstructorOptions] = useState([]);
   const [departmentOptions, setDepartmentOptions] = useState([]);
   const [modulesLoading, setModulesLoading] = useState(false);
+  const [lookupsLoading, setLookupsLoading] = useState(false);
 
   // ── Fetch helpers ────────────────────────────────────────────────────────
 
@@ -298,6 +304,7 @@ const PerformanceFiltersPage = () => {
   }, []);
 
   const fetchLookups = useCallback(async () => {
+    setLookupsLoading(true);
     try {
       const [courseRes, studentRes, instructorRes, deptRes] = await Promise.allSettled([
         adminGetCourseListing({ limit: 200 }),
@@ -313,7 +320,9 @@ const PerformanceFiltersPage = () => {
         setInstructorOptions(instructorRes.value.users ?? []);
       if (deptRes.status === 'fulfilled')
         setDepartmentOptions(deptRes.value.departments ?? []);
-    } catch { /* non-critical */ }
+    } catch { /* non-critical */ } finally {
+      setLookupsLoading(false);
+    }
   }, []);
 
   const fetchModulesForCourse = useCallback(async (courseId) => {
@@ -769,6 +778,7 @@ const PerformanceFiltersPage = () => {
                       onChange={val => patchCriteria('courseId', val)}
                       options={courseOptions.map(c => ({ value: String(c.id), label: c.title }))}
                       placeholder="Search courses…"
+                      isLoading={lookupsLoading}
                     />
                   </FormField>
                   <FormField label="Module">
@@ -784,6 +794,7 @@ const PerformanceFiltersPage = () => {
                           : 'Search modules…'
                       }
                       isDisabled={!form.criteria.courseId || modulesLoading}
+                      isLoading={modulesLoading}
                     />
                   </FormField>
                   <FormField label="Student">
@@ -792,6 +803,7 @@ const PerformanceFiltersPage = () => {
                       onChange={val => patchCriteria('studentId', val)}
                       options={studentOptions.map(u => ({ value: String(u.id), label: `${u.firstName} ${u.lastName}` }))}
                       placeholder="Search students…"
+                      isLoading={lookupsLoading}
                     />
                   </FormField>
                   <FormField label="Department">
@@ -800,6 +812,7 @@ const PerformanceFiltersPage = () => {
                       onChange={val => patchCriteria('departmentId', val)}
                       options={departmentOptions.map(d => ({ value: String(d.id), label: d.name }))}
                       placeholder="Search departments…"
+                      isLoading={lookupsLoading}
                     />
                   </FormField>
                   <FormField label="Instructor">
@@ -808,6 +821,7 @@ const PerformanceFiltersPage = () => {
                       onChange={val => patchCriteria('instructorId', val)}
                       options={instructorOptions.map(u => ({ value: String(u.id), label: `${u.firstName} ${u.lastName}` }))}
                       placeholder="Search instructors…"
+                      isLoading={lookupsLoading}
                     />
                   </FormField>
                 </Grid>
