@@ -107,6 +107,7 @@ const ReportBuilderPage = () => {
   const [catalog, setCatalog] = useState({});
   const [previewResult, setPreviewResult] = useState(null);
   const [listLoading, setListLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
   const [page, setPage] = useState(1);
@@ -242,14 +243,17 @@ const ReportBuilderPage = () => {
   };
 
   const handleExecute = async (cfg) => {
+    openBuilder(cfg, true);
+    setPreviewLoading(true);
     try {
-      openBuilder(cfg, true);
       const { result } = await reportBuilderExecuteConfig(cfg.id);
       setPreviewResult(result);
       fetchStats();
       toast({ title: 'Report executed successfully', status: 'success', duration: 3000 });
     } catch (e) {
       toast({ title: e?.message ?? 'Execution failed', status: 'error', duration: 3000 });
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -1093,7 +1097,18 @@ const ReportBuilderPage = () => {
       </Grid>
 
       {/* Preview Results */}
-      {previewResult && (
+      {previewLoading && (
+        <Box mt={6} bg="white" borderRadius="xl" border="1.5px solid #F2F4F7" overflow="hidden">
+          <Flex p={4} align="center" borderBottom="1px solid #F2F4F7">
+            <Text fontSize="15px" fontWeight="700" color="#101928">Preview Results</Text>
+          </Flex>
+          <Flex direction="column" justify="center" align="center" h="240px" gap={3}>
+            <Spinner color="#660066" size="lg" thickness="3px" />
+            <Text fontSize="13px" color="#667085">Generating report preview...</Text>
+          </Flex>
+        </Box>
+      )}
+      {!previewLoading && previewResult && (
         <Box mt={6} bg="white" borderRadius="xl" border="1.5px solid #F2F4F7" overflow="hidden">
           <Flex p={4} align="center" justify="space-between" borderBottom="1px solid #F2F4F7">
             <Text fontSize="15px" fontWeight="700" color="#101928">Preview Results</Text>
