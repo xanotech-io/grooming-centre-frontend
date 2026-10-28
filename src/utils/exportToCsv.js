@@ -13,8 +13,13 @@ const downloadBlob = (blob, filename) => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-export const exportRowsToCsv = (rows, filename) => {
-  const csv = rows
+// `meta` is an optional list of lines (e.g. the filters applied) written
+// above the table, separated from it by a blank row.
+const withMeta = (rows, meta = []) =>
+  meta.length ? [...meta.map((line) => [line]), [], ...rows] : rows;
+
+export const exportRowsToCsv = (rows, filename, meta = []) => {
+  const csv = withMeta(rows, meta)
     .map((row) =>
       row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","),
     )
@@ -55,12 +60,11 @@ const toExcelCell = (value) => {
   return { t: "s", v: value };
 };
 
-export const exportRowsToExcel = (rows, filename) => {
+export const exportRowsToExcel = (rows, filename, meta = []) => {
   const [header = [], ...body] = rows;
-  const worksheet = XLSX.utils.aoa_to_sheet([
-    header,
-    ...body.map((row) => row.map(toExcelCell)),
-  ]);
+  const worksheet = XLSX.utils.aoa_to_sheet(
+    withMeta([header, ...body.map((row) => row.map(toExcelCell))], meta),
+  );
   worksheet["!cols"] = header.map((_, colIndex) => ({
     wch: Math.min(
       50,
@@ -75,7 +79,7 @@ export const exportRowsToExcel = (rows, filename) => {
   XLSX.writeFile(workbook, filename, { bookSST: true });
 };
 
-export const exportRowsToPdf = (rows, filename, title) => {
+export const exportRowsToPdf = (rows, filename, title, meta = []) => {
   const doc = new jsPDF({ orientation: "landscape", unit: "pt" });
   const marginX = 24;
   const marginTop = 40;
@@ -138,6 +142,16 @@ export const exportRowsToPdf = (rows, filename, title) => {
     doc.setFont(undefined, "bold");
     doc.text(title, marginX, y);
     y += 20;
+    doc.setFontSize(fontSize);
+  }
+  if (meta.length) {
+    doc.setFontSize(10);
+    doc.setFont(undefined, "normal");
+    meta.forEach((line) => {
+      doc.text(String(line), marginX, y);
+      y += 14;
+    });
+    y += 6;
     doc.setFontSize(fontSize);
   }
 

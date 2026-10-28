@@ -41,7 +41,7 @@ import {
   certV2RevokeCertificate,
   certV2ReissueCertificate,
   certV2GetSummaryReport,
-  adminGetUserListing,
+  adminSearchUsers,
   adminGetCourseListing,
 } from "../../../../services";
 import { Breadcrumb, Link, SearchableSelect } from "../../../../components";
@@ -86,8 +86,8 @@ const SummaryCard = ({ label, value, color }) => (
 );
 
 const fetchStudentOptions = async (query) => {
-  const res = await adminGetUserListing({ search: query, limit: 10 });
-  return (res.users ?? []).map((u) => ({ id: u.id, label: `${u.firstName} ${u.lastName}`, sub: u.email }));
+  const users = await adminSearchUsers(query, { limit: 10 });
+  return users.map((u) => ({ id: u.id, label: `${u.firstName} ${u.lastName}`, sub: u.email }));
 };
 
 const fetchCourseOptions = async (query) => {

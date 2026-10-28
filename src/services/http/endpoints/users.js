@@ -57,6 +57,61 @@ export const adminGetUserListing = async (params) => {
   };
 };
 
+// `/v1/admin/users` doesn't reliably honour `search`/`role`, so matching is
+// done client-side against a one-time full user list.
+let allUsersPromise = null;
+const getAllUsers = () => {
+  if (!allUsersPromise) {
+    allUsersPromise = adminGetUserListing({ limit: 1000 })
+      .then((res) => res.users ?? [])
+      .catch(() => {
+        allUsersPromise = null;
+        return [];
+      });
+  }
+  return allUsersPromise;
+};
+
+const matchUsers = (users, query, studentsOnly) => {
+  const q = query?.trim().toLowerCase() ?? "";
+  return users.filter((u) => {
+    if (studentsOnly && /admin|instructor/i.test(u.userRoleName ?? ""))
+      return false;
+    if (!q) return true;
+    const name = `${u.firstName ?? ""} ${u.lastName ?? ""}`.toLowerCase();
+    return (
+      name.includes(q) ||
+      u.email?.toLowerCase().includes(q) ||
+      u.displayId?.toString().toLowerCase().includes(q)
+    );
+  });
+};
+
+/**
+ * Search users by name / email / displayId for search-as-you-type pickers.
+ * @param {string} query
+ * @param {{ limit?: number, studentsOnly?: boolean }} [options]
+ *
+ * @returns {Promise<UserListArray>}
+ */
+export const adminSearchUsers = async (
+  query,
+  { limit = 20, studentsOnly = true } = {}
+) => {
+  let matches = matchUsers(await getAllUsers(), query, studentsOnly);
+  // Users beyond the cached list may still be found if the server does search.
+  if (!matches.length && query?.trim()) {
+    try {
+      const res = await adminGetUserListing({ search: query, limit });
+      matches = matchUsers(res.users ?? [], query, studentsOnly);
+    } catch {
+      matches = [];
+    }
+  }
+
+  return matches.slice(0, limit);
+};
+
 /**
  * Endpoint to get `user-details` for an admin
  * @param {string} id - userId

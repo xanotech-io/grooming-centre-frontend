@@ -18,7 +18,7 @@ import { RiLockPasswordLine } from "react-icons/ri";
 import { BreadcrumbItem, useDisclosure } from "@chakra-ui/react";
 import { useComponentIsMount, useIsSuperAdmin } from "../../../../../hooks";
 import { useCallback, useEffect, useState } from "react";
-import { adminGetUserDetails } from "../../../../../services";
+import { adminGetUserDetails, getActiveCustomFieldSlots } from "../../../../../services";
 import { Avatar, SkeletonCircle } from "@chakra-ui/react";
 import { FaEdit } from "react-icons/fa";
 import { ResetPasswordModal } from "./ResetPasswordModal";
@@ -79,6 +79,14 @@ const ProfilePage = () => {
   } = useDisclosure();
 
   const userIsLoading = isLoading;
+
+  const [customFieldDefs, setCustomFieldDefs] = useState([null, null]);
+
+  useEffect(() => {
+    getActiveCustomFieldSlots("user_profile")
+      .then(setCustomFieldDefs)
+      .catch(() => setCustomFieldDefs([null, null]));
+  }, []);
 
   return (
     <>
@@ -178,6 +186,15 @@ const ProfilePage = () => {
                       <Detail name="department" value={user?.departmentName} />
                       <Detail name="role" value={user?.userRoleName} />
                       <Detail name="professional certification" value={user?.professionalCertification} />
+                      {customFieldDefs
+                        .filter((field) => field && (field.visibility?.view || []).includes("Admin"))
+                        .map((field) => (
+                          <Detail
+                            key={field.slot}
+                            name={field.fieldName}
+                            value={user?.[field.slot]}
+                          />
+                        ))}
                     </>
                   )}
                 </Box>

@@ -22,7 +22,7 @@ import {
 import { Button, SearchableSelect } from "../../../../../components";
 import {
   adminUploadUserDocument,
-  adminGetUserListing,
+  adminSearchUsers,
   adminGetCourseListing,
 } from "../../../../../services";
 
@@ -43,10 +43,11 @@ const INITIAL_FORM = {
 };
 
 const fetchStudentOptions = async (query) => {
-  const res = await adminGetUserListing({ search: query, limit: 10 });
-  return (res.users ?? []).map((u) => ({
+  const users = await adminSearchUsers(query, { limit: 10 });
+  return users.map((u) => ({
     id: u.id,
     label: `${u.firstName} ${u.lastName} (${u.displayId})`,
+    sub: u.email,
   }));
 };
 

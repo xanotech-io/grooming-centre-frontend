@@ -8,6 +8,7 @@ export const ExportMenu = ({
   rows,
   filename,
   title,
+  meta = [],
   isDisabled,
   label = "Export",
   size = "sm",
@@ -34,7 +35,7 @@ export const ExportMenu = ({
         {formats.includes("csv") && (
           <MenuItem
             icon={<FaFileCsv color="#D69E2E" />}
-            onClick={() => exportRowsToCsv(rows, `${base}.csv`)}
+            onClick={() => exportRowsToCsv(rows, `${base}.csv`, meta)}
           >
             Export as CSV
           </MenuItem>
@@ -42,7 +43,7 @@ export const ExportMenu = ({
         {formats.includes("pdf") && (
           <MenuItem
             icon={<FaFilePdf color="#E53E3E" />}
-            onClick={() => exportRowsToPdf(rows, `${base}.pdf`, title)}
+            onClick={() => exportRowsToPdf(rows, `${base}.pdf`, title, meta)}
           >
             Export as PDF
           </MenuItem>
@@ -50,7 +51,7 @@ export const ExportMenu = ({
         {formats.includes("excel") && (
           <MenuItem
             icon={<FaFileExcel color="#38A169" />}
-            onClick={() => exportRowsToExcel(rows, `${base}.xlsx`)}
+            onClick={() => exportRowsToExcel(rows, `${base}.xlsx`, meta)}
           >
             Export as Excel
           </MenuItem>
