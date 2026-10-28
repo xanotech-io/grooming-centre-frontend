@@ -78,7 +78,7 @@ const MOCK_EXAMS = [
     examId: "exam-001",
     examTitle: "Microfinance Midterm",
     course: { id: "course-001", title: "Microfinance Principles" },
-    examType: "course",
+    examType: "examination",
     randomizationMethod: "full",
     totalAttempts: 100,
     duplicateDetectionCount: 2,
@@ -92,7 +92,7 @@ const MOCK_EXAMS = [
     examId: "exam-002",
     examTitle: "Data Privacy Final",
     course: { id: "course-002", title: "Data Privacy & Compliance" },
-    examType: "course",
+    examType: "examination",
     randomizationMethod: "full",
     totalAttempts: 80,
     duplicateDetectionCount: 0,
@@ -106,7 +106,7 @@ const MOCK_EXAMS = [
     examId: "exam-003",
     examTitle: "Network Security Quiz",
     course: { id: "course-003", title: "Network Security" },
-    examType: "standalone",
+    examType: "standalone_examination",
     randomizationMethod: "partial",
     totalAttempts: 55,
     duplicateDetectionCount: 6,
@@ -120,7 +120,7 @@ const MOCK_EXAMS = [
     examId: "exam-004",
     examTitle: "Introduction to Cybersecurity",
     course: { id: "course-004", title: "Cybersecurity Fundamentals" },
-    examType: "standalone",
+    examType: "standalone_examination",
     randomizationMethod: "none",
     totalAttempts: 120,
     duplicateDetectionCount: 15,
@@ -134,7 +134,7 @@ const MOCK_EXAMS = [
     examId: "exam-005",
     examTitle: "Ethics in Technology",
     course: { id: "course-005", title: "Tech Ethics & Society" },
-    examType: "course",
+    examType: "examination",
     randomizationMethod: "partial",
     totalAttempts: 40,
     duplicateDetectionCount: 1,
@@ -148,7 +148,7 @@ const MOCK_EXAMS = [
     examId: "exam-006",
     examTitle: "Cloud Computing Fundamentals",
     course: { id: "course-006", title: "Cloud Computing" },
-    examType: "standalone",
+    examType: "standalone_examination",
     randomizationMethod: "full",
     totalAttempts: 65,
     duplicateDetectionCount: 0,
@@ -262,13 +262,14 @@ const randomMethodScheme = (method) => {
 
 const EXAM_TYPE_OPTIONS = [
   { value: "", label: "All Exam Types" },
-  { value: "course", label: "Course Exam" },
-  { value: "standalone", label: "Standalone Exam" },
+  { value: "examination", label: "Course Exam" },
+  { value: "standalone_examination", label: "Standalone Exam" },
 ];
 
+// Backend sends "examination" for course exams and "standalone_examination" for standalone
 const examTypeLabel = {
-  course: "Course Exam",
-  standalone: "Standalone Exam",
+  examination: "Course Exam",
+  standalone_examination: "Standalone Exam",
 };
 
 const RANDOMIZATION_TYPE_OPTIONS = [
@@ -606,7 +607,7 @@ const ExamDetailDrawer = ({ examId, isOpen, onClose }) => {
             <>
               <Flex align="center" gap={2} mb={4}>
                 {d.examType && (
-                  <Badge colorScheme={d.examType === "standalone" ? "purple" : "cyan"}>
+                  <Badge colorScheme={d.examType === "standalone_examination" ? "purple" : "cyan"}>
                     {examTypeLabel[d.examType] ?? d.examType}
                   </Badge>
                 )}
@@ -1309,12 +1310,12 @@ const ExamIntegrityPage = () => {
                         <Td>
                           <Badge
                             colorScheme={
-                              exam.examType === "standalone" ? "purple" : "cyan"
+                              exam.examType === "standalone_examination" ? "purple" : "cyan"
                             }
                             borderRadius="full"
                             px={2}
                           >
-                            {examTypeLabel[exam.examType] ?? "—"}
+                            {examTypeLabel[exam.examType] ?? exam.examType ?? "—"}
                           </Badge>
                         </Td>
                         <Td>

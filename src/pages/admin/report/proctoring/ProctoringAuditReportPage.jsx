@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useHistory } from 'react-router-dom';
-import { Box, Flex, HStack, useDisclosure, useToast } from '@chakra-ui/react';
+import { Box, Button as ChakraButton, Flex, HStack, Menu, MenuButton, MenuItem, MenuList, useDisclosure, useToast } from '@chakra-ui/react';
+import { FiChevronDown, FiDownload } from 'react-icons/fi';
 import { Route } from 'react-router-dom';
 import { BreadcrumbItem } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
@@ -14,8 +15,8 @@ import LogEventModal from './components/LogEventModal';
 import RecordActionModal from './components/RecordActionModal';
 
 // e.g. "application/vnd.openxmlformats...spreadsheet" -> "xlsx"
-const extFromMimeType = (type) => {
-  if (!type) return 'xlsx';
+const extFromMimeType = (type, fallback = 'xlsx') => {
+  if (!type) return fallback;
   if (type.includes('pdf')) return 'pdf';
   if (type.includes('csv')) return 'csv';
   if (type.includes('spreadsheet') || type.includes('excel')) return 'xlsx';
@@ -107,10 +108,10 @@ const ProctoringAuditReportPage = () => {
     loadKpis();
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format) => {
     setExporting(true);
     try {
-      const params = { page, limit };
+      const params = { page, limit, format };
       if (filters.search) params.search = filters.search;
       if (filters.examId) params.examId = filters.examId;
       if (filters.studentId) params.studentId = filters.studentId;
@@ -120,7 +121,7 @@ const ProctoringAuditReportPage = () => {
       if (filters.endDate) params.endDate = filters.endDate;
 
       const blob = await exportProctoringAuditReport(params);
-      downloadBlob(blob, `proctoring-audit-report.${extFromMimeType(blob.type)}`);
+      downloadBlob(blob, `proctoring-audit-report.${extFromMimeType(blob.type, format)}`);
     } catch {
       toast({ title: 'Export failed', status: 'error', duration: 3000, isClosable: true });
     } finally {
@@ -137,9 +138,23 @@ const ProctoringAuditReportPage = () => {
           <Heading as="h3" size="sm" color="#101928">Proctoring Events</Heading>
           <HStack spacing={3}>
             {events.length > 0 && (
-              <Button size="sm" variant="outline" onClick={handleExport} isLoading={exporting}>
-                Export
-              </Button>
+              <Menu>
+                <MenuButton
+                  as={ChakraButton}
+                  size="sm"
+                  variant="outline"
+                  leftIcon={<FiDownload />}
+                  rightIcon={<FiChevronDown />}
+                  isLoading={exporting}
+                >
+                  Export
+                </MenuButton>
+                <MenuList>
+                  <MenuItem fontSize="14px" onClick={() => handleExport('csv')}>Export CSV</MenuItem>
+                  <MenuItem fontSize="14px" onClick={() => handleExport('xlsx')}>Export Excel</MenuItem>
+                  <MenuItem fontSize="14px" onClick={() => handleExport('pdf')}>Export PDF</MenuItem>
+                </MenuList>
+              </Menu>
             )}
             <Button
               size="sm"
