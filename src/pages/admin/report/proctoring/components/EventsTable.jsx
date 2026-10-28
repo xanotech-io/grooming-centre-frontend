@@ -7,7 +7,12 @@ import {
 import { FiSearch, FiMoreVertical, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import AlertTypeBadge from './AlertTypeBadge';
 
-const fmtName = (obj) => (obj ? `${obj.firstName ?? ''} ${obj.lastName ?? ''}`.trim() || '—' : '—');
+const fmtName = (obj) => {
+  if (!obj) return '—';
+  // Backend sends a plain label (e.g. "System") for system-generated events.
+  if (typeof obj === 'string') return obj;
+  return `${obj.firstName ?? ''} ${obj.lastName ?? ''}`.trim() || '—';
+};
 const fmtTime = (ts) => (ts ? new Date(ts).toLocaleString() : '—');
 const fmtStatus = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '—');
 
@@ -92,6 +97,7 @@ const EventsTable = ({
           >
             <option value="">All Status</option>
             <option value="active">Active</option>
+            <option value="escalated">Escalated</option>
             <option value="resolved">Resolved</option>
           </Select>
           <Input
@@ -174,7 +180,8 @@ const EventsTable = ({
                       <Td px={4} py={4} color="#101928" fontSize="12px">{fmtStatus(evt.status)}</Td>
                       <Td px={4} py={4} color="#101928" fontSize="12px">{fmtName(evt.proctor)}</Td>
                       <Td px={4} py={4} color="#475367" fontSize="12px">
-                        {latestAction ? ACTION_LABELS[latestAction.actionTaken] ?? latestAction.actionTaken : '—'}
+                        {evt.lastAction ??
+                          (latestAction ? ACTION_LABELS[latestAction.actionTaken] ?? latestAction.actionTaken : '—')}
                       </Td>
                       <Td px={4} py={4}>
                         <Menu>
