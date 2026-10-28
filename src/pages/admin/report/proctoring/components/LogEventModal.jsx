@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
   ModalCloseButton, FormControl, FormLabel, Input, Select, Textarea,
@@ -9,6 +9,7 @@ import {
   adminGetStandaloneExaminationListing,
   adminGetUserListing,
 } from '../../../../../services';
+import EntityCombobox from '../../components/EntityCombobox';
 
 const INITIAL = {
   examId: '',
@@ -24,26 +25,28 @@ const LogEventModal = ({ isOpen, onClose, onSuccess }) => {
   const [form, setForm] = useState(INITIAL);
   const [saving, setSaving] = useState(false);
   const [exams, setExams] = useState([]);
-  const [students, setStudents] = useState([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setLoadingOptions(true);
-    Promise.all([
-      adminGetStandaloneExaminationListing({ limit: 200 }),
-      adminGetUserListing({ role: 'student', limit: 500 }),
-    ])
-      .then(([examRes, userRes]) => {
-        setExams(examRes.examinations ?? []);
-        setStudents(userRes.users ?? []);
-      })
+    adminGetStandaloneExaminationListing({ limit: 200 })
+      .then((examRes) => setExams(examRes.examinations ?? []))
       .catch(() => {
         toast({ title: 'Failed to load options', status: 'error', duration: 3000, isClosable: true });
       })
       .finally(() => setLoadingOptions(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  const fetchStudentOptions = useCallback(async (query) => {
+    const res = await adminGetUserListing({ role: 'student', search: query, limit: 50 });
+    return (res.users ?? []).map((u) => ({
+      id: u.id,
+      label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
+      sublabel: u.email ?? null,
+    }));
+  }, []);
 
   const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
@@ -96,13 +99,12 @@ const LogEventModal = ({ isOpen, onClose, onSuccess }) => {
               </FormControl>
               <FormControl isRequired>
                 <FormLabel fontSize="13px" color="#344054">Student</FormLabel>
-                <Select name="studentId" value={form.studentId} onChange={handleChange} size="sm" placeholder="Select student">
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.firstName} {s.lastName} — {s.email}
-                    </option>
-                  ))}
-                </Select>
+                <EntityCombobox
+                  fetchFn={fetchStudentOptions}
+                  value={form.studentId}
+                  onSelect={(opt) => setForm((p) => ({ ...p, studentId: opt ? opt.id : '' }))}
+                  placeholder="Search student by name or email..."
+                />
               </FormControl>
               <FormControl>
                 <FormLabel fontSize="13px" color="#344054">Alert Type</FormLabel>
