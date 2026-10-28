@@ -23,6 +23,7 @@ import { getEndTime, sortByIndexField, parseOptionIndex, getResultRemark } from 
 import { http } from "../../../services/http/http";
 import { submitAssessmentMarking, getStudentOwnResult } from "../../../services";
 import useQuestionTimer from "../../../hooks/useQuestionTimer";
+import useAttemptStart from "../../../hooks/useAttemptStart";
 import useLiveProctoring from "../../../hooks/useLiveProctoring";
 import { normalizeQuestionType } from "../../../pages/admin/examQuestionImport/questionRowUtils";
 
@@ -169,12 +170,10 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
 
   // The countdown runs for the full duration from when the student opens this
   // attempt — not from the scheduled startTime, which may already be in the past.
-  const [attemptStartedAt, setAttemptStartedAt] = useState(null);
-  useEffect(() => {
-    if (assessment && !isViewMode && !attemptStartedAt) {
-      setAttemptStartedAt(new Date().toISOString());
-    }
-  }, [assessment, isViewMode, attemptStartedAt]);
+  // A page refresh resumes the same countdown rather than restarting it.
+  const [attemptStartedAt, clearAttemptStart] = useAttemptStart(
+    assessment?.id && !isViewMode ? `assessment:${assessment.id}` : null
+  );
 
   const timerManager = useTimerCountdown({
     startDate: !isViewMode ? attemptStartedAt : null,
@@ -232,6 +231,7 @@ const AssessmentTakingContent = ({ isRetake, onRetry }) => {
   useEffect(() => {
     if (submitStatus.success) {
       timerManager.handleStopCountdown();
+      clearAttemptStart();
       modalManager.onOpen();
       setModalCanClose(false);
       setModalPrompt(null);

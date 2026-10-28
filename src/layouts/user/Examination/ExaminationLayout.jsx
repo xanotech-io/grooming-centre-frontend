@@ -24,6 +24,7 @@ import { http } from "../../../services/http/http";
 import { submitExamMarking, getExamMarkingResult } from "../../../services/http/endpoints/examMarking";
 import useLiveProctoring from "../../../hooks/useLiveProctoring";
 import useQuestionTimer from "../../../hooks/useQuestionTimer";
+import useAttemptStart from "../../../hooks/useAttemptStart";
 
 export const normalizeQuestionType = (raw) => {
   if (!raw) return "MCQ";
@@ -56,7 +57,7 @@ const mapExamination = (data) => {
     duration: raw.duration,
     questionCount: raw.amountOfQuestions ?? questionArray.length,
     startTime: raw.startTime,
-    endTime: getEndTime(raw.startTime, raw.duration),
+    endTime: raw.startTime ? getEndTime(raw.startTime, raw.duration) : null,
     hasCompleted: (raw.examinationScoreSheets?.length > 0) || (raw.submissions?.length > 0),
     submittedAnswers: raw.submissions?.[0]?.answers ?? [],
     submissionCount: raw.submissions?.length ?? 0,
@@ -183,9 +184,16 @@ const ExaminationContent = ({ isRetake, onRetry }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questions.length]);
 
+  // The countdown runs for the full duration from when the student opens this
+  // attempt — not from the scheduled startTime, which may already be in the past.
+  // A page refresh resumes the same countdown rather than restarting it.
+  const [attemptStartedAt, clearAttemptStart] = useAttemptStart(
+    examination?.id && !isViewMode ? `examination:${examination.id}` : null
+  );
+
   const timerManager = useTimerCountdown({
-    startDate: !isViewMode ? examination?.startTime : null,
-    endDate: !isViewMode ? examination?.endTime : null,
+    startDate: !isViewMode ? attemptStartedAt : null,
+    duration: !isViewMode ? examination?.duration : null,
   });
 
   const modalManager = useDisclosure();
@@ -268,13 +276,26 @@ const ExaminationContent = ({ isRetake, onRetry }) => {
     onAutoSubmit: () => handleSubmit(true),
   });
 
+  // Time running out submits without the student clicking Submit.
+  const timeUpSubmittedRef = useRef(false);
   useEffect(() => {
-    if (!isViewMode && timerManager.hasEnded?.timeout) handleSubmit();
-  }, [timerManager.hasEnded?.timeout, handleSubmit, isViewMode]);
+    if (isViewMode || submitStatus.success || !timerManager.hasEnded?.timeout) return;
+    if (timeUpSubmittedRef.current) return;
+    timeUpSubmittedRef.current = true;
+    modalManager.onClose();
+    toast({
+      position: "top",
+      status: "warning",
+      title: "Time is up — your examination is being submitted",
+    });
+    handleSubmit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerManager.hasEnded?.timeout, isViewMode, submitStatus.success]);
 
   useEffect(() => {
     if (submitStatus.success) {
       timerManager.handleStopCountdown();
+      clearAttemptStart();
       if (submitStatus.isAutoSubmit) {
         push(`/courses/details/${course_id}`);
         return;

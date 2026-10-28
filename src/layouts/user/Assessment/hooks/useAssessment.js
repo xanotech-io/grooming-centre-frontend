@@ -7,6 +7,7 @@ import { Text } from "../../../../components";
 import useQueryParams from "../../../../hooks/useQueryParams";
 import useLiveProctoring from "../../../../hooks/useLiveProctoring";
 import useQuestionTimer from "../../../../hooks/useQuestionTimer";
+import useAttemptStart from "../../../../hooks/useAttemptStart";
 import { submitAssessmentMarking } from "../../../../services";
 import { submitExamination } from "../../../../services/http/endpoints/examination";
 import { sortByIndexField, getGeolocationString } from "../../../../utils";
@@ -42,9 +43,15 @@ const useAssessment = () => {
   const [currentQuestion, setCurrentQuestion] = useState({});
   const getQuestionTimeTaken = useQuestionTimer(currentQuestion?.id);
 
+  // The countdown runs for the full duration from when the student opens this
+  // attempt — not from the scheduled startTime, which may already be in the past.
+  // A page refresh resumes the same countdown rather than restarting it.
+  const [attemptStartedAt, clearAttemptStart] = useAttemptStart(
+    assessment?.id ? `${isExamination ? "examination" : "assessment"}:${assessment.id}` : null
+  );
   const timerCountdownManger = useTimerCountdown({
-    startDate: assessment.startTime,
-    endDate: assessment.endTime,
+    startDate: attemptStartedAt,
+    duration: assessment?.duration,
   });
 
   // Initialize the first question
@@ -150,11 +157,13 @@ const useAssessment = () => {
     selectedAnswers,
   ]);
 
+  const timeUpSubmittedRef = useRef(false);
   useEffect(() => {
-    if (timerCountdownManger.hasEnded.timeout) {
-      handleSubmit();
-    }
-  }, [timerCountdownManger.hasEnded.timeout, handleSubmit]);
+    if (!timerCountdownManger.hasEnded.timeout || timeUpSubmittedRef.current) return;
+    timeUpSubmittedRef.current = true;
+    handleSubmit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerCountdownManger.hasEnded.timeout]);
 
   const modalManager = useDisclosure();
   const [modalContent, setModalContent] = useState();
@@ -201,6 +210,7 @@ const useAssessment = () => {
   // Setup UI after success submission
   useEffect(() => {
     if (submitStatus.success) {
+      clearAttemptStart();
       if (submitStatus.isAutoSubmit) {
         timerCountdownManger.handleStopCountdown();
         handleDelete(course_id);
