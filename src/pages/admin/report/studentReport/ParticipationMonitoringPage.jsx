@@ -413,6 +413,24 @@ const ParticipationMonitoringPage = () => {
     setSelection(EMPTY_SELECTION);
   };
 
+  const exportMeta = (() => {
+    if (!appliedFilter) return [];
+    const p = lastParamsRef.current;
+    const lines = [...appliedFilter.labels];
+    if (!appliedFilter.params.moduleId && appliedFilter.params.courseId) {
+      lines.push("Module: All modules");
+    }
+    if (p.engagementStatus) lines.push(`Engagement Status: ${p.engagementStatus}`);
+    if (p.alertTriggered) lines.push("Alerts Only: Yes");
+    if (p.startDate || p.endDate) {
+      const fmt = (d) => (d ? new Date(d).toLocaleDateString() : "…");
+      lines.push(`Date Range: ${fmt(p.startDate)} – ${fmt(p.endDate)}`);
+    }
+    if (p.search) lines.push(`Search: ${p.search}`);
+    lines.push(`Generated: ${new Date().toLocaleString()}`);
+    return lines;
+  })();
+
   const exportRows = [
     [
       "Student Name",
@@ -462,6 +480,7 @@ const ParticipationMonitoringPage = () => {
             rows={exportRows}
             filename="participation-monitoring-report"
             title="Student Participation Monitoring Report"
+            meta={exportMeta}
             isDisabled={participationData.length === 0}
           />
           <Button

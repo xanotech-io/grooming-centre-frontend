@@ -18,7 +18,7 @@ import { Skeleton } from '@chakra-ui/skeleton';
 import { Text, Heading, CustomFieldSlots } from '../../../components';
 import { maxWidthStyles_userPages } from '../../../theme/breakpoints';
 import { useApp } from '../../../contexts';
-import { requestUpdateDetails, getActiveCustomFieldSlots } from '../../../services';
+import { requestUpdateDetails, getActiveCustomFieldSlots, CUSTOM_FIELD_SLOTS } from '../../../services';
 import { formatDistanceToNow } from 'date-fns';
 
 const ProfilePage = () => {
@@ -32,6 +32,10 @@ const ProfilePage = () => {
     userData?.professionalCertification || ''
   );
   const [customFieldDefs, setCustomFieldDefs] = useState([null, null]);
+  // Students aren't allowed to list custom-field definitions, so when that
+  // fetch fails we fall back to showing whatever slot values are already on
+  // the user's own record, under generic labels.
+  const [customFieldDefsUnavailable, setCustomFieldDefsUnavailable] = useState(false);
   const [customFieldValues, setCustomFieldValues] = useState({
     customFieldOne: userData?.customFieldOne || '',
     customFieldTwo: userData?.customFieldTwo || '',
@@ -40,8 +44,15 @@ const ProfilePage = () => {
   useEffect(() => {
     getActiveCustomFieldSlots('user_profile')
       .then(setCustomFieldDefs)
-      .catch(() => setCustomFieldDefs([null, null]));
+      .catch(() => {
+        setCustomFieldDefs([null, null]);
+        setCustomFieldDefsUnavailable(true);
+      });
   }, []);
+
+  const fallbackCustomFields = CUSTOM_FIELD_SLOTS
+    .map((slot, index) => ({ slot, fieldName: `Custom Field ${index + 1}` }))
+    .filter(({ slot }) => userData?.[slot] !== undefined && userData?.[slot] !== null && userData?.[slot] !== '');
 
   console.log('ProfilePage - userData:', userData);
 
@@ -259,7 +270,15 @@ const ProfilePage = () => {
                     value={userData?.professionalCertification || 'Not provided'}
                   />
                 )}
-                {isEditing ? (
+                {customFieldDefsUnavailable ? (
+                  fallbackCustomFields.map((field) => (
+                    <InfoField
+                      key={field.slot}
+                      label={field.fieldName}
+                      value={String(userData?.[field.slot])}
+                    />
+                  ))
+                ) : isEditing ? (
                   <CustomFieldSlots
                     entity="user_profile"
                     values={customFieldValues}

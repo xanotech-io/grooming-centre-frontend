@@ -58,7 +58,7 @@ export const links = [
       // { href: "/admin/examination-marking", text: "Exam Marking" },
       // { href: "/admin/manual-marking", text: "Manual Marking" },
       { href: "/admin/marking-templates", text: "Marking Templates" },
-      { href: "/admin/marking-schemes", text: "Marking Schemes" },
+      // { href: "/admin/marking-schemes", text: "Marking Schemes" },
       { href: "/admin/exam-paper-config-presets", text: "Exam Template Library" },
       // { href: "/admin/grade-book", text: "Grade Book" },
       { href: "/admin/grade-book-v2", text: "Advanced Grade Book" },
@@ -72,7 +72,7 @@ export const links = [
     icon: <FiAward />,
     links: [
       { href: "/admin/certificates", text: "Certificate Upload" },
-      { href: "/admin/certificate-management", text: "Issued Certificates" },
+      // { href: "/admin/certificate-management", text: "Issued Certificates" },
       { href: "/admin/badge-support", text: "Badge Support" },
       // { href: "/admin/user-documents", text: "Document Verification" },
     ],

@@ -9,6 +9,7 @@ import {
   Breadcrumb,
   Link,
   Upload,
+  CustomFieldSlots,
 } from "../../../../components";
 import { useApp, useCache } from "../../../../contexts";
 import { CreatePageLayout } from "../../../../layouts";
@@ -34,6 +35,7 @@ const CreateUserPage = ({
   const [uploadingUsers, setUploadingUsers] = useState(false);
   const [batchUploadMethod, setBatchUploadMethod] = useState("invite");
   const [defaultPassword, setDefaultPassword] = useState("");
+  const [customFieldValues, setCustomFieldValues] = useState({});
 
   const toast = useToast();
   const appManager = useApp();
@@ -75,16 +77,19 @@ const CreateUserPage = ({
             lastName: data.lastName,
             userRoleId: data.roleId,
             professionalCertification: data.professionalCertification,
+            ...customFieldValues,
           })
         : creatorRoleIsSuperAdmin &&
           appManager.getOneMetadata("userRoles", data.roleId)?.name === "admin"
         ? superAdminInviteAdmin({
             ...data,
             professionalCertification: data.professionalCertification,
+            ...customFieldValues,
           })
         : adminInviteUser({
             ...data,
             professionalCertification: data.professionalCertification,
+            ...customFieldValues,
           }));
 
       if (isEditMode) handleDelete(user.id);
@@ -99,6 +104,7 @@ const CreateUserPage = ({
         status: "success",
       });
       reset();
+      setCustomFieldValues({});
       handleResetDepartmentIsRequired();
 
       isEditMode && push(`/admin/users/details/${userId}/profile`);
@@ -137,6 +143,15 @@ const CreateUserPage = ({
       setValue("gender", user.gender);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      setCustomFieldValues({
+        customFieldOne: user.customFieldOne ?? "",
+        customFieldTwo: user.customFieldTwo ?? "",
+      });
+    }
   }, [user]);
 
   useEffect(() => {
@@ -363,6 +378,15 @@ const CreateUserPage = ({
                 error={errors.roleId?.message}
               />
             )}
+            {/* Custom fields (admin-defined for user_profile, max 2) */}
+            <CustomFieldSlots
+              entity="user_profile"
+              values={customFieldValues}
+              onChange={(slot, value) =>
+                setCustomFieldValues((current) => ({ ...current, [slot]: value }))
+              }
+              role="Admin"
+            />
           </Box>
         </Stack>
       </CreatePageLayout>
