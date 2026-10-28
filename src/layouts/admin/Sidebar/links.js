@@ -194,10 +194,10 @@ export const links = [
         href: "/admin/report/exam-integrity",
         text: "Randomization and Integrity Report",
       },
-      {
-        href: "/admin/report/student-reporting",
-        text: "Student Reporting & Participation",
-      },
+      // {
+      //   href: "/admin/report/student-reporting",
+      //   text: "Student Reporting & Participation",
+      // },
   
     ],
   },

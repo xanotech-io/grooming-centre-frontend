@@ -103,6 +103,21 @@ const formatMetric = (value, decimals = 0) => {
   return value == null || value === "" || !Number.isFinite(n) ? "—" : n.toFixed(decimals);
 };
 
+// Avg time / reliability stay null on the backend until a question has been
+// attempted, so say why the cell is empty instead of a bare dash.
+function MetricCell({ value, attempts, decimals = 0 }) {
+  const formatted = formatMetric(value, decimals);
+  if (formatted !== "—") return formatted;
+  const label = Number(attempts) > 0 ? "Not enough data yet" : "No attempts yet";
+  return (
+    <Tooltip label={label} placement="top" hasArrow>
+      <Text as="span" color="gray.400" fontSize="xs">
+        N/A
+      </Text>
+    </Tooltip>
+  );
+}
+
 function StatCard({ label, value }) {
   return (
     <Box bg="white" borderRadius="lg" p={4} boxShadow="sm" border="1px solid" borderColor="gray.100">
@@ -184,8 +199,9 @@ function ExamQuestionBankListPage() {
       const payload = res?.data ?? res;
       const items = Array.isArray(payload?.questions) ? payload.questions : Array.isArray(payload) ? payload : MOCK_QUESTIONS;
       setQuestions(items);
-      const computed = Math.ceil((payload?.total || items.length) / 20) || 1;
-      setTotalPages(payload?.totalPages ?? computed);
+      const pagination = payload?.pagination ?? payload;
+      const computed = Math.ceil((pagination?.total || items.length) / 20) || 1;
+      setTotalPages(pagination?.totalPages ?? computed);
     } catch {
       console.warn("[ExamQuestionBank] list failed, using mock");
       setQuestions(MOCK_QUESTIONS);
@@ -458,8 +474,12 @@ function ExamQuestionBankListPage() {
                         <Badge colorScheme={STATUS_COLOR[q.status] || "gray"}>{q.status}</Badge>
                       </Td>
                       <Td isNumeric>{formatMetric(getUsageFrequency(q))}</Td>
-                      <Td isNumeric>{formatMetric(getAverageTimeSpent(q))}</Td>
-                      <Td isNumeric>{formatMetric(q.reliabilityIndex, 2)}</Td>
+                      <Td isNumeric>
+                        <MetricCell value={getAverageTimeSpent(q)} attempts={q.totalAttempts} />
+                      </Td>
+                      <Td isNumeric>
+                        <MetricCell value={q.reliabilityIndex} attempts={q.totalAttempts} decimals={2} />
+                      </Td>
                       <Td>
                         <Menu placement="bottom-end">
                           <MenuButton as={IconButton} size="xs" variant="ghost" icon={<FiMoreHorizontal />} />
