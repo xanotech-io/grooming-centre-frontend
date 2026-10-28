@@ -1,11 +1,11 @@
 import { useDisclosure } from "@chakra-ui/hooks";
 import { useToast } from "@chakra-ui/toast";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { Box } from "@chakra-ui/layout";
 import { useCache } from "../../../../contexts";
 import { Text } from "../../../../components";
-import { useQueryParams } from "../../../../hooks";
+import { useAttemptStart, useQueryParams } from "../../../../hooks";
 import useStandalonePreview from "./useStandalonePreview";
 import {
   submitAssessment,
@@ -29,9 +29,20 @@ const useStandalone = () => {
 
   const [currentQuestion, setCurrentQuestion] = useState({});
 
+  // The countdown runs for the full duration from when the student opens this
+  // attempt — not from the scheduled startTime, which may already be in the past.
+  // A page refresh resumes the same countdown rather than restarting it.
+  const canTakeNow =
+    !!assessment?.id &&
+    !assessment.hasCompleted &&
+    !isUpcoming(assessment.startTime) &&
+    !hasEnded(assessment.endTime);
+  const [attemptStartedAt, clearAttemptStart] = useAttemptStart(
+    canTakeNow ? `standalone:${assessment.id}` : null
+  );
   const timerCountdownManger = useTimerCountdown({
-    startDate: assessment.startTime,
-    endDate: assessment.endTime,
+    startDate: attemptStartedAt,
+    duration: assessment?.duration,
   });
 
   // Initialize the first question
@@ -142,10 +153,14 @@ const useStandalone = () => {
     // user?.id,
   ]);
 
+  // Time running out submits without the student clicking Submit.
+  const timeUpSubmittedRef = useRef(false);
   useEffect(() => {
-    if (timerCountdownManger.hasEnded.timeout) {
-    }
-  }, [timerCountdownManger.hasEnded.timeout, handleSubmit]);
+    if (!timerCountdownManger.hasEnded.timeout || timeUpSubmittedRef.current) return;
+    timeUpSubmittedRef.current = true;
+    handleSubmit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerCountdownManger.hasEnded.timeout]);
 
   const modalManager = useDisclosure();
   const [modalContent, setModalContent] = useState();
@@ -175,6 +190,7 @@ const useStandalone = () => {
   // Setup UI after success submission
   useEffect(() => {
     if (submitStatus.success) {
+      clearAttemptStart();
       handleAfterSubmit();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
