@@ -201,7 +201,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GENERATE_FORM_DEFAULT = {
   reportCategory: "academic",
   reportName: "",
-  reportFormat: "json",
   frequency: "on_demand",
   accessLevel: [],
   metrics: [],
@@ -468,7 +467,8 @@ const MISReportsPage = () => {
       const { report, message } = await adminGenerateMISReport({
         reportCategory: generateForm.reportCategory,
         reportName: generateForm.reportName,
-        reportFormat: generateForm.reportFormat,
+        // MIS reports are delivered as read-only PDFs only
+        reportFormat: "pdf",
         frequency: generateForm.frequency,
         accessLevel: generateForm.accessLevel,
         metrics: generateForm.metrics,
@@ -481,9 +481,9 @@ const MISReportsPage = () => {
 
       if (report) {
         try {
-          exportMISReport(report, generateForm.reportFormat, resolveReportValue);
+          exportMISReport(report, "pdf", resolveReportValue);
         } catch {
-          toast({ description: "Report generated but the download failed — use Export from the list.", status: "warning", position: "top" });
+          toast({ description: "Report generated but the PDF download failed — open the report to download it.", status: "warning", position: "top" });
         }
       }
 
@@ -787,33 +787,18 @@ const MISReportsPage = () => {
                   borderRadius="md" fontSize="14px"
                 />
               </FormControl>
-              <Grid templateColumns="repeat(2, 1fr)" gap={4}>
-                <FormControl isRequired>
-                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Category</FormLabel>
-                  <Select
-                    value={generateForm.reportCategory}
-                    onChange={(e) => setGenerateForm((f) => ({ ...f, reportCategory: e.target.value }))}
-                    borderRadius="md" fontSize="14px"
-                  >
-                    <option value="academic">Academic</option>
-                    <option value="administrative">Administrative</option>
-                    <option value="compliance">Compliance</option>
-                  </Select>
-                </FormControl>
-                <FormControl isRequired>
-                  <FormLabel fontSize="14px" fontWeight="500" color="#344054">Format</FormLabel>
-                  <Select
-                    value={generateForm.reportFormat}
-                    onChange={(e) => setGenerateForm((f) => ({ ...f, reportFormat: e.target.value }))}
-                    borderRadius="md" fontSize="14px"
-                  >
-                    <option value="json">JSON</option>
-                    <option value="pdf">PDF</option>
-                    <option value="excel">Excel</option>
-                    <option value="csv">CSV</option>
-                  </Select>
-                </FormControl>
-              </Grid>
+              <FormControl isRequired>
+                <FormLabel fontSize="14px" fontWeight="500" color="#344054">Category</FormLabel>
+                <Select
+                  value={generateForm.reportCategory}
+                  onChange={(e) => setGenerateForm((f) => ({ ...f, reportCategory: e.target.value }))}
+                  borderRadius="md" fontSize="14px"
+                >
+                  <option value="academic">Academic</option>
+                  <option value="administrative">Administrative</option>
+                  <option value="compliance">Compliance</option>
+                </Select>
+              </FormControl>
               <FormControl isRequired>
                 <FormLabel fontSize="14px" fontWeight="500" color="#344054">Frequency</FormLabel>
                 <Select
