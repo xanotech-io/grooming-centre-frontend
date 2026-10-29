@@ -21,7 +21,8 @@ export const CustomFieldSlots = ({ entity, values, onChange, role = "Admin", isD
       .then((res) => {
         if (active) setSlots(res);
       })
-      .catch(() => {
+      .catch((error) => {
+        console.warn(`[CustomFieldSlots] failed to load ${entity} custom fields`, error);
         if (active) setSlots([null, null]);
       })
       .finally(() => {
@@ -34,62 +35,73 @@ export const CustomFieldSlots = ({ entity, values, onChange, role = "Admin", isD
 
   if (loading) return null;
 
+  // Admins define these fields, so admin forms always show them; other roles
+  // follow the field's "who can edit" setting.
   const editableFields = slots.filter(
-    (field) => field && (field.visibility?.edit || []).includes(role)
+    (field) => field && (role === "Admin" || (field.visibility?.edit || []).includes(role))
   );
 
-  return editableFields.map((field) => {
-    const value = values?.[field.slot] ?? "";
-    const handleChange = (nextValue) => onChange(field.slot, nextValue);
-    const common = {
-      key: field.slot,
-      id: field.slot,
-      label: field.fieldName,
-      isRequired: field.required,
-      isDisabled,
-    };
+  return editableFields.map((field) => (
+    <CustomFieldInput
+      key={field.slot}
+      id={field.slot}
+      field={field}
+      value={values?.[field.slot]}
+      onChange={(nextValue) => onChange(field.slot, nextValue)}
+      isDisabled={isDisabled}
+    />
+  ));
+};
 
-    if (field.fieldType === "textarea") {
-      return (
-        <Textarea
-          {...common}
-          value={value}
-          onChange={(e) => handleChange(e.target.value)}
-          placeholder={field.helpText}
-        />
-      );
-    }
+// One input for a custom field definition, picked by its fieldType.
+export const CustomFieldInput = ({ id, field, value = "", onChange, isDisabled }) => {
+  const common = {
+    id,
+    label: field.fieldName,
+    isRequired: field.required,
+    isDisabled,
+  };
 
-    if (field.fieldType === "dropdown") {
-      return (
-        <Select
-          {...common}
-          value={value}
-          onChange={(e) => handleChange(e.target.value)}
-          options={(field.options || []).map((option) => ({ label: option, value: option }))}
-          placeholder="Select..."
-        />
-      );
-    }
-
-    if (field.fieldType === "checkbox") {
-      return (
-        <Checkbox
-          {...common}
-          isChecked={!!value}
-          onChange={(e) => handleChange(e.target.checked)}
-        />
-      );
-    }
-
+  if (field.fieldType === "textarea") {
     return (
-      <Input
+      <Textarea
         {...common}
-        type={field.fieldType === "number" ? "number" : field.fieldType === "date" ? "date" : "text"}
         value={value}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={field.helpText}
       />
     );
-  });
+  }
+
+  if (field.fieldType === "dropdown") {
+    return (
+      <Select
+        {...common}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        options={(field.options || []).map((option) => ({ label: option, value: option }))}
+        placeholder="Select..."
+      />
+    );
+  }
+
+  if (field.fieldType === "checkbox") {
+    return (
+      <Checkbox
+        {...common}
+        isChecked={value === true || value === "true"}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+    );
+  }
+
+  return (
+    <Input
+      {...common}
+      type={field.fieldType === "number" ? "number" : field.fieldType === "date" ? "date" : "text"}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={field.helpText}
+    />
+  );
 };

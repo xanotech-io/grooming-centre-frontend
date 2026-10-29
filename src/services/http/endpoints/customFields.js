@@ -42,16 +42,72 @@ export const deleteCustomField = async (fieldId) => {
   return data;
 };
 
+const lower = (value) => String(value ?? "").trim().toLowerCase();
+
+const ROLE_NAMES = { self: "Self", admin: "Admin", instructor: "Instructor" };
+const DEFAULT_VISIBILITY = { view: ["Self", "Admin"], edit: ["Self", "Admin"] };
+
+const parseMaybeJson = (value) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+// The list payload has come back in a few envelopes; pick the first array.
+const extractFieldList = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  for (const key of ["fields", "data", "items", "docs", "rows", "results"]) {
+    if (Array.isArray(payload?.[key])) return payload[key];
+  }
+  return [];
+};
+
+// Canonicalise role casing ("admin" -> "Admin") and accept visibility/options
+// sent as JSON strings, so the role checks in the forms don't silently drop
+// a field. A field with no visibility at all gets the create-form default.
+const normalizeRoles = (roles) => {
+  const list = parseMaybeJson(roles);
+  const arr = Array.isArray(list) ? list : typeof list === "string" ? list.split(",") : [];
+  return arr.map((r) => ROLE_NAMES[lower(r)] || String(r).trim()).filter(Boolean);
+};
+
+const normalizeField = (field) => {
+  const visibility = parseMaybeJson(field.visibility);
+  const options = parseMaybeJson(field.options);
+  return {
+    ...field,
+    fieldType: lower(field.fieldType) || "text",
+    visibility:
+      visibility && typeof visibility === "object"
+        ? { view: normalizeRoles(visibility.view), edit: normalizeRoles(visibility.edit) }
+        : DEFAULT_VISIBILITY,
+    options: Array.isArray(options)
+      ? options
+      : typeof options === "string" && options
+      ? options.split(",").map((o) => o.trim()).filter(Boolean)
+      : options,
+  };
+};
+
 // Active slot definitions for a given entity type, sorted by slot
 // (customFieldOne, customFieldTwo) — used to render the two generic inputs
 // on the course-create and user-profile forms. Values themselves aren't
 // fetched here; they come back on the course/user record itself.
-export const getActiveCustomFieldSlots = async (entity) => {
+// All active field definitions for `entity`, normalized. Filtered client-side
+// too, in case the backend ignores the entity/status query params.
+export const getActiveCustomFields = async (entity) => {
   const res = await listCustomFields({ entity, status: "active" });
   const payload = res?.data || res;
-  const rawItems = Array.isArray(payload?.fields) ? payload.fields : Array.isArray(payload) ? payload : [];
-  // Filter client-side too, in case the backend ignores entity/status query params.
-  const items = rawItems.filter((f) => f.entity === entity && f.status !== "inactive");
+  return extractFieldList(payload)
+    .map(normalizeField)
+    .filter((f) => lower(f.entity) === lower(entity) && lower(f.status) !== "inactive");
+};
+
+export const getActiveCustomFieldSlots = async (entity) => {
+  const items = await getActiveCustomFields(entity);
 
   const bySlot = CUSTOM_FIELD_SLOTS.map((slot) => items.find((f) => f.slot === slot) || null);
   if (bySlot.some(Boolean)) return bySlot;

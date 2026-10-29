@@ -23,12 +23,7 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import { Button } from "../../../components";
-import {
-  adminGetCourseListing,
-  adminListModules,
-  getExamQuestionBankItem,
-  listExamQuestionBank,
-} from "../../../services";
+import { getExamQuestionBankItem, listExamQuestionBank } from "../../../services";
 
 const TYPE_LABEL = {
   mcq: "MCQ",
@@ -50,14 +45,6 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd }) => {
   // synchronous ref closes that gap so a picked batch can never reach
   // `onAdd` (and get queued) twice.
   const addingRef = useRef(false);
-
-  // Origin labels — the picker deliberately shows every question in the
-  // bank regardless of the course/module currently being edited, so these
-  // columns are how the admin tells which exam/course a question came from
-  // instead of the picker silently filtering it out of view.
-  const [courseNames, setCourseNames] = useState({});
-  const [moduleNames, setModuleNames] = useState({});
-  const loadedModuleCourseIds = useRef(new Set());
 
   const fetchQuestions = useCallback(async () => {
     setLoading(true);
@@ -85,41 +72,6 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd }) => {
   useEffect(() => {
     if (isOpen) fetchQuestions();
   }, [isOpen, fetchQuestions]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    adminGetCourseListing({ limit: 200 })
-      .then((res) => {
-        const map = {};
-        (res?.courses || []).forEach((c) => {
-          map[c.id] = c.title;
-        });
-        setCourseNames(map);
-      })
-      .catch(() => {});
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen || !questions.length) return;
-    const courseIds = Array.from(
-      new Set(questions.map((q) => q.courseId).filter((id) => id && !loadedModuleCourseIds.current.has(id))),
-    );
-    if (!courseIds.length) return;
-    courseIds.forEach((id) => loadedModuleCourseIds.current.add(id));
-    Promise.all(
-      courseIds.map((id) =>
-        adminListModules(id)
-          .then((res) => res?.modules || [])
-          .catch(() => []),
-      ),
-    ).then((results) => {
-      const map = {};
-      results.flat().forEach((m) => {
-        map[m.id] = m.title;
-      });
-      setModuleNames((prev) => ({ ...prev, ...map }));
-    });
-  }, [isOpen, questions]);
 
   const allSelected = questions.length > 0 && questions.every((q) => selectedIds.includes(q.id));
 
@@ -187,8 +139,6 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd }) => {
                     <Th>Question</Th>
                     <Th>Type</Th>
                     <Th>Difficulty</Th>
-                    <Th>Course</Th>
-                    <Th>Module</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -208,16 +158,6 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd }) => {
                         </Badge>
                       </Td>
                       <Td>{q.difficultyLevel}</Td>
-                      <Td>
-                        <Text fontSize="xs" color="gray.500" noOfLines={1} maxW="140px">
-                          {(q.courseId && (courseNames[q.courseId] || q.courseId)) || "—"}
-                        </Text>
-                      </Td>
-                      <Td>
-                        <Text fontSize="xs" color="gray.500" noOfLines={1} maxW="140px">
-                          {(q.moduleId && (moduleNames[q.moduleId] || q.moduleId)) || "—"}
-                        </Text>
-                      </Td>
                     </Tr>
                   ))}
                 </Tbody>

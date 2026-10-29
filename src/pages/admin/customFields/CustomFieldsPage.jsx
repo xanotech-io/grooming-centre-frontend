@@ -145,6 +145,9 @@ const FIELD_TYPES = ["text", "textarea"];
 const ENTITY_TYPES = ["user_profile", "course"];
 const SLOT_LABELS = { customFieldOne: "Slot 1", customFieldTwo: "Slot 2" };
 const VISIBILITY_ROLES = ["Self", "Admin", "Instructor"];
+// Stored values stay "Self"/"Admin"/"Instructor"; "Self" is the student who owns the record.
+const ROLE_LABELS = { Self: "Student (Self)" };
+const roleLabel = (role) => ROLE_LABELS[role] || role;
 
 const EMPTY_FORM = {
   fieldName: "",
@@ -156,7 +159,7 @@ const EMPTY_FORM = {
   status: "active",
   options: "",
   validationRules: { regex: "", min: "", max: "", error_message: "" },
-  visibility: { view: ["Self", "Admin"], edit: ["Admin"] },
+  visibility: { view: ["Self", "Admin"], edit: ["Self", "Admin"] },
 };
 
 function KpiCard({ label, value, color }) {
@@ -211,7 +214,7 @@ function FieldFormModal({ isOpen, onClose, editField, entityCounts, onSaved }) {
           max: editField.validationRules?.max ?? "",
           error_message: editField.validationRules?.error_message || "",
         },
-        visibility: editField.visibility || { view: ["Self", "Admin"], edit: ["Admin"] },
+        visibility: editField.visibility || { view: ["Self", "Admin"], edit: ["Self", "Admin"] },
       });
     } else {
       setForm(EMPTY_FORM);
@@ -447,7 +450,7 @@ function FieldFormModal({ isOpen, onClose, editField, entityCounts, onSaved }) {
                   >
                     <Stack spacing={1}>
                       {VISIBILITY_ROLES.map((r) => (
-                        <Checkbox key={r} value={r} size="sm">{r}</Checkbox>
+                        <Checkbox key={r} value={r} size="sm">{roleLabel(r)}</Checkbox>
                       ))}
                     </Stack>
                   </CheckboxGroup>
@@ -460,7 +463,7 @@ function FieldFormModal({ isOpen, onClose, editField, entityCounts, onSaved }) {
                   >
                     <Stack spacing={1}>
                       {VISIBILITY_ROLES.map((r) => (
-                        <Checkbox key={r} value={r} size="sm">{r}</Checkbox>
+                        <Checkbox key={r} value={r} size="sm">{roleLabel(r)}</Checkbox>
                       ))}
                     </Stack>
                   </CheckboxGroup>
@@ -764,7 +767,7 @@ function CustomFieldsPage() {
                         <HStack spacing={1} flexWrap="wrap">
                           {(f.visibility?.view || []).map((role) => (
                             <Tag key={role} size="sm" colorScheme="teal" variant="subtle">
-                              <TagLabel>{role}</TagLabel>
+                              <TagLabel>{roleLabel(role)}</TagLabel>
                             </Tag>
                           ))}
                         </HStack>
