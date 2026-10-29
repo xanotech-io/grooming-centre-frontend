@@ -13,13 +13,9 @@ import {
   Tooltip,
   BreadcrumbItem,
   Spinner,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
   useToast,
 } from "@chakra-ui/react";
-import { FiInfo, FiChevronDown } from "react-icons/fi";
+import { FiInfo } from "react-icons/fi";
 import dayjs from "dayjs";
 import { adminGetMISReport, adminGetUserListing, adminGetDepartmentListing, adminGetCourseListing } from "../../../services";
 import { AdminMainAreaWrapper, EmptyState } from "../../../layouts";
@@ -84,13 +80,6 @@ const FILTER_KEY_LABELS = {
   startDate: "Start Date",
   endDate: "End Date",
 };
-
-const EXPORT_FORMAT_OPTIONS = [
-  { value: "pdf", label: "PDF" },
-  { value: "excel", label: "Excel" },
-  { value: "csv", label: "CSV" },
-  { value: "json", label: "JSON" },
-];
 
 const Field = ({ label, value }) => (
   <HStack justify="space-between" w="100%" align="flex-start">
@@ -161,13 +150,13 @@ const MISReportDetailPage = () => {
     return formatValue(value);
   };
 
-  const handleExport = (format) => {
+  const handleDownload = () => {
     try {
-      exportMISReport(report, format, (key, value) =>
+      exportMISReport(report, "pdf", (key, value) =>
         key === "generatedBy" ? (userNameById[String(value)] ?? value) : resolveFilterValue(key, value)
       );
     } catch (err) {
-      toast({ description: err?.message || "Failed to export report.", status: "error", position: "top" });
+      toast({ description: err?.message || "Failed to download report.", status: "error", position: "top" });
     }
   };
 
@@ -226,22 +215,12 @@ const MISReportDetailPage = () => {
           item2={<BreadcrumbItem><Link href="/admin/mis-reports">MIS Reports</Link></BreadcrumbItem>}
           item3={<BreadcrumbItem isCurrentPage><Link href="#">{report.reportName}</Link></BreadcrumbItem>}
         />
-        <Menu>
-          <MenuButton
-            as={Button} rightIcon={<FiChevronDown />}
-            variant="outline" borderColor="#660066" color="#660066"
-            h="40px" fontSize="14px" fontWeight="500"
-          >
-            Export
-          </MenuButton>
-          <MenuList>
-            {EXPORT_FORMAT_OPTIONS.map((o) => (
-              <MenuItem key={o.value} fontSize="13px" onClick={() => handleExport(o.value)}>
-                {o.label}{o.value === report.reportFormat ? " (original)" : ""}
-              </MenuItem>
-            ))}
-          </MenuList>
-        </Menu>
+        <Button
+          variant="outline" borderColor="#660066" color="#660066"
+          h="40px" fontSize="14px" fontWeight="500" onClick={handleDownload}
+        >
+          Download PDF
+        </Button>
       </Flex>
 
       <Box bg="white" borderRadius="xl" border="1px solid #E4E7EC" p={8}>
