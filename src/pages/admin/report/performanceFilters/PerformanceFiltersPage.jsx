@@ -987,9 +987,9 @@ const PerformanceFiltersPage = () => {
                   </Select>
                 </Box>
 
-                {/* Schedule Report */}
+                {/* Share With */}
                 <Box>
-                  <Text fontSize="13px" fontWeight="600" color="#344054" mb={2}>Schedule Report</Text>
+                  <Text fontSize="13px" fontWeight="600" color="#344054" mb={2}>Share With</Text>
                   <Box
                     as="button"
                     onClick={onScheduleOpen}
@@ -998,7 +998,7 @@ const PerformanceFiltersPage = () => {
                     _hover={{ bg: '#F9F0F9' }}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                   >
-                    <FiClock /> Schedule report
+                    <FiClock /> Share with
                   </Box>
                 </Box>
 
@@ -1086,7 +1086,7 @@ const PerformanceFiltersPage = () => {
           </Box>
         )}
 
-        <ScheduleReportModal isOpen={isScheduleOpen} onClose={onScheduleClose} />
+        <ScheduleReportModal isOpen={isScheduleOpen} onClose={onScheduleClose} reportName={form.name} />
       </AdminMainAreaWrapper>
     );
   }

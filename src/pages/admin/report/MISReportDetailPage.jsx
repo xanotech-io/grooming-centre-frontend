@@ -81,6 +81,12 @@ const FILTER_KEY_LABELS = {
   endDate: "End Date",
 };
 
+const DOWNLOAD_FORMATS = [
+  { format: "csv", label: "Download CSV" },
+  { format: "pdf", label: "Download PDF" },
+  { format: "excel", label: "Download Excel" },
+];
+
 const Field = ({ label, value }) => (
   <HStack justify="space-between" w="100%" align="flex-start">
     <Text fontSize="13px" color="#667085" minW="150px">{label}</Text>
@@ -150,9 +156,9 @@ const MISReportDetailPage = () => {
     return formatValue(value);
   };
 
-  const handleDownload = () => {
+  const handleDownload = (format) => {
     try {
-      exportMISReport(report, "pdf", (key, value) =>
+      exportMISReport(report, format, (key, value) =>
         key === "generatedBy" ? (userNameById[String(value)] ?? value) : resolveFilterValue(key, value)
       );
     } catch (err) {
@@ -215,12 +221,17 @@ const MISReportDetailPage = () => {
           item2={<BreadcrumbItem><Link href="/admin/mis-reports">MIS Reports</Link></BreadcrumbItem>}
           item3={<BreadcrumbItem isCurrentPage><Link href="#">{report.reportName}</Link></BreadcrumbItem>}
         />
-        <Button
-          variant="outline" borderColor="#660066" color="#660066"
-          h="40px" fontSize="14px" fontWeight="500" onClick={handleDownload}
-        >
-          Download PDF
-        </Button>
+        <HStack spacing={3}>
+          {DOWNLOAD_FORMATS.map(({ format, label }) => (
+            <Button
+              key={format}
+              variant="outline" borderColor="#660066" color="#660066"
+              h="40px" fontSize="14px" fontWeight="500" onClick={() => handleDownload(format)}
+            >
+              {label}
+            </Button>
+          ))}
+        </HStack>
       </Flex>
 
       <Box bg="white" borderRadius="xl" border="1px solid #E4E7EC" p={8}>
