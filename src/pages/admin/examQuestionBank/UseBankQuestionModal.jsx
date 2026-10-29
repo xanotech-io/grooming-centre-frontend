@@ -175,7 +175,7 @@ const UseBankQuestionModal = ({
             <Box bg="#EBF4FF" borderRadius="6px" p="10px">
               <Text fontSize="12px" color="#2B6CB0">
                 You'll fill in the exam's details next, then {count > 1 ? "these questions will" : "this question will"}{" "}
-                already be loaded into the question step — review and edit before submitting for approval.
+                already be queued in the question step, linked to the bank — review before submitting for approval.
               </Text>
             </Box>
           </Flex>

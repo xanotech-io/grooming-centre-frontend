@@ -141,6 +141,23 @@ export const adminCreateAssessmentQuestion = async (body) => {
 };
 
 /**
+ * Endpoint to add an existing Question Bank question to an assessment — keeps
+ * the bank link (`sourceBankQuestionId`) instead of re-creating it as typed.
+ * @param {string} assessmentId
+ * @param {{ bankQuestionId: string, marks?: number, section?: string }} body
+ * @returns {Promise<{ message: string, question: object }>}
+ */
+export const adminAddAssessmentQuestionFromBank = async (assessmentId, body) => {
+  const path = `/v1/assessment/question/from-bank/${assessmentId}`;
+
+  const {
+    data: { message, data },
+  } = await http.post(path, body);
+
+  return { message, question: data };
+};
+
+/**
  * Endpoint for assessment modification/update
  * @param {object} body
  * @returns {Promise<{ message: string }>}

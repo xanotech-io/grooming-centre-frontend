@@ -238,6 +238,23 @@ export const adminCreateExaminationQuestion = async (body) => {
 };
 
 /**
+ * Endpoint to add an existing Question Bank question to an examination — keeps
+ * the bank link (`sourceBankQuestionId`) instead of re-creating it as typed.
+ * @param {string} examinationId
+ * @param {{ bankQuestionId: string, marks?: number, section?: string }} body
+ * @returns {Promise<{ message: string, question: object }>}
+ */
+export const adminAddExaminationQuestionFromBank = async (examinationId, body) => {
+  const path = `/v1/examination/question/from-bank/${examinationId}`;
+
+  const {
+    data: { message, data },
+  } = await http.post(path, body);
+
+  return { message, question: data };
+};
+
+/**
  * Endpoint to for admin to edit a examination
  * @param {{ title: ?string, duration: number, amountOfQuestions: number, startTime: ?Date, courseId: string }} body
  *

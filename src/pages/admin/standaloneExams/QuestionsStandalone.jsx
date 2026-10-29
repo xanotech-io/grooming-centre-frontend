@@ -50,6 +50,7 @@ import {
 } from "../../../hooks";
 import {
   adminCreateStandaloneExamination,
+  adminAddStandaloneExaminationQuestionFromBank,
   adminCreateStandaloneExaminationQuestion,
   adminDeleteStandaloneExaminationQuestion,
   adminEditStandaloneExamination,
@@ -59,7 +60,8 @@ import {
   createExamQuestionBankItem,
   getExamQuestionBankItem,
   getExaminationById as getExamPaperConfig,
-  listExamQuestionBank,
+  isActiveBankQuestion,
+  listActiveExamQuestionBank,
   updateExaminationById as updateExamPaperConfig,
 } from "../../../services";
 import { buildBatchUploadLink, normalizeOptions } from "../examQuestionImport/questionRowUtils";
@@ -270,6 +272,20 @@ const buildBankQuestionData = (bankQuestion, examinationId, sectionTitle) => {
     ...typeSpecificFields,
   };
 };
+
+// Bank-picked items carry `fromBank` and go through the from-bank endpoint so
+// the created question keeps its bank link (`sourceBankQuestionId`) instead
+// of looking hand-typed — only `section` is read from `data`; the content
+// comes from the bank question itself on the backend.
+const toBankQueueItem = (bankQuestion, data) => ({ data, fromBank: { bankQuestionId: bankQuestion.id } });
+
+const saveStandaloneQueuedQuestion = (data, fromBank) =>
+  fromBank
+    ? adminAddStandaloneExaminationQuestionFromBank(data.standAloneExaminationId, {
+      ...fromBank,
+      ...(data.section && { section: data.section }),
+    })
+    : adminCreateStandaloneExaminationQuestion(data);
 
 const normalizeQuestionText = (text) => (text || "").replace(/\s+/g, " ").trim().toLowerCase();
 
@@ -1250,14 +1266,7 @@ const CreateQuestionPage = ({
     try {
       const params = { limit: 10 };
       if (bankSearch) params.search = bankSearch;
-      const res = await listExamQuestionBank(params);
-      const payload = res?.data ?? res;
-      const items = Array.isArray(payload?.questions)
-        ? payload.questions
-        : Array.isArray(payload)
-          ? payload
-          : [];
-      setBankResults(items);
+      setBankResults(await listActiveExamQuestionBank(params));
     } catch {
       setBankResults([]);
     } finally {
@@ -1383,8 +1392,7 @@ const CreateQuestionPage = ({
   }, [bankApplyKey]);
 
   // Arrived here straight from the Question Bank via "Next" on the details
-  // form — prefill this first question from the bank item the admin picked,
-  // same mapping as manually applying a bank question above.
+  // form — every picked bank item is queued (as a from-bank add) below.
   // ── Queue Question Bank items directly into pendingCreate/pendingEdit —
   // used both by the plural fromBankQuestionIds hand-off below and by the
   // "Question Bank" multi-select modal opened mid-creation.
@@ -1399,7 +1407,7 @@ const CreateQuestionPage = ({
       });
       return null;
     }
-    return { data };
+    return toBankQueueItem(bankQuestion, data);
   };
 
   const queueBankQuestions = async (bankQuestions) => {
@@ -1407,12 +1415,15 @@ const CreateQuestionPage = ({
     // create each picked question for real right away.
     if (!isPendingCreation && !isPendingEditSubmit) {
       const rawItems = bankQuestions
-        .map((bq) => buildBankQuestionData(bq, isExamination, selectedSectionId || undefined))
+        .map((bq) => {
+          const data = buildBankQuestionData(bq, isExamination, selectedSectionId || undefined);
+          return data && toBankQueueItem(bq, data);
+        })
         .filter(Boolean);
       const existingTexts = (assessmentManager.assessment?.questions || []).map((q) =>
         normalizeQuestionText(q.question),
       );
-      const { kept: items, duplicates } = filterDuplicateQuestions(rawItems, existingTexts, (d) => d.question);
+      const { kept: items, duplicates } = filterDuplicateQuestions(rawItems, existingTexts, (q) => q.data.question);
       if (!items.length) {
         if (duplicates) {
           toast({
@@ -1424,8 +1435,8 @@ const CreateQuestionPage = ({
         return;
       }
       try {
-        for (const data of items) {
-          await adminCreateStandaloneExaminationQuestion(data);
+        for (const item of items) {
+          await saveStandaloneQueuedQuestion(item.data, item.fromBank);
         }
         toast({
           description: `${items.length} question${items.length === 1 ? "" : "s"} added.${duplicates ? ` ${duplicates} skipped — already added to this exam.` : ""
@@ -1483,14 +1494,32 @@ const CreateQuestionPage = ({
     });
   };
 
+  // "Use" on an inline bank result: adds the bank question itself (queued,
+  // or saved right away if the exam exists); only while editing an
+  // existing/queued question does it just prefill the form.
+  const pickBankQuestion = (bankQuestion) => {
+    if (isEditMode || isEditingQueued) applyBankQuestion(bankQuestion);
+    else queueBankQuestions([bankQuestion]);
+  };
+
   const appliedFromBankRef = useRef(false);
   useEffect(() => {
     if (!isPendingCreation || !fromBankQuestionIds?.length || appliedFromBankRef.current) return;
     appliedFromBankRef.current = true;
     Promise.all(fromBankQuestionIds.map((id) => getExamQuestionBankItem(id).then((res) => res?.data ?? res)))
       .then((bankQuestions) => {
-        applyBankQuestion(bankQuestions[0]);
-        if (bankQuestions.length > 1) queueBankQuestions(bankQuestions.slice(1));
+        // Picked on the Question Bank page, which lists every status — drop
+        // any that aren't active rather than queueing them.
+        const active = bankQuestions.filter(isActiveBankQuestion);
+        const skipped = bankQuestions.length - active.length;
+        if (skipped) {
+          toast({
+            description: `Skipped ${skipped} inactive question${skipped === 1 ? "" : "s"} — activate ${skipped === 1 ? "it" : "them"} in the Question Bank first.`,
+            position: "top",
+            status: "warning",
+          });
+        }
+        if (active.length) queueBankQuestions(active);
       })
       .catch((err) => {
         console.error("[QuestionsStandalone] failed to load bank questions for prefill", fromBankQuestionIds, err?.response?.data ?? err);
@@ -1627,6 +1656,14 @@ const CreateQuestionPage = ({
         return adminCreateStandaloneExaminationQuestion(body);
       };
 
+      const saveQueuedQuestion = (realParentId, queued) =>
+        queued.fromBank
+          ? saveStandaloneQueuedQuestion(
+            isPendingCreation ? withRealParentId(queued.data, realParentId) : queued.data,
+            queued.fromBank,
+          )
+          : saveQuestion(realParentId, queued.data);
+
       // "Create and Submit"/"Update and Submit" clicked with the current
       // form left genuinely blank (typically right after "Save Changes" on
       // a queued item, which returns to a fresh blank form) while at least
@@ -1663,7 +1700,7 @@ const CreateQuestionPage = ({
             const { duplicates } = await saveQueuedBatch(
               pendingCreate.questions || [],
               savedQueueItemsRef.current,
-              (queued) => saveQuestion(parent.id, queued.data),
+              (queued) => saveQueuedQuestion(parent.id, queued),
             );
             if (duplicates) {
               toast({
@@ -1690,7 +1727,7 @@ const CreateQuestionPage = ({
             const { duplicates } = await saveQueuedBatch(
               pendingEdit.questions || [],
               savedQueueItemsRef.current,
-              (queued) => saveQuestion(undefined, queued.data),
+              (queued) => saveQueuedQuestion(undefined, queued),
             );
             if (duplicates) {
               toast({
@@ -1838,7 +1875,8 @@ const CreateQuestionPage = ({
           ...typeSpecificFields,
         };
         const updatedQuestions = (queuedSource.questions || []).map((q, i) =>
-          i === queuedIndex ? { ...q, data: updatedData } : q,
+          // Edited content can't ride the from-bank endpoint — save it typed.
+          i === queuedIndex ? { ...q, data: updatedData, fromBank: undefined } : q,
         );
         if (isPendingCreation) {
           setPendingCreate({ ...pendingCreate, questions: updatedQuestions });
@@ -1957,7 +1995,7 @@ const CreateQuestionPage = ({
           const { duplicates } = await saveQueuedBatch(
             pendingCreate.questions || [],
             savedQueueItemsRef.current,
-            (queued) => saveQuestion(parent.id, queued.data),
+            (queued) => saveQueuedQuestion(parent.id, queued),
           );
           if (duplicates) {
             toast({
@@ -2043,7 +2081,7 @@ const CreateQuestionPage = ({
           const { duplicates } = await saveQueuedBatch(
             pendingEdit.questions || [],
             savedQueueItemsRef.current,
-            (queued) => saveQuestion(undefined, queued.data),
+            (queued) => saveQueuedQuestion(undefined, queued),
           );
           if (duplicates) {
             toast({
@@ -2335,7 +2373,7 @@ const CreateQuestionPage = ({
                           type="button"
                           disabled={!supported}
                           title={!supported ? "Not supported in this form" : undefined}
-                          onClick={() => applyBankQuestion(bq)}
+                          onClick={() => pickBankQuestion(bq)}
                         >
                           Use
                         </Button>
@@ -2885,7 +2923,10 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
   // create-question endpoint, then the list is refetched.
   const saveBankQuestionsForReal = async (bankQuestions) => {
     const rawItems = bankQuestions
-      .map((bq) => buildBankQuestionData(bq, assessment?.id))
+      .map((bq) => {
+        const data = buildBankQuestionData(bq, assessment?.id);
+        return data && toBankQueueItem(bq, data);
+      })
       .filter(Boolean);
     if (rawItems.length < bankQuestions.length) {
       toast({
@@ -2895,7 +2936,7 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
       });
     }
     const existingTexts = questions.map((q) => normalizeQuestionText(q.question));
-    const { kept: items, duplicates } = filterDuplicateQuestions(rawItems, existingTexts, (d) => d.question);
+    const { kept: items, duplicates } = filterDuplicateQuestions(rawItems, existingTexts, (q) => q.data.question);
     if (duplicates) {
       toast({
         description: `Skipped ${duplicates} question${duplicates === 1 ? "" : "s"} — already added to this exam.`,
@@ -2905,8 +2946,8 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
     }
     if (!items.length) return;
     try {
-      for (const data of items) {
-        await adminCreateStandaloneExaminationQuestion(data);
+      for (const item of items) {
+        await saveStandaloneQueuedQuestion(item.data, item.fromBank);
       }
       toast({
         description: `${items.length} question${items.length === 1 ? "" : "s"} added.`,
@@ -2963,9 +3004,11 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
     });
 
     const builtItems = kept
-      .map((bq) => buildBankQuestionData(bq, isExamination))
-      .filter(Boolean)
-      .map((data) => ({ data }));
+      .map((bq) => {
+        const data = buildBankQuestionData(bq, isExamination);
+        return data && toBankQueueItem(bq, data);
+      })
+      .filter(Boolean);
     if (builtItems.length < kept.length) {
       toast({
         description: "Some questions were skipped — that type isn't supported here.",
@@ -3057,7 +3100,7 @@ const QuestionListingPage = ({ assessment, isLoading, error, handleFetch, templa
       const body = isPendingCreation
         ? { ...queued.data, standAloneExaminationId: parent.id }
         : queued.data;
-      return adminCreateStandaloneExaminationQuestion(body);
+      return saveStandaloneQueuedQuestion(body, queued.fromBank);
     });
     if (duplicates) {
       toast({

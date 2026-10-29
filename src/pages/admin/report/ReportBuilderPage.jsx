@@ -36,7 +36,7 @@ const INITIAL_FORM = {
   accessLevel: 'admin',
   sharedWith: [],
   status: 'draft',
-  schedule: { enabled: false, frequency: 'daily', day: 'monday', time: '10:00', delivery: 'dashboard', emails: [] },
+  schedule: { enabled: false, scheduleName: '', frequency: 'daily', day: 'monday', time: '10:00', delivery: 'dashboard', emails: [] },
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -197,7 +197,11 @@ const ReportBuilderPage = () => {
         accessLevel: config.accessLevel ?? 'admin',
         sharedWith: config.sharedWith ?? [],
         status: config.status ?? 'draft',
-        schedule: { ...INITIAL_FORM.schedule, ...(config.schedule ?? {}) },
+        schedule: (({ recipientEmails, ...s }) => ({
+          ...INITIAL_FORM.schedule,
+          ...s,
+          emails: recipientEmails ?? s.emails ?? [],
+        }))(config.schedule ?? {}),
       });
     } else {
       setEditingConfigId(null);
@@ -214,13 +218,25 @@ const ReportBuilderPage = () => {
       toast({ title: 'Report name is required', status: 'warning', duration: 3000 });
       return;
     }
+    if (form.schedule.enabled && !form.schedule.scheduleName.trim()) {
+      toast({ title: 'Schedule name is required', status: 'warning', duration: 3000 });
+      return;
+    }
     const scheduleNeedsEmail = form.schedule.enabled
       && (form.schedule.delivery === 'email' || form.schedule.delivery === 'both');
     if (scheduleNeedsEmail && form.schedule.emails.length === 0) {
       toast({ title: 'Add at least one email to deliver the scheduled report to', status: 'warning', duration: 3000 });
       return;
     }
-    const payload = { ...form };
+    const { emails, ...scheduleRest } = form.schedule;
+    const payload = {
+      ...form,
+      schedule: {
+        ...scheduleRest,
+        scheduleName: form.schedule.scheduleName.trim(),
+        ...(scheduleNeedsEmail ? { recipientEmails: emails } : {}),
+      },
+    };
     if (statusOverride) payload.status = statusOverride;
     setSaving(true);
     try {
@@ -952,12 +968,24 @@ const ReportBuilderPage = () => {
                     fontSize="13px"
                     fontWeight="600"
                     isDisabled={viewOnly}
-                    onClick={() => setForm(f => ({ ...f, schedule: { ...f.schedule, enabled: true } }))}
+                    onClick={() => setForm(f => ({ ...f, schedule: { ...f.schedule, enabled: true, scheduleName: f.schedule.scheduleName || f.name } }))}
                   >
                     + Schedule this report
                   </Button>
                 ) : (
                   <VStack align="stretch" spacing={3}>
+                    <Box>
+                      <Text fontSize="12px" color="#667085" mb={1}>Schedule Name</Text>
+                      <Input isReadOnly={viewOnly}
+                        bg="#F9FAFB"
+                        border="1px solid #E4E7EC"
+                        h="40px"
+                        fontSize="13px"
+                        placeholder="e.g. Weekly Enrollment Summary"
+                        value={form.schedule.scheduleName}
+                        onChange={e => setForm(f => ({ ...f, schedule: { ...f.schedule, scheduleName: e.target.value } }))}
+                      />
+                    </Box>
                     <Box>
                       <Text fontSize="12px" color="#667085" mb={1}>Frequency</Text>
                       <Select isDisabled={viewOnly}

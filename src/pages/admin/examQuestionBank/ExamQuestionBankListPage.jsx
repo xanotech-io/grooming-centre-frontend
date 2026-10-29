@@ -36,6 +36,7 @@ import {
   bulkUpdateExamQuestionBankStatus,
   deleteExamQuestionBankItem,
   getExamQuestionBankStats,
+  isActiveBankQuestion,
   listExamQuestionBank,
 } from "../../../services";
 import UseBankQuestionModal from "./UseBankQuestionModal";
@@ -452,8 +453,9 @@ function ExamQuestionBankListPage() {
                       </Td>
                       <Td
                         maxW="320px"
-                        cursor="pointer"
+                        cursor={isActiveBankQuestion(q) ? "pointer" : "default"}
                         onClick={() => {
+                          if (!isActiveBankQuestion(q)) return;
                           setUseQuestionId(q.id);
                           setUseQuestionCourseId(q.courseId || "");
                           setUseQuestionModuleId(q.moduleId || "");
@@ -492,6 +494,8 @@ function ExamQuestionBankListPage() {
                             </MenuItem>
                             <MenuItem
                               icon={<FiPlus />}
+                              isDisabled={!isActiveBankQuestion(q)}
+                              title={!isActiveBankQuestion(q) ? "Activate this question to use it in an exam" : undefined}
                               onClick={() => {
                                 setUseQuestionId(q.id);
                                 setUseQuestionCourseId(q.courseId || "");

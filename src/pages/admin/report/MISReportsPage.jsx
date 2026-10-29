@@ -206,7 +206,7 @@ const GENERATE_FORM_DEFAULT = {
   accessLevel: [],
   metrics: [],
   filters: { studentId: "", departmentId: "", startDate: "", endDate: "" },
-  schedule: { enabled: false, day: "", time: "10:00", delivery: "dashboard", emails: [] },
+  schedule: { enabled: false, name: "", day: "", time: "10:00", delivery: "dashboard", emails: [] },
 };
 
 // per requirement: each category exposes only the filters relevant to it
@@ -434,6 +434,10 @@ const MISReportsPage = () => {
       return;
     }
     const { schedule } = generateForm;
+    if (schedule.enabled && !schedule.name.trim()) {
+      toast({ description: "Schedule name is required.", status: "warning", position: "top" });
+      return;
+    }
     const scheduleNeedsEmail = schedule.enabled && (schedule.delivery === "email" || schedule.delivery === "both");
     if (scheduleNeedsEmail && schedule.emails.length === 0) {
       toast({ description: "Add at least one email to deliver the scheduled report to.", status: "warning", position: "top" });
@@ -443,12 +447,14 @@ const MISReportsPage = () => {
     try {
       if (schedule.enabled) {
         await adminCreateMISSchedule({
+          scheduleName: schedule.name.trim(),
+          reportName: generateForm.reportName.trim(),
           reportCategory: generateForm.reportCategory,
           frequency: generateForm.frequency,
           day: schedule.day,
           time: schedule.time,
           deliveryMethod: schedule.delivery,
-          ...(scheduleNeedsEmail ? { emails: schedule.emails } : {}),
+          ...(scheduleNeedsEmail ? { recipientEmails: schedule.emails } : {}),
         });
       }
 
@@ -765,7 +771,7 @@ const MISReportsPage = () => {
       </Box>
 
       {/* Generate Report Modal */}
-      <Modal isOpen={isGenerateOpen} onClose={handleGenerateClose} isCentered size="lg">
+      <Modal isOpen={isGenerateOpen} onClose={handleGenerateClose} isCentered size="lg" scrollBehavior="inside">
         <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(2px)" />
         <ModalContent borderRadius="xl" p={2}>
           <ModalHeader fontSize="lg" fontWeight="700" color="#101928">Generate Report</ModalHeader>
@@ -830,7 +836,7 @@ const MISReportsPage = () => {
                   fontSize="13px" fontWeight="600"
                   onClick={() => setGenerateForm((f) => ({
                     ...f,
-                    schedule: { ...f.schedule, enabled: true },
+                    schedule: { ...f.schedule, enabled: true, name: f.schedule.name || f.reportName },
                     frequency: f.frequency === "on_demand" ? "daily" : f.frequency,
                   }))}
                 >
@@ -848,6 +854,14 @@ const MISReportsPage = () => {
                     </Button>
                   </Flex>
                   <VStack spacing={4} align="stretch">
+                    <FormControl isRequired>
+                      <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Schedule Name</FormLabel>
+                      <ChakraInput
+                        placeholder="e.g. Weekly Academic Summary" borderRadius="md" fontSize="14px"
+                        value={generateForm.schedule.name}
+                        onChange={(e) => setGenerateForm((f) => ({ ...f, schedule: { ...f.schedule, name: e.target.value } }))}
+                      />
+                    </FormControl>
                     <FormControl>
                       <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Frequency Day</FormLabel>
                       <Select
