@@ -43,6 +43,9 @@ import {
 } from "../../../../../hooks";
 import { PageLoaderLayout } from "../../../../../layouts";
 import {
+  adminAddAssessmentQuestionFromBank,
+  adminAddExaminationQuestionFromBank,
+  adminAddStandaloneExaminationQuestionFromBank,
   adminCreateAssessment,
   adminCreateAssessmentQuestion,
   adminCreateExamination,
@@ -66,7 +69,8 @@ import {
   createExamQuestionBankItem,
   getExamQuestionBankItem,
   getExaminationById as getExamPaperConfig,
-  listExamQuestionBank,
+  isActiveBankQuestion,
+  listActiveExamQuestionBank,
   updateExaminationById as updateExamPaperConfig,
 } from "../../../../../services";
 import { buildBatchUploadLink } from "../../../examQuestionImport/questionRowUtils";
@@ -183,6 +187,13 @@ const buildBankQueueItem = (
   return {
     data,
     addToBank: false,
+    // Saved through the "from-bank" endpoints (see saveBankSourcedQuestion)
+    // so the created question keeps its link to this bank question instead
+    // of looking hand-typed. Only marks/section can be overridden there.
+    fromBank: {
+      bankQuestionId: bankQuestion.id,
+      ...(sectionMarks != null && { marks: Number(sectionMarks) }),
+    },
     bank: {
       questionPlainText: bankQuestion.question,
       questionType: mappedType,
@@ -220,11 +231,22 @@ const buildBankQueueItem = (
 // Persists one bank-sourced question payload against whichever real create
 // endpoint applies — used when the parent assessment/exam already exists,
 // so a bank pick is saved immediately instead of queued.
-const createBankQuestionForReal = (data, { isStandaloneExamination, isExamination }) => {
+const createBankQuestionForReal = (data, { isStandaloneExamination, isExamination }, fromBank) => {
+  if (fromBank) return saveBankSourcedQuestion(data, fromBank, { isStandaloneExamination, isExamination });
   const finalBody = isStandaloneExamination ? data : appendFormData(data);
   if (isStandaloneExamination) return adminCreateStandaloneExaminationQuestion(finalBody);
   if (isExamination) return adminCreateExaminationQuestion(finalBody);
   return adminCreateAssessmentQuestion(finalBody);
+};
+
+// `data` is the queued payload (already carrying the real parent id) — only
+// its parent id and section are read; the question content comes from the
+// bank question itself on the backend.
+const saveBankSourcedQuestion = (data, fromBank, { isStandaloneExamination, isExamination }) => {
+  const body = { ...fromBank, ...(data.section && { section: data.section }) };
+  if (isStandaloneExamination) return adminAddStandaloneExaminationQuestionFromBank(data.standAloneExaminationId, body);
+  if (isExamination) return adminAddExaminationQuestionFromBank(data.examinationId, body);
+  return adminAddAssessmentQuestionFromBank(data.assessmentId, body);
 };
 
 const normalizeQuestionText = (text) => (text || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -1716,14 +1738,7 @@ const CreateQuestionPage = ({
     try {
       const params = { limit: 10 };
       if (bankSearch) params.search = bankSearch;
-      const res = await listExamQuestionBank(params);
-      const payload = res?.data ?? res;
-      const items = Array.isArray(payload?.questions)
-        ? payload.questions
-        : Array.isArray(payload)
-          ? payload
-          : [];
-      setBankResults(items);
+      setBankResults(await listActiveExamQuestionBank(params));
     } catch {
       setBankResults([]);
     } finally {
@@ -1796,6 +1811,20 @@ const CreateQuestionPage = ({
     // never fire for that case.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bankApplyKey]);
+
+  // "Use" on an inline bank result. Adding a new question adds the bank
+  // question itself (queued, or saved right away if the parent exists);
+  // only while editing an existing/queued question does it just prefill the
+  // form, since that content is being replaced rather than added.
+  const pickBankQuestion = (bankQuestion) => {
+    if (isEditMode || isEditingQueued) {
+      applyBankQuestion(bankQuestion);
+    } else if (isPendingCreation || isPendingEditSubmit) {
+      queueBankQuestions([bankQuestion]);
+    } else {
+      saveBankQuestionsForReal([bankQuestion]);
+    }
+  };
 
   // ── Editing a queued (not-yet-created) question ─────────────────────────
   // Clicking a queued tile in "List Of Questions" lands here with
@@ -1955,7 +1984,7 @@ const CreateQuestionPage = ({
     }
     try {
       const { duplicates: dupesAtSave } = await saveQueuedBatch(items, savedQueueItemsRef.current, (item) =>
-        createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination }),
+        createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination }, item.fromBank),
       );
       assessmentManager.handleFetch(true);
       const allSkipped = duplicates + dupesAtSave;
@@ -1976,17 +2005,26 @@ const CreateQuestionPage = ({
   };
 
   // Arrived here straight from the Question Bank via "Next" on the details
-  // form — prefill this first question from the first bank item the admin
-  // picked (same mapping as manually applying a bank question above), and
-  // queue the rest so they show up in "Queued Questions" right away.
+  // form — queue every picked bank item (as a from-bank add, so it keeps its
+  // bank link) so they show up in "Queued Questions" right away.
   const appliedFromBankRef = useRef(false);
   useEffect(() => {
     if (!isPendingCreation || !fromBankQuestionIds?.length || appliedFromBankRef.current) return;
     appliedFromBankRef.current = true;
     Promise.all(fromBankQuestionIds.map((id) => getExamQuestionBankItem(id).then((res) => res?.data ?? res)))
       .then((bankQuestions) => {
-        applyBankQuestion(bankQuestions[0]);
-        if (bankQuestions.length > 1) queueBankQuestions(bankQuestions.slice(1));
+        // Picked on the Question Bank page, which lists every status — drop
+        // any that aren't active rather than queueing them.
+        const active = bankQuestions.filter(isActiveBankQuestion);
+        const skipped = bankQuestions.length - active.length;
+        if (skipped) {
+          toast({
+            description: `Skipped ${skipped} inactive question${skipped === 1 ? "" : "s"} — activate ${skipped === 1 ? "it" : "them"} in the Question Bank first.`,
+            position: "top",
+            status: "warning",
+          });
+        }
+        if (active.length) queueBankQuestions(active);
       })
       .catch((err) => {
         console.error("[QuestionsPage] failed to load bank questions for prefill", fromBankQuestionIds, err?.response?.data ?? err);
@@ -2257,6 +2295,17 @@ const CreateQuestionPage = ({
               : await adminCreateAssessmentQuestion(finalBody);
       };
 
+      // A queued item picked from the Question Bank is added through the
+      // from-bank endpoint (keeps the bank link) rather than re-created.
+      const saveQueuedQuestion = (realParentId, queued) =>
+        queued.fromBank
+          ? saveBankSourcedQuestion(
+            isPendingCreation ? withRealParentId(queued.data, realParentId) : queued.data,
+            queued.fromBank,
+            { isStandaloneExamination, isExamination },
+          )
+          : saveQuestion(realParentId, queued.data);
+
       // Shared by the current question (via `maybeAddToBank` further down)
       // and by any questions queued earlier through "Add more questions" —
       // each queued item carries its own snapshot of these same fields.
@@ -2346,8 +2395,8 @@ const CreateQuestionPage = ({
               pendingCreate.questions || [],
               savedQueueItemsRef.current,
               async (queued) => {
-                await saveQuestion(parent.id, queued.data);
-                if (queued.addToBank || pendingCreate.addToBank) {
+                await saveQueuedQuestion(parent.id, queued);
+                if (!queued.fromBank && (queued.addToBank || pendingCreate.addToBank)) {
                   await addQuestionToBank(queued.bank);
                 }
               },
@@ -2387,7 +2436,7 @@ const CreateQuestionPage = ({
               pendingEdit.questions || [],
               savedQueueItemsRef.current,
               async (queued) => {
-                await saveQuestion(undefined, queued.data);
+                await saveQueuedQuestion(undefined, queued);
                 if (queued.addToBank) {
                   await addQuestionToBank(queued.bank);
                 }
@@ -2679,8 +2728,12 @@ const CreateQuestionPage = ({
       // form, mirroring how a fresh "Add more questions" queue entry is built
       // above, just replacing rather than appending.
       if (isEditingQueued) {
+        // Once edited it's no longer the bank question as-is — the from-bank
+        // endpoint can't carry content edits, so save it as a typed one.
+        // eslint-disable-next-line no-unused-vars
+        const { fromBank: _droppedFromBank, ...queuedItemRest } = queuedItem;
         const updatedItem = {
-          ...queuedItem,
+          ...queuedItemRest,
           data,
           addToBank,
           bank: { questionPlainText, questionType, marks, difficultyLevel, options, bankSourceFields },
@@ -2774,8 +2827,8 @@ const CreateQuestionPage = ({
             pendingCreate.questions || [],
             savedQueueItemsRef.current,
             async (queued) => {
-              await saveQuestion(parent.id, queued.data);
-              if (queued.addToBank || pendingCreate.addToBank) {
+              await saveQueuedQuestion(parent.id, queued);
+              if (!queued.fromBank && (queued.addToBank || pendingCreate.addToBank)) {
                 await addQuestionToBank(queued.bank);
               }
             },
@@ -2868,7 +2921,7 @@ const CreateQuestionPage = ({
             pendingEdit.questions || [],
             savedQueueItemsRef.current,
             async (queued) => {
-              await saveQuestion(undefined, queued.data);
+              await saveQueuedQuestion(undefined, queued);
               if (queued.addToBank) {
                 await addQuestionToBank(queued.bank);
               }
@@ -3136,7 +3189,7 @@ const CreateQuestionPage = ({
                       <Text fontSize="xs" noOfLines={2}>
                         {bq.question}
                       </Text>
-                      <Button size="xs" onClick={() => applyBankQuestion(bq)}>
+                      <Button size="xs" onClick={() => pickBankQuestion(bq)}>
                         Use
                       </Button>
                     </Flex>
@@ -3930,7 +3983,7 @@ const QuestionListingPage = ({
     }
     try {
       const { duplicates: dupesAtSave } = await saveQueuedBatch(items, savedQueueItemsRef.current, (item) =>
-        createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination }),
+        createBankQuestionForReal(item.data, { isStandaloneExamination, isExamination }, item.fromBank),
       );
       handleFetch(true);
       const allSkipped = duplicates + dupesAtSave;
@@ -4051,6 +4104,7 @@ const QuestionListingPage = ({
           }
           : queued.data,
         { isStandaloneExamination, isExamination },
+        queued.fromBank,
       ),
     );
     if (duplicates) {

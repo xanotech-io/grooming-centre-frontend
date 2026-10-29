@@ -282,6 +282,18 @@ export const adminCreateStandaloneExaminationQuestion = async (body) => {
   return { message };
 };
 
+// Adds an existing Question Bank question (keeps its `sourceBankQuestionId`
+// link) instead of re-creating it as a typed question.
+export const adminAddStandaloneExaminationQuestionFromBank = async (standAloneExaminationId, body) => {
+  const path = `/v1/stand-alone-examination-question/from-bank/${standAloneExaminationId}`;
+
+  const {
+    data: { message, data },
+  } = await http.post(path, body);
+
+  return { message, question: data };
+};
+
 export const adminDeleteStandaloneExaminationQuestionFile = async (
   questionId
 ) => {

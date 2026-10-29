@@ -5,6 +5,19 @@ export const listExamQuestionBank = async (params) => {
   return data;
 };
 
+// Only "active" bank questions may be picked into an assessment/exam —
+// draft/inactive ones stay hidden until activated on the Question Bank page.
+export const isActiveBankQuestion = (question) => (question?.status ?? "active") === "active";
+
+// Same response shape as listExamQuestionBank, restricted to active questions
+// (filtered here too, in case the API ignores the `status` param).
+export const listActiveExamQuestionBank = async (params) => {
+  const res = await listExamQuestionBank({ ...params, status: "active" });
+  const payload = res?.data ?? res;
+  const items = Array.isArray(payload?.questions) ? payload.questions : Array.isArray(payload) ? payload : [];
+  return items.filter(isActiveBankQuestion);
+};
+
 export const createExamQuestionBankItem = async (body) => {
   const { data } = await http.post("/v1/exam-question-bank", body);
   return data;

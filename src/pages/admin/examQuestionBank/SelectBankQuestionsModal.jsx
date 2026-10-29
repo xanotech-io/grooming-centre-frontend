@@ -23,7 +23,7 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import { Button } from "../../../components";
-import { getExamQuestionBankItem, listExamQuestionBank } from "../../../services";
+import { getExamQuestionBankItem, listActiveExamQuestionBank } from "../../../services";
 
 const TYPE_LABEL = {
   mcq: "MCQ",
@@ -51,10 +51,7 @@ const SelectBankQuestionsModal = ({ isOpen, onClose, onAdd }) => {
     try {
       const params = { limit: 50 };
       if (search) params.search = search;
-      const res = await listExamQuestionBank(params);
-      const payload = res?.data ?? res;
-      const items = Array.isArray(payload?.questions) ? payload.questions : Array.isArray(payload) ? payload : [];
-      setQuestions(items);
+      setQuestions(await listActiveExamQuestionBank(params));
     } catch {
       setQuestions([]);
     } finally {
