@@ -41,6 +41,7 @@ import {
   adminEndDashboardInteraction,
 } from '../../../services';
 import { Text, Heading, Breadcrumb, Link } from '../../../components';
+import { buildDashboardPdf } from '../../../utils/dashboardPdf';
 
 ChartJS.register(
   CategoryScale, LinearScale, BarElement,
@@ -286,7 +287,7 @@ const useTrackDashboardInteraction = () => {
 
 // ─── ACADEMIC TAB ────────────────────────────────────────────────────────────
 
-const AcademicTab = ({ filters }) => {
+const AcademicTab = ({ filters, onReport }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -312,24 +313,32 @@ const AcademicTab = ({ filters }) => {
   const barViz = findViz(data?.visualizations, 'BarChart');
   const tableViz = findViz(data?.visualizations, 'Table');
 
+  const kpiRow1 = [
+    { title: 'Total Courses', value: kpis.totalCourses },
+    { title: 'Enrollments', value: kpis.courseEnrollmentCount },
+    { title: 'Completion Rate', value: kpis.courseCompletionRate != null ? `${kpis.courseCompletionRate}%` : null },
+    { title: 'Average Score', value: kpis.averageScore != null ? `${kpis.averageScore}%` : null },
+  ];
+  const kpiRow2 = [
+    { title: 'Certificates', value: kpis.certificateIssuedCount },
+    { title: 'Exam Attempts', value: kpis.examAttempts },
+    { title: 'Exam Pass Rate', value: kpis.examPassRate != null ? `${kpis.examPassRate}%` : null },
+  ];
+
+  useEffect(() => {
+    if (data) onReport?.({ kpis: [...kpiRow1, ...kpiRow2], visualizations: data.visualizations ?? [] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   if (error) return <ErrorPane message={error} onRetry={load} />;
 
   return (
     <>
       <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} spacing={4} mb={6}>
-        {[
-          { title: 'Total Courses', value: kpis.totalCourses },
-          { title: 'Enrollments', value: kpis.courseEnrollmentCount },
-          { title: 'Completion Rate', value: kpis.courseCompletionRate != null ? `${kpis.courseCompletionRate}%` : null },
-          { title: 'Average Score', value: kpis.averageScore != null ? `${kpis.averageScore}%` : null },
-        ].map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
+        {kpiRow1.map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
       </SimpleGrid>
       <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={4} mb={6}>
-        {[
-          { title: 'Certificates', value: kpis.certificateIssuedCount },
-          { title: 'Exam Attempts', value: kpis.examAttempts },
-          { title: 'Exam Pass Rate', value: kpis.examPassRate != null ? `${kpis.examPassRate}%` : null },
-        ].map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
+        {kpiRow2.map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
       </SimpleGrid>
 
       <ChartCard title={barViz?.title ?? 'Top Courses by Enrollment'} h="280px">
@@ -355,7 +364,7 @@ const AcademicTab = ({ filters }) => {
 
 // ─── ADMINISTRATIVE TAB ──────────────────────────────────────────────────────
 
-const AdministrativeTab = ({ filters }) => {
+const AdministrativeTab = ({ filters, onReport }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -380,24 +389,32 @@ const AdministrativeTab = ({ filters }) => {
   const barViz = findViz(data?.visualizations, 'BarChart');
   const tableViz = findViz(data?.visualizations, 'Table');
 
+  const kpiRow1 = [
+    { title: 'Total Students', value: kpis.totalStudents },
+    { title: 'Active Instructors', value: kpis.activeInstructors },
+    { title: 'New Enrollments', value: kpis.newEnrollments },
+    { title: 'Enrollment Rate', value: kpis.enrollmentRate != null ? `${kpis.enrollmentRate}%` : null },
+  ];
+  const kpiRow2 = [
+    { title: 'System Usage', value: kpis.systemUsageRate != null ? `${kpis.systemUsageRate}%` : null },
+    { title: 'Active Users', value: kpis.activeUsers },
+    { title: 'Registered Users', value: kpis.totalRegistered },
+  ];
+
+  useEffect(() => {
+    if (data) onReport?.({ kpis: [...kpiRow1, ...kpiRow2], visualizations: data.visualizations ?? [] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   if (error) return <ErrorPane message={error} onRetry={load} />;
 
   return (
     <>
       <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} spacing={4} mb={6}>
-        {[
-          { title: 'Total Students', value: kpis.totalStudents },
-          { title: 'Active Instructors', value: kpis.activeInstructors },
-          { title: 'New Enrollments', value: kpis.newEnrollments },
-          { title: 'Enrollment Rate', value: kpis.enrollmentRate != null ? `${kpis.enrollmentRate}%` : null },
-        ].map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
+        {kpiRow1.map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
       </SimpleGrid>
       <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={4} mb={6}>
-        {[
-          { title: 'System Usage', value: kpis.systemUsageRate != null ? `${kpis.systemUsageRate}%` : null },
-          { title: 'Active Users', value: kpis.activeUsers },
-          { title: 'Registered Users', value: kpis.totalRegistered },
-        ].map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
+        {kpiRow2.map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
       </SimpleGrid>
 
       <ChartCard title={barViz?.title ?? 'Department Performance'} h="280px">
@@ -420,7 +437,7 @@ const AdministrativeTab = ({ filters }) => {
 
 // ─── PERFORMANCE TAB ─────────────────────────────────────────────────────────
 
-const PerformanceTab = ({ filters }) => {
+const PerformanceTab = ({ filters, onReport }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -445,23 +462,31 @@ const PerformanceTab = ({ filters }) => {
   const tableViz = findViz(data?.visualizations, 'Table');
   const barViz = findViz(data?.visualizations, 'BarChart');
 
+  const kpiRow1 = [
+    { title: 'Quiz Average', value: kpis.quizAverageScore != null ? `${kpis.quizAverageScore}%` : null },
+    { title: 'Exam Average', value: kpis.examAverageScore != null ? `${kpis.examAverageScore}%` : null },
+    { title: 'Feedback Rating', value: kpis.feedbackAvailable ? kpis.feedbackRating : 'Not available' },
+  ];
+  const kpiRow2 = [
+    { title: 'Assessment Score', value: cps.averageAssessmentScore != null ? `${cps.averageAssessmentScore}%` : null },
+    { title: 'Attendance Score', value: cps.averageAttendanceScore != null ? `${cps.averageAttendanceScore}%` : null },
+    { title: 'Examination Score', value: cps.averageExaminationScore != null ? `${cps.averageExaminationScore}%` : null },
+  ];
+
+  useEffect(() => {
+    if (data) onReport?.({ kpis: [...kpiRow1, ...kpiRow2], visualizations: data.visualizations ?? [] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   if (error) return <ErrorPane message={error} onRetry={load} />;
 
   return (
     <>
       <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={4} mb={6}>
-        {[
-          { title: 'Quiz Average', value: kpis.quizAverageScore != null ? `${kpis.quizAverageScore}%` : null },
-          { title: 'Exam Average', value: kpis.examAverageScore != null ? `${kpis.examAverageScore}%` : null },
-          { title: 'Feedback Rating', value: kpis.feedbackAvailable ? kpis.feedbackRating : 'Not available' },
-        ].map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
+        {kpiRow1.map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
       </SimpleGrid>
       <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={4} mb={6}>
-        {[
-          { title: 'Assessment Score', value: cps.averageAssessmentScore != null ? `${cps.averageAssessmentScore}%` : null },
-          { title: 'Attendance Score', value: cps.averageAttendanceScore != null ? `${cps.averageAttendanceScore}%` : null },
-          { title: 'Examination Score', value: cps.averageExaminationScore != null ? `${cps.averageExaminationScore}%` : null },
-        ].map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
+        {kpiRow2.map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
       </SimpleGrid>
 
       <ChartCard title={barViz?.title ?? 'Score Distribution'} h="280px">
@@ -484,7 +509,7 @@ const PerformanceTab = ({ filters }) => {
 
 // ─── ATTENDANCE TAB ──────────────────────────────────────────────────────────
 
-const AttendanceTab = ({ filters }) => {
+const AttendanceTab = ({ filters, onReport }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -510,18 +535,25 @@ const AttendanceTab = ({ filters }) => {
   const pieViz = findViz(data?.visualizations, 'PieChart');
   const barViz = findViz(data?.visualizations, 'BarChart');
 
+  const kpiRow1 = [
+    { title: 'Attendance %', value: kpis.attendancePercentage != null ? `${kpis.attendancePercentage}%` : null },
+    { title: 'Days Present', value: kpis.daysPresent },
+    { title: 'Attendance Records', value: kpis.totalAttendanceRecords },
+    { title: 'Weekly Logins', value: lf.weeklyLogins },
+    { title: 'Monthly Logins', value: lf.monthlyLogins },
+  ];
+
+  useEffect(() => {
+    if (data) onReport?.({ kpis: [...kpiRow1], visualizations: data.visualizations ?? [] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   if (error) return <ErrorPane message={error} onRetry={load} />;
 
   return (
     <>
       <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={4} mb={6}>
-        {[
-          { title: 'Attendance %', value: kpis.attendancePercentage != null ? `${kpis.attendancePercentage}%` : null },
-          { title: 'Days Present', value: kpis.daysPresent },
-          { title: 'Attendance Records', value: kpis.totalAttendanceRecords },
-          { title: 'Weekly Logins', value: lf.weeklyLogins },
-          { title: 'Monthly Logins', value: lf.monthlyLogins },
-        ].map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
+        {kpiRow1.map((k) => <KPICard key={k.title} {...k} loading={loading} />)}
       </SimpleGrid>
 
       <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={5} mb={6}>
@@ -538,7 +570,31 @@ const AttendanceTab = ({ filters }) => {
 
 // ─── EXPORT MODAL ────────────────────────────────────────────────────────────
 
-const ExportModal = ({ isOpen, onClose, activeTab, filters }) => {
+const TAB_LABELS = ['Academic', 'Administrative', 'Performance', 'Attendance'];
+
+const optionName = (options, id) => {
+  const match = (options ?? []).find((o) => String(o.id ?? o) === String(id));
+  return match?.title ?? match?.name ?? (typeof match === 'string' ? match : id);
+};
+
+// The backend's PDF is an unformatted key/value dump, so PDF is rendered
+// client-side from the data the active tab already loaded. Excel/CSV still
+// come from the export endpoint.
+const buildPdfFromReport = (report, tabLabel, filters, filterOptions) => buildDashboardPdf({
+  title: `${tabLabel} Dashboard`,
+  meta: [
+    ['Generated', new Date().toLocaleString('en-GB')],
+    ['Department', filters.departmentId ? optionName(filterOptions.departments, filters.departmentId) : 'All'],
+    ['Course', filters.courseId ? optionName(filterOptions.courses, filters.courseId) : 'All'],
+    ['Date range', filters.startDate || filters.endDate ? `${filters.startDate || '…'} to ${filters.endDate || '…'}` : 'All time'],
+  ],
+  kpis: report.kpis,
+  tables: report.visualizations
+    .filter((v) => Array.isArray(v?.data))
+    .map((v) => ({ title: v.title ?? v.type, data: v.data })),
+});
+
+const ExportModal = ({ isOpen, onClose, activeTab, filters, filterOptions, report }) => {
   const toast = useToast();
   const [format, setFormat] = useState('PDF');
   const [exporting, setExporting] = useState(false);
@@ -546,18 +602,24 @@ const ExportModal = ({ isOpen, onClose, activeTab, filters }) => {
   const tabToType = ['academic', 'administrative', 'performance', 'attendance'];
 
   const handleExport = async () => {
+    if (format === 'PDF' && !report) {
+      toast({ description: 'Dashboard is still loading. Try again in a moment.', status: 'warning', position: 'top' });
+      return;
+    }
     setExporting(true);
     try {
-      const blob = await adminExportDashboard({
-        dashboardType: tabToType[activeTab] ?? 'academic',
-        exportFormat: format,
-        filters: {
-          departmentId: filters.departmentId || undefined,
-          courseId: filters.courseId || undefined,
-          startDate: filters.startDate || undefined,
-          endDate: filters.endDate || undefined,
-        },
-      });
+      const blob = format === 'PDF'
+        ? buildPdfFromReport(report, TAB_LABELS[activeTab], filters, filterOptions)
+        : await adminExportDashboard({
+          dashboardType: tabToType[activeTab] ?? 'academic',
+          exportFormat: format,
+          filters: {
+            departmentId: filters.departmentId || undefined,
+            courseId: filters.courseId || undefined,
+            startDate: filters.startDate || undefined,
+            endDate: filters.endDate || undefined,
+          },
+        });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -606,6 +668,8 @@ const InteractiveDashboard = () => {
   const [systemKPIs, setSystemKPIs] = useState(null);
   const [kpiLoading, setKpiLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
+  const [reports, setReports] = useState({});
+  const reportFor = (index) => (report) => setReports((prev) => ({ ...prev, [index]: report }));
   const { isOpen: isExportOpen, onOpen: onExportOpen, onClose: onExportClose } = useDisclosure();
 
   useEffect(() => {
@@ -621,8 +685,6 @@ const InteractiveDashboard = () => {
       .catch(() => {})
       .finally(() => setKpiLoading(false));
   }, []);
-
-  const TAB_LABELS = ['Academic', 'Administrative', 'Performance', 'Attendance'];
 
   return (
     <AdminMainAreaWrapper>
@@ -692,15 +754,22 @@ const InteractiveDashboard = () => {
             </TabList>
           </Box>
           <TabPanels>
-            <TabPanel p={5}><AcademicTab filters={filters} /></TabPanel>
-            <TabPanel p={5}><AdministrativeTab filters={filters} /></TabPanel>
-            <TabPanel p={5}><PerformanceTab filters={filters} /></TabPanel>
-            <TabPanel p={5}><AttendanceTab filters={filters} /></TabPanel>
+            <TabPanel p={5}><AcademicTab filters={filters} onReport={reportFor(0)} /></TabPanel>
+            <TabPanel p={5}><AdministrativeTab filters={filters} onReport={reportFor(1)} /></TabPanel>
+            <TabPanel p={5}><PerformanceTab filters={filters} onReport={reportFor(2)} /></TabPanel>
+            <TabPanel p={5}><AttendanceTab filters={filters} onReport={reportFor(3)} /></TabPanel>
           </TabPanels>
         </Tabs>
       </Box>
 
-      <ExportModal isOpen={isExportOpen} onClose={onExportClose} activeTab={activeTab} filters={filters} />
+      <ExportModal
+        isOpen={isExportOpen}
+        onClose={onExportClose}
+        activeTab={activeTab}
+        filters={filters}
+        filterOptions={filterOptions}
+        report={reports[activeTab]}
+      />
     </AdminMainAreaWrapper>
   );
 };
