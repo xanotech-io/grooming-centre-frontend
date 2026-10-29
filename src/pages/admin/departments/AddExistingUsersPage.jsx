@@ -17,7 +17,7 @@ import { useTableRows } from "../../../hooks";
 import { useApp } from "../../../contexts";
 import { AdminMainAreaWrapper } from "../../../layouts/admin/MainArea/Wrapper";
 import {
-  adminGetUserListing,
+  adminFilterUserListing,
   adminAddSelectedUsersToDepartment,
 } from "../../../services";
 
@@ -183,7 +183,7 @@ const AddExistingUsersPage = () => {
 
   const fetcher = (props) => async () => {
     const { users, showingDocumentsCount, totalDocumentsCount } =
-      await adminGetUserListing(props?.params);
+      await adminFilterUserListing(props?.params);
 
     const rows = users.map(mapUserToRow);
 

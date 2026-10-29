@@ -32,7 +32,7 @@ const ACCEPTED_TYPES = ".pdf,.jpg,.jpeg,.png,.xlsx,.xls";
 const INITIAL_FORM = {
   userId: "",
   userLabel: "",
-  documentType: "",
+  documentType: "certificate",
   fileName: "",
   fileFormat: "PDF",
   courseId: "",
@@ -186,13 +186,8 @@ const UploadDocumentModal = ({ isOpen, onClose, onSuccess }) => {
                 onChange={set("documentType")}
                 size="sm"
                 borderRadius="6px"
-                placeholder="Select type"
               >
                 <option value="certificate">Certificate</option>
-                <option value="registration_sheet">Registration Sheet</option>
-                <option value="evaluation_form">Evaluation Form</option>
-                <option value="attendance_record">Attendance Record</option>
-                <option value="other">Other</option>
               </Select>
             </FormControl>
 

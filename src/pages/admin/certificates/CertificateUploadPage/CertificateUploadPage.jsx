@@ -7,6 +7,7 @@ import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper
 import {
   adminGetPendingDocuments,
   adminGetAllDocuments,
+  adminGetUserDocuments,
   adminDeleteDocument,
   adminGetDocumentKpis,
 } from "../../../../services";
@@ -68,8 +69,7 @@ const CertificateUploadPage = () => {
 
   // All-docs tab state
   const { resource: allResource, handleFetchResource: fetchAll } = useFetch();
-  const [studentIdInput, setStudentIdInput] = useState("");
-  const [studentIdFilter, setStudentIdFilter] = useState("");
+  const [studentFilter, setStudentFilter] = useState({ id: "", label: "" });
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [allPage, setAllPage] = useState(1);
@@ -97,11 +97,15 @@ const CertificateUploadPage = () => {
   // ── All-docs fetcher ─────────────────────────────────────────────────────
   const allFetcher = useCallback(() => {
     const params = { page: allPage, limit: 10 };
-    if (statusFilter) params.status = statusFilter;
     if (typeFilter) params.documentType = typeFilter;
-    if (studentIdFilter) params.studentId = studentIdFilter;
+    // The listing endpoint doesn't filter by student, so use the per-student one.
+    if (studentFilter.id) {
+      if (statusFilter) params.verificationStatus = statusFilter;
+      return adminGetUserDocuments(studentFilter.id, params);
+    }
+    if (statusFilter) params.status = statusFilter;
     return adminGetAllDocuments(params);
-  }, [allPage, statusFilter, typeFilter, studentIdFilter]);
+  }, [allPage, statusFilter, typeFilter, studentFilter.id]);
 
   useEffect(() => {
     if (activeTab === TAB_ALL) fetchAll({ fetcher: allFetcher });
@@ -123,8 +127,8 @@ const CertificateUploadPage = () => {
   };
 
   // ── Handlers ─────────────────────────────────────────────────────────────
-  const handleSearch = () => {
-    setStudentIdFilter(studentIdInput.trim());
+  const handleStudentChange = (id, label) => {
+    setStudentFilter({ id, label });
     setAllPage(1);
   };
 
@@ -205,9 +209,8 @@ const CertificateUploadPage = () => {
         {activeTab === TAB_ALL && (
           <>
             <DocumentFilters
-              userIdInput={studentIdInput}
-              onUserIdChange={setStudentIdInput}
-              onSearch={handleSearch}
+              studentLabel={studentFilter.label}
+              onStudentChange={handleStudentChange}
               statusFilter={statusFilter}
               onStatusChange={(v) => { setStatusFilter(v); setAllPage(1); }}
               typeFilter={typeFilter}

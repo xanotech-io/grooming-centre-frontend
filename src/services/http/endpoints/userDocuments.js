@@ -97,10 +97,12 @@ export const adminGetUserDocuments = async (studentId, params = {}) => {
   let docs = (data.documents || []).map(mapDoc);
 
   if (params.verificationStatus) {
-    docs = docs.filter((d) => d.verificationStatus === params.verificationStatus);
+    const status = params.verificationStatus.toUpperCase();
+    docs = docs.filter((d) => d.verificationStatus === status);
   }
   if (params.documentType) {
-    docs = docs.filter((d) => d.documentType === params.documentType);
+    const type = params.documentType.toUpperCase();
+    docs = docs.filter((d) => d.documentType === type);
   }
 
   const page = params.page || 1;

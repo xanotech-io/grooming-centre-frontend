@@ -49,6 +49,7 @@ import {
   FiUpload,
   FiX,
 } from "react-icons/fi";
+import { read, utils, write } from "xlsx";
 import {
   buildQuestionListingLink,
   buildReviewLink,
@@ -78,13 +79,45 @@ const getCachedExamMeta = (candidates, id) => {
   return null;
 };
 
+// Columns the shared backend template carries for question-bank imports that
+// don't apply to an exam/assessment: marks come from the section weightage or
+// marking template (and are overwritten after upload anyway — see
+// handleUpload), essays are marked manually, and tags are bank metadata.
+const EXCLUDED_TEMPLATE_COLUMNS = ["marks", "rubric", "tags"];
+
+const isExcludedColumn = (cell) =>
+  EXCLUDED_TEMPLATE_COLUMNS.includes(String(cell ?? "").trim().toLowerCase());
+
+// Strips EXCLUDED_TEMPLATE_COLUMNS out of the downloaded template — from the
+// header row of any sheet that has one (the Questions sheet), and as whole
+// rows from any sheet that lists columns one per row (an instructions sheet).
+// Every other column/sheet is left exactly as the backend generated it.
+const stripExcludedTemplateColumns = async (blob) => {
+  const workbook = read(await blob.arrayBuffer(), { type: "array" });
+  workbook.SheetNames.forEach((name) => {
+    const rows = utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "", blankrows: true });
+    if (!rows.length) return;
+
+    const headerIndex = rows.findIndex((row) => row.filter(isExcludedColumn).length > 1);
+    let cleaned;
+    if (headerIndex !== -1) {
+      const dropped = new Set(
+        rows[headerIndex].map((cell, i) => (isExcludedColumn(cell) ? i : -1)).filter((i) => i !== -1),
+      );
+      cleaned = rows.map((row) => row.filter((_, i) => !dropped.has(i)));
+    } else {
+      cleaned = rows.filter((row) => !isExcludedColumn(row[0]));
+    }
+    workbook.Sheets[name] = utils.aoa_to_sheet(cleaned);
+  });
+  const buffer = write(workbook, { bookType: "xlsx", type: "array" });
+  return new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+};
+
 const COLUMNS = [
   { col: "question_text", required: "Required", applies: "All", desc: "Full question statement — must not be empty" },
   { col: "question_type", required: "Optional", applies: "All", desc: 'MCQ / Essay / TrueFalse / FillBlank / Matching / ShortAnswer — defaults to "MCQ"' },
   { col: "difficulty_level", required: "Optional", applies: "All", desc: 'Easy / Medium / Hard — falls back to Default Difficulty below, then blank' },
-  { col: "marks", required: "Optional", applies: "All", desc: "Positive integer — defaults to 1" },
-  { col: "tags", required: "Optional", applies: "All", desc: 'Comma-separated — e.g. "algorithms,searching"' },
-  { col: "rubric", required: "Optional", applies: "Essay / Short Answer", desc: "Grading rubric text" },
   { col: "option_a", required: "MCQ Required", applies: "MCQ", desc: "Text for option A" },
   { col: "option_b", required: "MCQ Required", applies: "MCQ", desc: "Text for option B" },
   { col: "option_c", required: "Optional", applies: "MCQ", desc: "Optional option C" },
@@ -371,7 +404,7 @@ const BatchUploadPage = () => {
   const handleDownloadTemplate = async () => {
     setDownloading(true);
     try {
-      const blob = await downloadExamQuestionBatchTemplate();
+      const blob = await stripExcludedTemplateColumns(await downloadExamQuestionBatchTemplate());
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

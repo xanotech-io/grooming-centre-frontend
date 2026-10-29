@@ -3,15 +3,16 @@ import {
   Box, Flex, Grid, GridItem, VStack, HStack,
   Input, InputGroup, InputLeftElement, Select,
   Checkbox, IconButton, Table, Thead, Tbody, Tr, Th, Td,
-  Badge, Spinner, useToast, SimpleGrid, BreadcrumbItem,
+  Badge, Spinner, useToast, useDisclosure, SimpleGrid, BreadcrumbItem,
 } from '@chakra-ui/react';
 import {
   FiSearch, FiPlus, FiSave, FiPlay, FiEdit2, FiTrash2,
-  FiChevronLeft, FiChevronRight, FiEye, FiFilter, FiX,
+  FiChevronLeft, FiChevronRight, FiEye, FiFilter, FiClock,
 } from 'react-icons/fi';
 import { Route } from 'react-router-dom';
 import { AdminMainAreaWrapper } from '../../../../layouts';
 import { Breadcrumb, Link, Text } from '../../../../components';
+import ScheduleReportModal from '../components/ScheduleReportModal';
 
 import {
   createPerformanceFilter,
@@ -259,7 +260,7 @@ const PerformanceFiltersPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [myFilters, setMyFilters] = useState(false);
-  const [shareInput, setShareInput] = useState('');
+  const { isOpen: isScheduleOpen, onOpen: onScheduleOpen, onClose: onScheduleClose } = useDisclosure();
   const [sortBy, setSortBy] = useState({ field: 'overall_avg_score', order: 'DESC' });
 
   // ── Lookup data for builder dropdowns ────────────────────────────────────
@@ -387,13 +388,6 @@ const PerformanceFiltersPage = () => {
         ? f.performanceMetrics.filter(k => k !== key)
         : [...f.performanceMetrics, key],
     }));
-
-  const addShare = () => {
-    const v = shareInput.trim();
-    if (!v || form.sharedWith.includes(v)) return;
-    setForm(f => ({ ...f, sharedWith: [...f.sharedWith, v] }));
-    setShareInput('');
-  };
 
   const buildPayload = () => {
     const criteria = {};
@@ -996,32 +990,16 @@ const PerformanceFiltersPage = () => {
                 {/* Share With */}
                 <Box>
                   <Text fontSize="13px" fontWeight="600" color="#344054" mb={2}>Share With</Text>
-                  <HStack mb={2}>
-                    <Input
-                      placeholder="Username or ID"
-                      bg="#F9FAFB" border="1px solid #E4E7EC" fontSize="12px" h="36px"
-                      value={shareInput}
-                      onChange={e => setShareInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && addShare()}
-                    />
-                    <IconButton
-                      icon={<FiPlus />} size="sm"
-                      bg="#660066" color="white" _hover={{ bg: '#550055' }}
-                      onClick={addShare} aria-label="Add"
-                    />
-                  </HStack>
-                  <VStack align="start" spacing={1}>
-                    {form.sharedWith.map(u => (
-                      <HStack key={u} justify="space-between" w="100%">
-                        <Text fontSize="12px" color="#475367">{u}</Text>
-                        <IconButton
-                          icon={<FiX />} size="xs" variant="ghost" color="#667085"
-                          onClick={() => setForm(f => ({ ...f, sharedWith: f.sharedWith.filter(s => s !== u) }))}
-                          aria-label={`Remove ${u}`}
-                        />
-                      </HStack>
-                    ))}
-                  </VStack>
+                  <Box
+                    as="button"
+                    onClick={onScheduleOpen}
+                    w="100%" px={4} h="40px" borderRadius="md" border="1px solid #660066"
+                    bg="white" color="#660066" fontSize="13px" fontWeight="600"
+                    _hover={{ bg: '#F9F0F9' }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                  >
+                    <FiClock /> Share with
+                  </Box>
                 </Box>
 
               </VStack>
@@ -1107,6 +1085,8 @@ const PerformanceFiltersPage = () => {
             )}
           </Box>
         )}
+
+        <ScheduleReportModal isOpen={isScheduleOpen} onClose={onScheduleClose} reportName={form.name} />
       </AdminMainAreaWrapper>
     );
   }

@@ -47,6 +47,7 @@ export const adminGetUserListing = async (params) => {
       departmentId: user.departments?.[0]?.id,
       gender: user.gender,
       departmentName: user.departments?.[0]?.name,
+      departmentNames: user.departments?.map((dept) => dept.name) ?? [],
       departmentNumber: user.departments?.length ?? 0,
       certificates: user.certificates,
       gradePoint: user.averageGradeScore,
@@ -85,6 +86,65 @@ const matchUsers = (users, query, studentsOnly) => {
       u.displayId?.toString().toLowerCase().includes(q)
     );
   });
+};
+
+// Full lists for the paginated user tables, keyed by the server-side params
+// (role, grade, sort) so typing in the search box doesn't refetch.
+const fullListingCache = new Map();
+const getFullListing = (serverParams) => {
+  const key = JSON.stringify(serverParams);
+  if (!fullListingCache.has(key)) {
+    fullListingCache.set(
+      key,
+      adminGetUserListing({ ...serverParams, page: 1, limit: 1000 }).catch(
+        (err) => {
+          fullListingCache.delete(key);
+          throw err;
+        }
+      )
+    );
+  }
+  return fullListingCache.get(key);
+};
+
+/**
+ * `adminGetUserListing` for the admin user tables. `search` and `department`
+ * (comma-separated names) are matched client-side, since the server doesn't
+ * honour them reliably and users can belong to several departments.
+ * @param {object} [params]
+ *
+ * @returns {Promise<{ users: UserListArray, showingDocumentsCount: number, totalDocumentsCount: number }>}
+ */
+export const adminFilterUserListing = async (params = {}) => {
+  const { search, department, page, limit, ...serverParams } = params;
+
+  if (!search?.trim() && !department) {
+    fullListingCache.clear();
+    return adminGetUserListing(params);
+  }
+
+  const departments = department
+    ? department.split(",").map((name) => name.trim().toLowerCase())
+    : [];
+
+  const { users } = await getFullListing(serverParams);
+  const matches = matchUsers(users, search, false).filter(
+    (u) =>
+      !departments.length ||
+      u.departmentNames.some((name) =>
+        departments.includes(name?.toLowerCase())
+      )
+  );
+
+  const pageSize = Number(limit) || matches.length || 1;
+  const start = ((Number(page) || 1) - 1) * pageSize;
+  const pageUsers = matches.slice(start, start + pageSize);
+
+  return {
+    users: pageUsers,
+    showingDocumentsCount: pageUsers.length,
+    totalDocumentsCount: matches.length,
+  };
 };
 
 /**

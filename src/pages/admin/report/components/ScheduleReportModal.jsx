@@ -27,18 +27,22 @@ import { adminCreateMISSchedule } from "../../../../services";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const ScheduleReportModal = ({ isOpen, onClose }) => {
+// Pass `reportName` to supply it from the host page (e.g. a filter's name) instead of asking for it here.
+const ScheduleReportModal = ({ isOpen, onClose, reportName }) => {
   const toast = useToast();
   const [form, setForm] = useState({
-    category: "", frequency: "", day: "", time: "10:00", delivery: "dashboard", emails: [],
+    name: "", reportName: "", category: "", frequency: "", day: "", time: "10:00", delivery: "dashboard", emails: [],
   });
   const [emailInput, setEmailInput] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const reportNameFromHost = reportName !== undefined;
+  const effectiveReportName = (reportNameFromHost ? reportName || "" : form.reportName).trim();
+
   const showEmailInput = form.delivery === "email" || form.delivery === "both";
 
   const resetForm = () => {
-    setForm({ category: "", frequency: "", day: "", time: "10:00", delivery: "dashboard", emails: [] });
+    setForm({ name: "", reportName: "", category: "", frequency: "", day: "", time: "10:00", delivery: "dashboard", emails: [] });
     setEmailInput("");
   };
 
@@ -60,6 +64,17 @@ const ScheduleReportModal = ({ isOpen, onClose }) => {
     setForm((f) => ({ ...f, emails: f.emails.filter((e) => e !== email) }));
 
   const handleSave = async () => {
+    if (!form.name.trim()) {
+      toast({ description: "Schedule name is required.", status: "warning", position: "top" });
+      return;
+    }
+    if (!effectiveReportName) {
+      toast({
+        description: reportNameFromHost ? "Enter a filter name before scheduling." : "Report name is required.",
+        status: "warning", position: "top",
+      });
+      return;
+    }
     if (!form.category) {
       toast({ description: "Please select a report category.", status: "warning", position: "top" });
       return;
@@ -75,12 +90,14 @@ const ScheduleReportModal = ({ isOpen, onClose }) => {
     setSaving(true);
     try {
       const { message } = await adminCreateMISSchedule({
+        scheduleName: form.name.trim(),
+        reportName: effectiveReportName,
         reportCategory: form.category,
         frequency: form.frequency,
         day: form.day,
         time: form.time,
         deliveryMethod: form.delivery,
-        ...(showEmailInput ? { emails: form.emails } : {}),
+        ...(showEmailInput ? { recipientEmails: form.emails } : {}),
       });
       toast({ description: message || "Schedule saved.", status: "success", position: "top" });
       handleClose();
@@ -99,6 +116,18 @@ const ScheduleReportModal = ({ isOpen, onClose }) => {
         <ModalCloseButton mt={3} mr={2} />
         <ModalBody>
           <VStack spacing={5} align="stretch">
+            <FormControl isRequired>
+              <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Schedule Name</FormLabel>
+              <Input placeholder="e.g. Weekly Academic Summary" size="md" borderRadius="md" fontSize="14px"
+                value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            </FormControl>
+            {!reportNameFromHost && (
+              <FormControl isRequired>
+                <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Report Name</FormLabel>
+                <Input placeholder="Enter report name" size="md" borderRadius="md" fontSize="14px"
+                  value={form.reportName} onChange={(e) => setForm((f) => ({ ...f, reportName: e.target.value }))} />
+              </FormControl>
+            )}
             <FormControl isRequired>
               <FormLabel fontSize="14px" fontWeight="500" color="#344054" mb={2}>Report Category</FormLabel>
               <Select placeholder="Select report category" size="md" borderRadius="md" fontSize="14px"

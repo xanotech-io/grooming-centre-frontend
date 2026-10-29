@@ -14,7 +14,7 @@ import {
 import { AdminMainAreaWrapper } from "../../../../layouts/admin/MainArea/Wrapper";
 import {
   adminDeleteMultipleUsers,
-  adminGetUserListing,
+  adminFilterUserListing,
 } from "../../../../services";
 import { BreadcrumbItem } from "@chakra-ui/react";
 import { useIsSuperAdmin, useTableRows } from "../../../../hooks";
@@ -217,7 +217,7 @@ const UserListingPage = () => {
 
   const fetcher = (props) => async () => {
     const { users, showingDocumentsCount, totalDocumentsCount } =
-      await adminGetUserListing(props?.params);
+      await adminFilterUserListing(props?.params);
 
     const rows = users.map(mapUserToRow);
 
