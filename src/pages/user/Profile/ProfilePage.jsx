@@ -15,11 +15,18 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { Skeleton } from '@chakra-ui/skeleton';
-import { Text, Heading, CustomFieldSlots } from '../../../components';
+import { Text, Heading, CustomFieldInput } from '../../../components';
 import { maxWidthStyles_userPages } from '../../../theme/breakpoints';
 import { useApp } from '../../../contexts';
-import { requestUpdateDetails, getActiveCustomFieldSlots, CUSTOM_FIELD_SLOTS } from '../../../services';
+import { requestUpdateDetails, getActiveCustomFields } from '../../../services';
 import { formatDistanceToNow } from 'date-fns';
+
+// Saved custom field values come back on /me as custom_fields[], keyed by fieldId.
+const savedCustomFieldValues = (user) =>
+  (user?.custom_fields || []).reduce((acc, { fieldId, value }) => {
+    acc[fieldId] = value ?? '';
+    return acc;
+  }, {});
 
 const ProfilePage = () => {
   const { state, fetchCurrentUser } = useApp();
@@ -31,56 +38,60 @@ const ProfilePage = () => {
   const [professionalCertification, setProfessionalCertification] = useState(
     userData?.professionalCertification || ''
   );
-  const [customFieldDefs, setCustomFieldDefs] = useState([null, null]);
-  // Students aren't allowed to list custom-field definitions, so when that
-  // fetch fails we fall back to showing whatever slot values are already on
-  // the user's own record, under generic labels.
-  const [customFieldDefsUnavailable, setCustomFieldDefsUnavailable] = useState(false);
-  const [customFieldValues, setCustomFieldValues] = useState({
-    customFieldOne: userData?.customFieldOne || '',
-    customFieldTwo: userData?.customFieldTwo || '',
-  });
+  const [customFieldDefs, setCustomFieldDefs] = useState([]);
+  const [customFieldValues, setCustomFieldValues] = useState(() => savedCustomFieldValues(userData));
 
   useEffect(() => {
-    getActiveCustomFieldSlots('user_profile')
+    getActiveCustomFields('user_profile')
       .then(setCustomFieldDefs)
-      .catch(() => {
-        setCustomFieldDefs([null, null]);
-        setCustomFieldDefsUnavailable(true);
+      .catch((error) => {
+        console.warn('[ProfilePage] failed to load profile custom fields', error);
+        setCustomFieldDefs([]);
       });
   }, []);
-
-  const fallbackCustomFields = CUSTOM_FIELD_SLOTS
-    .map((slot, index) => ({ slot, fieldName: `Custom Field ${index + 1}` }))
-    .filter(({ slot }) => userData?.[slot] !== undefined && userData?.[slot] !== null && userData?.[slot] !== '');
 
   console.log('ProfilePage - userData:', userData);
 
   const handleEditClick = () => {
     setIsEditing(true);
     setProfessionalCertification(userData?.professionalCertification || '');
-    setCustomFieldValues({
-      customFieldOne: userData?.customFieldOne || '',
-      customFieldTwo: userData?.customFieldTwo || '',
-    });
+    setCustomFieldValues(savedCustomFieldValues(userData));
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
     setProfessionalCertification(userData?.professionalCertification || '');
-    setCustomFieldValues({
-      customFieldOne: userData?.customFieldOne || '',
-      customFieldTwo: userData?.customFieldTwo || '',
-    });
+    setCustomFieldValues(savedCustomFieldValues(userData));
   };
 
   const handleSaveEdit = async () => {
+    const isEmpty = (value) => value === undefined || value === null || String(value).trim() === '';
+    const missing = customFieldDefs.filter((field) => field.required && isEmpty(customFieldValues[field.id]));
+    if (missing.length) {
+      toast({
+        title: "Missing required fields",
+        description: `Please fill in: ${missing.map((field) => field.fieldName).join(', ')}`,
+        status: "warning",
+        duration: 4000,
+        isClosable: true,
+        position: "top",
+      });
+      return;
+    }
+
+    // Send fields that have a value, plus previously-saved ones so clearing
+    // a value actually clears it on the backend.
+    const saved = savedCustomFieldValues(userData);
+    const fieldValues = customFieldDefs
+      .filter((field) => !isEmpty(customFieldValues[field.id]) || field.id in saved)
+      .map((field) => ({ fieldId: field.id, value: String(customFieldValues[field.id] ?? '') }));
+
     setIsLoading(true);
 
     try {
       await requestUpdateDetails({
         professionalCertification: professionalCertification.trim(),
-        ...customFieldValues,
+        ...(fieldValues.length && { customFieldValues: JSON.stringify(fieldValues) }),
       });
       
       // Refresh user data after successful update
@@ -88,7 +99,7 @@ const ProfilePage = () => {
       
       toast({
         title: "Profile Updated",
-        description: "Your professional certification has been updated successfully.",
+        description: "Your profile has been updated successfully.",
         status: "success",
         duration: 3000,
         isClosable: true,
@@ -270,35 +281,29 @@ const ProfilePage = () => {
                     value={userData?.professionalCertification || 'Not provided'}
                   />
                 )}
-                {customFieldDefsUnavailable ? (
-                  fallbackCustomFields.map((field) => (
-                    <InfoField
-                      key={field.slot}
-                      label={field.fieldName}
-                      value={String(userData?.[field.slot])}
-                    />
-                  ))
-                ) : isEditing ? (
-                  <CustomFieldSlots
-                    entity="user_profile"
-                    values={customFieldValues}
-                    onChange={(slot, value) =>
-                      setCustomFieldValues((current) => ({ ...current, [slot]: value }))
-                    }
-                    role="Self"
-                    isDisabled={isLoading}
-                  />
-                ) : (
-                  customFieldDefs
-                    .filter((field) => field && (field.visibility?.view || []).includes('Self'))
-                    .map((field) => (
-                      <InfoField
-                        key={field.slot}
-                        label={field.fieldName}
-                        value={userData?.[field.slot] || 'Not provided'}
+                {isEditing
+                  ? customFieldDefs.map((field) => (
+                      <CustomFieldInput
+                        key={field.id}
+                        id={`custom-field-${field.id}`}
+                        field={field}
+                        value={customFieldValues[field.id] ?? ''}
+                        onChange={(value) =>
+                          setCustomFieldValues((current) => ({ ...current, [field.id]: value }))
+                        }
+                        isDisabled={isLoading}
                       />
                     ))
-                )}
+                  : customFieldDefs.map((field) => {
+                      const value = savedCustomFieldValues(userData)[field.id];
+                      return (
+                        <InfoField
+                          key={field.id}
+                          label={field.fieldName}
+                          value={value === undefined || value === '' ? 'Not provided' : String(value)}
+                        />
+                      );
+                    })}
                 <Box>
                   <Text fontSize="sm" fontWeight="medium" color="gray.700" mb={2}>
                     Departments
