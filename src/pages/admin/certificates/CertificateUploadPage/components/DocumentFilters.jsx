@@ -1,18 +1,20 @@
 import React from "react";
-import {
-  Box,
-  Flex,
-  Input,
-  Select,
-  Text,
-  IconButton,
-} from "@chakra-ui/react";
-import { FaSearch } from "react-icons/fa";
+import { Box, Flex, Select, Text } from "@chakra-ui/react";
+import { SearchableSelect } from "../../../../../components";
+import { adminSearchUsers } from "../../../../../services";
+
+const fetchStudentOptions = async (query) => {
+  const users = await adminSearchUsers(query, { limit: 10 });
+  return users.map((u) => ({
+    id: u.id,
+    label: `${u.firstName} ${u.lastName} (${u.displayId})`,
+    sub: u.email,
+  }));
+};
 
 const DocumentFilters = ({
-  userIdInput,
-  onUserIdChange,
-  onSearch,
+  studentLabel,
+  onStudentChange,
   statusFilter,
   onStatusChange,
   typeFilter,
@@ -28,25 +30,14 @@ const DocumentFilters = ({
   >
     <Box flex="1" minW="200px">
       <Text fontSize="12px" color="gray.500" mb="4px">
-        Student ID (optional)
+        Student (optional)
       </Text>
-      <Flex gap="8px">
-        <Input
-          value={userIdInput}
-          onChange={(e) => onUserIdChange(e.target.value)}
-          placeholder="Enter student ID"
-          size="sm"
-          borderRadius="6px"
-          onKeyDown={(e) => e.key === "Enter" && onSearch()}
-        />
-        <IconButton
-          aria-label="Search student"
-          icon={<FaSearch />}
-          size="sm"
-          colorScheme="blue"
-          onClick={onSearch}
-        />
-      </Flex>
+      <SearchableSelect
+        placeholder="Search student by name, email or ID…"
+        fetchOptions={fetchStudentOptions}
+        selectedLabel={studentLabel}
+        onSelect={onStudentChange}
+      />
     </Box>
 
     <Box minW="160px">

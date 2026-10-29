@@ -254,9 +254,21 @@ const dupRateColor = (rate) => {
   return "red";
 };
 
+// Exams saved before the API switched to "full" | "partial" | "none" still
+// carry the UI/preset values (both/questions/options), so map everything onto
+// the filter's vocabulary before displaying or comparing.
+const normalizeRandomizationMethod = (method) => {
+  const m = String(method ?? "").trim().toLowerCase();
+  if (!m) return null;
+  if (m === "full" || m === "both") return "full";
+  if (m === "partial" || m === "questions" || m === "options") return "partial";
+  return "none";
+};
+
 const randomMethodScheme = (method) => {
-  if (method === "full") return "blue";
-  if (method === "partial") return "yellow";
+  const m = normalizeRandomizationMethod(method);
+  if (m === "full") return "blue";
+  if (m === "partial") return "yellow";
   return "gray";
 };
 
@@ -632,7 +644,7 @@ const ExamDetailDrawer = ({ examId, isOpen, onClose }) => {
                     borderRadius="full"
                     textTransform="capitalize"
                   >
-                    {d.randomizationMethod ?? "—"}
+                    {normalizeRandomizationMethod(d.randomizationMethod) ?? "—"}
                   </Badge>
                 </Box>
                 <Box>
@@ -1036,7 +1048,14 @@ const ExamIntegrityPage = () => {
     getExamIntegrityList(params)
       .then((res) => {
         const d = res?.data ?? res;
-        setExams(d?.exams ?? []);
+        const rows = d?.exams ?? [];
+        // Guard against the server matching the raw stored value (or ignoring
+        // the param) so the rows always agree with the selected filter.
+        setExams(
+          rType
+            ? rows.filter((exam) => normalizeRandomizationMethod(exam.randomizationMethod) === rType)
+            : rows,
+        );
         setTotal(d?.total ?? 0);
       })
       .catch(() => {
@@ -1047,7 +1066,7 @@ const ExamIntegrityPage = () => {
         const filtered = MOCK_EXAMS.filter((exam) => {
           if (cId && String(courseIdOf(exam)) !== String(cId)) return false;
           if (eType && exam.examType !== eType) return false;
-          if (rType && exam.randomizationMethod !== rType) return false;
+          if (rType && normalizeRandomizationMethod(exam.randomizationMethod) !== rType) return false;
           if (s && !exam.examTitle.toLowerCase().includes(s.toLowerCase())) return false;
           if (cSearch && !courseTitleOf(exam)?.toLowerCase().includes(cSearch.toLowerCase())) return false;
           return true;
@@ -1327,7 +1346,7 @@ const ExamIntegrityPage = () => {
                             px={2}
                             textTransform="capitalize"
                           >
-                            {exam.randomizationMethod ?? "—"}
+                            {normalizeRandomizationMethod(exam.randomizationMethod) ?? "—"}
                           </Badge>
                         </Td>
                         <Td isNumeric>{exam.totalAttempts ?? "—"}</Td>

@@ -1,7 +1,7 @@
 import { ButtonGroup } from "@chakra-ui/button";
 import { Box, Flex, HStack, Stack } from "@chakra-ui/layout";
 import { Tag, TagCloseButton, TagLabel } from "@chakra-ui/tag";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useState } from "react";
 import { AiOutlineClose, AiOutlineDown, AiOutlineCalendar } from "react-icons/ai";
 import { Button, Checkbox, SearchBar, Text, DatePicker } from "../..";
@@ -80,10 +80,16 @@ const Header = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
+  // SearchBar fires on every keystroke; debounce so each one isn't a fetch.
+  const searchTimeout = useRef();
+  useEffect(() => () => clearTimeout(searchTimeout.current), []);
+
   const handleSearch = (query) => {
-    setSearchQuery(query);
+    clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => setSearchQuery(query), 400);
   };
   const handleClearSearch = () => {
+    clearTimeout(searchTimeout.current);
     setSearchQuery("");
   };
 
