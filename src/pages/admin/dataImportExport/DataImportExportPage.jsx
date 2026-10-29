@@ -335,6 +335,37 @@ const KpiTab = () => {
   );
 };
 
+// ─── Import Error Toast ───────────────────────────────────────────────────────
+
+// Row errors carry the offending value ("A user with email x@y already exists"),
+// so strip emails/quoted values to group thousands of rows into a few reasons.
+const issueReason = (e) =>
+  String(e?.issue ?? e?.message ?? e)
+    .replace(/\S+@\S+\.\S+/g, "…")
+    .replace(/"[^"]*"/g, "…");
+
+const describeImportFailure = (d) => {
+  if (!d) return undefined;
+  const total = d.totalRows ?? d.summary?.total_rows;
+  const failed = d.failedRows ?? d.summary?.failed_rows;
+  const errors = d.validationErrors ?? d.errors ?? [];
+
+  const counts = new Map();
+  errors.forEach((e) => {
+    const reason = issueReason(e);
+    counts.set(reason, (counts.get(reason) ?? 0) + 1);
+  });
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2);
+
+  const lines = [];
+  if (failed != null && total != null) {
+    lines.push(`${failed.toLocaleString()} of ${total.toLocaleString()} rows failed.`);
+  }
+  top.forEach(([reason, count]) => lines.push(`• ${reason} (${count.toLocaleString()} rows)`));
+  if (counts.size > top.length) lines.push("See Validation Errors below for the full list.");
+  return lines.length ? lines.join("\n") : undefined;
+};
+
 // ─── Import Result Panel ──────────────────────────────────────────────────────
 
 const ImportResultPanel = ({ result }) => {
@@ -603,9 +634,11 @@ const ImportTab = () => {
       const isFail = d?.status === "failed" || res?.success === false;
       toast({
         title: res?.message || (isFail ? "Import failed" : "Import submitted successfully"),
+        description: isFail ? describeImportFailure(d) : undefined,
         status: isFail ? "error" : "success",
-        duration: 4000,
+        duration: isFail ? 9000 : 4000,
         isClosable: true,
+        containerStyle: { whiteSpace: "pre-line" },
       });
     } catch (err) {
       const errData = err?.response?.data;
@@ -614,9 +647,11 @@ const ImportTab = () => {
       }
       toast({
         title: errData?.message || err?.message || "Import failed",
+        description: describeImportFailure(errData?.data ?? errData),
         status: "error",
-        duration: 4000,
+        duration: 9000,
         isClosable: true,
+        containerStyle: { whiteSpace: "pre-line" },
       });
     } finally {
       setSubmitting(false);
