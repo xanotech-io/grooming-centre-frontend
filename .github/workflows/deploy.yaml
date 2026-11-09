@@ -6,7 +6,7 @@ name: Build and deploy Node.js app to Azure Web App - privatefe
 on:
   push:
     branches:
-      - development
+      - pub
   workflow_dispatch:
 
 jobs:
