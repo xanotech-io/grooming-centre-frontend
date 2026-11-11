@@ -19,16 +19,13 @@ jobs:
       - name: Set up Node.js version
         uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
+          node-version: '16.x'
 
       - name: npm install, build, and test
         run: |
           $env:CI="false"
-          $env:GENERATE_SOURCEMAP="false"
-          $env:NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
-          npm install --legacy-peer-deps
-          npm install react-app-rewired --legacy-peer-deps
-          npx react-app-rewired build
+          npm install
+          npm run build
           
       - name: Zip Release
         uses: TheDoctor0/zip-release@0.7.5
