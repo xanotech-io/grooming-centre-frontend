@@ -37,11 +37,11 @@ export const userGetDayAppointments = async (date) => {
   } = await http.get(path, { params: { date } });
 
   const appointments = [
-    ...data.events.map(appointmentsMapper()),
-    ...data.lessons.map(appointmentsMapper("LESSON")),
+    ...(data.events || []).map(appointmentsMapper()),
+    ...(data.lessons || []).map(appointmentsMapper("LESSON")),
   ];
 
-  const appointmentsCount = { events: data.events.length, lessons: data.lessons.length }
+  const appointmentsCount = { events: (data.events || []).length, lessons: (data.lessons || []).length }
 
   return { appointments, appointmentsCount };
 };

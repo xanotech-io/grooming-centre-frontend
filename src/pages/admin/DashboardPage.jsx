@@ -42,19 +42,17 @@ const useDashboardStats = () => {
 const DashboardPage = () => {
   const { stats } = useDashboardStats();
 
-  const departmentName = stats.data?.usersByDepartment.map(
+  const departmentName = stats.data?.usersByDepartment?.map(
     (department) => department.name
   );
 
-  const departmentUsers = stats.data?.usersByDepartment.map(
-    (department) => department.user.length
+  const departmentUsers = stats.data?.usersByDepartment?.map(
+    (department) => department.users?.length || department.user?.length || 0
   );
 
-  console.log(departmentName);
+  const roleName = stats.data?.usersByRoles?.map((role) => role.name);
 
-  const roleName = stats.data?.usersByRoles.map((role) => role.name);
-
-  const roleUsers = stats.data?.usersByRoles.map((role) => role.user.length);
+  const roleUsers = stats.data?.usersByRoles?.map((role) => role.users?.length || role.user?.length || 0);
 
   console.log(roleName);
 
@@ -123,7 +121,7 @@ const DashboardPage = () => {
       },
       {
         column1: "No of Users",
-        column2: stats.data?.users.length,
+        column2: stats.data?.users?.length,
       },
       {
         column1: "Published Courses",
@@ -179,7 +177,7 @@ const DashboardPage = () => {
                 <SkeletonText numberOfLines={1} width={100} />
               ) : (
                 <Flex>
-                  <Text fontSize="heading.h3">{stats.data?.users.length}</Text>
+                  <Text fontSize="heading.h3">{stats.data?.users?.length}</Text>
                   <Text color="accent.3" paddingLeft={1} paddingTop={2}>
                     Users
                   </Text>
@@ -211,7 +209,7 @@ const DashboardPage = () => {
                       Courses
                     </Text>
                   </Flex>
-                  <Text>{`${published?.length} published.`}</Text>
+                  <Text>{`${published?.length || 0} published.`}</Text>
                 </Flex>
               )
             }
@@ -381,7 +379,7 @@ const DashboardPage = () => {
                       Videos
                     </Text>
                     <Text fontSize="text.level1">
-                      {`${stats.data?.video?.length} uploaded resources`}
+                      {`${stats.data?.video?.length || 0} uploaded resources`}
                     </Text>
                   </Flex>
                   <MdVideoLibrary color="#9e0b94" size="32px" />
@@ -411,7 +409,7 @@ const DashboardPage = () => {
                     <Text color="accent.3" fontSize="text.level2" bold>
                       Books
                     </Text>
-                    <Text fontSize="text.level1">{`${stats.data?.pdf.length} uploaded resources`}</Text>
+                    <Text fontSize="text.level1">{`${stats.data?.pdf?.length || 0} uploaded resources`}</Text>
                   </Flex>
                   <GiSpellBook color="#9e0b94" size="32px" />
                 </Flex>
@@ -440,7 +438,7 @@ const DashboardPage = () => {
                     <Text color="accent.3" fontSize="text.level2" bold>
                       Audio
                     </Text>
-                    <Text fontSize="text.level1">{`${stats.data?.audio?.length} uploaded resources`}</Text>
+                    <Text fontSize="text.level1">{`${stats.data?.audio?.length || 0} uploaded resources`}</Text>
                   </Flex>
                   <FaRegFileAudio color="#9e0b94" size="32px" />
                 </Flex>

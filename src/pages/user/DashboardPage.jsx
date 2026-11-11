@@ -69,8 +69,8 @@ const DashboardPage = () => {
   const { grades, isLoading } = manager;
 
   const notStarted =
-    grades?.overview.totalCoursesCount -
-    (grades?.ongoingCourses.length + grades?.completedCourses.length);
+    (grades?.overview?.totalCoursesCount || 0) -
+    ((grades?.ongoingCourses?.length || 0) + (grades?.completedCourses?.length || 0));
 
   const totalCourseChartConfig = {
     data: {
@@ -78,8 +78,8 @@ const DashboardPage = () => {
       datasets: [
         {
           data: [
-            grades?.ongoingCourses.length,
-            grades?.completedCourses.length,
+            grades?.ongoingCourses?.length || 0,
+            grades?.completedCourses?.length || 0,
             notStarted,
           ],
           backgroundColor: [
