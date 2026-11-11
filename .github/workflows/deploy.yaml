@@ -25,8 +25,10 @@ jobs:
         run: |
           $env:CI="false"
           $env:GENERATE_SOURCEMAP="false"
+          $env:NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
           npm install --legacy-peer-deps
-          npm run build
+          npm install react-app-rewired --legacy-peer-deps
+          npx react-app-rewired build
           
       - name: Zip Release
         uses: TheDoctor0/zip-release@0.7.5
