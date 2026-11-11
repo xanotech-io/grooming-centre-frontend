@@ -24,6 +24,7 @@ jobs:
       - name: npm install, build, and test
         run: |
           $env:CI="false"
+          $env:GENERATE_SOURCEMAP="false"
           npm install --legacy-peer-deps
           npm run build
           
